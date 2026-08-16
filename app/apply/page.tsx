@@ -153,7 +153,7 @@ export default function ApplyPage() {
         }
         className="w-full max-w-md rounded-3xl border border-foreground/10 bg-[#F5F3E7] p-8 sm:p-12"
       >
-        <div className="text-center">
+        <div className="mt-8 text-center">
           <h1 className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-3xl font-bold tracking-tight sm:text-4xl">
             <span>Apply to</span>
             <Image
@@ -165,9 +165,6 @@ export default function ApplyPage() {
               className="h-[1em] w-auto"
             />
           </h1>
-          <p className="mt-3 text-base font-normal text-foreground/60">
-            Tell us a bit about yourself.
-          </p>
         </div>
 
         <form
