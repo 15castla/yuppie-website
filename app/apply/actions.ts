@@ -21,9 +21,6 @@ export async function submitApplication(
     return { success: false, error: "Full name and email are required." };
   }
 
-  // TEMPORARY: surfaces the real error (instead of a generic message) to
-  // debug the production failure. Revert to a generic user-facing message
-  // once the root cause is fixed.
   try {
     const supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,14 +40,16 @@ export async function submitApplication(
       console.error("submitApplication insert error:", error);
       return {
         success: false,
-        error: `Supabase error: ${error.message} (code: ${error.code ?? "unknown"})`,
+        error: "Something went wrong submitting your application. Please try again.",
       };
     }
 
     return { success: true };
   } catch (err) {
     console.error("submitApplication unexpected error:", err);
-    const message = err instanceof Error ? err.message : String(err);
-    return { success: false, error: `Unexpected error: ${message}` };
+    return {
+      success: false,
+      error: "Something went wrong submitting your application. Please try again.",
+    };
   }
 }
