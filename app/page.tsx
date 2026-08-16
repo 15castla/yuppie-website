@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { motion } from "framer-motion";
+import { Button } from "@/components/Button";
 
 export default function Home() {
   return (
@@ -27,12 +28,7 @@ export default function Home() {
         </p>
       </div>
 
-      <a
-        href="/apply"
-        className="rounded-full border-2 border-foreground bg-foreground px-10 py-4 text-base font-semibold tracking-wide text-background transition-colors hover:bg-transparent hover:text-foreground sm:px-12 sm:py-5 sm:text-lg"
-      >
-        Apply
-      </a>
+      <Button href="/apply">Apply</Button>
     </main>
   );
 }
