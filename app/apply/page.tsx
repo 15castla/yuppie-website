@@ -15,13 +15,25 @@ const labelClasses =
 const fieldHover = { scale: 1.02 };
 const fieldTransition = { type: "spring" as const, stiffness: 400, damping: 25 };
 
+const REQUIRED_FIELDS: { name: string; label: string }[] = [
+  { name: "full_name", label: "Full name" },
+  { name: "email", label: "Email" },
+  { name: "phone", label: "Phone" },
+  { name: "employer", label: "Employer" },
+  { name: "role_title", label: "Role / job title" },
+  { name: "linkedin_url", label: "LinkedIn URL" },
+];
+
 const CARD_SHADOW = "0 25px 50px -12px rgba(0,0,0,0.15)";
 const CARD_SHADOW_HOVER =
   "0 25px 50px -12px rgba(0,0,0,0.15), 0 0 45px 8px rgba(255,217,4,0.45)";
 
 export default function ApplyPage() {
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{
+    message: string;
+    isDuplicate: boolean;
+  } | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
   const cardRef = useRef<HTMLDivElement>(null);
@@ -44,16 +56,28 @@ export default function ApplyPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    const formData = new FormData(event.currentTarget);
+
+    const missingField = REQUIRED_FIELDS.find(({ name }) => {
+      const value = formData.get(name);
+      return typeof value !== "string" || !value.trim();
+    });
+
+    if (missingField) {
+      setError({ message: `${missingField.label} is required.`, isDuplicate: false });
+      return;
+    }
+
     setError(null);
     setSubmitting(true);
 
-    const formData = new FormData(event.currentTarget);
     const result = await submitApplication(formData);
 
     setSubmitting(false);
 
     if (!result.success) {
-      setError(result.error);
+      setError({ message: result.error, isDuplicate: Boolean(result.isDuplicate) });
       return;
     }
 
@@ -152,6 +176,7 @@ export default function ApplyPage() {
               id="phone"
               name="phone"
               type="tel"
+              required
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -166,6 +191,7 @@ export default function ApplyPage() {
               id="employer"
               name="employer"
               type="text"
+              required
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -180,6 +206,7 @@ export default function ApplyPage() {
               id="role_title"
               name="role_title"
               type="text"
+              required
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -195,6 +222,7 @@ export default function ApplyPage() {
               name="linkedin_url"
               type="url"
               placeholder="https://linkedin.com/in/yourname"
+              required
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -202,7 +230,15 @@ export default function ApplyPage() {
           </div>
 
           {error && (
-            <p className="text-sm font-medium text-red-700">{error}</p>
+            <p
+              className={
+                error.isDuplicate
+                  ? "text-sm font-medium text-foreground/70"
+                  : "text-sm font-medium text-red-700"
+              }
+            >
+              {error.message}
+            </p>
           )}
 
           <Button type="submit" disabled={submitting} className="mt-2">
