@@ -13,6 +13,7 @@ const REQUIRED_FIELDS: { name: string; label: string }[] = [
   { name: "employer", label: "Employer" },
   { name: "role_title", label: "Role / job title" },
   { name: "linkedin_url", label: "LinkedIn URL" },
+  { name: "instagram_username", label: "Instagram username" },
 ];
 
 export async function submitApplication(
@@ -40,6 +41,7 @@ export async function submitApplication(
       employer: formData.get("employer") as string,
       role_title: formData.get("role_title") as string,
       linkedin_url: formData.get("linkedin_url") as string,
+      instagram_username: formData.get("instagram_username") as string,
     });
 
     if (error) {

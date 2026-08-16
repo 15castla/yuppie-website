@@ -25,6 +25,7 @@ const REQUIRED_FIELDS: { name: string; label: string }[] = [
   { name: "full_name", label: "Full name" },
   { name: "email", label: "Email" },
   { name: "phone", label: "Phone" },
+  { name: "instagram_username", label: "Instagram username" },
   { name: "employer", label: "Employer" },
   { name: "role_title", label: "Role / job title" },
   { name: "linkedin_url", label: "LinkedIn URL" },
@@ -180,6 +181,7 @@ export default function ApplyPage() {
               id="full_name"
               name="full_name"
               type="text"
+              placeholder="e.g. Marcus Smith"
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -194,6 +196,7 @@ export default function ApplyPage() {
               id="email"
               name="email"
               type="email"
+              placeholder="e.g. marcus@example.com"
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -208,6 +211,22 @@ export default function ApplyPage() {
               id="phone"
               name="phone"
               type="tel"
+              placeholder="e.g. 07123 456789"
+              whileHover={fieldHover}
+              transition={fieldTransition}
+              className={inputClasses}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2.5">
+            <label htmlFor="instagram_username" className={labelClasses}>
+              Instagram username
+            </label>
+            <motion.input
+              id="instagram_username"
+              name="instagram_username"
+              type="text"
+              placeholder="@yourhandle"
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -222,6 +241,7 @@ export default function ApplyPage() {
               id="employer"
               name="employer"
               type="text"
+              placeholder="e.g. Goldman Sachs"
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -236,6 +256,7 @@ export default function ApplyPage() {
               id="role_title"
               name="role_title"
               type="text"
+              placeholder="e.g. Associate"
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
