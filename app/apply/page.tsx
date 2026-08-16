@@ -1,6 +1,12 @@
 "use client";
 
-import { useRef, useState, type FormEvent, type MouseEvent } from "react";
+import {
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+  type MouseEvent,
+} from "react";
 import Image from "next/image";
 import { motion, useMotionValue, useTransform } from "framer-motion";
 import { Button } from "@/components/Button";
@@ -28,6 +34,22 @@ const CARD_SHADOW = "0 25px 50px -12px rgba(0,0,0,0.15)";
 const CARD_SHADOW_HOVER =
   "0 25px 50px -12px rgba(0,0,0,0.15), 0 0 45px 8px rgba(255,217,4,0.45)";
 
+const TILT_QUERY = "(hover: hover) and (pointer: fine)";
+
+function subscribeToTiltSupport(callback: () => void) {
+  const mediaQuery = window.matchMedia(TILT_QUERY);
+  mediaQuery.addEventListener("change", callback);
+  return () => mediaQuery.removeEventListener("change", callback);
+}
+
+function getTiltSupport() {
+  return window.matchMedia(TILT_QUERY).matches;
+}
+
+function getTiltSupportServerSnapshot() {
+  return false;
+}
+
 export default function ApplyPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<{
@@ -36,6 +58,12 @@ export default function ApplyPage() {
   } | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
+  const supportsTilt = useSyncExternalStore(
+    subscribeToTiltSupport,
+    getTiltSupport,
+    getTiltSupportServerSnapshot,
+  );
+
   const cardRef = useRef<HTMLDivElement>(null);
   const mouseX = useMotionValue(0);
   const mouseY = useMotionValue(0);
@@ -43,6 +71,7 @@ export default function ApplyPage() {
   const rotateY = useTransform(mouseX, [-0.5, 0.5], [-6, 6]);
 
   function handleCardMouseMove(event: MouseEvent<HTMLDivElement>) {
+    if (!supportsTilt) return;
     const rect = cardRef.current?.getBoundingClientRect();
     if (!rect) return;
     mouseX.set((event.clientX - rect.left) / rect.width - 0.5);
@@ -117,7 +146,11 @@ export default function ApplyPage() {
           transition: { duration: 0.3 },
         }}
         transition={{ duration: 0.6, ease: "easeOut" }}
-        style={{ rotateX, rotateY, transformPerspective: 1000 }}
+        style={
+          supportsTilt
+            ? { rotateX, rotateY, transformPerspective: 1000 }
+            : undefined
+        }
         className="w-full max-w-md rounded-3xl border border-foreground/10 bg-[#F5F3E7] p-8 sm:p-12"
       >
         <div className="text-center">
@@ -137,7 +170,11 @@ export default function ApplyPage() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-7">
+        <form
+          onSubmit={handleSubmit}
+          noValidate
+          className="mt-10 flex flex-col gap-7"
+        >
           <div className="flex flex-col gap-2.5">
             <label htmlFor="full_name" className={labelClasses}>
               Full name
@@ -146,7 +183,6 @@ export default function ApplyPage() {
               id="full_name"
               name="full_name"
               type="text"
-              required
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -161,7 +197,6 @@ export default function ApplyPage() {
               id="email"
               name="email"
               type="email"
-              required
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -176,7 +211,6 @@ export default function ApplyPage() {
               id="phone"
               name="phone"
               type="tel"
-              required
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -191,7 +225,6 @@ export default function ApplyPage() {
               id="employer"
               name="employer"
               type="text"
-              required
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -206,7 +239,6 @@ export default function ApplyPage() {
               id="role_title"
               name="role_title"
               type="text"
-              required
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
@@ -222,7 +254,6 @@ export default function ApplyPage() {
               name="linkedin_url"
               type="url"
               placeholder="https://linkedin.com/in/yourname"
-              required
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
