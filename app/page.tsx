@@ -44,10 +44,10 @@ export default function Home() {
           transition={{ ...ENTRANCE_TRANSITION, delay: 0.3 }}
         >
           <Image
-            src="/yuppie_wordmark_clean_transparent.png"
+            src="/yuppie_logo_forte_forward.png"
             alt="Yuppie"
-            width={1471}
-            height={507}
+            width={1942}
+            height={641}
             priority
             className="h-auto w-[85vw] max-w-[900px]"
           />

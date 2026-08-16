@@ -117,10 +117,10 @@ export default function ApplyPage() {
     return (
       <main className="flex flex-1 flex-col items-center justify-center gap-6 bg-background px-6 py-24 text-center text-foreground">
         <Image
-          src="/yuppie_wordmark_clean_transparent.png"
+          src="/yuppie_logo_forte_forward.png"
           alt="Yuppie"
-          width={1471}
-          height={507}
+          width={1942}
+          height={641}
           className="h-auto w-[60vw] max-w-[420px]"
         />
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
@@ -157,10 +157,10 @@ export default function ApplyPage() {
           <h1 className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-3xl font-bold tracking-tight sm:text-4xl">
             <span>Apply to</span>
             <Image
-              src="/yuppie_wordmark_clean_transparent.png"
+              src="/yuppie_logo_forte_forward.png"
               alt="Yuppie"
-              width={1471}
-              height={507}
+              width={1942}
+              height={641}
               priority
               className="h-[1em] w-auto"
             />
