@@ -241,7 +241,7 @@ export default function ApplyPage() {
               id="employer"
               name="employer"
               type="text"
-              placeholder="e.g. Goldman Sachs"
+              placeholder="e.g. ABC LLP"
               whileHover={fieldHover}
               transition={fieldTransition}
               className={inputClasses}
