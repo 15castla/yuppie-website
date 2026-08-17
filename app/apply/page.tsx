@@ -293,6 +293,14 @@ export default function ApplyPage() {
           <Button type="submit" disabled={submitting} className="mt-2">
             {submitting ? "Submitting…" : "Submit application"}
           </Button>
+
+          <p className="text-center text-xs leading-relaxed text-foreground/50">
+            By applying, you&apos;re letting Yuppie hold onto these details to
+            review your application. We won&apos;t share them with anyone
+            outside Yuppie, and we&apos;ll only use them to assess your
+            application and set up your membership if you&apos;re approved.
+            Want your data deleted? Just email us.
+          </p>
         </form>
       </motion.div>
     </main>

@@ -13,8 +13,30 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://clubyuppie.com"),
   title: "Yuppie",
   description: "Your Social Life, Curated",
+  openGraph: {
+    title: "Yuppie",
+    description: "Your Social Life, Curated",
+    url: "https://clubyuppie.com",
+    siteName: "Yuppie",
+    type: "website",
+    images: [
+      {
+        url: "/yuppie_app_icon_1024.png",
+        width: 1024,
+        height: 1024,
+        alt: "Yuppie",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Yuppie",
+    description: "Your Social Life, Curated",
+    images: ["/yuppie_app_icon_1024.png"],
+  },
   icons: {
     icon: [
       { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
