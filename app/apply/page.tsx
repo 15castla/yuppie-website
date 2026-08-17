@@ -155,7 +155,7 @@ export default function ApplyPage() {
         className="w-full max-w-md rounded-3xl border border-foreground/10 bg-[#F5F3E7] p-8 sm:p-12"
       >
         <div className="mt-8 text-center">
-          <h1 className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-3xl font-bold tracking-tight sm:text-4xl">
+          <h1 className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-3xl font-bold tracking-tight sm:text-4xl">
             <span>Apply to</span>
             <Image
               src="/yuppie_logo_forte_forward.png"
@@ -163,7 +163,7 @@ export default function ApplyPage() {
               width={1942}
               height={641}
               priority
-              className="h-[1em] w-auto"
+              className="h-[1em] w-auto translate-y-[10%]"
             />
           </h1>
         </div>
