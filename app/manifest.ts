@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Yuppie",
     short_name: "Yuppie",
-    description: "Your Social Life, Curated",
+    description: "Apply to join, we'll handle the planning, you just show up.",
     start_url: "/",
     display: "standalone",
     background_color: "#FFD904",
