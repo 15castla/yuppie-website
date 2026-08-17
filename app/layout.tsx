@@ -15,6 +15,19 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Yuppie",
   description: "Your Social Life, Curated",
+  icons: {
+    icon: [
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/yuppie_app_icon_32.png", sizes: "32x32", type: "image/png" },
+    ],
+    apple: [
+      {
+        url: "/yuppie_app_icon_1024.png",
+        sizes: "1024x1024",
+        type: "image/png",
+      },
+    ],
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
