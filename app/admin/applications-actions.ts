@@ -14,16 +14,25 @@ async function setApplicationStatus(
   if (typeof id !== "string" || !id) return;
 
   const adminClient = createAdminSupabaseClient();
-  await adminClient
+  const { data: application } = await adminClient
     .from("applications")
     .update({
       status,
       reviewed_at: new Date().toISOString(),
       reviewed_by: admin.email,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("email")
+    .maybeSingle();
 
-  revalidatePath("/admin");
+  if (status === "approved" && application?.email) {
+    await adminClient.from("invited_emails").insert({
+      email: application.email,
+      application_id: id,
+    });
+  }
+
+  revalidatePath("/admin/applications");
 }
 
 export async function approveApplication(formData: FormData) {
