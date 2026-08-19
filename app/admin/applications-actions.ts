@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
 import { sendWelcomeEmail } from "./send-welcome-email";
@@ -37,15 +38,20 @@ async function setApplicationStatus(
       .maybeSingle();
 
     if (invite?.invite_code) {
-      try {
-        await sendWelcomeEmail({
-          to: application.email,
-          fullName: application.full_name,
-          inviteCode: invite.invite_code,
-        });
-      } catch (err) {
-        console.error("sendWelcomeEmail failed:", err);
-      }
+      const email = application.email;
+      const fullName = application.full_name;
+      const inviteCode = invite.invite_code;
+
+      after(async () => {
+        try {
+          await sendWelcomeEmail({ to: email, fullName, inviteCode });
+        } catch (err) {
+          console.error(
+            `sendWelcomeEmail failed for application ${id} (${email}):`,
+            err,
+          );
+        }
+      });
     }
   }
 

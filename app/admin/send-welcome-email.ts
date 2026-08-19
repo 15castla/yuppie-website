@@ -9,6 +9,12 @@ export async function sendWelcomeEmail({
   fullName: string | null;
   inviteCode: string;
 }) {
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error(
+      "RESEND_API_KEY is not set in this environment — welcome email not sent.",
+    );
+  }
+
   const firstName = fullName?.trim().split(" ")[0] || "there";
   const signupUrl = `${SITE_URL}/signup?code=${encodeURIComponent(inviteCode)}`;
 
