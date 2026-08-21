@@ -24,6 +24,7 @@ export default async function AdminDashboardPage() {
     { count: pendingApplications },
     { count: totalApplications },
     { count: newThisWeek },
+    { count: unconfirmedInvites },
   ] = await Promise.all([
     adminClient.from("members").select("*", { count: "exact", head: true }),
     adminClient
@@ -35,6 +36,11 @@ export default async function AdminDashboardPage() {
       .from("applications")
       .select("*", { count: "exact", head: true })
       .gte("created_at", sevenDaysAgo),
+    adminClient
+      .from("invited_emails")
+      .select("*, applications!inner(status)", { count: "exact", head: true })
+      .eq("used", false)
+      .eq("applications.status", "approved"),
   ]);
 
   return (
@@ -43,7 +49,7 @@ export default async function AdminDashboardPage() {
         Dashboard
       </h1>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Total Members" value={totalMembers ?? 0} />
         <StatCard
           label="Pending Applications"
@@ -54,6 +60,10 @@ export default async function AdminDashboardPage() {
           value={totalApplications ?? 0}
         />
         <StatCard label="New This Week" value={newThisWeek ?? 0} />
+        <StatCard
+          label="Unconfirmed Invites"
+          value={unconfirmedInvites ?? 0}
+        />
       </div>
     </div>
   );
