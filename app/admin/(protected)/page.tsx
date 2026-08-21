@@ -1,4 +1,5 @@
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
+import { APPLICATION_TAB_LABELS } from "@/app/admin/application-tab-labels";
 
 function getSevenDaysAgoIso() {
   return new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
@@ -52,7 +53,7 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Total Members" value={totalMembers ?? 0} />
         <StatCard
-          label="Pending Applications"
+          label={APPLICATION_TAB_LABELS.pending}
           value={pendingApplications ?? 0}
         />
         <StatCard
@@ -61,7 +62,7 @@ export default async function AdminDashboardPage() {
         />
         <StatCard label="New This Week" value={newThisWeek ?? 0} />
         <StatCard
-          label="Unconfirmed Invites"
+          label={APPLICATION_TAB_LABELS.awaiting}
           value={unconfirmedInvites ?? 0}
         />
       </div>

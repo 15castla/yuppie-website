@@ -4,6 +4,7 @@ import {
   approveApplication,
   rejectApplication,
 } from "@/app/admin/applications-actions";
+import { APPLICATION_TAB_LABELS } from "@/app/admin/application-tab-labels";
 import { Field } from "../Field";
 
 type Application = {
@@ -75,13 +76,13 @@ export default async function ApplicationsPage({
             href="/admin/applications?tab=pending"
             className={tabClasses(activeTab === "pending")}
           >
-            Applications
+            {APPLICATION_TAB_LABELS.pending}
           </Link>
           <Link
             href="/admin/applications?tab=awaiting"
             className={tabClasses(activeTab === "awaiting")}
           >
-            Confirmed (Pending Account Set Up)
+            {APPLICATION_TAB_LABELS.awaiting}
           </Link>
         </div>
       </div>
