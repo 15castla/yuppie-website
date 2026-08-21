@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
 import { sendWelcomeEmail } from "./send-welcome-email";
+import { sendWelcomeSms } from "./send-welcome-sms";
 
 async function setApplicationStatus(
   formData: FormData,
@@ -24,7 +25,7 @@ async function setApplicationStatus(
       reviewed_by: admin.email,
     })
     .eq("id", id)
-    .select("email, full_name")
+    .select("email, full_name, phone")
     .maybeSingle();
 
   if (status === "approved" && application?.email) {
@@ -40,6 +41,7 @@ async function setApplicationStatus(
     if (invite?.invite_code) {
       const email = application.email;
       const fullName = application.full_name;
+      const phone = application.phone;
       const inviteCode = invite.invite_code;
 
       after(async () => {
@@ -50,6 +52,17 @@ async function setApplicationStatus(
             `sendWelcomeEmail failed for application ${id} (${email}):`,
             err,
           );
+        }
+
+        if (phone) {
+          try {
+            await sendWelcomeSms({ to: phone, inviteCode });
+          } catch (err) {
+            console.error(
+              `sendWelcomeSms failed for application ${id} (${email}):`,
+              err,
+            );
+          }
         }
       });
     }
