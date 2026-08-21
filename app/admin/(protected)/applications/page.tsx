@@ -10,6 +10,7 @@ type Application = {
   id: string;
   full_name: string;
   email: string;
+  created_at: string;
   phone: string | null;
   employer: string | null;
   role_title: string | null;
@@ -23,6 +24,7 @@ type AwaitingConfirmation = {
   applications: {
     full_name: string;
     email: string;
+    reviewed_at: string | null;
   };
 };
 
@@ -39,6 +41,14 @@ function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-GB", {
     day: "numeric",
     month: "long",
+    year: "numeric",
+  });
+}
+
+function formatShortDate(value: string) {
+  return new Date(value).toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
     year: "numeric",
   });
 }
@@ -93,7 +103,7 @@ async function PendingReview({
   const { data } = await adminClient
     .from("applications")
     .select(
-      "id, full_name, email, phone, employer, role_title, linkedin_url, instagram_username",
+      "id, full_name, email, created_at, phone, employer, role_title, linkedin_url, instagram_username",
     )
     .eq("status", "pending")
     .order("created_at", { ascending: true });
@@ -118,6 +128,10 @@ async function PendingReview({
           <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
             <Field label="Name" value={application.full_name} />
             <Field label="Email" value={application.email} />
+            <Field
+              label="Submitted"
+              value={formatShortDate(application.created_at)}
+            />
             <Field label="Phone" value={application.phone} />
             <Field label="Employer" value={application.employer} />
             <Field label="Role" value={application.role_title} />
@@ -170,7 +184,9 @@ async function AwaitingConfirmationList({
 }) {
   const { data } = await adminClient
     .from("invited_emails")
-    .select("invited_at, expires_at, applications!inner(full_name, email)")
+    .select(
+      "invited_at, expires_at, applications!inner(full_name, email, reviewed_at)",
+    )
     .eq("used", false)
     .eq("applications.status", "approved")
     .order("expires_at", { ascending: true });
@@ -197,9 +213,17 @@ async function AwaitingConfirmationList({
             key={`${invite.applications.email}-${invite.invited_at}`}
             className="rounded-2xl border border-foreground/10 bg-[#F5F3E7] p-6"
           >
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-4">
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-5">
               <Field label="Name" value={invite.applications.full_name} />
               <Field label="Email" value={invite.applications.email} />
+              <Field
+                label="Approved"
+                value={
+                  invite.applications.reviewed_at
+                    ? formatShortDate(invite.applications.reviewed_at)
+                    : null
+                }
+              />
               <Field label="Invited" value={formatDate(invite.invited_at)} />
               <div>
                 <dt className="text-xs font-semibold uppercase tracking-wider text-foreground/50">
