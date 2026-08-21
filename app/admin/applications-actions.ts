@@ -56,6 +56,7 @@ async function setApplicationStatus(
   }
 
   revalidatePath("/admin/applications");
+  revalidatePath("/admin");
 }
 
 export async function approveApplication(formData: FormData) {

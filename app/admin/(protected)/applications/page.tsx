@@ -81,7 +81,7 @@ export default async function ApplicationsPage({
             href="/admin/applications?tab=awaiting"
             className={tabClasses(activeTab === "awaiting")}
           >
-            Confirmed, pending Account Set Up
+            Confirmed (Pending Account Set Up)
           </Link>
         </div>
       </div>
