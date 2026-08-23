@@ -27,9 +27,9 @@ export async function sendWelcomeSms({
   const accountSid = process.env.TWILIO_ACCOUNT_SID;
   const apiKeySid = process.env.TWILIO_API_KEY_SID;
   const apiKeySecret = process.env.TWILIO_API_KEY_SECRET;
-  const fromNumber = process.env.TWILIO_PHONE_NUMBER;
+  const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
-  if (!accountSid || !apiKeySid || !apiKeySecret || !fromNumber) {
+  if (!accountSid || !apiKeySid || !apiKeySecret || !messagingServiceSid) {
     throw new Error(
       "Twilio env vars are not fully set — welcome SMS not sent.",
     );
@@ -41,7 +41,7 @@ export async function sendWelcomeSms({
   }
 
   const signupUrl = `${SITE_URL}/signup?code=${encodeURIComponent(inviteCode)}`;
-  const body = `You're in! Set up your account: ${signupUrl}`;
+  const body = `Your application to Yuppie has been approved! Please set up your account: ${signupUrl}`;
 
   const credentials = Buffer.from(`${apiKeySid}:${apiKeySecret}`).toString(
     "base64",
@@ -57,7 +57,7 @@ export async function sendWelcomeSms({
       },
       body: new URLSearchParams({
         To: toNumber,
-        From: fromNumber,
+        MessagingServiceSid: messagingServiceSid,
         Body: body,
       }),
     },
