@@ -3,7 +3,7 @@ import { sendEmail } from "./resend-client";
 
 const SITE_URL = "https://clubyuppie.com";
 
-export async function sendWelcomeEmail({
+export async function sendReminderEmail({
   to,
   fullName,
   inviteCode,
@@ -16,18 +16,18 @@ export async function sendWelcomeEmail({
   const signupUrl = `${SITE_URL}/signup?code=${encodeURIComponent(inviteCode)}`;
 
   const html = renderBrandedEmailHtml({
-    documentTitle: "You're in - welcome to Yuppie",
-    heading: `You're in, ${firstName}!`,
+    documentTitle: "Your Yuppie invitation expires in 7 days",
+    heading: `Don't miss out, ${firstName}!`,
     bodyText:
-      "Your application to Yuppie has been approved. Click below to create your account and get started.",
-    ctaLabel: "Create your account",
+      "Your invitation to Yuppie will expire in 7 days. Set up your account below before it's gone.",
+    ctaLabel: "Set up your account",
     ctaUrl: signupUrl,
-    footerText: "This link expires in 14 days.",
+    footerText: "This link expires in 7 days.",
   });
 
   await sendEmail({
     to,
-    subject: "You're in - welcome to Yuppie",
+    subject: "Your Yuppie invitation expires in 7 days",
     html,
   });
 }

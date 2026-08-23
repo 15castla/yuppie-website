@@ -2,7 +2,7 @@ import { sendSms } from "./sms-client";
 
 const SITE_URL = "https://clubyuppie.com";
 
-export async function sendWelcomeSms({
+export async function sendReminderSms({
   to,
   inviteCode,
 }: {
@@ -13,6 +13,6 @@ export async function sendWelcomeSms({
 
   await sendSms({
     to,
-    body: `Your application to Yuppie has been approved! Please set up your account: ${signupUrl}`,
+    body: `Your invitation to Yuppie will expire in 7 days. Set up your account: ${signupUrl}`,
   });
 }
