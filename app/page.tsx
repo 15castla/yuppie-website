@@ -60,7 +60,7 @@ export default function Home() {
           transition={{ ...ENTRANCE_TRANSITION, delay: 0.3 }}
           className="max-w-md text-lg text-foreground/70 sm:text-xl"
         >
-          Your Social Life, Curated
+          Too Fun to Stay Home
         </motion.p>
       </div>
 
