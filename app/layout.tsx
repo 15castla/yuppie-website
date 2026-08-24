@@ -14,10 +14,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://clubyuppie.com"),
-  title: "Yuppie - Too Fun to Stay Home",
+  title: "Yuppie - Your Social Life, Curated",
   description: "Apply to join, we'll handle the planning, you just show up.",
   openGraph: {
-    title: "Yuppie - Too Fun to Stay Home",
+    title: "Yuppie - Your Social Life, Curated",
     description: "Apply to join, we'll handle the planning, you just show up.",
     url: "https://clubyuppie.com",
     siteName: "Yuppie",
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Yuppie - Too Fun to Stay Home",
+    title: "Yuppie - Your Social Life, Curated",
     description: "Apply to join, we'll handle the planning, you just show up.",
     images: ["/yuppie_app_icon_1024.png"],
   },
