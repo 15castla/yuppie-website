@@ -17,15 +17,24 @@ const ENTRANCE_TRANSITION = { duration: 1.5, ease: "easeOut" as const };
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 // Progress split across the pinned frame's 0→1 scroll range, defined by
-// absolute scroll distances (at a 800px-tall viewport). This is the only
+// absolute scroll distances (at an 800px-tall viewport). This is the only
 // pinned/scroll-linked stage on the page — everything after it (the "The
 // App" heading, the phone mockups, and whatever else follows) is plain,
 // unpinned document flow, no scrim, no scroll-linked animation.
-//   0–90     scrim rises, fully covers the logo
+//   0–90     scrim rises, fully covers the logo — narrower than 90px reads
+//            as an instant block instead of a visible sweep (confirmed by
+//            screenshotting 10px apart and watching it jump 0%→100%).
 //   90–130   headline + subline fade in on top of the (now solid) scrim
-//   130–250  hold — nothing animates, full time to read both lines, then
-//            the pin releases immediately into normal scrolling
-// Total pin room = 250px, driver height = 131.25dvh (100dvh viewport + 31.25dvh).
+//   130–250  hold — nothing animates, full time to read both lines. This
+//            120px was cut twice before (to close the gap to the next
+//            section) and reverted both times as too short to read — it's
+//            off-limits to further cuts.
+// Total pin room = 250px, driver height = 131.25svh (100svh viewport +
+// 31.25svh). svh, not dvh: dvh is a *dynamic* unit that live-recalculates
+// as mobile Safari/Chrome's address bar collapses mid-scroll, which can
+// desync this whole useScroll-based timeline partway through a gesture —
+// svh is pinned to the smallest possible viewport and never changes during
+// a scroll, so the pin's measured start/end offsets stay stable on mobile.
 const SCRIM_RANGE: [number, number] = [0, 0.36];
 const HEADLINE_RANGE: [number, number] = [0.36, 0.488];
 const SUBLINE_RANGE: [number, number] = [0.408, 0.52];
@@ -226,7 +235,7 @@ export default function Home() {
           <>
             <div
               ref={heroRef}
-              className="flex min-h-dvh flex-col items-center justify-center px-6 text-center"
+              className="flex min-h-svh flex-col items-center justify-center px-6 text-center"
             >
               <HeroLogo />
             </div>
@@ -242,17 +251,17 @@ export default function Home() {
             </section>
           </>
         ) : (
-          <div ref={heroRef} className="relative h-[131.25dvh]">
+          <div ref={heroRef} className="relative h-[131.25svh]">
             {/*
-              Pure CSS `position: sticky` pin: this inner frame sticks to
-              top:0 for the full height of the h-[131.25dvh] driver above it,
-              then releases back into normal flow once the driver's bottom
-              edge reaches the viewport top. Framer's useScroll/useTransform
-              above only compute a 0→1 progress value off that same driver
-              ref to drive the scrim/text styles — they do not do the
-              pinning themselves.
+              Pure CSS `position: sticky` pin: this inner (h-svh) frame
+              sticks to top:0 for the full height of the h-[131.25svh]
+              driver above it, then releases back into normal flow once the
+              driver's bottom edge reaches the viewport top. Framer's
+              useScroll/useTransform above only compute a 0→1 progress value
+              off that same driver ref to drive the scrim/text styles — they
+              do not do the pinning themselves.
             */}
-            <div className="sticky top-0 flex h-dvh flex-col items-center justify-center overflow-hidden px-6 text-center">
+            <div className="sticky top-0 flex h-svh flex-col items-center justify-center overflow-hidden px-6 text-center">
               <HeroLogo />
 
               {/*
@@ -274,7 +283,7 @@ export default function Home() {
                 }}
               />
 
-              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 px-6">
+              <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-end gap-4 px-6 pb-20 sm:pb-28">
                 <motion.h2
                   style={{
                     opacity: headlineOpacity,
