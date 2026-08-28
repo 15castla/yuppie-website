@@ -17,29 +17,18 @@ const ENTRANCE_TRANSITION = { duration: 1.5, ease: "easeOut" as const };
 const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 
 // Progress split across the pinned frame's 0→1 scroll range, defined by
-// three absolute scroll distances (at a 800px-tall viewport):
-//   entrance (scrim rise + text fade-in): 100px — untouched, confirmed-good
-//     pace since the first version of this sequence.
-//   hold: 120px — untouched. A previous pass cut this to 50px to shrink the
-//     gap to the next section; that made it too short to read and was
-//     reverted, so it's off-limits to further cuts.
-//   exit (text fade-out + button fade-in, ending exactly at release): 60px
-//     — cut further from 100px specifically to close up the stretch of
-//     plain yellow between the club sentence and the app section, since
-//     that's the part the hold restore didn't touch.
-// Total pin room = 280px, driver height = 135dvh (100dvh viewport + 35dvh).
-// ShowcaseSection's own lead-in padding was also trimmed further (see that
-// file) to shave a bit more off the post-release reveal.
-//   0.000000–0.214286  scrim rises, fully covers the logo
-//   0.214286–0.357143  headline + subline fade in (still rising out of the scrim's cover)
-//   0.357143–0.785714  hold — nothing animates, full time to read both lines
-//   0.785714–1.000000  headline + subline fade out, button fades in over the same span,
-//                      both finishing exactly as the pin releases — no idle tail
-const SCRIM_RANGE: [number, number] = [0, 0.214286];
-const HEADLINE_RANGE: [number, number] = [0.214286, 0.328571];
-const SUBLINE_RANGE: [number, number] = [0.257143, 0.357143];
-const TEXT_EXIT_RANGE: [number, number] = [0.785714, 1];
-const BUTTON_RANGE: [number, number] = [0.785714, 1];
+// absolute scroll distances (at a 800px-tall viewport). This is the only
+// pinned/scroll-linked stage on the page — everything after it (the "The
+// App" heading, the phone mockups, and whatever else follows) is plain,
+// unpinned document flow, no scrim, no scroll-linked animation.
+//   0–90     scrim rises, fully covers the logo
+//   90–130   headline + subline fade in on top of the (now solid) scrim
+//   130–250  hold — nothing animates, full time to read both lines, then
+//            the pin releases immediately into normal scrolling
+// Total pin room = 250px, driver height = 131.25dvh (100dvh viewport + 31.25dvh).
+const SCRIM_RANGE: [number, number] = [0, 0.36];
+const HEADLINE_RANGE: [number, number] = [0.36, 0.488];
+const SUBLINE_RANGE: [number, number] = [0.408, 0.52];
 
 function subscribeToReducedMotion(callback: () => void) {
   const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
@@ -55,6 +44,40 @@ function getReducedMotionServerSnapshot() {
   return false;
 }
 
+// Module-level store for "has the user scrolled or tapped yet" — a one-time
+// flag, not a value that should ever revert, so it deliberately lives
+// outside React state: once true it stays true, independent of scroll
+// position, including if the user scrolls back up to the top afterward.
+let hasInteracted = false;
+const interactionListeners = new Set<() => void>();
+
+function markInteracted() {
+  if (hasInteracted) return;
+  hasInteracted = true;
+  window.removeEventListener("scroll", markInteracted);
+  window.removeEventListener("touchstart", markInteracted);
+  interactionListeners.forEach((listener) => listener());
+}
+
+function subscribeToInteraction(callback: () => void) {
+  interactionListeners.add(callback);
+  if (!hasInteracted) {
+    window.addEventListener("scroll", markInteracted, { passive: true });
+    window.addEventListener("touchstart", markInteracted, { passive: true });
+  }
+  return () => {
+    interactionListeners.delete(callback);
+  };
+}
+
+function getHasInteracted() {
+  return hasInteracted;
+}
+
+function getHasInteractedServerSnapshot() {
+  return false;
+}
+
 // Fraction of `progress` between range[0] and range[1], clamped to [0, 1].
 function clampedProgress(progress: number, range: readonly [number, number]) {
   const [start, end] = range;
@@ -64,7 +87,15 @@ function clampedProgress(progress: number, range: readonly [number, number]) {
 
 function HeroLogo() {
   return (
-    <div className="flex flex-col items-center gap-3 sm:gap-4">
+    // mb-24 isn't decorative spacing — it reproduces a real layout effect
+    // from the original (pre-redesign) homepage: back then the Apply
+    // button sat in normal flow directly below this group (revealed later,
+    // but still occupying its box even at opacity:0), which pushed the
+    // logo visually above dead-center within the centered flex column. The
+    // button is `fixed` now and reserves no space, so without this the
+    // logo centers exactly in the middle of the viewport instead — measurably
+    // lower than the original composition.
+    <div className="mb-24 flex flex-col items-center gap-5 sm:gap-6">
       <motion.div
         initial="hidden"
         animate="visible"
@@ -100,6 +131,11 @@ export default function Home() {
     getReducedMotion,
     getReducedMotionServerSnapshot,
   );
+  const hasInteractedNow = useSyncExternalStore(
+    subscribeToInteraction,
+    getHasInteracted,
+    getHasInteractedServerSnapshot,
+  );
 
   const heroRef = useRef<HTMLDivElement>(null);
   // "end end" (not "end start") so progress 0→1 spans exactly the CSS-sticky
@@ -126,35 +162,61 @@ export default function Home() {
     scrollYProgress,
     (p) => `${(1 - clampedProgress(p, SCRIM_RANGE)) * 100}%`,
   );
-  // Enter (fade in) multiplied by the inverse of exit (fade out): 1 while
-  // holding between the two ranges, ramping correctly at either end even
-  // where they'd otherwise overlap.
-  const headlineOpacity = useTransform(
-    scrollYProgress,
-    (p) =>
-      clampedProgress(p, HEADLINE_RANGE) *
-      (1 - clampedProgress(p, TEXT_EXIT_RANGE)),
+
+  // Entrance only — no exit multiplier. The text settles at full opacity
+  // once it's in and never fades, scales, or moves on its own again.
+  const headlineOpacity = useTransform(scrollYProgress, (p) =>
+    clampedProgress(p, HEADLINE_RANGE),
   );
   const headlineY = useTransform(
     scrollYProgress,
     (p) => (1 - clampedProgress(p, HEADLINE_RANGE)) * 32,
   );
-  const sublineOpacity = useTransform(
-    scrollYProgress,
-    (p) =>
-      clampedProgress(p, SUBLINE_RANGE) *
-      (1 - clampedProgress(p, TEXT_EXIT_RANGE)),
+  const sublineOpacity = useTransform(scrollYProgress, (p) =>
+    clampedProgress(p, SUBLINE_RANGE),
   );
   const sublineY = useTransform(
     scrollYProgress,
     (p) => (1 - clampedProgress(p, SUBLINE_RANGE)) * 32,
   );
 
-  const buttonOpacity = useTransform(scrollYProgress, (p) =>
-    clampedProgress(p, BUTTON_RANGE),
+  // Shared reveal behavior for both floating elements — same hasInteracted
+  // gate, same fade, just different fixed corners.
+  const floatingAnimateProps = {
+    initial: { opacity: 0 },
+    animate: { opacity: hasInteractedNow ? 1 : 0 },
+    transition: { duration: prefersReducedMotion ? 0 : 0.5, ease: "easeOut" as const },
+    style: { pointerEvents: hasInteractedNow ? ("auto" as const) : ("none" as const) },
+  };
+
+  const signInUi = (
+    <motion.div
+      {...floatingAnimateProps}
+      className="fixed right-6 top-6 z-40 sm:right-10 sm:top-10"
+    >
+      <Link
+        href="/member-login"
+        className="text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
+      >
+        Sign in
+      </Link>
+    </motion.div>
   );
-  const buttonPointerEvents = useTransform(scrollYProgress, (value) =>
-    value >= BUTTON_RANGE[1] ? "auto" : "none",
+
+  const membershipUi = (
+    <motion.div
+      {...floatingAnimateProps}
+      className="fixed bottom-8 right-6 z-40 sm:bottom-10 sm:right-10"
+    >
+      {/* !-prefixed to reliably override Button's own px-10/py-4/text-base —
+          Tailwind's compiled utility order isn't guaranteed to follow the
+          order classes appear in this className string, so a plain
+          "px-5 py-2 text-sm" here could just as easily lose to Button's
+          own classes depending on source-scan order. !important forces it. */}
+      <Button href="/apply" className="!px-5 !py-2 !text-sm">
+        Membership
+      </Button>
+    </motion.div>
   );
 
   return (
@@ -164,18 +226,12 @@ export default function Home() {
           <>
             <div
               ref={heroRef}
-              className="flex min-h-dvh flex-col items-center justify-center gap-10 px-6 py-24 text-center sm:gap-12"
+              className="flex min-h-dvh flex-col items-center justify-center px-6 text-center"
             >
               <HeroLogo />
             </div>
 
-            <motion.section
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true, amount: 0.5 }}
-              transition={{ duration: 0.8, ease: "easeOut" }}
-              className="flex flex-col items-center gap-4 px-6 py-24 text-center"
-            >
+            <section className="flex flex-col items-center gap-4 px-6 py-24 text-center">
               <h2 className="max-w-2xl text-3xl font-bold leading-tight tracking-tight sm:text-5xl">
                 A Club for Those Who Are Too Fun to Stay at Home.
               </h2>
@@ -183,16 +239,16 @@ export default function Home() {
                 Gain access to the events, the doors, and the people that
                 make it worth going out for.
               </p>
-            </motion.section>
+            </section>
           </>
         ) : (
-          <div ref={heroRef} className="relative h-[135dvh]">
+          <div ref={heroRef} className="relative h-[131.25dvh]">
             {/*
               Pure CSS `position: sticky` pin: this inner frame sticks to
-              top:0 for the full height of the h-[135dvh] driver above it,
+              top:0 for the full height of the h-[131.25dvh] driver above it,
               then releases back into normal flow once the driver's bottom
               edge reaches the viewport top. Framer's useScroll/useTransform
-              below only compute a 0→1 progress value off that same driver
+              above only compute a 0→1 progress value off that same driver
               ref to drive the scrim/text styles — they do not do the
               pinning themselves.
             */}
@@ -248,23 +304,8 @@ export default function Home() {
         <ShowcaseSection />
       </main>
 
-      <motion.div
-        style={{
-          opacity: prefersReducedMotion ? 1 : buttonOpacity,
-          pointerEvents: prefersReducedMotion ? "auto" : buttonPointerEvents,
-          willChange: prefersReducedMotion ? undefined : "opacity",
-        }}
-        className="fixed bottom-6 left-1/2 z-40 -translate-x-1/2"
-      >
-        <Button href="/apply">Membership</Button>
-      </motion.div>
-
-      <Link
-        href="/member-login"
-        className="fixed right-4 top-4 z-40 text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline sm:right-6 sm:top-6"
-      >
-        Sign in
-      </Link>
+      {signInUi}
+      {membershipUi}
     </>
   );
 }
