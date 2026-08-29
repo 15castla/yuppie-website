@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { CalendarHeart, Key, Percent, type LucideIcon } from "lucide-react";
+import { Calendar, Key, Percent, type LucideIcon } from "lucide-react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
@@ -20,7 +20,7 @@ const INFO_CARDS: InfoCard[] = [
   {
     index: 0,
     title: "Members' Events.",
-    Icon: CalendarHeart,
+    Icon: Calendar,
     description:
       "Dinners, wellness sessions, sport and new experiences, put on regularly across London so there's always something worth going out for. Think supper clubs, Padel & Pints, wellness retreats and nights out you won't find anywhere else.",
   },
