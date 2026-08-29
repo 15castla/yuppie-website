@@ -9,7 +9,7 @@ const HEADING_SEGMENTS = [
     className: "italic [font-family:var(--font-instrument-serif)]",
   },
   {
-    text: "We'll shape every part of your social life so you don't have to.",
+    text: "We'll shape your social life so you don't have to.",
     className: "font-normal",
   },
 ];
