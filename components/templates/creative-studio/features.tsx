@@ -98,7 +98,7 @@ export function Features() {
               className="min-h-[280px] border border-foreground/10 bg-background-muted"
             >
               <div className="flex h-full flex-col gap-4 p-6 sm:p-8">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground/10 sm:h-12 sm:w-12">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background sm:h-12 sm:w-12">
                   <card.Icon className="h-5 w-5 text-foreground sm:h-6 sm:w-6" />
                 </div>
 
