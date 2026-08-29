@@ -5,7 +5,7 @@ import { Calendar, Key, Percent, type LucideIcon } from "lucide-react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
-import { NoiseOverlay, WordsPullUp } from "./primitives";
+import { WordsPullUp } from "./primitives";
 
 const EASE_CARD: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -68,15 +68,10 @@ function FeatureCard({
 
 export function Features() {
   return (
-    // bg-background is the base fill (background-color); the gradient
-    // classes layer a background-image on top of it, so both coexist on
-    // one element without conflict. Recipe is hero.tsx's own overlay div
-    // verbatim (bg-gradient-to-b from-background-muted/30 via-transparent
-    // to-background-muted/60) — same direction, same two color stops, same
-    // opacities, no new colors introduced.
-    <section className="relative min-h-screen overflow-hidden bg-background bg-gradient-to-b from-background-muted/30 via-transparent to-background-muted/60 py-20 sm:py-28 md:py-32">
-      <NoiseOverlay variant="bg" className="opacity-[0.15]" />
-
+    // No bg-* here on purpose — see the wrapping parent in
+    // creative-studio.tsx, which paints one shared gradient spanning this
+    // section and About together so there's no seam between them.
+    <section className="relative min-h-screen overflow-hidden py-20 sm:py-28 md:py-32">
       <div className="relative container flex flex-col gap-12 md:gap-16">
         <div className="flex flex-col items-center gap-1 text-center">
           <WordsPullUp
