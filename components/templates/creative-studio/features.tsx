@@ -1,11 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { ArrowRight, Check } from "lucide-react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
-import { CinematicBackground, NoiseOverlay, WordsPullUp } from "./primitives";
+import { NoiseOverlay, WordsPullUp } from "./primitives";
 
 const EASE_CARD: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -67,33 +66,32 @@ function IconImmersion({ className }: { className?: string }) {
 
 type InfoCard = {
   index: number;
-  number: string;
   title: string;
   Icon: (props: { className?: string }) => React.ReactElement;
-  items: string[];
+  description: string;
 };
 
 const INFO_CARDS: InfoCard[] = [
   {
-    index: 1,
-    number: "01",
+    index: 0,
     title: "Members' Events.",
     Icon: IconStoryboard,
-    items: ["More on this soon"],
+    description:
+      "Dinners, wellness sessions, sport and new experiences, put on regularly across London so there's always something worth going out for. Think supper clubs, Padel & Pints, wellness retreats and nights out you won't find anywhere else.",
+  },
+  {
+    index: 1,
+    title: "Members' Discounts.",
+    Icon: IconCritique,
+    description:
+      "We've partnered with over 40 restaurants, bars and hospitality outlets across the city to get our members real, ongoing discounts. Think 30% off at partner restaurants, complimentary drinks at select bars, and preferential rates you won't get walking in off the street.",
   },
   {
     index: 2,
-    number: "02",
-    title: "Members' Discounts.",
-    Icon: IconCritique,
-    items: ["More on this soon"],
-  },
-  {
-    index: 3,
-    number: "03",
     title: "Members' Access.",
     Icon: IconImmersion,
-    items: ["More on this soon"],
+    description:
+      "The doors, events and experiences that aren't open to the public. Think skip-the-queue entry at partner venues, access to London's members' clubs, invite-only parties and first access to experiences before they sell out.",
   },
 ];
 
@@ -123,7 +121,7 @@ function FeatureCard({
   );
 }
 
-export function Features({ videoSrc }: { videoSrc?: string }) {
+export function Features() {
   return (
     <section className="relative min-h-screen overflow-hidden bg-background py-20 sm:py-28 md:py-32">
       <NoiseOverlay variant="bg" className="opacity-[0.15]" />
@@ -140,75 +138,32 @@ export function Features({ videoSrc }: { videoSrc?: string }) {
           />
         </div>
 
-        <div className="grid grid-cols-1 gap-3 sm:gap-2 md:grid-cols-2 md:gap-1 lg:grid-cols-4 lg:h-[480px]">
-          <FeatureCard index={0} className="min-h-[320px] lg:h-full lg:min-h-0">
-            {videoSrc ? (
-              <video
-                className="absolute inset-0 h-full w-full object-cover"
-                src={videoSrc}
-                autoPlay
-                loop
-                muted
-                playsInline
-              />
-            ) : (
-              <CinematicBackground variant="card" />
-            )}
-            {/* Flipped from the template's dark from-black/70 scrim to a
-                pale one: that scrim existed to keep light text legible over
-                a busy backdrop, but our caption text is dark, so a dark
-                scrim would fight its own legibility instead of helping it —
-                a light wash under dark text is the correct inversion here. */}
-            <div
-              aria-hidden
-              className="absolute inset-0 bg-gradient-to-t from-background-muted/85 via-background-muted/20 to-transparent"
-            />
-            <div className="absolute inset-x-0 bottom-0 p-5">
-              <p className="text-lg font-medium text-foreground">
-                Your social calendar, sorted.
-              </p>
-            </div>
-          </FeatureCard>
-
+        {/* 1-up until md, then straight to 3-up — no intermediate 2-up step,
+            which with exactly 3 cards would always leave the third one
+            stranded alone on its own row instead of redistributing cleanly.
+            Cards size to their own (now much longer) copy via a min-height
+            floor rather than the old grid's fixed lg:h-[480px], which was
+            tuned for the removed video card's short caption and would have
+            either clipped or left a lot of dead space under this much text. */}
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
           {INFO_CARDS.map((card) => (
             <FeatureCard
-              key={card.number}
+              key={card.title}
               index={card.index}
-              className="min-h-[300px] bg-background-muted lg:h-full lg:min-h-0"
+              className="min-h-[280px] border border-foreground/10 bg-background-muted"
             >
-              <div className="flex h-full flex-col gap-4 p-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground/10 sm:h-12 sm:w-12">
-                    <card.Icon className="h-5 w-5 text-foreground sm:h-6 sm:w-6" />
-                  </div>
-                  <span className="font-mono text-[10px] tabular-nums text-foreground-muted">
-                    {card.number}
-                  </span>
+              <div className="flex h-full flex-col gap-4 p-6 sm:p-8">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-foreground/10 sm:h-12 sm:w-12">
+                  <card.Icon className="h-5 w-5 text-foreground sm:h-6 sm:w-6" />
                 </div>
 
                 <h3 className="text-base font-medium text-foreground">
                   {card.title}
                 </h3>
 
-                <ul className="flex flex-col gap-2">
-                  {card.items.map((item) => (
-                    <li
-                      key={item}
-                      className="flex items-start gap-2 text-xs text-foreground-muted sm:text-sm"
-                    >
-                      <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-foreground" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-
-                <a
-                  href="#"
-                  className="group mt-auto inline-flex items-center gap-1.5 text-xs font-medium text-foreground-muted sm:text-sm"
-                >
-                  Learn more
-                  <ArrowRight className="h-3.5 w-3.5 -rotate-45 transition-transform duration-200 group-hover:translate-x-0.5 rtl:-scale-x-100 rtl:group-hover:-translate-x-0.5" />
-                </a>
+                <p className="text-sm leading-relaxed text-foreground-muted">
+                  {card.description}
+                </p>
               </div>
             </FeatureCard>
           ))}
