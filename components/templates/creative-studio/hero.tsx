@@ -7,14 +7,13 @@ import Link from "next/link";
 
 import { CinematicBackground, NoiseOverlay } from "./primitives";
 
-// "#" for the two that don't have a page yet ("Our Story", "The App") — the
-// other three link to their real, already-built routes rather than sitting
-// dead, matching how the footer's matching labels are wired.
+// "#" for FAQ's, which doesn't have a page yet — the other three link to
+// their real, already-built routes rather than sitting dead, matching how
+// the footer's matching labels are wired.
 const NAV_ITEMS: { label: string; href: string }[] = [
-  { label: "Our Story", href: "#" },
   { label: "Members Area", href: "/member-login" },
   { label: "Membership", href: "/apply" },
-  { label: "The App", href: "#" },
+  { label: "FAQ's", href: "#" },
   { label: "Contact", href: "/contact" },
 ];
 
