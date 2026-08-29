@@ -19,11 +19,7 @@ const BODY =
 
 export function About() {
   return (
-    // No bg-* here on purpose — this section's background is the shared
-    // gradient on its wrapping parent (see creative-studio.tsx), which
-    // spans this section and Features together so there's no seam between
-    // them.
-    <section className="px-4 py-20 sm:px-6 sm:py-28 md:py-32">
+    <section className="bg-background px-4 py-20 sm:px-6 sm:py-28 md:py-32">
       <div className="mx-auto flex max-w-6xl flex-col items-center gap-10 rounded-[2rem] bg-background-muted px-6 py-12 text-center sm:px-10 sm:py-16 md:px-16 md:py-20">
         <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-foreground sm:text-xs">
           THE CLUB

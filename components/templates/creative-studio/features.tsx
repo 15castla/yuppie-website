@@ -5,7 +5,7 @@ import { Calendar, Key, Percent, type LucideIcon } from "lucide-react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
-import { WordsPullUp } from "./primitives";
+import { NoiseOverlay, WordsPullUp } from "./primitives";
 
 const EASE_CARD: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
@@ -68,10 +68,30 @@ function FeatureCard({
 
 export function Features() {
   return (
-    // No bg-* here on purpose — see the wrapping parent in
-    // creative-studio.tsx, which paints one shared gradient spanning this
-    // section and About together so there's no seam between them.
-    <section className="relative min-h-screen overflow-hidden py-20 sm:py-28 md:py-32">
+    // Solid (non-alpha) gradient stops, not the from-background-muted/30
+    // via-transparent to-background-muted/60 recipe Hero uses: that recipe's
+    // "from" stop is background-muted composited at 30% over this section's
+    // own bg-background base, which lands at ~rgb(255,225,56) — visibly off
+    // from About's flat bg-background (rgb(255,217,4)) directly above it,
+    // which was the actual seam. Starting this gradient at a fully-opaque
+    // background stop makes the top pixel byte-for-byte identical to
+    // About's flat fill with no shared/merged container required, and
+    // ending back at background keeps the bottom edge matching Pricing's
+    // own flat bg-background below.
+    <section className="relative min-h-screen overflow-hidden bg-gradient-to-b from-background via-background-muted to-background py-20 sm:py-28 md:py-32">
+      {/* Masked to fade in over the first 80px instead of starting at full
+          strength immediately: with the gradient's top stop now matching
+          About's flat color exactly, the remaining visible line at the seam
+          turned out to be the grain's own hard onset, not a color mismatch —
+          pixel-sampling showed a uniform ~6-7 unit RGB step exactly at this
+          line even with identical colors on both sides. Ramping the mask
+          from transparent to opaque removes that onset edge while keeping
+          full-strength grain everywhere else in the section. */}
+      <NoiseOverlay
+        variant="bg"
+        className="opacity-[0.15] [mask-image:linear-gradient(to_bottom,transparent,black_80px)]"
+      />
+
       <div className="relative container flex flex-col gap-12 md:gap-16">
         <div className="flex flex-col items-center gap-1 text-center">
           <WordsPullUp
