@@ -13,12 +13,12 @@ const HEADING_SEGMENTS = [
   },
 ];
 
-// £10/month annualizes to £120 — £100/year against that is a 16.67% saving,
+// £10/month annualizes to £120 — £99/year against that is a 17.5% saving,
 // not the reference's 40%. Rounded to the nearest whole percent rather than
 // left at the reference's (wrong, for these numbers) figure.
 const MONTHLY_PRICE = "£10";
-const ANNUAL_PRICE = "£100";
-const SAVE_PERCENT = "17%";
+const ANNUAL_PRICE = "£99";
+const SAVE_PERCENT = "18%";
 
 export function Pricing() {
   const [annual, setAnnual] = useState(false);
