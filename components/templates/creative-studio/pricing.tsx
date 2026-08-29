@@ -99,7 +99,17 @@ export function Pricing() {
             Annual
           </button>
 
-          <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-foreground/20 bg-background-muted px-3 py-1 text-xs font-medium text-foreground">
+          {/* Same always-mounted/toggle-visibility pattern as the "Billed in
+              one annual payment" caption below — only relevant once Annual
+              is selected, but conditionally mounting it would change this
+              row's total width and shift the centered Monthly/toggle/Annual
+              group sideways every time it appeared or disappeared. */}
+          <span
+            className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-foreground/20 bg-background-muted px-3 py-1 text-xs font-medium text-foreground ${
+              annual ? "visible" : "invisible"
+            }`}
+            aria-hidden={!annual}
+          >
             Save {SAVE_PERCENT}
           </span>
         </div>
