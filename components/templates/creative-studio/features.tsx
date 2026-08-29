@@ -68,24 +68,8 @@ function FeatureCard({
 
 export function Features() {
   return (
-    // bg-background-muted (not bg-background): About's section above this
-    // one has its own vertical padding around its pale box, so its bottom
-    // edge is vivid --background right up until the section boundary —
-    // butted directly against this section's own vivid top region (before
-    // the cards), that reads as one uninterrupted flat-yellow block with no
-    // visible seam. Flipping this section's own background to the pale
-    // token creates a hard, deliberate two-tone boundary right at that
-    // edge without needing to touch About at all.
-    <section className="relative min-h-screen overflow-hidden bg-background-muted py-20 sm:py-28 md:py-32">
-      {/* mix-blend-overlay added to match Hero's own NoiseOverlay treatment
-          (hero.tsx uses `opacity-[0.7] mix-blend-overlay`) — without a blend
-          mode, this noise's near-black grain (see primitives.tsx) composites
-          via plain alpha over the vivid yellow, which flattens/desaturates
-          it toward a muddy olive rather than reading as grain. Overlay blend
-          mode affects luminosity while preserving the base hue, which is
-          what keeps Hero's background looking like clean yellow with
-          texture instead of a murky tint. */}
-      <NoiseOverlay variant="bg" className="opacity-[0.15] mix-blend-overlay" />
+    <section className="relative min-h-screen overflow-hidden bg-background py-20 sm:py-28 md:py-32">
+      <NoiseOverlay variant="bg" className="opacity-[0.15]" />
 
       <div className="relative container flex flex-col gap-12 md:gap-16">
         <div className="flex flex-col items-center gap-1 text-center">
@@ -111,18 +95,10 @@ export function Features() {
             <FeatureCard
               key={card.title}
               index={card.index}
-              className="min-h-[280px] border border-foreground/10 bg-background"
+              className="min-h-[280px] border border-foreground/10 bg-background-muted"
             >
               <div className="flex h-full flex-col gap-4 p-6 sm:p-8">
-                {/* Both flipped from the section's own pre-existing pattern
-                    now that the section itself sits on bg-background-muted:
-                    cards need to be the vivid token to read as distinct
-                    surfaces against their now-pale backdrop, which in turn
-                    means the icon tile needs to flip back to the pale token
-                    to stay visible against its now-vivid card — same
-                    two-token contrast relationship, just inverted one level
-                    deeper. */}
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background-muted sm:h-12 sm:w-12">
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background sm:h-12 sm:w-12">
                   <card.Icon className="h-5 w-5 text-foreground sm:h-6 sm:w-6" />
                 </div>
 
