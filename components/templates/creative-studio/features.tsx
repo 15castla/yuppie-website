@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { CalendarHeart, Key, Percent, type LucideIcon } from "lucide-react";
 import { motion, useInView, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
@@ -8,66 +9,10 @@ import { NoiseOverlay, WordsPullUp } from "./primitives";
 
 const EASE_CARD: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
-function IconStoryboard({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="M9 5v14M15 5v14" />
-      <path d="M3 9.5h6M3 14.5h6M15 9.5h6M15 14.5h6" />
-    </svg>
-  );
-}
-
-function IconCritique({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <path d="M21 11.5a8 8 0 0 1-11.5 7.2L4 20l1.3-4A8 8 0 1 1 21 11.5Z" />
-      <path d="m13 7 1 2.2 2.2 1-2.2 1L13 13.5 12 11.2 9.8 10.2 12 9.2Z" />
-    </svg>
-  );
-}
-
-function IconImmersion({ className }: { className?: string }) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={1.5}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={className}
-      aria-hidden
-    >
-      <circle cx="12" cy="12" r="2.5" />
-      <path d="M7.5 7.5a6.5 6.5 0 0 0 0 9M16.5 7.5a6.5 6.5 0 0 1 0 9" />
-      <path d="M4.5 4.5a11 11 0 0 0 0 15M19.5 4.5a11 11 0 0 1 0 15" />
-    </svg>
-  );
-}
-
 type InfoCard = {
   index: number;
   title: string;
-  Icon: (props: { className?: string }) => React.ReactElement;
+  Icon: LucideIcon;
   description: string;
 };
 
@@ -75,21 +20,21 @@ const INFO_CARDS: InfoCard[] = [
   {
     index: 0,
     title: "Members' Events.",
-    Icon: IconStoryboard,
+    Icon: CalendarHeart,
     description:
       "Dinners, wellness sessions, sport and new experiences, put on regularly across London so there's always something worth going out for. Think supper clubs, Padel & Pints, wellness retreats and nights out you won't find anywhere else.",
   },
   {
     index: 1,
     title: "Members' Discounts.",
-    Icon: IconCritique,
+    Icon: Percent,
     description:
       "We've partnered with over 40 restaurants, bars and hospitality outlets across the city to get our members real, ongoing discounts. Think 30% off at partner restaurants, complimentary drinks at select bars, and preferential rates you won't get walking in off the street.",
   },
   {
     index: 2,
     title: "Members' Access.",
-    Icon: IconImmersion,
+    Icon: Key,
     description:
       "The doors, events and experiences that aren't open to the public. Think skip-the-queue entry at partner venues, access to London's members' clubs, invite-only parties and first access to experiences before they sell out.",
   },
