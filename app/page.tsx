@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -29,36 +29,6 @@ const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 const SCRIM_RANGE: [number, number] = [0, 0.36];
 const HEADLINE_RANGE: [number, number] = [0.36, 0.488];
 const SUBLINE_RANGE: [number, number] = [0.408, 0.52];
-
-// Nav button travel now runs concurrently with the scrim's own rise — same
-// range, by construction (reusing SCRIM_RANGE directly rather than a
-// separately-tuned copy that could drift out of step) — so the button is
-// visibly sliding up over the semi-transparent scrim as both animate
-// together, settling into its fixed-top spot at the exact moment the scrim
-// finishes covering the frame. That's well before HEADLINE_RANGE even
-// starts, so travel and headline still never cross paths.
-const BUTTON_TRAVEL_RANGE: [number, number] = SCRIM_RANGE;
-
-// The solid page-colored backdrop behind the pill doesn't exist during
-// travel (see topNavUi) — it fades in over this short window immediately
-// after BUTTON_TRAVEL_RANGE ends, once the button has actually settled at
-// top. Kept as its own short scroll-linked range (not a fixed-duration
-// animate()) so it stays perfectly reversible: scrolling back up fades the
-// backdrop back out before the button starts its return trip, exactly
-// mirroring the forward sequence.
-const BACKDROP_RANGE: [number, number] = [
-  BUTTON_TRAVEL_RANGE[1],
-  BUTTON_TRAVEL_RANGE[1] + 0.02,
-];
-
-// Applied to the button's raw scroll-fraction before using it to interpolate
-// position — without this, the mapping from scroll progress to pixel offset
-// is linear, which reads as constant-velocity, mechanical motion rather than
-// something that eases into and out of its travel. Standard easeInOutCubic:
-// accelerates from a stop, cruises, decelerates into a stop.
-function easeInOutCubic(t: number) {
-  return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-}
 
 // Largest scroll delta a single wheel/touch input is allowed to apply while
 // inside the hero's own range — see the interception effect below.
@@ -174,28 +144,6 @@ export default function Home() {
   );
 
   const heroRef = useRef<HTMLDivElement>(null);
-  // Zero-height, invisible marker placed in normal flow directly below
-  // HeroLogo (after its mb-24 margin — see the comment on HeroLogo). Its
-  // viewport-relative top is where the nav button would sit if it were
-  // really an in-flow element under the logo. Because the hero frame is
-  // `sticky` and stays pinned to the same on-screen position for the whole
-  // scroll range this component measures against, this only needs measuring
-  // on mount + resize, not per scroll frame — the anchor's screen position
-  // is constant throughout the entire pin.
-  const buttonAnchorRef = useRef<HTMLDivElement>(null);
-  const [buttonAnchorTop, setButtonAnchorTop] = useState(0);
-
-  useEffect(() => {
-    function measure() {
-      const el = buttonAnchorRef.current;
-      if (!el) return;
-      setButtonAnchorTop(el.getBoundingClientRect().top);
-    }
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, [prefersReducedMotion]);
-
   // "end end" (not "end start") so progress 0→1 spans exactly the CSS-sticky
   // frame's real pinned window (driver height − viewport height). "end start"
   // instead spans the driver's *full* height, which is 2x too long here —
@@ -236,41 +184,6 @@ export default function Home() {
   const sublineY = useTransform(
     scrollYProgress,
     (p) => (1 - clampedProgress(p, SUBLINE_RANGE)) * 32,
-  );
-
-  // Nav button travel: tied to the same scrollYProgress driving the
-  // scrim/headline above, over BUTTON_TRAVEL_RANGE (=== SCRIM_RANGE — see
-  // above). Three approaches were tried and rejected before this one:
-  // spanning the full 0→1 pin let it visibly pass through/clip the headline
-  // text mid-scroll; starting travel only after the scrim finished (a short
-  // 0.03-wide window) compressed 600+px of real travel into ~10px of scroll
-  // distance, which made it snap rather than glide — too little scroll room
-  // for the eyes to register continuous motion, particularly with the
-  // wheel-clamp interception below capping any single input's effective
-  // delta. Running concurrently with the full scrim rise gives it roughly
-  // 10x the scroll distance to cover the same travel, which is what actually
-  // fixes the jitter — that, plus easeInOutCubic below, not just a wider
-  // range on its own. The nav strip itself stays `position: fixed; top: 0`
-  // throughout (unchanged from before); this only adds a translateY of
-  // buttonAnchorTop at p===0, easing to 0 by the end of BUTTON_TRAVEL_RANGE —
-  // a GPU-cheap transform rather than animating `top` directly, consistent
-  // with scrimY/headlineY/sublineY above. At p===0 the rendered position
-  // exactly overlaps the invisible in-flow anchor below HeroLogo, which is
-  // what makes it read as "sitting under the logo" even though it's
-  // technically fixed the whole time — the sticky hero frame doesn't move
-  // during the pin anyway, so a fixed element with the right translateY is
-  // visually indistinguishable from a true in-flow one until the pin
-  // releases, at which point it needs to actually be fixed to keep tracking
-  // the viewport instead of scrolling away.
-  const buttonY = useTransform(scrollYProgress, (p) => {
-    const linear = clampedProgress(p, BUTTON_TRAVEL_RANGE);
-    return buttonAnchorTop * (1 - easeInOutCubic(linear));
-  });
-
-  // Solid backdrop behind the pill — see BACKDROP_RANGE above for why this
-  // fades in only after travel settles rather than existing throughout.
-  const backdropOpacity = useTransform(scrollYProgress, (p) =>
-    clampedProgress(p, BACKDROP_RANGE),
   );
 
   // A hard trackpad flick or a big mouse-wheel scroll can otherwise skip
@@ -356,50 +269,27 @@ export default function Home() {
   // z-index, so they sit at the stacking-context default) — `position:
   // fixed` already puts this in the root stacking context regardless of
   // where in the DOM it's mounted, so it renders above the hero's sticky
-  // frame throughout the whole pin, not just before/after it. `top-0` is
-  // its permanent resting position; buttonY (see above) rides on top of
-  // that via translateY to fake the in-flow start position during the hero
-  // pin. Under reduced motion there's no pin/anchor/scrim to travel over,
-  // so it's just pinned at top-0 with the backdrop already present the
-  // moment it fades in, same as this component's motion-off behavior
-  // everywhere else.
-  //
-  // No background color on this outer container itself — during travel the
-  // pill rides directly on top of the scrim with nothing behind it. The
-  // solid `bg-background` rectangle is a separate absolutely-positioned
-  // layer (below) that only fades in once travel settles, via
-  // backdropOpacity, then remains as the strip's permanent background.
+  // frame throughout the whole pin, not just before/after it. Background is
+  // the same `bg-background` yellow as the rest of the page on purpose —
+  // it's meant to be invisible as a "bar", just a fixed-position home for
+  // the pill button.
   const topNavUi = (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: hasInteractedNow ? 1 : 0 }}
       transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: "easeOut" as const }}
-      style={{
-        pointerEvents: hasInteractedNow ? "auto" : "none",
-        y: prefersReducedMotion ? 0 : buttonY,
-        willChange: "transform",
-      }}
-      className="fixed inset-x-0 top-0 z-50 flex justify-center px-4 py-3 sm:py-4"
+      style={{ pointerEvents: hasInteractedNow ? "auto" : "none" }}
+      className="fixed inset-x-0 top-0 z-50 flex justify-center bg-background px-4 py-3 sm:py-4"
     >
-      <motion.div
-        aria-hidden
-        className="absolute inset-0 bg-background"
-        style={{ opacity: prefersReducedMotion ? 1 : backdropOpacity }}
-      />
-
       {/* !-prefixed on px/py/text-size: buttonBaseClasses already sets its
           own unprefixed px-10/py-4/text-base, and Tailwind's compiled
           utility order isn't guaranteed to follow class-string order across
           two unrelated usages — plain overrides here could just as easily
           lose depending on source-scan order (confirmed the hard way on the
           old floating Membership button). !important forces it regardless.
-          gap doesn't need it since buttonBaseClasses never sets one.
-          relative + z-10: the backdrop above is position:absolute, which
-          (per CSS stacking rules) paints above non-positioned in-flow
-          content regardless of DOM order — without its own positioning +
-          z-index the pill would end up hidden behind its own backdrop. */}
+          gap doesn't need it since buttonBaseClasses never sets one. */}
       <div
-        className={`relative z-10 ${buttonBaseClasses} gap-6 sm:gap-10 !px-6 !py-3 !text-sm sm:!px-10 sm:!py-4 sm:!text-base`}
+        className={`${buttonBaseClasses} gap-6 sm:gap-10 !px-6 !py-3 !text-sm sm:!px-10 sm:!py-4 sm:!text-base`}
       >
         <Link
           href="/apply"
@@ -452,7 +342,6 @@ export default function Home() {
             */}
             <div className="sticky top-0 flex h-dvh flex-col items-center justify-center overflow-hidden px-6 text-center">
               <HeroLogo />
-              <div ref={buttonAnchorRef} aria-hidden className="h-0 w-full" />
 
               {/*
                 Height is 130% of the frame, bottom-anchored, so that at y:"0%"
