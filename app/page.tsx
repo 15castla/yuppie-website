@@ -21,14 +21,19 @@ const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 // pinned/scroll-linked stage on the page — everything after it (the "The
 // App" heading, the phone mockups, and whatever else follows) is plain,
 // unpinned document flow, no scrim, no scroll-linked animation.
-//   0–90     scrim rises, fully covers the logo
-//   90–130   headline + subline fade in on top of the (now solid) scrim
-//   130–250  hold — nothing animates, full time to read both lines, then
+//   0–160    scrim rises, fully covers the logo — widened from the original
+//            0–90 specifically so the cover reads as gradual rather than
+//            abrupt; paired with the taller scrim element itself (see its
+//            height below), which also grows the actual soft gradient edge
+//            in absolute pixels, not just the scroll time it takes to cross.
+//   160–200  headline rises into place (see headlineY below), subline
+//            staggered 12px into that same window
+//   200–320  hold — nothing animates, full time to read both lines, then
 //            the pin releases immediately into normal scrolling
-// Total pin room = 250px, driver height = 131.25dvh (100dvh viewport + 31.25dvh).
-const SCRIM_RANGE: [number, number] = [0, 0.36];
-const HEADLINE_RANGE: [number, number] = [0.36, 0.488];
-const SUBLINE_RANGE: [number, number] = [0.408, 0.52];
+// Total pin room = 320px, driver height = 140dvh (100dvh viewport + 40dvh).
+const SCRIM_RANGE: [number, number] = [0, 0.5];
+const HEADLINE_RANGE: [number, number] = [0.5, 0.6];
+const SUBLINE_RANGE: [number, number] = [0.5375, 0.625];
 
 // Largest scroll delta a single wheel/touch input is allowed to apply while
 // inside the hero's own range — see the interception effect below.
@@ -169,14 +174,18 @@ export default function Home() {
     (p) => `${(1 - clampedProgress(p, SCRIM_RANGE)) * 100}%`,
   );
 
-  // Entrance only — no exit multiplier. The text settles at full opacity
-  // once it's in and never fades, scales, or moves on its own again.
-  const headlineOpacity = useTransform(scrollYProgress, (p) =>
-    clampedProgress(p, HEADLINE_RANGE),
-  );
+  // Headline rise: no opacity involved at all, deliberately mirroring how
+  // the scrim itself works above — a solid, always-fully-opaque element
+  // whose reveal comes purely from translateY moving it into (or out of)
+  // the frame's clipped viewport (the sticky frame has overflow-hidden), not
+  // from fading. 70vh comfortably starts the headline below the visible
+  // frame regardless of viewport aspect ratio — vh, not a percentage of the
+  // element's own (much smaller) height, since "below the viewport" is a
+  // viewport-relative distance, not one relative to the text's own box.
+  // Entrance only — no exit multiplier, so once fully risen it just holds.
   const headlineY = useTransform(
     scrollYProgress,
-    (p) => (1 - clampedProgress(p, HEADLINE_RANGE)) * 32,
+    (p) => `${(1 - clampedProgress(p, HEADLINE_RANGE)) * 70}vh`,
   );
   const sublineOpacity = useTransform(scrollYProgress, (p) =>
     clampedProgress(p, SUBLINE_RANGE),
@@ -336,10 +345,10 @@ export default function Home() {
             </section>
           </>
         ) : (
-          <div ref={heroRef} className="relative h-[131.25dvh]">
+          <div ref={heroRef} className="relative h-[140dvh]">
             {/*
               Pure CSS `position: sticky` pin: this inner frame sticks to
-              top:0 for the full height of the h-[131.25dvh] driver above it,
+              top:0 for the full height of the h-[140dvh] driver above it,
               then releases back into normal flow once the driver's bottom
               edge reaches the viewport top. Framer's useScroll/useTransform
               above only compute a 0→1 progress value off that same driver
@@ -350,17 +359,22 @@ export default function Home() {
               <HeroLogo />
 
               {/*
-                Height is 130% of the frame, bottom-anchored, so that at y:"0%"
-                the div overshoots past the top of the frame. That pushes the
-                gradient's transparent-to-opaque fade band entirely above the
-                visible area, guaranteeing solid, fully opaque yellow across
-                the whole frame at full coverage — no residual fade line.
+                Height is 180% of the frame (up from 130%), bottom-anchored,
+                so that at y:"0%" the div overshoots well past the top of the
+                frame — guaranteeing solid, fully opaque yellow across the
+                whole frame at full coverage, no residual fade line, same as
+                before. Taller than strictly necessary for that alone
+                (130% already cleared it, if tightly) specifically so the
+                gradient's transparent-to-opaque fade band, which is sized as
+                a percentage of the element's OWN height, is a bigger
+                absolute number of pixels too — the actual soft edge sweeping
+                across the frame is now visibly wider, not just slower.
               */}
               <motion.div
                 aria-hidden
                 className="absolute inset-x-0 bottom-0"
                 style={{
-                  height: "130%",
+                  height: "180%",
                   y: scrimY,
                   willChange: "transform",
                   backgroundImage:
@@ -371,9 +385,8 @@ export default function Home() {
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-4 px-6">
                 <motion.h2
                   style={{
-                    opacity: headlineOpacity,
                     y: headlineY,
-                    willChange: "transform, opacity",
+                    willChange: "transform",
                   }}
                   className="max-w-2xl text-3xl font-bold leading-tight tracking-tight sm:text-5xl"
                 >
