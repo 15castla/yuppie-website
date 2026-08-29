@@ -51,23 +51,29 @@ function LockIcon({ className }: { className?: string }) {
   );
 }
 
-export function PhoneFrame({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
+// A realistic iPhone chassis: thick rounded bezel, a floating Dynamic-Island
+// pill overlaid on the screen (not cut into the top edge), and protruding
+// side buttons (silent switch + volume rocker on the left, power button on
+// the right) — distinguished from the bezel by a lighter shade, the way a
+// real phone's anodized edge catches light differently from its buttons.
+export function PhoneFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex w-[78vw] max-w-[280px] shrink-0 snap-center flex-col items-center gap-4 sm:w-full">
-      <div
-        className="relative w-full overflow-hidden rounded-[2.5rem] border-[6px] border-foreground bg-[#F5F3E7] shadow-xl"
-        style={{ aspectRatio: "9 / 19" }}
-      >
-        <div className="absolute left-1/2 top-0 z-10 h-5 w-24 -translate-x-1/2 rounded-b-2xl bg-foreground" />
+    <div
+      className="relative h-full w-full rounded-[2.75rem] bg-[#1B1512] p-[3px] shadow-2xl"
+      style={{ aspectRatio: "9 / 19.5" }}
+    >
+      {/* Silent switch */}
+      <div className="absolute -left-[3px] top-[17%] h-6 w-[3px] rounded-l-sm bg-[#2A2420]" />
+      {/* Volume up / down */}
+      <div className="absolute -left-[3px] top-[27%] h-10 w-[3px] rounded-l-sm bg-[#2A2420]" />
+      <div className="absolute -left-[3px] top-[39%] h-10 w-[3px] rounded-l-sm bg-[#2A2420]" />
+      {/* Power button */}
+      <div className="absolute -right-[3px] top-[24%] h-14 w-[3px] rounded-r-sm bg-[#2A2420]" />
+
+      <div className="relative h-full w-full overflow-hidden rounded-[2.5rem] border border-black/40 bg-[#F5F3E7]">
         <div className="flex h-full w-full flex-col">{children}</div>
+        <div className="pointer-events-none absolute left-1/2 top-2 z-10 h-6 w-24 -translate-x-1/2 rounded-full bg-[#1B1512]" />
       </div>
-      <p className="text-sm font-semibold text-foreground/70">{label}</p>
     </div>
   );
 }

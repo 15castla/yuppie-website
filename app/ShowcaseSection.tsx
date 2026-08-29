@@ -1,9 +1,9 @@
 import {
-  PhoneFrame,
   HomeScreenMockup,
   EventsScreenMockup,
   MembershipScreenMockup,
 } from "./PhoneMockups";
+import { PhoneCarousel } from "./PhoneCarousel";
 
 const SCREENS = [
   { label: "Home", content: <HomeScreenMockup /> },
@@ -23,12 +23,8 @@ export function ShowcaseSection() {
           The App
         </h2>
 
-        <div className="mt-12 flex snap-x snap-mandatory gap-6 overflow-x-auto pb-4 sm:grid sm:grid-cols-3 sm:overflow-visible sm:pb-0">
-          {SCREENS.map((screen) => (
-            <PhoneFrame key={screen.label} label={screen.label}>
-              {screen.content}
-            </PhoneFrame>
-          ))}
+        <div className="mt-12">
+          <PhoneCarousel screens={SCREENS} />
         </div>
       </div>
     </section>
