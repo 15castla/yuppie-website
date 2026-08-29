@@ -53,15 +53,16 @@ export function Hero({
 
         <NoiseOverlay className="opacity-[0.7] mix-blend-overlay" />
 
-        {/* Much lighter than the template's own from-black/30 to-black/60:
-            that gradient existed to keep light (cream) text legible over a
-            busy dark backdrop. Our text is dark-on-light instead, so a heavy
-            dark scrim doesn't serve the same purpose — it just muddies the
-            yellow. Kept faint rather than removed outright for a touch of
-            depth toward the edges. */}
+        {/* Recolored from the template's own from-black/30 to-black/60: that
+            gradient existed to darken the backdrop for light (cream) text.
+            Our text is dark-on-light instead, so a black scrim no longer
+            serves that purpose — it would just muddy the yellow. Swapped to
+            the pale-yellow token instead, same 30/60 opacity structure, so
+            it reads as a soft in-brand wash/highlight toward the edges
+            rather than a dark scrim. */}
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-foreground/8 via-transparent to-foreground/12"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background-muted/30 via-transparent to-background-muted/60"
         />
 
         <nav className="absolute left-1/2 top-0 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-b-2xl bg-background md:max-w-none md:rounded-b-3xl">
