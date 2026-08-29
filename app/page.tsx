@@ -4,7 +4,7 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useScroll, useTransform } from "framer-motion";
-import { Button } from "@/components/Button";
+import { buttonBaseClasses } from "@/components/Button";
 import { ShowcaseSection } from "./ShowcaseSection";
 
 const ENTRANCE_VARIANTS = {
@@ -60,6 +60,7 @@ function markInteracted() {
   hasInteracted = true;
   window.removeEventListener("scroll", markInteracted);
   window.removeEventListener("touchstart", markInteracted);
+  window.removeEventListener("click", markInteracted);
   interactionListeners.forEach((listener) => listener());
 }
 
@@ -68,6 +69,7 @@ function subscribeToInteraction(callback: () => void) {
   if (!hasInteracted) {
     window.addEventListener("scroll", markInteracted, { passive: true });
     window.addEventListener("touchstart", markInteracted, { passive: true });
+    window.addEventListener("click", markInteracted);
   }
   return () => {
     interactionListeners.delete(callback);
@@ -262,42 +264,46 @@ export default function Home() {
     };
   }, [prefersReducedMotion]);
 
-  // Shared reveal behavior for both floating elements — same hasInteracted
-  // gate, same fade, just different fixed corners.
-  const floatingAnimateProps = {
-    initial: { opacity: 0 },
-    animate: { opacity: hasInteractedNow ? 1 : 0 },
-    transition: { duration: prefersReducedMotion ? 0 : 0.5, ease: "easeOut" as const },
-    style: { pointerEvents: hasInteractedNow ? ("auto" as const) : ("none" as const) },
-  };
-
-  const signInUi = (
+  // Fixed top nav strip. z-50 is deliberately higher than anything the
+  // pinned hero uses (the scrim and text inside it have no explicit
+  // z-index, so they sit at the stacking-context default) — `position:
+  // fixed` already puts this in the root stacking context regardless of
+  // where in the DOM it's mounted, so it renders above the hero's sticky
+  // frame throughout the whole pin, not just before/after it. Background is
+  // the same `bg-background` yellow as the rest of the page on purpose —
+  // it's meant to be invisible as a "bar", just a fixed-position home for
+  // the pill button.
+  const topNavUi = (
     <motion.div
-      {...floatingAnimateProps}
-      className="fixed right-6 top-6 z-40 sm:right-10 sm:top-10"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: hasInteractedNow ? 1 : 0 }}
+      transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: "easeOut" as const }}
+      style={{ pointerEvents: hasInteractedNow ? "auto" : "none" }}
+      className="fixed inset-x-0 top-0 z-50 flex justify-center bg-background px-4 py-3 sm:py-4"
     >
-      <Link
-        href="/member-login"
-        className="text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
+      {/* !-prefixed on px/py/text-size: buttonBaseClasses already sets its
+          own unprefixed px-10/py-4/text-base, and Tailwind's compiled
+          utility order isn't guaranteed to follow class-string order across
+          two unrelated usages — plain overrides here could just as easily
+          lose depending on source-scan order (confirmed the hard way on the
+          old floating Membership button). !important forces it regardless.
+          gap doesn't need it since buttonBaseClasses never sets one. */}
+      <div
+        className={`${buttonBaseClasses} gap-6 sm:gap-10 !px-6 !py-3 !text-sm sm:!px-10 sm:!py-4 sm:!text-base`}
       >
-        Sign in
-      </Link>
-    </motion.div>
-  );
-
-  const membershipUi = (
-    <motion.div
-      {...floatingAnimateProps}
-      className="fixed bottom-8 right-6 z-40 sm:bottom-10 sm:right-10"
-    >
-      {/* !-prefixed to reliably override Button's own px-10/py-4/text-base —
-          Tailwind's compiled utility order isn't guaranteed to follow the
-          order classes appear in this className string, so a plain
-          "px-5 py-2 text-sm" here could just as easily lose to Button's
-          own classes depending on source-scan order. !important forces it. */}
-      <Button href="/apply" className="!px-5 !py-2 !text-sm">
-        Membership
-      </Button>
+        <Link
+          href="/apply"
+          className="outline-none transition-colors hover:underline focus-visible:underline"
+        >
+          Membership
+        </Link>
+        <Link
+          href="/member-login"
+          className="outline-none transition-colors hover:underline focus-visible:underline"
+        >
+          Members Area
+        </Link>
+      </div>
     </motion.div>
   );
 
@@ -386,8 +392,7 @@ export default function Home() {
         <ShowcaseSection />
       </main>
 
-      {signInUi}
-      {membershipUi}
+      {topNavUi}
     </>
   );
 }
