@@ -264,7 +264,7 @@ export default function Home() {
     };
   }, [prefersReducedMotion]);
 
-  // Fixed bottom nav strip. z-50 is deliberately higher than anything the
+  // Fixed top nav strip. z-50 is deliberately higher than anything the
   // pinned hero uses (the scrim and text inside it have no explicit
   // z-index, so they sit at the stacking-context default) — `position:
   // fixed` already puts this in the root stacking context regardless of
@@ -273,13 +273,13 @@ export default function Home() {
   // the same `bg-background` yellow as the rest of the page on purpose —
   // it's meant to be invisible as a "bar", just a fixed-position home for
   // the pill button.
-  const bottomNavUi = (
+  const topNavUi = (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: hasInteractedNow ? 1 : 0 }}
       transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: "easeOut" as const }}
       style={{ pointerEvents: hasInteractedNow ? "auto" : "none" }}
-      className="fixed inset-x-0 bottom-0 z-50 flex justify-center bg-background px-4 py-3 sm:py-4"
+      className="fixed inset-x-0 top-0 z-50 flex justify-center bg-background px-4 py-3 sm:py-4"
     >
       {/* !-prefixed on px/py/text-size: buttonBaseClasses already sets its
           own unprefixed px-10/py-4/text-base, and Tailwind's compiled
@@ -392,7 +392,7 @@ export default function Home() {
         <ShowcaseSection />
       </main>
 
-      {bottomNavUi}
+      {topNavUi}
     </>
   );
 }
