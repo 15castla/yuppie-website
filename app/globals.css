@@ -2,13 +2,17 @@
 
 :root {
   --background: #ffd904;
+  --background-muted: #fff3b0;
   --foreground: #1b1512;
+  --foreground-muted: #6b6560;
   --accent: #ffd904;
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-background-muted: var(--background-muted);
   --color-foreground: var(--foreground);
+  --color-foreground-muted: var(--foreground-muted);
   --color-accent: var(--accent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -18,4 +22,12 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+}
+
+/* Tailwind v4's `container` utility no longer auto-centers or pads by
+   default (v3 behavior) — restored here since components/templates/
+   creative-studio/*.tsx use bare `container` expecting that. */
+@utility container {
+  margin-inline: auto;
+  padding-inline: 1.5rem;
 }
