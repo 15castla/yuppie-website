@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -29,6 +29,10 @@ const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 const SCRIM_RANGE: [number, number] = [0, 0.36];
 const HEADLINE_RANGE: [number, number] = [0.36, 0.488];
 const SUBLINE_RANGE: [number, number] = [0.408, 0.52];
+
+// Largest scroll delta a single wheel/touch input is allowed to apply while
+// inside the hero's own range — see the interception effect below.
+const MAX_STEP_PX = 40;
 
 function subscribeToReducedMotion(callback: () => void) {
   const mediaQuery = window.matchMedia(REDUCED_MOTION_QUERY);
@@ -179,6 +183,84 @@ export default function Home() {
     scrollYProgress,
     (p) => (1 - clampedProgress(p, SUBLINE_RANGE)) * 32,
   );
+
+  // A hard trackpad flick or a big mouse-wheel scroll can otherwise skip
+  // straight past the whole pinned hero in one native scroll jump, landing
+  // in ShowcaseSection without the headline ever having appeared — this is
+  // all just one continuous document scroll under the hood, so nothing
+  // stops it. Rather than correcting after the fact (tried, reverted — it
+  // let the text visibly flash past before snapping back, which read as
+  // more broken than the skip itself), intercept the *input* directly:
+  // deltas at or under MAX_STEP_PX are left completely alone (untouched
+  // native scroll, so ordinary scrolling is unaffected), but anything
+  // larger gets capped to MAX_STEP_PX and applied manually. A single big
+  // input still moves the page, just by a small step instead of hundreds
+  // of pixels — a real flick fires many such events in quick succession as
+  // its momentum decays, so it still gets through, just over several
+  // clamped steps rather than one jump. Only active while scrollY is
+  // inside the closed range [0, driverHeight] — inclusive of both edges on
+  // purpose: the most common case is starting a flick from exactly
+  // scrollY===0, so a strict `y > 0` check would let that very first big
+  // event straight through unclamped (caught by testing: a single 800px
+  // wheel event from the top landed at scrollY 800 with no interception at
+  // all, because `0 > 0` is false). Symmetrically inclusive at the top edge
+  // too, so a big upward scroll starting exactly at the release point is
+  // still clamped going back in. Once genuinely outside [0, driverHeight],
+  // native scroll takes back over. Skipped entirely under
+  // prefers-reduced-motion, since that path has no pin to protect — it's
+  // normal document flow.
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+
+    function withinHeroRange() {
+      const hero = heroRef.current;
+      if (!hero) return false;
+      const driverHeight = hero.getBoundingClientRect().height;
+      const y = window.scrollY;
+      return y >= 0 && y <= driverHeight;
+    }
+
+    function clamp(delta: number) {
+      return Math.max(-MAX_STEP_PX, Math.min(MAX_STEP_PX, delta));
+    }
+
+    function onWheel(event: WheelEvent) {
+      if (Math.abs(event.deltaY) <= MAX_STEP_PX) return;
+      if (!withinHeroRange()) return;
+      event.preventDefault();
+      window.scrollBy(0, clamp(event.deltaY));
+    }
+
+    let lastTouchY: number | null = null;
+
+    function onTouchStart(event: TouchEvent) {
+      lastTouchY = event.touches[0]?.clientY ?? null;
+    }
+
+    function onTouchMove(event: TouchEvent) {
+      if (lastTouchY === null) return;
+      const currentY = event.touches[0]?.clientY;
+      if (currentY === undefined) return;
+      const delta = lastTouchY - currentY; // finger moving up = scrolling down
+      lastTouchY = currentY;
+      if (Math.abs(delta) <= MAX_STEP_PX) return;
+      if (!withinHeroRange()) return;
+      event.preventDefault();
+      window.scrollBy(0, clamp(delta));
+    }
+
+    // Both need { passive: false } — they call preventDefault(), which a
+    // passive listener is not allowed to do (the call would silently no-op
+    // and the browser would still scroll natively past the clamp).
+    window.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("touchstart", onTouchStart, { passive: true });
+    window.addEventListener("touchmove", onTouchMove, { passive: false });
+    return () => {
+      window.removeEventListener("wheel", onWheel);
+      window.removeEventListener("touchstart", onTouchStart);
+      window.removeEventListener("touchmove", onTouchMove);
+    };
+  }, [prefersReducedMotion]);
 
   // Shared reveal behavior for both floating elements — same hasInteracted
   // gate, same fade, just different fixed corners.
