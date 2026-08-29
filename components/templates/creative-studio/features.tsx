@@ -68,7 +68,15 @@ function FeatureCard({
 
 export function Features() {
   return (
-    <section className="relative min-h-screen overflow-hidden bg-background py-20 sm:py-28 md:py-32">
+    // bg-background-muted (not bg-background): About's section above this
+    // one has its own vertical padding around its pale box, so its bottom
+    // edge is vivid --background right up until the section boundary —
+    // butted directly against this section's own vivid top region (before
+    // the cards), that reads as one uninterrupted flat-yellow block with no
+    // visible seam. Flipping this section's own background to the pale
+    // token creates a hard, deliberate two-tone boundary right at that
+    // edge without needing to touch About at all.
+    <section className="relative min-h-screen overflow-hidden bg-background-muted py-20 sm:py-28 md:py-32">
       {/* mix-blend-overlay added to match Hero's own NoiseOverlay treatment
           (hero.tsx uses `opacity-[0.7] mix-blend-overlay`) — without a blend
           mode, this noise's near-black grain (see primitives.tsx) composites
@@ -103,10 +111,18 @@ export function Features() {
             <FeatureCard
               key={card.title}
               index={card.index}
-              className="min-h-[280px] border border-foreground/10 bg-background-muted"
+              className="min-h-[280px] border border-foreground/10 bg-background"
             >
               <div className="flex h-full flex-col gap-4 p-6 sm:p-8">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background sm:h-12 sm:w-12">
+                {/* Both flipped from the section's own pre-existing pattern
+                    now that the section itself sits on bg-background-muted:
+                    cards need to be the vivid token to read as distinct
+                    surfaces against their now-pale backdrop, which in turn
+                    means the icon tile needs to flip back to the pale token
+                    to stay visible against its now-vivid card — same
+                    two-token contrast relationship, just inverted one level
+                    deeper. */}
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background-muted sm:h-12 sm:w-12">
                   <card.Icon className="h-5 w-5 text-foreground sm:h-6 sm:w-6" />
                 </div>
 
