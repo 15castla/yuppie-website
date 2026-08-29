@@ -304,7 +304,7 @@ export default function Home() {
           Members Area
         </Link>
         <Link
-          href="mailto:hello@clubyuppie.com"
+          href="/contact"
           className="outline-none transition-colors hover:underline focus-visible:underline"
         >
           Contact
