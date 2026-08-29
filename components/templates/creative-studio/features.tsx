@@ -69,7 +69,15 @@ function FeatureCard({
 export function Features() {
   return (
     <section className="relative min-h-screen overflow-hidden bg-background py-20 sm:py-28 md:py-32">
-      <NoiseOverlay variant="bg" className="opacity-[0.15]" />
+      {/* mix-blend-overlay added to match Hero's own NoiseOverlay treatment
+          (hero.tsx uses `opacity-[0.7] mix-blend-overlay`) — without a blend
+          mode, this noise's near-black grain (see primitives.tsx) composites
+          via plain alpha over the vivid yellow, which flattens/desaturates
+          it toward a muddy olive rather than reading as grain. Overlay blend
+          mode affects luminosity while preserving the base hue, which is
+          what keeps Hero's background looking like clean yellow with
+          texture instead of a murky tint. */}
+      <NoiseOverlay variant="bg" className="opacity-[0.15] mix-blend-overlay" />
 
       <div className="relative container flex flex-col gap-12 md:gap-16">
         <div className="flex flex-col items-center gap-1 text-center">
