@@ -68,7 +68,13 @@ function FeatureCard({
 
 export function Features() {
   return (
-    <section className="relative min-h-screen overflow-hidden bg-background py-20 sm:py-28 md:py-32">
+    // bg-background is the base fill (background-color); the gradient
+    // classes layer a background-image on top of it, so both coexist on
+    // one element without conflict. Recipe is hero.tsx's own overlay div
+    // verbatim (bg-gradient-to-b from-background-muted/30 via-transparent
+    // to-background-muted/60) — same direction, same two color stops, same
+    // opacities, no new colors introduced.
+    <section className="relative min-h-screen overflow-hidden bg-background bg-gradient-to-b from-background-muted/30 via-transparent to-background-muted/60 py-20 sm:py-28 md:py-32">
       <NoiseOverlay variant="bg" className="opacity-[0.15]" />
 
       <div className="relative container flex flex-col gap-12 md:gap-16">
