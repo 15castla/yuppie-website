@@ -289,7 +289,7 @@ export default function Home() {
           old floating Membership button). !important forces it regardless.
           gap doesn't need it since buttonBaseClasses never sets one. */}
       <div
-        className={`${buttonBaseClasses} gap-6 sm:gap-10 !px-6 !py-3 !text-sm sm:!px-10 sm:!py-4 sm:!text-base`}
+        className={`${buttonBaseClasses} gap-4 sm:gap-8 !px-5 !py-3 !text-sm sm:!px-8 sm:!py-4 sm:!text-base`}
       >
         <Link
           href="/apply"
@@ -302,6 +302,12 @@ export default function Home() {
           className="outline-none transition-colors hover:underline focus-visible:underline"
         >
           Members Area
+        </Link>
+        <Link
+          href="mailto:hello@clubyuppie.com"
+          className="outline-none transition-colors hover:underline focus-visible:underline"
+        >
+          Contact
         </Link>
       </div>
     </motion.div>
