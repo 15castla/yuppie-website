@@ -7,6 +7,7 @@ import { Features } from "./features";
 import { almarai, instrumentSerif } from "./fonts";
 import { Footer } from "./footer";
 import { Hero } from "./hero";
+import { Pricing } from "./pricing";
 
 export default function CreativeStudio() {
   return (
@@ -23,6 +24,7 @@ export default function CreativeStudio() {
       <Hero />
       <About />
       <Features />
+      <Pricing />
       <Footer />
     </div>
   );
