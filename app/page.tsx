@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion, useScroll, useTransform } from "framer-motion";
@@ -144,6 +144,28 @@ export default function Home() {
   );
 
   const heroRef = useRef<HTMLDivElement>(null);
+  // Zero-height, invisible marker placed in normal flow directly below
+  // HeroLogo (after its mb-24 margin — see the comment on HeroLogo). Its
+  // viewport-relative top is where the nav button would sit if it were
+  // really an in-flow element under the logo. Because the hero frame is
+  // `sticky` and stays pinned to the same on-screen position for the whole
+  // scroll range this component measures against, this only needs measuring
+  // on mount + resize, not per scroll frame — the anchor's screen position
+  // is constant throughout the entire pin.
+  const buttonAnchorRef = useRef<HTMLDivElement>(null);
+  const [buttonAnchorTop, setButtonAnchorTop] = useState(0);
+
+  useEffect(() => {
+    function measure() {
+      const el = buttonAnchorRef.current;
+      if (!el) return;
+      setButtonAnchorTop(el.getBoundingClientRect().top);
+    }
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [prefersReducedMotion]);
+
   // "end end" (not "end start") so progress 0→1 spans exactly the CSS-sticky
   // frame's real pinned window (driver height − viewport height). "end start"
   // instead spans the driver's *full* height, which is 2x too long here —
@@ -184,6 +206,30 @@ export default function Home() {
   const sublineY = useTransform(
     scrollYProgress,
     (p) => (1 - clampedProgress(p, SUBLINE_RANGE)) * 32,
+  );
+
+  // Nav button travel: tied to the same scrollYProgress driving the
+  // scrim/headline above, but only across SCRIM_RANGE rather than the full
+  // 0→1 pin — finishing the trip exactly as the scrim finishes rising, so
+  // the button is already tucked at the top before the headline starts
+  // fading in over that same vertical band. Spanning the button's travel
+  // across the entire pin (tried first) let it visibly pass through/clip
+  // the headline text mid-scroll, since both occupy the same centered
+  // column at the same time. The nav strip itself stays `position: fixed;
+  // top: 0` throughout (unchanged from before); this only adds a
+  // translateY of buttonAnchorTop at p===0, easing to 0 by the end of
+  // SCRIM_RANGE — a GPU-cheap transform rather than animating `top`
+  // directly, consistent with scrimY/headlineY/sublineY above. At p===0 the
+  // rendered position exactly overlaps the invisible in-flow anchor below
+  // HeroLogo, which is what makes it read as "sitting under the logo" even
+  // though it's technically fixed the whole time — the sticky hero frame
+  // doesn't move during the pin anyway, so a fixed element with the right
+  // translateY is visually indistinguishable from a true in-flow one until
+  // the pin releases, at which point it needs to actually be fixed to keep
+  // tracking the viewport instead of scrolling away.
+  const buttonY = useTransform(
+    scrollYProgress,
+    (p) => buttonAnchorTop * (1 - clampedProgress(p, SCRIM_RANGE)),
   );
 
   // A hard trackpad flick or a big mouse-wheel scroll can otherwise skip
@@ -272,13 +318,21 @@ export default function Home() {
   // frame throughout the whole pin, not just before/after it. Background is
   // the same `bg-background` yellow as the rest of the page on purpose —
   // it's meant to be invisible as a "bar", just a fixed-position home for
-  // the pill button.
+  // the pill button. `top-0` is its permanent resting position; buttonY
+  // (see above) rides on top of that via translateY to fake the in-flow
+  // start position during the hero pin. Under reduced motion there's no
+  // pin/anchor to travel from, so it's just pinned at top-0 the moment it
+  // fades in, same as this component's motion-off behavior everywhere else.
   const topNavUi = (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: hasInteractedNow ? 1 : 0 }}
       transition={{ duration: prefersReducedMotion ? 0 : 0.5, ease: "easeOut" as const }}
-      style={{ pointerEvents: hasInteractedNow ? "auto" : "none" }}
+      style={{
+        pointerEvents: hasInteractedNow ? "auto" : "none",
+        y: prefersReducedMotion ? 0 : buttonY,
+        willChange: "transform",
+      }}
       className="fixed inset-x-0 top-0 z-50 flex justify-center bg-background px-4 py-3 sm:py-4"
     >
       {/* !-prefixed on px/py/text-size: buttonBaseClasses already sets its
@@ -342,6 +396,7 @@ export default function Home() {
             */}
             <div className="sticky top-0 flex h-dvh flex-col items-center justify-center overflow-hidden px-6 text-center">
               <HeroLogo />
+              <div ref={buttonAnchorRef} aria-hidden className="h-0 w-full" />
 
               {/*
                 Height is 130% of the frame, bottom-anchored, so that at y:"0%"
