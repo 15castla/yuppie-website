@@ -30,6 +30,17 @@ const SCRIM_RANGE: [number, number] = [0, 0.36];
 const HEADLINE_RANGE: [number, number] = [0.36, 0.488];
 const SUBLINE_RANGE: [number, number] = [0.408, 0.52];
 
+// Nav button travel starts only once the scrim finishes rising (SCRIM_RANGE's
+// end) — static under the logo, hidden along with it as the scrim covers the
+// frame, until that exact point. Then a short, quick window (0.03 of the
+// total pin) carries it the rest of the way to fixed-top, finishing well
+// before HEADLINE_RANGE's own reveal is prominent (at this end point,
+// headline opacity is still only ~23%) so the two never cross paths.
+const BUTTON_TRAVEL_RANGE: [number, number] = [
+  SCRIM_RANGE[1],
+  SCRIM_RANGE[1] + 0.03,
+];
+
 // Largest scroll delta a single wheel/touch input is allowed to apply while
 // inside the hero's own range — see the interception effect below.
 const MAX_STEP_PX = 40;
@@ -209,27 +220,30 @@ export default function Home() {
   );
 
   // Nav button travel: tied to the same scrollYProgress driving the
-  // scrim/headline above, but only across SCRIM_RANGE rather than the full
-  // 0→1 pin — finishing the trip exactly as the scrim finishes rising, so
-  // the button is already tucked at the top before the headline starts
-  // fading in over that same vertical band. Spanning the button's travel
-  // across the entire pin (tried first) let it visibly pass through/clip
-  // the headline text mid-scroll, since both occupy the same centered
-  // column at the same time. The nav strip itself stays `position: fixed;
-  // top: 0` throughout (unchanged from before); this only adds a
-  // translateY of buttonAnchorTop at p===0, easing to 0 by the end of
-  // SCRIM_RANGE — a GPU-cheap transform rather than animating `top`
-  // directly, consistent with scrimY/headlineY/sublineY above. At p===0 the
-  // rendered position exactly overlaps the invisible in-flow anchor below
-  // HeroLogo, which is what makes it read as "sitting under the logo" even
-  // though it's technically fixed the whole time — the sticky hero frame
-  // doesn't move during the pin anyway, so a fixed element with the right
-  // translateY is visually indistinguishable from a true in-flow one until
-  // the pin releases, at which point it needs to actually be fixed to keep
-  // tracking the viewport instead of scrolling away.
+  // scrim/headline above, over BUTTON_TRAVEL_RANGE specifically — static
+  // (clampedProgress reads 0, so this multiplies out to the full
+  // buttonAnchorTop offset) for all of SCRIM_RANGE, meaning the button
+  // doesn't move at all while the scrim is rising and covering it, then
+  // travels the instant the scrim finishes. Two earlier approaches were
+  // tried and rejected: spanning the full 0→1 pin let it visibly pass
+  // through/clip the headline text mid-scroll; starting the travel at
+  // p===0 (in step with the scrim itself) moved it before the scrim had
+  // even finished covering it, which wasn't the requested trigger. The nav
+  // strip itself stays `position: fixed; top: 0` throughout (unchanged from
+  // before); this only adds a translateY of buttonAnchorTop for
+  // p <= SCRIM_RANGE[1], easing to 0 by the end of BUTTON_TRAVEL_RANGE — a
+  // GPU-cheap transform rather than animating `top` directly, consistent
+  // with scrimY/headlineY/sublineY above. At p===0 the rendered position
+  // exactly overlaps the invisible in-flow anchor below HeroLogo, which is
+  // what makes it read as "sitting under the logo" even though it's
+  // technically fixed the whole time — the sticky hero frame doesn't move
+  // during the pin anyway, so a fixed element with the right translateY is
+  // visually indistinguishable from a true in-flow one until the pin
+  // releases, at which point it needs to actually be fixed to keep tracking
+  // the viewport instead of scrolling away.
   const buttonY = useTransform(
     scrollYProgress,
-    (p) => buttonAnchorTop * (1 - clampedProgress(p, SCRIM_RANGE)),
+    (p) => buttonAnchorTop * (1 - clampedProgress(p, BUTTON_TRAVEL_RANGE)),
   );
 
   // A hard trackpad flick or a big mouse-wheel scroll can otherwise skip
