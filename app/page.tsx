@@ -21,19 +21,29 @@ const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
 // pinned/scroll-linked stage on the page — everything after it (the "The
 // App" heading, the phone mockups, and whatever else follows) is plain,
 // unpinned document flow, no scrim, no scroll-linked animation.
-//   0–160    scrim rises, fully covers the logo — widened from the original
-//            0–90 specifically so the cover reads as gradual rather than
-//            abrupt; paired with the taller scrim element itself (see its
-//            height below), which also grows the actual soft gradient edge
-//            in absolute pixels, not just the scroll time it takes to cross.
-//   160–200  headline rises into place (see headlineY below), subline
-//            staggered 12px into that same window
-//   200–320  hold — nothing animates, full time to read both lines, then
+//   0–160    scrim rises, fully covers the logo
+//   160–348  headline rises into place (see headlineY below) — widened from
+//            an original 34px-wide window specifically because headlineY's
+//            own travel distance is 70vh (~600px on a typical viewport):
+//            at the old narrow width, a single wheel-clamped scroll step
+//            (see MAX_STEP_PX below, ~40px) could cover the *entire* range
+//            in one input event, snapping the headline from fully hidden to
+//            fully settled in one frame. It was genuinely scroll-driven the
+//            whole time (freezes exactly where scroll leaves it, verified),
+//            but with that little scroll room to spread 600px of travel
+//            across, any normal scroll gesture blew straight through it —
+//            reading exactly like a triggered "fly in" animation even
+//            though no such animation existed. Widening the range (not
+//            touching the useTransform/scrollYProgress binding itself) is
+//            the actual fix: same math, just enough scroll distance for the
+//            eye to register it as continuous. Subline staggered near the
+//            end of this window.
+//   348–480  hold — nothing animates, full time to read both lines, then
 //            the pin releases immediately into normal scrolling
-// Total pin room = 320px, driver height = 140dvh (100dvh viewport + 40dvh).
-const SCRIM_RANGE: [number, number] = [0, 0.5];
-const HEADLINE_RANGE: [number, number] = [0.5, 0.6];
-const SUBLINE_RANGE: [number, number] = [0.5375, 0.625];
+// Total pin room = 480px, driver height = 160dvh (100dvh viewport + 60dvh).
+const SCRIM_RANGE: [number, number] = [0, 170 / 510];
+const HEADLINE_RANGE: [number, number] = [170 / 510, 370 / 510];
+const SUBLINE_RANGE: [number, number] = [360 / 510, 390 / 510];
 
 // Largest scroll delta a single wheel/touch input is allowed to apply while
 // inside the hero's own range — see the interception effect below.
@@ -345,10 +355,10 @@ export default function Home() {
             </section>
           </>
         ) : (
-          <div ref={heroRef} className="relative h-[140dvh]">
+          <div ref={heroRef} className="relative h-[160dvh]">
             {/*
               Pure CSS `position: sticky` pin: this inner frame sticks to
-              top:0 for the full height of the h-[140dvh] driver above it,
+              top:0 for the full height of the h-[160dvh] driver above it,
               then releases back into normal flow once the driver's bottom
               edge reaches the viewport top. Framer's useScroll/useTransform
               above only compute a 0→1 progress value off that same driver
