@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowUpRight } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 
 import { NoiseOverlay, WordsPullUpMultiStyle } from "./primitives";
@@ -144,9 +145,13 @@ export function Footer() {
           aria-hidden
           className="pointer-events-none select-none border-t border-foreground/10 pt-8"
         >
-          <p className="text-[22vw] font-medium leading-[0.8] tracking-[-0.06em] text-foreground/10">
-            Yuppie
-          </p>
+          <Image
+            src="/yuppie_logo_forte_forward.png"
+            alt=""
+            width={1942}
+            height={641}
+            className="h-auto w-full opacity-10"
+          />
         </div>
 
         <div className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center sm:justify-between">
