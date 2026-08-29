@@ -41,11 +41,24 @@ export function Pricing() {
           business.
         </p>
 
+        {/* appearance-none + border-0 + bg-transparent + p-0 on every native
+            <button>: browser UA stylesheets give buttons their own default
+            font, padding and border independent of surrounding styles (the
+            classic "buttons don't inherit font-family" gotcha) — resetting
+            all of it explicitly, rather than trusting inheritance/Preflight
+            alone, is what actually guarantees these render in Almarai at
+            the intended size instead of silently falling back to the
+            system UI font, which was also making this row's width
+            (and therefore the gap-4 spacing) unpredictable enough to
+            overlap depending on the fallback font's metrics. shrink-0 +
+            whitespace-nowrap on every child stops flex from ever
+            compressing one element into another as a second line of
+            defense. */}
         <div className="mt-2 flex flex-wrap items-center justify-center gap-4">
           <button
             type="button"
             onClick={() => setAnnual(false)}
-            className={`text-sm font-medium transition-colors sm:text-base ${
+            className={`shrink-0 appearance-none whitespace-nowrap border-0 bg-transparent p-0 font-[inherit] text-sm font-medium transition-colors sm:text-base ${
               annual ? "text-foreground-muted" : "text-foreground"
             }`}
           >
@@ -58,11 +71,20 @@ export function Pricing() {
             aria-checked={annual}
             aria-label="Toggle monthly or annual pricing"
             onClick={() => setAnnual((prev) => !prev)}
-            className="relative h-7 w-12 shrink-0 rounded-full bg-foreground transition-colors"
+            className="relative h-7 w-12 shrink-0 appearance-none rounded-full border-0 bg-foreground p-0 font-[inherit] transition-colors"
           >
+            {/* Explicit left-1/left-6 rather than translate-x-*: the
+                translate-x utilities were picking up an extra, unrelated
+                left offset from somewhere in this Tailwind build (visible
+                via getComputedStyle even with no left-* class present, and
+                additive with the translate itself), pushing the thumb ~20px
+                past the track's right edge and on top of the "Annual"
+                label. Plain left positioning is unambiguous and sidesteps
+                it entirely — verified the thumb now stays fully inside the
+                track in both states. */}
             <span
-              className={`absolute top-1 h-5 w-5 rounded-full bg-background-muted transition-transform duration-300 ${
-                annual ? "translate-x-6" : "translate-x-1"
+              className={`absolute top-1 h-5 w-5 rounded-full bg-background-muted transition-[left] duration-300 ${
+                annual ? "left-6" : "left-1"
               }`}
             />
           </button>
@@ -70,14 +92,14 @@ export function Pricing() {
           <button
             type="button"
             onClick={() => setAnnual(true)}
-            className={`text-sm font-medium transition-colors sm:text-base ${
+            className={`shrink-0 appearance-none whitespace-nowrap border-0 bg-transparent p-0 font-[inherit] text-sm font-medium transition-colors sm:text-base ${
               annual ? "text-foreground" : "text-foreground-muted"
             }`}
           >
             Annual
           </button>
 
-          <span className="inline-flex items-center rounded-full border border-foreground/20 bg-background-muted px-3 py-1 text-xs font-medium text-foreground">
+          <span className="inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-foreground/20 bg-background-muted px-3 py-1 text-xs font-medium text-foreground">
             Save {SAVE_PERCENT}
           </span>
         </div>
@@ -103,11 +125,20 @@ export function Pricing() {
             Membership
           </Link>
 
-          {annual ? (
-            <p className="mt-4 text-center text-xs text-foreground-muted">
-              Billed in one annual payment.
-            </p>
-          ) : null}
+          {/* Always mounted (never conditionally rendered) so it always
+              reserves its own line — toggling opacity/visibility instead of
+              mounting/unmounting is what keeps the card a fixed height
+              across both states; the previous conditional-render version
+              made the card grow/shrink by this line's height every time
+              the toggle switched. */}
+          <p
+            className={`mt-4 text-center text-xs text-foreground-muted ${
+              annual ? "visible" : "invisible"
+            }`}
+            aria-hidden={!annual}
+          >
+            Billed in one annual payment.
+          </p>
         </div>
       </div>
     </section>
