@@ -99,7 +99,7 @@ export function Footer() {
           </Link>
         </div>
 
-        <nav className="grid grid-cols-1 gap-x-6 gap-y-10 py-12 sm:grid-cols-3">
+        <nav className="flex flex-col gap-x-6 gap-y-10 py-12 sm:flex-row sm:flex-wrap sm:justify-between">
           {LINK_COLUMNS.map((col) => (
             <div key={col.heading} className="flex flex-col gap-3">
               <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground-muted">
