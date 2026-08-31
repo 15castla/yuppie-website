@@ -25,7 +25,7 @@ export function About() {
           THE CLUB
         </span>
 
-        <h2 className="mx-auto max-w-2xl text-3xl leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl lg:text-6xl xl:text-7xl">
+        <h2 className="mx-auto max-w-[840px] text-[clamp(2rem,4.4vw,4.25rem)] leading-[1.04] text-foreground">
           <WordsPullUpMultiStyle segments={HEADING_SEGMENTS} />
         </h2>
 

@@ -1,18 +1,9 @@
 "use client";
 
 import * as React from "react";
-import {
-  motion,
-  useInView,
-  useReducedMotion,
-  useScroll,
-  useTransform,
-  type MotionValue,
-} from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
-
-const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 // Grain speckles are tinted with --foreground's own RGB (27,21,18 -> 0-1)
 // rather than white — the template's original noise was pure white for a
@@ -138,44 +129,25 @@ export function WordsPullUp({
   className,
   wordClassName,
   showAsterisk = false,
-  startDelay = 0,
-  stagger = 0.08,
 }: {
   text: string;
   className?: string;
   wordClassName?: string;
   showAsterisk?: boolean;
-  startDelay?: number;
-  stagger?: number;
 }) {
-  const ref = React.useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
-  const reduce = useReducedMotion();
   const words = text.split(" ");
-  const show = reduce || inView;
 
   return (
     <span
-      ref={ref}
       className={cn("inline-flex flex-wrap", className)}
       style={{ columnGap: "0.25em" }}
     >
       {words.map((word, i) => {
         const last = i === words.length - 1;
         return (
-          <motion.span
-            key={i}
-            className={cn("inline-block", wordClassName)}
-            initial={reduce ? false : { y: 20, opacity: 0 }}
-            animate={show ? { y: 0, opacity: 1 } : undefined}
-            transition={{
-              duration: 0.6,
-              delay: startDelay + i * stagger,
-              ease: EASE_OUT_EXPO,
-            }}
-          >
+          <span key={i} className={cn("inline-block", wordClassName)}>
             {last && showAsterisk ? <WithAsterisk word={word} /> : word}
-          </motion.span>
+          </span>
         );
       })}
     </span>
@@ -187,77 +159,19 @@ export type StyledSegment = { text: string; className?: string };
 export function WordsPullUpMultiStyle({
   segments,
   className,
-  startDelay = 0,
-  stagger = 0.08,
 }: {
   segments: StyledSegment[];
   className?: string;
-  startDelay?: number;
-  stagger?: number;
 }) {
-  const ref = React.useRef<HTMLSpanElement>(null);
-  const inView = useInView(ref, { once: true });
-  const reduce = useReducedMotion();
-  const show = reduce || inView;
-
-  const words: StyledSegment[] = [];
-  for (const seg of segments) {
-    for (const part of seg.text.split(" ")) {
-      if (part.length > 0) words.push({ text: part, className: seg.className });
-    }
-  }
-
   return (
-    <span
-      ref={ref}
-      className={cn("inline-flex flex-wrap justify-center", className)}
-      style={{ columnGap: "0.25em" }}
-    >
-      {words.map((word, i) => (
-        <motion.span
-          key={i}
-          className={cn("inline-block", word.className)}
-          initial={reduce ? false : { y: 20, opacity: 0 }}
-          animate={show ? { y: 0, opacity: 1 } : undefined}
-          transition={{
-            duration: 0.6,
-            delay: startDelay + i * stagger,
-            ease: EASE_OUT_EXPO,
-          }}
-        >
-          {word.text}
-        </motion.span>
+    <span className={className}>
+      {segments.map((seg, i) => (
+        <React.Fragment key={i}>
+          {i > 0 ? " " : null}
+          <span className={seg.className}>{seg.text}</span>
+        </React.Fragment>
       ))}
     </span>
-  );
-}
-
-function AnimatedLetter({
-  char,
-  index,
-  total,
-  progress,
-}: {
-  char: string;
-  index: number;
-  total: number;
-  progress: MotionValue<number>;
-}) {
-  const reduce = useReducedMotion();
-  const charProgress = index / total;
-  const opacity = useTransform(
-    progress,
-    [charProgress - 0.1, charProgress + 0.05],
-    [0.2, 1],
-  );
-  return (
-    <motion.span
-      aria-hidden
-      className="inline-block whitespace-pre"
-      style={reduce ? undefined : { opacity }}
-    >
-      {char}
-    </motion.span>
   );
 }
 
@@ -268,39 +182,9 @@ export function ScrollRevealText({
   text: string;
   className?: string;
 }) {
-  const ref = React.useRef<HTMLParagraphElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: ref,
-    offset: ["start 0.8", "end 0.2"],
-  });
-  const words = text.split(" ");
-  const total = text.length;
-  const wordLengths = words.map((word) => word.length + 1);
-  const starts = words.map((_, i) =>
-    wordLengths.slice(0, i).reduce((sum, len) => sum + len, 0),
-  );
-
   return (
-    <p ref={ref} aria-label={text} className={className}>
-      {words.map((word, wi) => {
-        const start = starts[wi];
-        return (
-          <React.Fragment key={wi}>
-            <span className="inline-block whitespace-nowrap">
-              {Array.from(word).map((ch, ci) => (
-                <AnimatedLetter
-                  key={ci}
-                  char={ch}
-                  index={start + ci}
-                  total={total}
-                  progress={scrollYProgress}
-                />
-              ))}
-            </span>
-            {wi < words.length - 1 ? " " : null}
-          </React.Fragment>
-        );
-      })}
+    <p aria-label={text} className={className}>
+      {text}
     </p>
   );
 }
