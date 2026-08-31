@@ -1,15 +1,11 @@
 "use client";
 
-import * as React from "react";
+import type { ReactNode } from "react";
 import { Calendar, Key, Percent, type LucideIcon } from "lucide-react";
-import { motion, useInView, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 
-const EASE_CARD: [number, number, number, number] = [0.22, 1, 0.36, 1];
-
 type InfoCard = {
-  index: number;
   title: string;
   Icon: LucideIcon;
   description: string;
@@ -17,21 +13,18 @@ type InfoCard = {
 
 const INFO_CARDS: InfoCard[] = [
   {
-    index: 0,
     title: "Members' Events.",
     Icon: Calendar,
     description:
       "Dinners, wellness sessions, sport and new experiences, put on regularly across London so there's always something worth going out for. Think supper clubs, Padel & Pints, wellness retreats and nights out you won't find anywhere else.",
   },
   {
-    index: 1,
     title: "Members' Discounts.",
     Icon: Percent,
     description:
       "We've partnered with over 40 restaurants, bars and hospitality outlets across the city to get our members real, ongoing discounts. Think 30% off at partner restaurants, complimentary drinks at select bars, and preferential rates you won't get walking in off the street.",
   },
   {
-    index: 2,
     title: "Members' Access.",
     Icon: Key,
     description:
@@ -40,28 +33,16 @@ const INFO_CARDS: InfoCard[] = [
 ];
 
 function FeatureCard({
-  index,
   className,
   children,
 }: {
-  index: number;
   className?: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
-  const ref = React.useRef<HTMLDivElement>(null);
-  const inView = useInView(ref, { once: true, margin: "-100px" });
-  const reduce = useReducedMotion();
-  const show = reduce || inView;
   return (
-    <motion.div
-      ref={ref}
-      initial={reduce ? false : { scale: 0.95, opacity: 0 }}
-      animate={show ? { scale: 1, opacity: 1 } : undefined}
-      transition={{ duration: 0.6, delay: index * 0.15, ease: EASE_CARD }}
-      className={cn("relative overflow-hidden rounded-2xl", className)}
-    >
+    <div className={cn("relative overflow-hidden rounded-2xl", className)}>
       {children}
-    </motion.div>
+    </div>
   );
 }
 
@@ -93,7 +74,6 @@ export function Features() {
           {INFO_CARDS.map((card) => (
             <FeatureCard
               key={card.title}
-              index={card.index}
               className="min-h-[280px] border border-foreground/10 bg-background-muted"
             >
               <div className="flex h-full flex-col gap-4 p-6 sm:p-8">
