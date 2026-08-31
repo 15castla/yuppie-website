@@ -24,7 +24,7 @@ export function Pricing() {
   const [annual, setAnnual] = useState(false);
 
   return (
-    <section className="relative overflow-hidden bg-background px-4 py-20 sm:px-6 sm:py-28 md:py-32">
+    <section className="relative overflow-hidden bg-background px-4 pb-20 sm:px-6 sm:pb-28 md:pb-32">
       <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
         <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
           PRICING
