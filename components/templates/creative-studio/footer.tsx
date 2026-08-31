@@ -4,7 +4,7 @@ import { ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { NoiseOverlay, WordsPullUpMultiStyle } from "./primitives";
+import { WordsPullUpMultiStyle } from "./primitives";
 
 const HEADLINE = [
   { text: "Let's build a social life", className: "font-normal" },
@@ -16,30 +16,25 @@ const HEADLINE = [
 
 type FooterLink = { label: string; href: string; comingSoon?: boolean };
 
-// "Our Story" and "The App" don't have a page yet, so those stay "#"
-// placeholders like the rest of this still-in-progress template; the other
-// three already exist elsewhere in this app, so they're wired to the real
-// routes rather than left dead when a working destination is right there.
-const STUDIO_LINKS: FooterLink[] = [
-  { label: "Our Story", href: "#" },
+// "FAQ's" doesn't have a page yet, so it stays the same "#" placeholder
+// used by the hero nav; the other two already exist elsewhere in this app,
+// so they're wired to the real routes rather than left dead when a working
+// destination is right there.
+const YUPPIE_LINKS: FooterLink[] = [
   { label: "Members Area", href: "/member-login" },
   { label: "Membership", href: "/apply" },
-  { label: "The App", href: "#" },
+  { label: "FAQ's", href: "#" },
 ];
 
 // Social handles aren't wired up yet — rendered as visibly disabled with a
-// "Soon" tag rather than live-looking dead links. Contact isn't a social
-// handle, it's the same /contact page linked from the hero nav, so it stays
-// a normal functional link.
+// "Soon" tag rather than live-looking dead links.
 const CONNECT_LINKS: FooterLink[] = [
-  { label: "Contact", href: "/contact" },
   { label: "Instagram", href: "#", comingSoon: true },
-  { label: "LinkedIn", href: "#", comingSoon: true },
   { label: "TikTok", href: "#", comingSoon: true },
 ];
 
 const LINK_COLUMNS: { heading: string; links: FooterLink[] }[] = [
-  { heading: "Studio", links: STUDIO_LINKS },
+  { heading: "Yuppie", links: YUPPIE_LINKS },
   { heading: "Connect", links: CONNECT_LINKS },
 ];
 
@@ -81,15 +76,10 @@ function FooterLinkItem({ link }: { link: FooterLink }) {
 
 export function Footer() {
   return (
-    <footer className="relative overflow-hidden bg-background pb-8 pt-20 sm:pt-28 md:pt-32">
-      <NoiseOverlay variant="bg" className="opacity-[0.12]" />
-
+    <footer className="relative overflow-hidden bg-background pb-8 pt-0">
       <div className="relative container">
         <div className="flex flex-col gap-8 border-b border-foreground/10 pb-12 md:flex-row md:items-end md:justify-between">
           <div className="flex flex-col gap-5">
-            <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-foreground sm:text-xs">
-              THE CLUB
-            </span>
             <h2 className="max-w-xl text-4xl leading-[0.95] tracking-[-0.02em] text-foreground sm:text-5xl sm:leading-[0.9] md:text-6xl">
               <WordsPullUpMultiStyle
                 segments={HEADLINE}
@@ -109,7 +99,7 @@ export function Footer() {
           </Link>
         </div>
 
-        <nav className="grid grid-cols-2 gap-x-6 gap-y-10 py-12 sm:grid-cols-4">
+        <nav className="grid grid-cols-1 gap-x-6 gap-y-10 py-12 sm:grid-cols-3">
           {LINK_COLUMNS.map((col) => (
             <div key={col.heading} className="flex flex-col gap-3">
               <h3 className="text-[10px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
@@ -124,20 +114,16 @@ export function Footer() {
               </ul>
             </div>
           ))}
-          <div className="col-span-2 flex flex-col gap-3 sm:col-span-2">
+          <div className="flex flex-col gap-3">
             <h3 className="text-[10px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
-              Visit
+              Contact
             </h3>
-            <p className="text-sm leading-relaxed text-foreground/70">
-              London.
-              <br />
-              <a
-                href="mailto:hello@clubyuppie.com"
-                className="transition-colors hover:text-foreground"
-              >
-                hello@clubyuppie.com
-              </a>
-            </p>
+            <a
+              href="mailto:hello@clubyuppie.com"
+              className="text-sm text-foreground/70 transition-colors hover:text-foreground"
+            >
+              hello@clubyuppie.com
+            </a>
           </div>
         </nav>
 

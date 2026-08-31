@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
-import { NoiseOverlay, WordsPullUpMultiStyle } from "./primitives";
+import { WordsPullUpMultiStyle } from "./primitives";
 
 const HEADING_SEGMENTS = [
   { text: "Pricing that makes", className: "font-normal" },
@@ -25,11 +25,9 @@ export function Pricing() {
 
   return (
     <section className="relative overflow-hidden bg-background px-4 py-20 sm:px-6 sm:py-28 md:py-32">
-      <NoiseOverlay variant="bg" className="opacity-[0.12]" />
-
       <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-        <span className="inline-flex items-center rounded-full border border-foreground/20 px-4 py-1.5 text-xs font-medium text-foreground">
-          Pricing
+        <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-foreground sm:text-xs">
+          PRICING
         </span>
 
         <h2 className="text-3xl leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl">
@@ -37,8 +35,7 @@ export function Pricing() {
         </h2>
 
         <p className="max-w-md text-sm text-foreground-muted sm:text-base">
-          We&apos;ve designed our pricing in a way that it scales with your
-          business.
+          One plan. Every perk. Cancel whenever life gets too fun.
         </p>
 
         {/* appearance-none + border-0 + bg-transparent + p-0 on every native
@@ -54,7 +51,7 @@ export function Pricing() {
             whitespace-nowrap on every child stops flex from ever
             compressing one element into another as a second line of
             defense. */}
-        <div className="mt-2 flex flex-wrap items-center justify-center gap-4">
+        <div className="relative mt-2 flex flex-wrap items-center justify-center gap-4">
           <button
             type="button"
             onClick={() => setAnnual(false)}
@@ -101,11 +98,12 @@ export function Pricing() {
 
           {/* Same always-mounted/toggle-visibility pattern as the "Billed in
               one annual payment" caption below — only relevant once Annual
-              is selected, but conditionally mounting it would change this
-              row's total width and shift the centered Monthly/toggle/Annual
-              group sideways every time it appeared or disappeared. */}
+              is selected. Absolutely positioned off the row's right edge
+              (rather than a normal flex sibling) so its reserved layout
+              width doesn't pull the Monthly/toggle/Annual group off-center
+              even while invisible. */}
           <span
-            className={`inline-flex shrink-0 items-center whitespace-nowrap rounded-full border border-foreground/20 bg-background-muted px-3 py-1 text-xs font-medium text-foreground ${
+            className={`absolute left-full top-1/2 ml-4 inline-flex shrink-0 -translate-y-1/2 items-center whitespace-nowrap rounded-full border border-foreground/20 bg-background-muted px-3 py-1 text-xs font-medium text-foreground ${
               annual ? "visible" : "invisible"
             }`}
             aria-hidden={!annual}

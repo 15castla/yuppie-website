@@ -5,8 +5,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 
-import { CinematicBackground, NoiseOverlay } from "./primitives";
-
 // "#" for FAQ's, which doesn't have a page yet — the other three link to
 // their real, already-built routes rather than sitting dead, matching how
 // the footer's matching labels are wired.
@@ -47,23 +45,7 @@ export function Hero({
             muted
             playsInline
           />
-        ) : (
-          <CinematicBackground variant="hero" />
-        )}
-
-        <NoiseOverlay className="opacity-[0.7] mix-blend-overlay" />
-
-        {/* Recolored from the template's own from-black/30 to-black/60: that
-            gradient existed to darken the backdrop for light (cream) text.
-            Our text is dark-on-light instead, so a black scrim no longer
-            serves that purpose — it would just muddy the yellow. Swapped to
-            the pale-yellow token instead, same 30/60 opacity structure, so
-            it reads as a soft in-brand wash/highlight toward the edges
-            rather than a dark scrim. */}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0 bg-gradient-to-b from-background-muted/30 via-transparent to-background-muted/60"
-        />
+        ) : null}
 
         <nav className="absolute left-1/2 top-0 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-b-2xl bg-background md:max-w-none md:rounded-b-3xl">
           <ul
