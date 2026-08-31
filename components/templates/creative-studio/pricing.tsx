@@ -6,7 +6,7 @@ import Link from "next/link";
 import { WordsPullUpMultiStyle } from "./primitives";
 
 const HEADING_SEGMENTS = [
-  { text: "Pricing that makes", className: "font-normal" },
+  { text: "Pricing that makes" },
   {
     text: "sense.",
     className: "italic [font-family:var(--font-instrument-serif)]",
@@ -26,11 +26,11 @@ export function Pricing() {
   return (
     <section className="relative overflow-hidden bg-background px-4 py-20 sm:px-6 sm:py-28 md:py-32">
       <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-        <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-foreground sm:text-xs">
+        <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
           PRICING
         </span>
 
-        <h2 className="text-3xl leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl">
+        <h2 className="text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl">
           <WordsPullUpMultiStyle segments={HEADING_SEGMENTS} />
         </h2>
 
@@ -55,7 +55,7 @@ export function Pricing() {
           <button
             type="button"
             onClick={() => setAnnual(false)}
-            className={`shrink-0 appearance-none whitespace-nowrap border-0 bg-transparent p-0 font-[inherit] text-sm font-medium transition-colors sm:text-base ${
+            className={`shrink-0 appearance-none whitespace-nowrap border-0 bg-transparent p-0 font-[inherit] text-sm font-bold transition-colors sm:text-base ${
               annual ? "text-foreground-muted" : "text-foreground"
             }`}
           >
@@ -89,7 +89,7 @@ export function Pricing() {
           <button
             type="button"
             onClick={() => setAnnual(true)}
-            className={`shrink-0 appearance-none whitespace-nowrap border-0 bg-transparent p-0 font-[inherit] text-sm font-medium transition-colors sm:text-base ${
+            className={`shrink-0 appearance-none whitespace-nowrap border-0 bg-transparent p-0 font-[inherit] text-sm font-bold transition-colors sm:text-base ${
               annual ? "text-foreground" : "text-foreground-muted"
             }`}
           >
@@ -103,7 +103,7 @@ export function Pricing() {
               width doesn't pull the Monthly/toggle/Annual group off-center
               even while invisible. */}
           <span
-            className={`absolute left-full top-1/2 ml-4 inline-flex shrink-0 -translate-y-1/2 items-center whitespace-nowrap rounded-full border border-foreground/20 bg-background-muted px-3 py-1 text-xs font-medium text-foreground ${
+            className={`absolute left-full top-1/2 ml-4 inline-flex shrink-0 -translate-y-1/2 items-center whitespace-nowrap rounded-full border border-foreground/20 bg-background-muted px-3 py-1 text-xs font-bold text-foreground ${
               annual ? "visible" : "invisible"
             }`}
             aria-hidden={!annual}
@@ -114,7 +114,7 @@ export function Pricing() {
 
         <div className="mt-6 w-full max-w-md rounded-2xl border border-foreground/10 bg-background-muted p-8 text-left sm:p-10">
           <p className="text-foreground">
-            <span className="text-4xl font-medium sm:text-5xl">
+            <span className="text-4xl font-extrabold sm:text-5xl">
               {annual ? ANNUAL_PRICE : MONTHLY_PRICE}
             </span>
             <span className="text-base text-foreground-muted">
@@ -128,7 +128,7 @@ export function Pricing() {
 
           <Link
             href="/apply"
-            className="mt-8 flex w-full items-center justify-center rounded-full bg-background py-3 text-sm font-medium text-foreground transition-transform duration-300 hover:scale-[1.02] sm:text-base"
+            className="mt-8 flex w-full items-center justify-center rounded-full bg-background py-3 text-sm font-bold text-foreground transition-transform duration-300 hover:scale-[1.02] sm:text-base"
           >
             Membership
           </Link>

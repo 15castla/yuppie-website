@@ -10,7 +10,7 @@ import { WordsPullUpMultiStyle } from "./primitives";
 const EASE_CARD: [number, number, number, number] = [0.22, 1, 0.36, 1];
 
 const HEADING_SEGMENTS = [
-  { text: "A club for London's most social", className: "font-normal" },
+  { text: "A club for London's most social" },
   {
     text: "built for fun, powered by convenience.",
     className: "italic [font-family:var(--font-instrument-serif)]",
@@ -79,10 +79,10 @@ export function Features() {
     <section className="relative min-h-screen overflow-hidden bg-background py-20 sm:py-28 md:py-32">
       <div className="relative container flex flex-col gap-12 md:gap-16">
         <div className="flex flex-col items-center gap-3 text-center">
-          <span className="text-[10px] font-medium uppercase tracking-[0.24em] text-foreground sm:text-xs">
+          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
             THE PERKS
           </span>
-          <h2 className="mx-auto max-w-3xl text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl">
+          <h2 className="mx-auto max-w-3xl text-xl font-extrabold leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl">
             <WordsPullUpMultiStyle segments={HEADING_SEGMENTS} />
           </h2>
         </div>
@@ -106,7 +106,7 @@ export function Features() {
                   <card.Icon className="h-5 w-5 text-foreground sm:h-6 sm:w-6" />
                 </div>
 
-                <h3 className="text-base font-medium text-foreground">
+                <h3 className="text-base font-bold text-foreground">
                   {card.title}
                 </h3>
 

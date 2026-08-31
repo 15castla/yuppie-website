@@ -7,7 +7,7 @@ import Link from "next/link";
 import { WordsPullUpMultiStyle } from "./primitives";
 
 const HEADLINE = [
-  { text: "Let's build a social life", className: "font-normal" },
+  { text: "Let's build a social life" },
   {
     text: "actually worth going out for.",
     className: "italic [font-family:var(--font-instrument-serif)]",
@@ -46,7 +46,7 @@ function FooterLinkItem({ link }: { link: FooterLink }) {
         className="inline-flex cursor-not-allowed items-center gap-2 text-sm text-foreground/40"
       >
         {link.label}
-        <span className="rounded-full bg-foreground/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wider text-foreground-muted">
+        <span className="rounded-full bg-foreground/10 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-foreground-muted">
           Soon
         </span>
       </span>
@@ -80,7 +80,7 @@ export function Footer() {
       <div className="relative container">
         <div className="flex flex-col gap-8 border-b border-foreground/10 pb-12 md:flex-row md:items-end md:justify-between">
           <div className="flex flex-col gap-5">
-            <h2 className="max-w-xl text-4xl leading-[0.95] tracking-[-0.02em] text-foreground sm:text-5xl sm:leading-[0.9] md:text-6xl">
+            <h2 className="max-w-xl text-4xl font-extrabold leading-[0.95] tracking-[-0.02em] text-foreground sm:text-5xl sm:leading-[0.9] md:text-6xl">
               <WordsPullUpMultiStyle
                 segments={HEADLINE}
                 className="justify-start"
@@ -90,7 +90,7 @@ export function Footer() {
 
           <Link
             href="/apply"
-            className="group inline-flex w-fit shrink-0 items-center gap-2 rounded-full bg-background-muted py-1.5 pe-1.5 ps-5 text-sm font-medium text-foreground transition-all duration-300 hover:gap-3 sm:text-base"
+            className="group inline-flex w-fit shrink-0 items-center gap-2 rounded-full bg-background-muted py-1.5 pe-1.5 ps-5 text-sm font-bold text-foreground transition-all duration-300 hover:gap-3 sm:text-base"
           >
             Membership
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10">
@@ -102,7 +102,7 @@ export function Footer() {
         <nav className="grid grid-cols-1 gap-x-6 gap-y-10 py-12 sm:grid-cols-3">
           {LINK_COLUMNS.map((col) => (
             <div key={col.heading} className="flex flex-col gap-3">
-              <h3 className="text-[10px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
+              <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground-muted">
                 {col.heading}
               </h3>
               <ul className="flex flex-col gap-2.5">
@@ -115,7 +115,7 @@ export function Footer() {
             </div>
           ))}
           <div className="flex flex-col gap-3">
-            <h3 className="text-[10px] font-medium uppercase tracking-[0.2em] text-foreground-muted">
+            <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground-muted">
               Contact
             </h3>
             <a

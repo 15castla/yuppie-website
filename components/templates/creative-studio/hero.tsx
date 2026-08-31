@@ -113,7 +113,7 @@ export function Hero({
               <motion.div {...fade(0.7)}>
                 <Link
                   href="/apply"
-                  className="group inline-flex w-fit items-center gap-2 rounded-full bg-background-muted py-1.5 pe-1.5 ps-5 text-sm font-medium text-foreground transition-all duration-300 hover:gap-3 sm:text-base"
+                  className="group inline-flex w-fit items-center gap-2 rounded-full bg-background-muted py-1.5 pe-1.5 ps-5 text-sm font-bold text-foreground transition-all duration-300 hover:gap-3 sm:text-base"
                 >
                   Membership
                   <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10">
