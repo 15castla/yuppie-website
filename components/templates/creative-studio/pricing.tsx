@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 
 import { WordsPullUpMultiStyle } from "./primitives";
@@ -13,16 +12,9 @@ const HEADING_SEGMENTS = [
   },
 ];
 
-// £10/month annualizes to £120 — £99/year against that is a 17.5% saving,
-// not the reference's 40%. Rounded to the nearest whole percent rather than
-// left at the reference's (wrong, for these numbers) figure.
 const MONTHLY_PRICE = "£10";
-const ANNUAL_PRICE = "£99";
-const SAVE_PERCENT = "18%";
 
 export function Pricing() {
-  const [annual, setAnnual] = useState(false);
-
   return (
     <section className="relative overflow-hidden bg-background px-4 pb-20 sm:px-6 sm:pb-28 md:pb-32">
       <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
@@ -38,88 +30,12 @@ export function Pricing() {
           One plan. Every perk. Cancel whenever life gets too fun.
         </p>
 
-        {/* appearance-none + border-0 + bg-transparent + p-0 on every native
-            <button>: browser UA stylesheets give buttons their own default
-            font, padding and border independent of surrounding styles (the
-            classic "buttons don't inherit font-family" gotcha) — resetting
-            all of it explicitly, rather than trusting inheritance/Preflight
-            alone, is what actually guarantees these render in Almarai at
-            the intended size instead of silently falling back to the
-            system UI font, which was also making this row's width
-            (and therefore the gap-4 spacing) unpredictable enough to
-            overlap depending on the fallback font's metrics. shrink-0 +
-            whitespace-nowrap on every child stops flex from ever
-            compressing one element into another as a second line of
-            defense. */}
-        <div className="relative mt-2 flex flex-wrap items-center justify-center gap-4">
-          <button
-            type="button"
-            onClick={() => setAnnual(false)}
-            className={`shrink-0 appearance-none whitespace-nowrap border-0 bg-transparent p-0 font-[inherit] text-sm font-bold transition-colors sm:text-base ${
-              annual ? "text-foreground-muted" : "text-foreground"
-            }`}
-          >
-            Monthly
-          </button>
-
-          <button
-            type="button"
-            role="switch"
-            aria-checked={annual}
-            aria-label="Toggle monthly or annual pricing"
-            onClick={() => setAnnual((prev) => !prev)}
-            className="relative h-7 w-12 shrink-0 appearance-none rounded-full border-0 bg-foreground p-0 font-[inherit] transition-colors"
-          >
-            {/* Explicit left-1/left-6 rather than translate-x-*: the
-                translate-x utilities were picking up an extra, unrelated
-                left offset from somewhere in this Tailwind build (visible
-                via getComputedStyle even with no left-* class present, and
-                additive with the translate itself), pushing the thumb ~20px
-                past the track's right edge and on top of the "Annual"
-                label. Plain left positioning is unambiguous and sidesteps
-                it entirely — verified the thumb now stays fully inside the
-                track in both states. */}
-            <span
-              className={`absolute top-1 h-5 w-5 rounded-full bg-background-muted transition-[left] duration-300 ${
-                annual ? "left-6" : "left-1"
-              }`}
-            />
-          </button>
-
-          <button
-            type="button"
-            onClick={() => setAnnual(true)}
-            className={`shrink-0 appearance-none whitespace-nowrap border-0 bg-transparent p-0 font-[inherit] text-sm font-bold transition-colors sm:text-base ${
-              annual ? "text-foreground" : "text-foreground-muted"
-            }`}
-          >
-            Annual
-          </button>
-
-          {/* Same always-mounted/toggle-visibility pattern as the "Billed in
-              one annual payment" caption below — only relevant once Annual
-              is selected. Absolutely positioned off the row's right edge
-              (rather than a normal flex sibling) so its reserved layout
-              width doesn't pull the Monthly/toggle/Annual group off-center
-              even while invisible. */}
-          <span
-            className={`absolute left-full top-1/2 ml-4 inline-flex shrink-0 -translate-y-1/2 items-center whitespace-nowrap rounded-full border border-foreground/20 bg-background-muted px-3 py-1 text-xs font-bold text-foreground ${
-              annual ? "visible" : "invisible"
-            }`}
-            aria-hidden={!annual}
-          >
-            Save {SAVE_PERCENT}
-          </span>
-        </div>
-
         <div className="mt-6 w-full max-w-md rounded-2xl border border-foreground/10 bg-background-muted p-8 text-left sm:p-10">
           <p className="text-foreground">
             <span className="text-4xl font-extrabold sm:text-5xl">
-              {annual ? ANNUAL_PRICE : MONTHLY_PRICE}
+              {MONTHLY_PRICE}
             </span>
-            <span className="text-base text-foreground-muted">
-              /{annual ? "year" : "month"}
-            </span>
+            <span className="text-base text-foreground-muted">/month</span>
           </p>
 
           <p className="mt-4 text-sm text-foreground-muted sm:text-base">
@@ -132,21 +48,6 @@ export function Pricing() {
           >
             Membership
           </Link>
-
-          {/* Always mounted (never conditionally rendered) so it always
-              reserves its own line — toggling opacity/visibility instead of
-              mounting/unmounting is what keeps the card a fixed height
-              across both states; the previous conditional-render version
-              made the card grow/shrink by this line's height every time
-              the toggle switched. */}
-          <p
-            className={`mt-4 text-center text-xs text-foreground-muted ${
-              annual ? "visible" : "invisible"
-            }`}
-            aria-hidden={!annual}
-          >
-            Billed in one annual payment.
-          </p>
         </div>
       </div>
     </section>
