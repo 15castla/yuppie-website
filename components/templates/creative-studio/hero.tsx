@@ -33,8 +33,8 @@ export function Hero({
   });
 
   return (
-    <section className="relative h-dvh w-full bg-background p-4 md:p-6">
-      <div className="relative flex h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl bg-background md:h-[calc(100dvh-3rem)] md:rounded-[2rem]">
+    <section className="relative w-full bg-background p-4 md:p-6">
+      <div className="relative flex w-full flex-col overflow-hidden rounded-2xl bg-background md:rounded-[2rem]">
         {videoSrc ? (
           <video
             className="absolute inset-0 h-full w-full object-cover"
@@ -76,7 +76,7 @@ export function Hero({
           </ul>
         </nav>
 
-        <div className="relative z-10 mt-auto p-4 sm:p-6 md:p-8 lg:p-10">
+        <div className="relative z-10 p-4 pt-16 sm:p-6 sm:pt-20 md:p-8 md:pt-24 lg:p-10 lg:pt-16">
           <div className="grid grid-cols-12 items-end gap-6 md:gap-8">
             {/* lg:mb-* only — below lg the columns stack into separate rows
                 (both col-span-12), where items-end has no effect anyway and
