@@ -86,15 +86,8 @@ export function Hero({
                 roughly the paragraph+gap+button block's height, landing it
                 at the paragraph's top instead — the right column itself is
                 untouched, so the button stays exactly where it was. */}
-            <div className="col-span-12 flex flex-col items-center gap-3 lg:col-span-8 lg:mb-36">
-              <motion.span
-                {...fade(0.2)}
-                className="text-center text-xs font-bold uppercase tracking-[0.24em] text-foreground/55"
-              >
-                Launching Q1 2027
-              </motion.span>
-
-              <motion.div {...fade(0.4)} className="w-full">
+            <div className="col-span-12 flex flex-col items-center lg:col-span-8 lg:mb-36">
+              <motion.div {...fade(0.2)} className="w-full">
                 <Image
                   src="/yuppie_logo_forte_forward.png"
                   alt="Yuppie"
