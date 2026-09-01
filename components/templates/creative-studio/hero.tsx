@@ -105,21 +105,26 @@ export function Hero({
                 className="max-w-md text-sm text-foreground/70 sm:text-base"
                 style={{ lineHeight: 1.3 }}
               >
-                A club built for those too busy climbing to slow down and too
-                fun to stay in. It&apos;s where London&apos;s sharpest,
-                loudest and switched on go to have a life outside of work.
+                Calendars full of meetings. Group chats that never land on a
+                plan. Nights lost scrolling for something to do. We got fed
+                up, so we built Yuppie.
               </motion.p>
 
               <motion.div {...fade(0.7)}>
-                <Link
-                  href="/apply"
-                  className="group inline-flex w-fit items-center gap-2 rounded-full bg-background-muted py-1.5 pe-1.5 ps-5 text-sm font-bold text-foreground transition-all duration-300 hover:gap-3 sm:text-base"
-                >
-                  Membership
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10">
-                    <ArrowRight className="h-4 w-4 text-foreground rtl:rotate-180" />
+                <div className="flex flex-wrap items-center gap-3.5">
+                  <Link
+                    href="/apply"
+                    className="group inline-flex w-fit items-center gap-2 rounded-full bg-background-muted py-1.5 pe-1.5 ps-5 text-sm font-bold text-foreground transition-all duration-300 hover:gap-3 sm:text-base"
+                  >
+                    Membership
+                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10">
+                      <ArrowRight className="h-4 w-4 text-foreground rtl:rotate-180" />
+                    </span>
+                  </Link>
+                  <span className="text-xs font-bold uppercase tracking-wider text-foreground/55">
+                    Launching Q1 2027
                   </span>
-                </Link>
+                </div>
               </motion.div>
             </div>
           </div>
