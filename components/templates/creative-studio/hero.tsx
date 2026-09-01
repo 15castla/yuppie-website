@@ -86,8 +86,8 @@ export function Hero({
                 roughly the paragraph+gap+button block's height, landing it
                 at the paragraph's top instead — the right column itself is
                 untouched, so the button stays exactly where it was. */}
-            <div className="col-span-12 lg:col-span-8 lg:mb-36">
-              <motion.div {...fade(0.2)}>
+            <div className="col-span-12 flex flex-col items-center gap-3 lg:col-span-8 lg:mb-36">
+              <motion.div {...fade(0.2)} className="w-full">
                 <Image
                   src="/yuppie_logo_forte_forward.png"
                   alt="Yuppie"
@@ -97,6 +97,13 @@ export function Hero({
                   className="h-auto w-full"
                 />
               </motion.div>
+
+              <motion.span
+                {...fade(0.4)}
+                className="text-center text-xs font-bold uppercase tracking-wider text-foreground/55"
+              >
+                Launching Q1 2027
+              </motion.span>
             </div>
 
             <div className="col-span-12 flex flex-col gap-4 md:gap-6 lg:col-span-4">
@@ -111,20 +118,15 @@ export function Hero({
               </motion.p>
 
               <motion.div {...fade(0.7)}>
-                <div className="flex flex-wrap items-center gap-3.5">
-                  <Link
-                    href="/apply"
-                    className="group inline-flex w-fit items-center gap-2 rounded-full bg-background-muted py-1.5 pe-1.5 ps-5 text-sm font-bold text-foreground transition-all duration-300 hover:gap-3 sm:text-base"
-                  >
-                    Membership
-                    <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10">
-                      <ArrowRight className="h-4 w-4 text-foreground rtl:rotate-180" />
-                    </span>
-                  </Link>
-                  <span className="text-xs font-bold uppercase tracking-wider text-foreground/55">
-                    Launching Q1 2027
+                <Link
+                  href="/apply"
+                  className="group inline-flex w-fit items-center gap-2 rounded-full bg-background-muted py-1.5 pe-1.5 ps-5 text-sm font-bold text-foreground transition-all duration-300 hover:gap-3 sm:text-base"
+                >
+                  Membership
+                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10">
+                    <ArrowRight className="h-4 w-4 text-foreground rtl:rotate-180" />
                   </span>
-                </div>
+                </Link>
               </motion.div>
             </div>
           </div>
