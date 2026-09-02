@@ -34,7 +34,7 @@ export function Hero({
 
   return (
     <section className="relative h-dvh w-full bg-background p-4 md:p-6">
-      <div className="relative flex h-[calc(100dvh-2rem)] w-full flex-col justify-center overflow-hidden rounded-2xl bg-background md:h-[calc(100dvh-3rem)] md:rounded-[2rem]">
+      <div className="relative flex h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl bg-background md:h-[calc(100dvh-3rem)] md:rounded-[2rem]">
         {videoSrc ? (
           <video
             className="absolute inset-0 h-full w-full object-cover"
@@ -76,9 +76,17 @@ export function Hero({
           </ul>
         </nav>
 
-        <div className="relative z-10 p-4 sm:p-6 md:p-8 lg:p-10">
-          <div className="grid grid-cols-12 items-center gap-6 md:gap-8">
-            <div className="col-span-12 flex flex-col items-center lg:col-span-8">
+        <div className="relative z-10 mt-auto p-4 sm:p-6 md:p-8 lg:p-10">
+          <div className="grid grid-cols-12 items-end gap-6 md:gap-8">
+            {/* lg:mb-* only — below lg the columns stack into separate rows
+                (both col-span-12), where items-end has no effect anyway and
+                the existing row gap already spaces them correctly. At lg+,
+                where they sit side by side in one items-end row, this pulls
+                the image's bottom edge up off the shared row-bottom line by
+                roughly the paragraph+gap+button block's height, landing it
+                at the paragraph's top instead — the right column itself is
+                untouched, so the button stays exactly where it was. */}
+            <div className="col-span-12 flex flex-col items-center lg:col-span-8 lg:mb-36">
               <motion.div {...fade(0.2)} className="w-full">
                 <Image
                   src="/yuppie_logo_forte_forward.png"
