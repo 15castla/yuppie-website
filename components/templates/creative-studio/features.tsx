@@ -16,19 +16,19 @@ const INFO_CARDS: InfoCard[] = [
     title: "Members' Events.",
     Icon: Calendar,
     description:
-      "Dinners, wellness sessions, sport and new experiences, put on regularly across London so there's always something worth going out for. Think supper clubs, Padel & Pints, wellness retreats and nights out you won't find anywhere else.",
+      "Dinners, wellness sessions, sport and new experiences, put on regularly across London with members who turned up for the same reason as you. Think supper clubs, Padel & Pints, wellness retreats and nights out you won't find anywhere else.",
   },
   {
     title: "Members' Discounts.",
     Icon: Percent,
     description:
-      "We've partnered with over 40 restaurants, bars and hospitality outlets across the city to get our members real, ongoing discounts. Think 30% off at partner restaurants, complimentary drinks at select bars, and preferential rates you won't get walking in off the street.",
+      "On top of the events, real discounts with partners across the city: restaurants and bars, barbers, gyms, sports clubs and more, all offering our members savings you won't get walking in off the street.",
   },
   {
     title: "Members' Access.",
     Icon: Key,
     description:
-      "The doors, events and experiences that aren't open to the public. Think skip-the-queue entry at partner venues, access to London's members' clubs, invite-only parties and first access to experiences before they sell out.",
+      "And the doors that aren't open to the public: skip-the-queue entry at partner venues, access to London's members' clubs, invite-only parties, and first dibs before things sell out.",
   },
 ];
 
