@@ -11,7 +11,7 @@ const HEADING_SEGMENTS = [
 ];
 
 const BODY =
-  "A calendar full of things worth doing, and a room full of people actually worth meeting, every time you show up.";
+  "An app full of things worth doing, and people actually worth meeting, every time you show up.";
 
 export function About() {
   return (
