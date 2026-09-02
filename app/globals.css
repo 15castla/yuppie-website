@@ -31,27 +31,3 @@ body {
   margin-inline: auto;
   padding-inline: 1.5rem;
 }
-
-@keyframes marquee-scroll {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-
-.animate-marquee {
-  animation: marquee-scroll 26s linear infinite;
-}
-
-.animate-marquee-reverse {
-  animation: marquee-scroll 26s linear infinite reverse;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-marquee,
-  .animate-marquee-reverse {
-    animation: none;
-  }
-}
