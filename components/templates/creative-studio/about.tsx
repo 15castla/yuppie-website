@@ -8,11 +8,10 @@ const HEADING_SEGMENTS = [
     text: "born from the refusal to stay in.",
     className: "italic [font-family:var(--font-instrument-serif)]",
   },
-  { text: "We'll shape your social life so you don't have to." },
 ];
 
 const BODY =
-  "We have partnered with over 42 restaurants, brands and hospitality outlets across the city and beyond, to create a unique list of events, access and discounts for our members.";
+  "London has eight million people in it, and somehow you keep seeing the same few. Yuppie's the fix. A calendar full of things worth doing, and a room full of people actually worth meeting, every time you show up.";
 
 export function About() {
   return (
