@@ -106,8 +106,7 @@ export function Hero({
                 style={{ lineHeight: 1.3 }}
               >
                 Calendars full of meetings. Group chats that never land on a
-                plan. Nights lost scrolling for something to do. We got fed
-                up, so we built Yuppie.
+                plan. Weekends on repeat. We got fed up, so we built Yuppie.
               </motion.p>
 
               <motion.div {...fade(0.7)}>
