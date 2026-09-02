@@ -11,7 +11,7 @@ const HEADING_SEGMENTS = [
 ];
 
 const BODY =
-  "London has eight million people in it, and somehow you keep seeing the same few. Yuppie's the fix. A calendar full of things worth doing, and a room full of people actually worth meeting, every time you show up.";
+  "Calendars full of meetings. Group chats that never land on a plan. Weekends on repeat. We got fed up, so we built Yuppie.";
 
 export function About() {
   return (
