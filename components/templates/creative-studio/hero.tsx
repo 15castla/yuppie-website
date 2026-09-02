@@ -86,7 +86,7 @@ export function Hero({
                 roughly the paragraph+gap+button block's height, landing it
                 at the paragraph's top instead — the right column itself is
                 untouched, so the button stays exactly where it was. */}
-            <div className="col-span-12 flex flex-col items-center lg:col-span-8 lg:mb-36">
+            <div className="col-span-12 flex flex-col items-center lg:col-span-8 lg:mb-52 xl:mb-40">
               <motion.div {...fade(0.2)} className="w-full">
                 <Image
                   src="/yuppie_logo_forte_forward.png"
@@ -105,8 +105,10 @@ export function Hero({
                 className="max-w-md text-sm text-foreground/70 sm:text-base"
                 style={{ lineHeight: 1.3 }}
               >
-                Calendars full of meetings. Group chats that never land on a
-                plan. Weekends on repeat. We got fed up, so we built Yuppie.
+                London has eight million people in it, and somehow you keep
+                seeing the same few. Yuppie&apos;s the fix. A calendar full of
+                things worth doing, and a room full of people actually worth
+                meeting, every time you show up.
               </motion.p>
 
               <motion.div {...fade(0.7)}>
