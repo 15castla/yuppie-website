@@ -17,6 +17,31 @@ const NAV_ITEMS: { label: string; href: string }[] = [
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
+const TOP_MARQUEE_ITEMS = ["London's Social Club", "Launching Q1 2027", "Apply Now"];
+const BOTTOM_MARQUEE_ITEMS = ["Dinners", "Padel & Pints", "Wellness Retreats", "New Faces"];
+
+function Marquee({ items, reverse }: { items: string[]; reverse?: boolean }) {
+  const doubled = [...items, ...items];
+  return (
+    <div className="overflow-hidden border-y border-foreground/10">
+      <div
+        className={`flex w-max items-center gap-10 whitespace-nowrap py-3 ${
+          reverse ? "animate-marquee-reverse" : "animate-marquee"
+        }`}
+      >
+        {doubled.map((item, i) => (
+          <span key={i} className="flex items-center gap-10">
+            <span className="text-xs font-bold uppercase tracking-wider text-foreground/60">
+              {item}
+            </span>
+            <span className="text-[6px] text-foreground/30">●</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function Hero({
   videoSrc,
   posterSrc,
@@ -34,7 +59,7 @@ export function Hero({
 
   return (
     <section className="relative h-dvh w-full bg-background p-4 md:p-6">
-      <div className="relative flex h-[calc(100dvh-2rem)] w-full flex-col justify-center overflow-hidden rounded-2xl bg-background md:h-[calc(100dvh-3rem)] md:rounded-[2rem]">
+      <div className="relative flex h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl bg-background md:h-[calc(100dvh-3rem)] md:rounded-[2rem]">
         {videoSrc ? (
           <video
             className="absolute inset-0 h-full w-full object-cover"
@@ -76,43 +101,47 @@ export function Hero({
           </ul>
         </nav>
 
-        <div className="relative z-10 p-4 sm:p-6 md:p-8 lg:p-10">
-          <div className="grid grid-cols-12 items-center gap-6 md:gap-8">
-            <div className="col-span-12 flex flex-col items-center lg:col-span-8">
-              <motion.div {...fade(0.2)} className="w-full">
-                <Image
-                  src="/yuppie_logo_forte_forward.png"
-                  alt="Yuppie"
-                  width={1942}
-                  height={641}
-                  priority
-                  className="h-auto w-full"
-                />
-              </motion.div>
-            </div>
+        <div className="relative z-10 flex flex-1 flex-col">
+          <div className="mt-14 sm:mt-16 md:mt-20">
+            <Marquee items={TOP_MARQUEE_ITEMS} />
+          </div>
 
-            <div className="col-span-12 flex flex-col gap-4 md:gap-6 lg:col-span-4">
-              <motion.p
-                {...fade(0.5)}
-                className="max-w-md text-sm text-foreground/70 sm:text-base"
-                style={{ lineHeight: 1.3 }}
+          <div className="flex flex-1 flex-col items-center justify-center gap-6 px-4 text-center sm:gap-7 md:gap-8">
+            <motion.div {...fade(0.2)} className="w-[46%] min-w-[220px] max-w-[500px]">
+              <Image
+                src="/yuppie_logo_forte_forward.png"
+                alt="Yuppie"
+                width={1942}
+                height={641}
+                priority
+                className="h-auto w-full"
+              />
+            </motion.div>
+
+            <motion.p
+              {...fade(0.4)}
+              className="max-w-md text-base text-foreground/70 sm:text-lg"
+              style={{ lineHeight: 1.5 }}
+            >
+              Calendars full of meetings. Group chats that never land on a
+              plan. Weekends on repeat. We got fed up, so we built Yuppie.
+            </motion.p>
+
+            <motion.div {...fade(0.6)}>
+              <Link
+                href="/apply"
+                className="group inline-flex w-fit items-center gap-2 rounded-full bg-background-muted py-2 pe-2 ps-6 text-base font-bold text-foreground transition-all duration-300 hover:gap-3"
               >
-                Calendars full of meetings. Group chats that never land on a
-                plan. Weekends on repeat. We got fed up, so we built Yuppie.
-              </motion.p>
+                Membership
+                <span className="flex h-10 w-10 items-center justify-center rounded-full bg-background transition-transform duration-300 group-hover:scale-110">
+                  <ArrowRight className="h-4 w-4 text-foreground rtl:rotate-180" />
+                </span>
+              </Link>
+            </motion.div>
+          </div>
 
-              <motion.div {...fade(0.7)}>
-                <Link
-                  href="/apply"
-                  className="group inline-flex w-fit items-center gap-2 rounded-full bg-background-muted py-1.5 pe-1.5 ps-5 text-sm font-bold text-foreground transition-all duration-300 hover:gap-3 sm:text-base"
-                >
-                  Membership
-                  <span className="flex h-9 w-9 items-center justify-center rounded-full bg-background transition-transform duration-300 group-hover:scale-110 sm:h-10 sm:w-10">
-                    <ArrowRight className="h-4 w-4 text-foreground rtl:rotate-180" />
-                  </span>
-                </Link>
-              </motion.div>
-            </div>
+          <div className="mb-4 sm:mb-6">
+            <Marquee items={BOTTOM_MARQUEE_ITEMS} reverse />
           </div>
         </div>
       </div>
