@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
@@ -33,85 +32,9 @@ export function Hero({
     transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
   });
 
-  // dvh/svh/lvh either weren't fixing the "next section peeks in below the
-  // fold" bug on a real iPhone Safari, or aren't supported by that build at
-  // all (support only shipped in Safari 15.4 — on an older build, the whole
-  // `height` rule using an unrecognized unit gets silently dropped and Hero
-  // falls back to auto-sizing by content, producing exactly this symptom).
-  // Measuring the real visible height in JS sidesteps unit support/timing
-  // issues entirely. visualViewport is used over window.innerHeight where
-  // available since iOS fires its own resize event on that separately from
-  // window resize (e.g. when the address bar collapses/expands).
-  useEffect(() => {
-    const setAppHeight = () => {
-      const height = window.visualViewport?.height ?? window.innerHeight;
-      document.documentElement.style.setProperty("--app-height", `${height}px`);
-    };
-    setAppHeight();
-    window.visualViewport?.addEventListener("resize", setAppHeight);
-    window.addEventListener("resize", setAppHeight);
-    window.addEventListener("orientationchange", setAppHeight);
-    return () => {
-      window.visualViewport?.removeEventListener("resize", setAppHeight);
-      window.removeEventListener("resize", setAppHeight);
-      window.removeEventListener("orientationchange", setAppHeight);
-    };
-  }, []);
-
-  // TEMPORARY — remove this debug overlay in the same commit as whatever
-  // the real fix turns out to be. dvh, svh, lvh, and the visualViewport-
-  // based --app-height effect above have all shipped without changing the
-  // outcome on the one device where the About peek-through reproduces, so
-  // this reads real numbers off that device instead of continuing to guess.
-  const [debugInfo, setDebugInfo] = useState("");
-
-  useEffect(() => {
-    const updateDebug = () => {
-      setDebugInfo(
-        `innerH: ${window.innerHeight}\n` +
-          `vvH: ${window.visualViewport?.height}\n` +
-          `docClientH: ${document.documentElement.clientHeight}\n` +
-          `appHeightVar: ${getComputedStyle(document.documentElement).getPropertyValue("--app-height")}\n` +
-          `heroComputedH: ${document.getElementById("hero-debug") ? getComputedStyle(document.getElementById("hero-debug")!).height : "no section found"}\n` +
-          `aboutTop: ${document.querySelectorAll("section")[1] ? document.querySelectorAll("section")[1].getBoundingClientRect().top : "no second section found"}\n` +
-          `UA: ${navigator.userAgent}`,
-      );
-    };
-    updateDebug();
-    window.visualViewport?.addEventListener("resize", updateDebug);
-    window.addEventListener("resize", updateDebug);
-    const interval = setInterval(updateDebug, 500); // catch changes even without a resize event firing
-    return () => {
-      window.visualViewport?.removeEventListener("resize", updateDebug);
-      window.removeEventListener("resize", updateDebug);
-      clearInterval(interval);
-    };
-  }, []);
-
   return (
-    <section
-      id="hero-debug"
-      className="relative h-[var(--app-height,100dvh)] w-full bg-background p-4 md:p-6"
-    >
-      {/* TEMPORARY debug readout — remove alongside the real fix. */}
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          zIndex: 9999,
-          background: "black",
-          color: "lime",
-          fontSize: "10px",
-          padding: "4px 6px",
-          fontFamily: "monospace",
-          whiteSpace: "pre",
-        }}
-      >
-        {debugInfo}
-      </div>
-
-      <div className="relative flex h-[calc(var(--app-height,100dvh)-2rem)] w-full flex-col overflow-hidden rounded-2xl bg-background md:h-[calc(var(--app-height,100dvh)-3rem)] md:rounded-[2rem]">
+    <section className="relative h-dvh w-full bg-background p-4 md:p-6">
+      <div className="relative flex h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl bg-background md:h-[calc(100dvh-3rem)] md:rounded-[2rem]">
         {videoSrc ? (
           <video
             className="absolute inset-0 h-full w-full object-cover"

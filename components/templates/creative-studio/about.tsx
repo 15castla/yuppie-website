@@ -15,8 +15,8 @@ const BODY =
 
 export function About() {
   return (
-    <section className="bg-background px-4 pb-20 sm:px-6 sm:pb-28 md:pb-32">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-10 rounded-[2rem] bg-background-muted px-6 pt-20 pb-12 text-center sm:px-10 sm:py-16 md:px-16 md:py-20">
+    <section className="bg-background px-4 pt-8 pb-20 sm:px-6 sm:pb-28 md:pb-32">
+      <div className="mx-auto flex max-w-6xl flex-col items-center gap-10 rounded-[2rem] bg-background-muted px-6 py-12 text-center sm:px-10 sm:py-16 md:px-16 md:py-20">
         <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
           THE CLUB
         </span>
