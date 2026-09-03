@@ -131,7 +131,7 @@ export function Footer() {
           />
         </div>
 
-        <div className="flex flex-col gap-4 pt-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-row items-center justify-between gap-4 pt-6">
           <p className="text-xs text-foreground-muted">
             © 2026 Yuppie. All rights reserved.
           </p>
