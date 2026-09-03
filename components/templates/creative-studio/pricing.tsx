@@ -22,7 +22,7 @@ export function Pricing() {
           PRICING
         </span>
 
-        <h2 className="text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl">
+        <h2 className="text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold">
           <WordsPullUpMultiStyle segments={HEADING_SEGMENTS} />
         </h2>
 
