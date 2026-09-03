@@ -16,7 +16,7 @@ const MONTHLY_PRICE = "£10";
 
 export function Pricing() {
   return (
-    <section className="relative overflow-hidden bg-background px-4 pt-20 pb-20 sm:px-6 sm:pb-28 md:pb-32">
+    <section className="relative overflow-hidden bg-background px-4 pt-20 pb-20 sm:px-6 sm:pt-0 sm:pb-28 md:pb-32">
       <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
         <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
           PRICING
