@@ -4,16 +4,6 @@ import { ArrowUpRight } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
-import { WordsPullUpMultiStyle } from "./primitives";
-
-const HEADLINE = [
-  { text: "This isn't for everyone." },
-  {
-    text: "Might be for you though.",
-    className: "italic [font-family:var(--font-instrument-serif)]",
-  },
-];
-
 type FooterLink = { label: string; href: string; comingSoon?: boolean };
 
 // "FAQ's" doesn't have a page yet, so it stays the same "#" placeholder
@@ -81,10 +71,11 @@ export function Footer() {
         <div className="flex flex-col gap-8 border-b border-foreground/10 pb-12 md:flex-row md:items-end md:justify-between">
           <div className="flex flex-col gap-5">
             <h2 className="max-w-[620px] text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold">
-              <WordsPullUpMultiStyle
-                segments={HEADLINE}
-                className="justify-start"
-              />
+              This isn&apos;t for everyone.
+              <br />
+              <span className="italic [font-family:var(--font-instrument-serif)]">
+                Might be for you though.
+              </span>
             </h2>
           </div>
 
