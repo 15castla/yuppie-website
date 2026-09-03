@@ -73,6 +73,7 @@ export function Hero({
           `docClientH: ${document.documentElement.clientHeight}\n` +
           `appHeightVar: ${getComputedStyle(document.documentElement).getPropertyValue("--app-height")}\n` +
           `heroComputedH: ${document.getElementById("hero-debug") ? getComputedStyle(document.getElementById("hero-debug")!).height : "no section found"}\n` +
+          `aboutTop: ${document.querySelectorAll("section")[1] ? document.querySelectorAll("section")[1].getBoundingClientRect().top : "no second section found"}\n` +
           `UA: ${navigator.userAgent}`,
       );
     };
