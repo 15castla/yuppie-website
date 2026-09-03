@@ -7,9 +7,9 @@ import Link from "next/link";
 import { WordsPullUpMultiStyle } from "./primitives";
 
 const HEADLINE = [
-  { text: "Let's build a social life" },
+  { text: "This isn't for everyone." },
   {
-    text: "actually worth going out for.",
+    text: "Might be for you though.",
     className: "italic [font-family:var(--font-instrument-serif)]",
   },
 ];
