@@ -72,6 +72,7 @@ export function Hero({
           `vvH: ${window.visualViewport?.height}\n` +
           `docClientH: ${document.documentElement.clientHeight}\n` +
           `appHeightVar: ${getComputedStyle(document.documentElement).getPropertyValue("--app-height")}\n` +
+          `heroComputedH: ${document.getElementById("hero-debug") ? getComputedStyle(document.getElementById("hero-debug")!).height : "no section found"}\n` +
           `UA: ${navigator.userAgent}`,
       );
     };
@@ -87,7 +88,10 @@ export function Hero({
   }, []);
 
   return (
-    <section className="relative h-[var(--app-height,100dvh)] w-full bg-background p-4 md:p-6">
+    <section
+      id="hero-debug"
+      className="relative h-[var(--app-height,100dvh)] w-full bg-background p-4 md:p-6"
+    >
       {/* TEMPORARY debug readout — remove alongside the real fix. */}
       <div
         style={{
