@@ -12,7 +12,6 @@ import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
-import { NoiseOverlay } from "@/components/templates/creative-studio/primitives";
 import { SiteNav } from "@/components/templates/creative-studio/site-nav";
 
 const inputClasses =
@@ -96,8 +95,6 @@ export default function MemberLoginPage() {
       }}
     >
       <section className="relative flex flex-1 flex-col overflow-hidden">
-        <NoiseOverlay variant="bg" className="opacity-[0.12]" />
-
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 bottom-0 select-none"
