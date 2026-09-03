@@ -27,7 +27,7 @@ export function Pricing() {
         </h2>
 
         <p className="max-w-md text-sm text-foreground-muted sm:text-base">
-          One plan. Cancel whenever life gets too fun.
+          Cancel whenever life gets too fun.
         </p>
 
         <div className="mt-6 w-full max-w-md rounded-2xl border border-foreground/10 bg-background-muted p-8 text-left sm:p-10">
