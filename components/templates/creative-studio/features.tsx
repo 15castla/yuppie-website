@@ -48,7 +48,7 @@ function FeatureCard({
 
 export function Features() {
   return (
-    <section className="relative min-h-screen overflow-hidden bg-background pb-20 sm:pb-28 md:pb-32">
+    <section className="relative overflow-hidden bg-background pb-20 sm:pb-28 md:pb-32">
       <div className="relative container flex flex-col gap-12 md:gap-16">
         <div className="flex flex-col items-center gap-3 text-center">
           <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
