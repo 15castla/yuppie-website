@@ -5,9 +5,9 @@ import Link from "next/link";
 import { WordsPullUpMultiStyle } from "./primitives";
 
 const HEADING_SEGMENTS = [
-  { text: "Pricing that makes" },
+  { text: "One membership." },
   {
-    text: "sense.",
+    text: "No catch.",
     className: "italic [font-family:var(--font-instrument-serif)]",
   },
 ];
@@ -27,7 +27,7 @@ export function Pricing() {
         </h2>
 
         <p className="max-w-md text-sm text-foreground-muted sm:text-base">
-          One plan. Every perk. Cancel whenever life gets too fun.
+          One plan. Cancel whenever life gets too fun.
         </p>
 
         <div className="mt-6 w-full max-w-md rounded-2xl border border-foreground/10 bg-background-muted p-8 text-left sm:p-10">
@@ -39,7 +39,7 @@ export function Pricing() {
           </p>
 
           <p className="mt-4 text-sm text-foreground-muted sm:text-base">
-            The ultimate membership for Yuppie&apos;s private social club
+            Full access to every event, discount and door across London.
           </p>
 
           <Link
