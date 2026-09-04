@@ -18,7 +18,7 @@ export function Pricing() {
   return (
     <section className="relative overflow-hidden bg-background px-4 pb-20 sm:px-6 sm:pb-28 md:pb-32">
       <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-        <div className="flex flex-col items-center gap-3">
+        <div className="flex flex-col items-center gap-6">
           <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
             PRICING
           </span>

@@ -135,7 +135,7 @@ export default function MemberLoginPage() {
             <>
               <motion.h1
                 {...fade(0.3)}
-                className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl"
+                className="mt-6 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl"
               >
                 Welcome back.{" "}
                 <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
@@ -153,7 +153,7 @@ export default function MemberLoginPage() {
             <>
               <motion.h1
                 {...fade(0.3)}
-                className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl"
+                className="mt-6 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl"
               >
                 Check your inbox.{" "}
                 <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
