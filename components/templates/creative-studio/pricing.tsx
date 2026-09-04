@@ -18,13 +18,15 @@ export function Pricing() {
   return (
     <section className="relative overflow-hidden bg-background px-4 pb-20 sm:px-6 sm:pb-28 md:pb-32">
       <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
-        <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
-          PRICING
-        </span>
+        <div className="flex flex-col items-center gap-3">
+          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
+            PRICING
+          </span>
 
-        <h2 className="text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold">
-          <WordsPullUpMultiStyle segments={HEADING_SEGMENTS} />
-        </h2>
+          <h2 className="text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold">
+            <WordsPullUpMultiStyle segments={HEADING_SEGMENTS} />
+          </h2>
+        </div>
 
         <p className="max-w-md text-sm text-foreground-muted sm:text-base">
           Cancel whenever life gets too fun.
