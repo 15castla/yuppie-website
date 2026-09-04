@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -17,8 +18,20 @@ import { SiteNav } from "@/components/templates/creative-studio/site-nav";
 const inputClasses =
   "w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
 
+// Same curve/pattern as Hero's entrance animation
+// (components/templates/creative-studio/hero.tsx) — reused here so
+// member-login's arrival reads as the same transition as the homepage.
+const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
 export default function MemberLoginPage() {
   const router = useRouter();
+  const reduce = useReducedMotion();
+
+  const fade = (delay: number) => ({
+    initial: reduce ? false : { y: 20, opacity: 0 },
+    animate: { y: 0, opacity: 1 },
+    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
+  });
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
@@ -111,37 +124,55 @@ export default function MemberLoginPage() {
         <SiteNav />
 
         <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-24 sm:px-6">
-          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground">
+          <motion.span
+            {...fade(0.15)}
+            className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground"
+          >
             Members Area
-          </span>
+          </motion.span>
 
           {step === "email" ? (
             <>
-              <h1 className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl">
+              <motion.h1
+                {...fade(0.3)}
+                className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl"
+              >
                 Welcome back.{" "}
                 <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
                   Let&apos;s see what&apos;s on.
                 </em>
-              </h1>
-              <p className="mx-auto mt-4 max-w-[380px] text-center text-sm text-foreground-muted sm:text-base">
+              </motion.h1>
+              <motion.p
+                {...fade(0.45)}
+                className="mx-auto mt-4 max-w-[380px] text-center text-sm text-foreground-muted sm:text-base"
+              >
                 Enter your email and we&apos;ll send you a one-time code.
-              </p>
+              </motion.p>
             </>
           ) : (
             <>
-              <h1 className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl">
+              <motion.h1
+                {...fade(0.3)}
+                className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl"
+              >
                 Check your inbox.{" "}
                 <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
                   Almost in.
                 </em>
-              </h1>
-              <p className="mx-auto mt-4 max-w-[380px] text-center text-sm text-foreground-muted sm:text-base">
+              </motion.h1>
+              <motion.p
+                {...fade(0.45)}
+                className="mx-auto mt-4 max-w-[380px] text-center text-sm text-foreground-muted sm:text-base"
+              >
                 We sent a 6-digit code to {email}.
-              </p>
+              </motion.p>
             </>
           )}
 
-          <div className="mt-6 w-full max-w-sm rounded-2xl border border-foreground/10 bg-background-muted p-8 shadow-[0_24px_48px_-28px_rgba(27,21,18,0.45)]">
+          <motion.div
+            {...fade(0.6)}
+            className="mt-6 w-full max-w-sm rounded-2xl border border-foreground/10 bg-background-muted p-8 shadow-[0_24px_48px_-28px_rgba(27,21,18,0.45)]"
+          >
             {step === "email" ? (
               <form
                 onSubmit={handleSendCode}
@@ -204,7 +235,7 @@ export default function MemberLoginPage() {
                 </button>
               </form>
             )}
-          </div>
+          </motion.div>
 
           <p className="mt-6 text-center text-sm text-foreground-muted">
             New to Yuppie?{" "}
