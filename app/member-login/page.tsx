@@ -126,7 +126,7 @@ export default function MemberLoginPage() {
         <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-24 sm:px-6">
           <motion.span
             {...fade(0.15)}
-            className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground [text-box:trim-both_cap_alphabetic]"
+            className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground optical-trim"
           >
             Members Area
           </motion.span>
@@ -135,7 +135,7 @@ export default function MemberLoginPage() {
             <>
               <motion.h1
                 {...fade(0.3)}
-                className="mt-6 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl [text-box:trim-both_cap_alphabetic]"
+                className="mt-6 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
               >
                 Welcome back.{" "}
                 <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
@@ -153,7 +153,7 @@ export default function MemberLoginPage() {
             <>
               <motion.h1
                 {...fade(0.3)}
-                className="mt-6 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl [text-box:trim-both_cap_alphabetic]"
+                className="mt-6 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
               >
                 Check your inbox.{" "}
                 <em className="italic [font-family:var(--font-instrument-serif)] font-normal">

@@ -31,3 +31,8 @@ body {
   margin-inline: auto;
   padding-inline: 1.5rem;
 }
+
+@utility optical-trim {
+  text-box-trim: trim-both;
+  text-box-edge: cap alphabetic;
+}
