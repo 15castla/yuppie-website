@@ -41,7 +41,7 @@ export function Pricing() {
           </p>
 
           <p className="mt-4 text-sm text-foreground-muted sm:text-base">
-            Full access to every event, discount and door across London.
+            Basically, a skeleton key to London&apos;s social scene.
           </p>
 
           <Link
