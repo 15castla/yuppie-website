@@ -18,11 +18,11 @@ export function About() {
     <section className="bg-background px-4 pt-20 pb-20 sm:px-6 sm:pt-0 sm:pb-28 md:pb-32">
       <div className="mx-auto flex max-w-7xl flex-col items-center gap-8 rounded-[2rem] bg-background-muted px-6 pt-6 pb-12 text-center sm:px-10 sm:pb-16 md:px-16 md:pb-20">
         <div className="flex flex-col items-center gap-6">
-          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
+          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs [text-box:trim-both_cap_alphabetic]">
             THE CLUB
           </span>
 
-          <h2 className="mx-auto max-w-[840px] text-[clamp(2rem,4.4vw,4.25rem)] font-extrabold leading-[1.04] text-foreground">
+          <h2 className="mx-auto max-w-[840px] text-[clamp(2rem,4.4vw,4.25rem)] font-extrabold leading-[1.04] text-foreground [text-box:trim-both_cap_alphabetic]">
             <WordsPullUpMultiStyle segments={HEADING_SEGMENTS} />
           </h2>
         </div>

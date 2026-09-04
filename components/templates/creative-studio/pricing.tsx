@@ -19,11 +19,11 @@ export function Pricing() {
     <section className="relative overflow-hidden bg-background px-4 pb-20 sm:px-6 sm:pb-28 md:pb-32">
       <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-6 text-center">
         <div className="flex flex-col items-center gap-6">
-          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
+          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs [text-box:trim-both_cap_alphabetic]">
             PRICING
           </span>
 
-          <h2 className="text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold">
+          <h2 className="text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold [text-box:trim-both_cap_alphabetic]">
             <WordsPullUpMultiStyle segments={HEADING_SEGMENTS} />
           </h2>
         </div>

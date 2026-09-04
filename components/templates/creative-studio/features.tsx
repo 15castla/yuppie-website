@@ -51,10 +51,10 @@ export function Features() {
     <section className="relative overflow-hidden bg-background pb-20 sm:pb-28 md:pb-32">
       <div className="relative container flex flex-col gap-12 md:gap-16">
         <div className="flex flex-col items-center gap-6 text-center">
-          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs">
+          <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs [text-box:trim-both_cap_alphabetic]">
             THE PERKS
           </span>
-          <h2 className="mx-auto max-w-3xl text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold">
+          <h2 className="mx-auto max-w-3xl text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold [text-box:trim-both_cap_alphabetic]">
             A club for London&apos;s most social
             <br />
             <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
