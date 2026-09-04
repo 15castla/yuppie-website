@@ -1,5 +1,8 @@
 "use client";
 
+// Page-entrance fade-up transition, applied on every route via Next's
+// template.tsx re-mount behavior.
+
 import type { ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 
