@@ -2,14 +2,11 @@
 
 import Link from "next/link";
 
-// "#" for FAQ's, which doesn't have a page yet — the other three link to
-// their real, already-built routes rather than sitting dead, matching how
-// the footer's matching labels are wired.
 const NAV_ITEMS: { label: string; href: string }[] = [
   { label: "Home", href: "/" },
   { label: "Members Area", href: "/member-login" },
   { label: "Membership", href: "/apply" },
-  { label: "FAQ's", href: "#" },
+  { label: "FAQ's", href: "/faq" },
 ];
 
 function NavLinkItem({ label, href }: { label: string; href: string }) {

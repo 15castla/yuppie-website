@@ -6,14 +6,10 @@ import Link from "next/link";
 
 type FooterLink = { label: string; href: string; comingSoon?: boolean };
 
-// "FAQ's" doesn't have a page yet, so it stays the same "#" placeholder
-// used by the hero nav; the other two already exist elsewhere in this app,
-// so they're wired to the real routes rather than left dead when a working
-// destination is right there.
 const YUPPIE_LINKS: FooterLink[] = [
   { label: "Members Area", href: "/member-login" },
   { label: "Membership", href: "/apply" },
-  { label: "FAQ's", href: "#" },
+  { label: "FAQ's", href: "/faq" },
 ];
 
 // Social handles aren't wired up yet — rendered as visibly disabled with a
