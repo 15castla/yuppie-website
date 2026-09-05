@@ -134,7 +134,9 @@ export default function FaqPage() {
             </h1>
 
             <p className="max-w-md text-sm text-foreground-muted sm:text-base">
-              Can&apos;t find what you&apos;re looking for? Get in touch —{" "}
+              Can&apos;t find what you&apos;re looking for?
+              <br />
+              Get in touch at{" "}
               <a
                 href="mailto:hello@clubyuppie.com"
                 className="text-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
