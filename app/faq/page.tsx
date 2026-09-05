@@ -23,33 +23,32 @@ const HEADING_SEGMENTS = [
 
 type FaqEntry = { question: string; answer: string };
 
-// Placeholder copy — swap for the real FAQ content when ready.
 const FAQ_ITEMS: FaqEntry[] = [
   {
     question: "How does membership work? Can I cancel at any time?",
     answer:
-      "Yes, it's completely flexible. £10/month gets you in, and you can cancel whenever you like — no lock-in, no faff.",
+      "Yes, it's completely flexible. £10/month gets you in, and you can cancel whenever you like, no lock-in, no faff.",
   },
   {
-    question: "Is Yuppie worth it if I don't go out that often?",
+    question: "How will I know if my application's been approved?",
     answer:
-      "Even if you only make it to one or two things a month, the discounts and access alone tend to cover the membership cost — the events are the bonus on top.",
-  },
-  {
-    question: "What do I actually get as a member?",
-    answer:
-      "Regular events across London (dinners, wellness, sport, nights out), real discounts with partner restaurants, bars, gyms and more, plus access to things that aren't open to the public — skip-the-queue entry, invite-only parties, first dibs before things sell out.",
-  },
-  {
-    question: "How do I find out what's on and book a spot?",
-    answer:
-      "Once you're a member, everything happening that month lives in your Members Area — you just show up.",
+      "Every application is reviewed by our membership committee, so it's not instant. Once you're approved, you'll get a text from Yuppie letting you know.",
   },
   {
     question:
-      "What makes Yuppie different from other social apps or membership clubs?",
+      "Do I have to pay for events, or are they included in membership?",
     answer:
-      "We handle the planning. No group chats that go nowhere, no scrolling through options — just things worth doing, with people worth meeting, every time you show up.",
+      "Membership covers your discounts, access and entry to events. Most events do have their own cost on top, but we run them at cost, so you're only ever paying what it actually costs to put on, never a markup. We also run free members only events regularly.",
+  },
+  {
+    question: "What additional perks do I get, beyond access to events?",
+    answer:
+      "Real discounts with partners across London, from restaurants and bars to barbers, gyms and sports clubs. Plus access to things that aren't open to the public, like skip the queue entry at partner venues, invite only parties and first dibs before things sell out.",
+  },
+  {
+    question: "How do I book onto events?",
+    answer:
+      "You can book through your Members Area or the Yuppie app, downloadable from the App Store and Google Play. Everything happening that month is listed there, so you just pick what you fancy.",
   },
 ];
 
