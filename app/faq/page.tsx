@@ -111,14 +111,14 @@ export default function FaqPage() {
       <section className="relative flex flex-1 flex-col overflow-hidden">
         <div
           aria-hidden
-          className="pointer-events-none absolute inset-x-0 bottom-0 flex justify-center select-none"
+          className="pointer-events-none fixed inset-x-0 bottom-0 select-none"
         >
           <Image
             src="/yuppie_logo_forte_forward.png"
             alt=""
             width={1942}
             height={641}
-            className="h-auto w-full max-w-xl opacity-10 sm:max-w-2xl"
+            className="h-auto w-full opacity-10"
           />
         </div>
 
