@@ -137,7 +137,7 @@ export default function FaqPage() {
               Can&apos;t find what you&apos;re looking for? Get in touch —{" "}
               <a
                 href="mailto:hello@clubyuppie.com"
-                className="font-bold text-foreground underline underline-offset-2"
+                className="text-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
               >
                 hello@clubyuppie.com
               </a>
