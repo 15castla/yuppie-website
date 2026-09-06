@@ -138,6 +138,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
       !setupIntent ||
       typeof setupIntent.payment_method !== "string"
     ) {
+      console.error("Stripe confirmSetup failed:", { stripeError, setupIntent });
       setSubmitting(false);
       setError({
         message:
