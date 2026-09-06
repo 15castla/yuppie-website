@@ -1,4 +1,4 @@
-import { renderBrandedEmailHtml } from "./email-template";
+import { renderWelcomeEmailHtml } from "./email-template";
 import { sendEmail } from "./resend-client";
 
 const SITE_URL = "https://clubyuppie.com";
@@ -13,8 +13,10 @@ export async function sendWelcomeEmail({
   const firstName = fullName?.trim().split(" ")[0] || "there";
   const loginUrl = `${SITE_URL}/member-login`;
 
-  const html = renderBrandedEmailHtml({
+  const html = renderWelcomeEmailHtml({
     documentTitle: "You're in - welcome to Yuppie",
+    preheaderText:
+      "Your application to Yuppie has been approved and your account is ready.",
     heading: `You're in, ${firstName}!`,
     bodyText:
       "Your application to Yuppie has been approved and your account is ready. Click below to log in with your email.",
