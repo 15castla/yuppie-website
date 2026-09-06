@@ -1,15 +1,9 @@
 "use client";
 
-import {
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type FormEvent,
-  type MouseEvent,
-} from "react";
+import { useState, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/Button";
@@ -43,25 +37,9 @@ const CARD_SHADOW = "0 25px 50px -12px rgba(0,0,0,0.15)";
 const CARD_SHADOW_HOVER =
   "0 25px 50px -12px rgba(0,0,0,0.15), 0 0 45px 8px rgba(255,217,4,0.45)";
 
-const TILT_QUERY = "(hover: hover) and (pointer: fine)";
-
 // Same curve as Hero/member-login's entrance animation, reused here so
 // /apply's arrival reads as the same transition as the rest of the site.
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
-
-function subscribeToTiltSupport(callback: () => void) {
-  const mediaQuery = window.matchMedia(TILT_QUERY);
-  mediaQuery.addEventListener("change", callback);
-  return () => mediaQuery.removeEventListener("change", callback);
-}
-
-function getTiltSupport() {
-  return window.matchMedia(TILT_QUERY).matches;
-}
-
-function getTiltSupportServerSnapshot() {
-  return false;
-}
 
 function Watermark() {
   return (
@@ -94,31 +72,6 @@ export default function ApplyPage() {
     isDuplicate: boolean;
   } | null>(null);
   const [submitted, setSubmitted] = useState(false);
-
-  const supportsTilt = useSyncExternalStore(
-    subscribeToTiltSupport,
-    getTiltSupport,
-    getTiltSupportServerSnapshot,
-  );
-
-  const cardRef = useRef<HTMLDivElement>(null);
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-  const rotateX = useTransform(mouseY, [-0.5, 0.5], [6, -6]);
-  const rotateY = useTransform(mouseX, [-0.5, 0.5], [-6, 6]);
-
-  function handleCardMouseMove(event: MouseEvent<HTMLDivElement>) {
-    if (!supportsTilt) return;
-    const rect = cardRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    mouseX.set((event.clientX - rect.left) / rect.width - 0.5);
-    mouseY.set((event.clientY - rect.top) / rect.height - 0.5);
-  }
-
-  function handleCardMouseLeave() {
-    mouseX.set(0);
-    mouseY.set(0);
-  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -237,9 +190,6 @@ export default function ApplyPage() {
             </div>
 
             <motion.div
-              ref={cardRef}
-              onMouseMove={handleCardMouseMove}
-              onMouseLeave={handleCardMouseLeave}
               initial={reduce ? false : { opacity: 0, y: 20, boxShadow: CARD_SHADOW }}
               animate={{ opacity: 1, y: 0, boxShadow: CARD_SHADOW }}
               whileHover={{
@@ -247,11 +197,6 @@ export default function ApplyPage() {
                 transition: { duration: 0.3 },
               }}
               transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
-              style={
-                supportsTilt
-                  ? { rotateX, rotateY, transformPerspective: 1000 }
-                  : undefined
-              }
               className="mt-8 w-full max-w-md rounded-2xl border border-foreground/10 bg-background-muted p-8 sm:p-12"
             >
               <form
