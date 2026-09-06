@@ -63,7 +63,12 @@ export async function submitApplication(
   }
 
   const fullName = formData.get("full_name") as string;
-  const email = formData.get("email") as string;
+  // Normalized once, up front, so this exact canonical form is what gets
+  // sent to Stripe and stored in the DB — matching what the
+  // applications_email_unique_active index compares against
+  // (lower(email)), so "Test@Example.com" and "test@example.com" are
+  // recognized as the same applicant.
+  const email = (formData.get("email") as string).trim().toLowerCase();
 
   let stripeCustomerId: string;
 
