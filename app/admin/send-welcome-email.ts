@@ -6,23 +6,21 @@ const SITE_URL = "https://clubyuppie.com";
 export async function sendWelcomeEmail({
   to,
   fullName,
-  inviteCode,
 }: {
   to: string;
   fullName: string | null;
-  inviteCode: string;
 }) {
   const firstName = fullName?.trim().split(" ")[0] || "there";
-  const signupUrl = `${SITE_URL}/signup?code=${encodeURIComponent(inviteCode)}`;
+  const loginUrl = `${SITE_URL}/member-login`;
 
   const html = renderBrandedEmailHtml({
     documentTitle: "You're in - welcome to Yuppie",
     heading: `You're in, ${firstName}!`,
     bodyText:
-      "Your application to Yuppie has been approved. Click below to create your account and get started.",
-    ctaLabel: "Create your account",
-    ctaUrl: signupUrl,
-    footerText: "This link expires in 14 days.",
+      "Your application to Yuppie has been approved and your account is ready. Click below to log in with your email.",
+    ctaLabel: "Log in",
+    ctaUrl: loginUrl,
+    footerText: "You can log in any time using this email address.",
   });
 
   await sendEmail({

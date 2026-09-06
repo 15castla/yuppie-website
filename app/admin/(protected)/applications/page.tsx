@@ -130,7 +130,7 @@ async function PendingReview({
           <div className="flex-1">
             {application.payment_error && (
               <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
-                Payment failed: {application.payment_error}
+                {application.payment_error}
               </p>
             )}
             <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
