@@ -135,39 +135,46 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
     setError(null);
     setSubmitting(true);
 
-    const { error: stripeError, setupIntent } = await stripe.confirmSetup({
-      elements,
-      redirect: "if_required",
-    });
+    try {
+      const { error: stripeError, setupIntent } = await stripe.confirmSetup({
+        elements,
+        redirect: "if_required",
+      });
 
-    if (
-      stripeError ||
-      !setupIntent ||
-      typeof setupIntent.payment_method !== "string"
-    ) {
-      console.error("Stripe confirmSetup failed:", { stripeError, setupIntent });
-      setSubmitting(false);
+      if (
+        stripeError ||
+        !setupIntent ||
+        typeof setupIntent.payment_method !== "string"
+      ) {
+        console.error("Stripe confirmSetup failed:", { stripeError, setupIntent });
+        setError({
+          message:
+            stripeError?.message ??
+            "Something went wrong saving your card. Please try again.",
+          isDuplicate: false,
+        });
+        return;
+      }
+
+      formData.set("stripe_payment_method_id", setupIntent.payment_method);
+
+      const result = await submitApplication(formData);
+
+      if (!result.success) {
+        setError({ message: result.error, isDuplicate: Boolean(result.isDuplicate) });
+        return;
+      }
+
+      onSubmitted();
+    } catch (err) {
+      console.error("Unexpected error in handleSubmit:", err);
       setError({
-        message:
-          stripeError?.message ??
-          "Something went wrong saving your card. Please try again.",
+        message: "Something went wrong submitting your application. Please try again.",
         isDuplicate: false,
       });
-      return;
+    } finally {
+      setSubmitting(false);
     }
-
-    formData.set("stripe_payment_method_id", setupIntent.payment_method);
-
-    const result = await submitApplication(formData);
-
-    setSubmitting(false);
-
-    if (!result.success) {
-      setError({ message: result.error, isDuplicate: Boolean(result.isDuplicate) });
-      return;
-    }
-
-    onSubmitted();
   }
 
   return (
