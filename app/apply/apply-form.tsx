@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { loadStripe } from "@stripe/stripe-js";
@@ -88,6 +88,29 @@ const CARD_SHADOW_HOVER =
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
+// Bridges the gap when confirmSetup ends up doing a full browser redirect
+// (Apple Pay, some 3D Secure checks) instead of resolving in place — the
+// form's in-memory state is gone on return, so the field values are
+// stashed here just before confirmSetup and read back once we detect the
+// redirect-return query params.
+const DRAFT_STORAGE_KEY = "yuppie_apply_draft";
+
+function readDraft(): Record<string, string> | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearRedirectReturnState() {
+  sessionStorage.removeItem(DRAFT_STORAGE_KEY);
+  window.history.replaceState(null, "", "/apply");
+}
+
 function Watermark() {
   return (
     <div
@@ -115,6 +138,97 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
     message: string;
     isDuplicate: boolean;
   } | null>(null);
+
+  // Handles the return trip when confirmSetup ended up redirecting the
+  // browser away (Apple Pay, some 3D Secure checks) instead of resolving
+  // in place. Stripe appends these query params on the way back.
+  useEffect(() => {
+    if (!stripe) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const setupIntentClientSecret = params.get("setup_intent_client_secret");
+    const redirectStatus = params.get("redirect_status");
+
+    if (!setupIntentClientSecret || !redirectStatus) return;
+
+    async function handleRedirectReturn() {
+      try {
+        if (redirectStatus === "failed") {
+          setError({
+            message: "Your payment method couldn't be confirmed. Please try again.",
+            isDuplicate: false,
+          });
+          return;
+        }
+
+        if (redirectStatus !== "succeeded") return;
+
+        setSubmitting(true);
+
+        const { setupIntent, error: retrieveError } =
+          await stripe!.retrieveSetupIntent(setupIntentClientSecret!);
+
+        if (
+          retrieveError ||
+          !setupIntent ||
+          typeof setupIntent.payment_method !== "string"
+        ) {
+          console.error("retrieveSetupIntent failed after redirect:", {
+            retrieveError,
+            setupIntent,
+          });
+          setError({
+            message:
+              "Something went wrong confirming your payment method. Please try again.",
+            isDuplicate: false,
+          });
+          return;
+        }
+
+        const draft = readDraft();
+
+        if (!draft) {
+          setError({
+            message:
+              "Your payment method was confirmed, but we lost your application details on this device. Please fill in the form again.",
+            isDuplicate: false,
+          });
+          return;
+        }
+
+        const formData = new FormData();
+        for (const { name } of REQUIRED_FIELDS) {
+          formData.set(name, draft[name] ?? "");
+        }
+        formData.set("stripe_payment_method_id", setupIntent.payment_method);
+
+        const result = await submitApplication(formData);
+
+        if (!result.success) {
+          setError({ message: result.error, isDuplicate: Boolean(result.isDuplicate) });
+          return;
+        }
+
+        onSubmitted();
+      } catch (err) {
+        console.error("Unexpected error handling redirect return:", err);
+        const detail = err instanceof Error ? err.message : String(err);
+        setError({
+          message: `Something went wrong confirming your application: ${detail}. Please try again or contact us if this keeps happening.`,
+          isDuplicate: false,
+        });
+      } finally {
+        setSubmitting(false);
+        clearRedirectReturnState();
+      }
+    }
+
+    handleRedirectReturn();
+    // Only re-run if the Stripe instance itself changes (e.g. becomes
+    // available after initial load) — this reads a one-time URL param
+    // and clears it, not something that should re-fire on other renders.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stripe]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -188,6 +302,12 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
     setError(null);
     setSubmitting(true);
 
+    const draft: Record<string, string> = {};
+    for (const { name } of REQUIRED_FIELDS) {
+      draft[name] = (formData.get(name) as string) ?? "";
+    }
+    sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
+
     try {
       const { error: stripeError, setupIntent } = await stripe.confirmSetup({
         elements,
@@ -228,6 +348,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
         return;
       }
 
+      sessionStorage.removeItem(DRAFT_STORAGE_KEY);
       onSubmitted();
     } catch (err) {
       console.error("Unexpected error in handleSubmit:", err);
