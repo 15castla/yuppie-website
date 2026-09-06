@@ -23,6 +23,13 @@ import { submitApplication } from "./actions";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
+  {
+    developerTools: {
+      assistant: {
+        enabled: false,
+      },
+    },
+  },
 );
 
 // Approximates the site's input/label styling inside Stripe's own
