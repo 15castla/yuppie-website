@@ -24,7 +24,7 @@ const REQUIRED_FIELDS: { name: string; label: string }[] = [
 export async function createCardSetupIntent(): Promise<CreateSetupIntentResult> {
   try {
     const setupIntent = await stripe.setupIntents.create({
-      payment_method_types: ["card"],
+      payment_method_types: ["card", "link"],
       // Attempt authentication now, while the applicant is present, so the
       // off-session charge at approval time is far less likely to need
       // further authentication from them.
