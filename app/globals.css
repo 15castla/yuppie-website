@@ -36,3 +36,39 @@ body {
   text-box-trim: trim-both;
   text-box-edge: cap alphabetic;
 }
+
+/* react-phone-number-input's country-select button, restyled to read as
+   the flush left segment of the same field as the number input next to
+   it (app/apply/apply-form.tsx) rather than the library's own look.
+   Plain (unlayered) rules so they win over the input's own Tailwind
+   utility classes regardless of source order. */
+.PhoneInput {
+  display: flex;
+  align-items: stretch;
+}
+
+.PhoneInput input {
+  flex: 1;
+  min-width: 0;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+}
+
+.PhoneInputCountry {
+  position: relative;
+  z-index: 1;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-right: -2px;
+  padding: 0 0.75rem;
+  border: 2px solid rgba(27, 21, 18, 0.2);
+  border-top-left-radius: 0.75rem;
+  border-bottom-left-radius: 0.75rem;
+  background-color: #f5f3e7;
+}
+
+.PhoneInputCountrySelect {
+  cursor: pointer;
+}

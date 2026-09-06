@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import {
+  forwardRef,
+  useEffect,
+  useState,
+  type ComponentProps,
+  type FormEvent,
+} from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { loadStripe } from "@stripe/stripe-js";
@@ -10,6 +16,8 @@ import {
   useElements,
   useStripe,
 } from "@stripe/react-stripe-js";
+import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
+import "react-phone-number-input/style.css";
 import { motion, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
@@ -111,6 +119,20 @@ function clearRedirectReturnState() {
   window.history.replaceState(null, "", "/apply");
 }
 
+// Keeps the phone field's actual text input looking identical to every
+// other field on this form — react-phone-number-input renders this in
+// place of its own default input, but doesn't get a say in its styling.
+const PhoneNumberField = forwardRef<HTMLInputElement, ComponentProps<"input">>(
+  (props, ref) => (
+    <input
+      {...props}
+      ref={ref}
+      className="w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground"
+    />
+  ),
+);
+PhoneNumberField.displayName = "PhoneNumberField";
+
 function Watermark() {
   return (
     <div
@@ -138,6 +160,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
     message: string;
     isDuplicate: boolean;
   } | null>(null);
+  const [phone, setPhone] = useState<string | undefined>();
 
   // Handles the return trip when confirmSetup ended up redirecting the
   // browser away (Apple Pay, some 3D Secure checks) instead of resolving
@@ -235,6 +258,13 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
     if (!stripe || !elements) return;
 
     const formData = new FormData(event.currentTarget);
+    // phone is now controlled React state rather than read live off the
+    // DOM (react-phone-number-input doesn't leave a plain uncontrolled
+    // <input>), so the form's own submitted value has to be synced in
+    // explicitly before anything else reads it — including the
+    // required-field check right below and the sessionStorage draft
+    // built further down.
+    formData.set("phone", phone ?? "");
 
     const missingField = REQUIRED_FIELDS.find(({ name }) => {
       const value = formData.get(name);
@@ -257,11 +287,11 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
       return;
     }
 
-    const phone = formData.get("phone");
-    const phoneDigits =
-      typeof phone === "string" ? phone.replace(/[^0-9]/g, "") : "";
-    if (phoneDigits.length < 7) {
-      setError({ message: "Please enter a valid phone number.", isDuplicate: false });
+    if (!isValidPhoneNumber(phone ?? "")) {
+      setError({
+        message: "Please enter a valid phone number for the selected country",
+        isDuplicate: false,
+      });
       return;
     }
 
@@ -408,14 +438,15 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           <label htmlFor="phone" className={labelClasses}>
             Phone
           </label>
-          <motion.input
+          <PhoneInput
             id="phone"
             name="phone"
-            type="tel"
             placeholder="e.g. 07123 456789"
-            whileHover={fieldHover}
-            transition={fieldTransition}
-            className={inputClasses}
+            value={phone}
+            onChange={setPhone}
+            defaultCountry="GB"
+            international
+            inputComponent={PhoneNumberField}
           />
         </div>
 
