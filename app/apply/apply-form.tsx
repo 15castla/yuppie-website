@@ -132,6 +132,59 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
       return;
     }
 
+    const email = formData.get("email");
+    const atIndex = typeof email === "string" ? email.indexOf("@") : -1;
+    const emailValid =
+      typeof email === "string" &&
+      atIndex > 0 &&
+      email.indexOf(".", atIndex) > atIndex;
+    if (!emailValid) {
+      setError({ message: "Please enter a valid email address.", isDuplicate: false });
+      return;
+    }
+
+    const phone = formData.get("phone");
+    const phoneDigits =
+      typeof phone === "string" ? phone.replace(/[^0-9]/g, "") : "";
+    if (phoneDigits.length < 7) {
+      setError({ message: "Please enter a valid phone number.", isDuplicate: false });
+      return;
+    }
+
+    const instagramUsernameRaw = formData.get("instagram_username");
+    const instagramUsername =
+      typeof instagramUsernameRaw === "string"
+        ? instagramUsernameRaw.replace(/^@/, "")
+        : "";
+    if (!instagramUsername || !/^[A-Za-z0-9._]+$/.test(instagramUsername)) {
+      setError({
+        message:
+          "Instagram username should only contain letters, numbers, periods and underscores.",
+        isDuplicate: false,
+      });
+      return;
+    }
+
+    const linkedinUrl = formData.get("linkedin_url");
+    const linkedinUrlError = {
+      message:
+        "LinkedIn URL should be a full link, like https://linkedin.com/in/yourname.",
+      isDuplicate: false,
+    };
+    if (
+      typeof linkedinUrl !== "string" ||
+      !(linkedinUrl.startsWith("http://") || linkedinUrl.startsWith("https://"))
+    ) {
+      setError(linkedinUrlError);
+      return;
+    }
+    try {
+      new URL(linkedinUrl);
+    } catch {
+      setError(linkedinUrlError);
+      return;
+    }
+
     setError(null);
     setSubmitting(true);
 
@@ -171,8 +224,9 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
       onSubmitted();
     } catch (err) {
       console.error("Unexpected error in handleSubmit:", err);
+      const detail = err instanceof Error ? err.message : String(err);
       setError({
-        message: "Something went wrong submitting your application. Please try again.",
+        message: `Something went wrong submitting your application: ${detail}. Please try again or contact us if this keeps happening.`,
         isDuplicate: false,
       });
     } finally {

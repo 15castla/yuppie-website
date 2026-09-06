@@ -114,16 +114,17 @@ export async function submitApplication(
 
       return {
         success: false,
-        error: "Something went wrong submitting your application. Please try again.",
+        error: `Something went wrong submitting your application: ${error.message}. Please try again or contact us if this keeps happening.`,
       };
     }
 
     return { success: true };
   } catch (err) {
     console.error("submitApplication unexpected error:", err);
+    const detail = err instanceof Error ? err.message : String(err);
     return {
       success: false,
-      error: "Something went wrong submitting your application. Please try again.",
+      error: `Something went wrong submitting your application: ${detail}. Please try again or contact us if this keeps happening.`,
     };
   }
 }
