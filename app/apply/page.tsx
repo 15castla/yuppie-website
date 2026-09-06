@@ -9,9 +9,10 @@ import {
 } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { motion, useMotionValue, useTransform } from "framer-motion";
-import { Button } from "@/components/Button";
+import { motion, useMotionValue, useReducedMotion, useTransform } from "framer-motion";
+
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/Button";
 import {
   almarai,
   instrumentSerif,
@@ -44,6 +45,10 @@ const CARD_SHADOW_HOVER =
 
 const TILT_QUERY = "(hover: hover) and (pointer: fine)";
 
+// Same curve as Hero/member-login's entrance animation, reused here so
+// /apply's arrival reads as the same transition as the rest of the site.
+const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
 function subscribeToTiltSupport(callback: () => void) {
   const mediaQuery = window.matchMedia(TILT_QUERY);
   mediaQuery.addEventListener("change", callback);
@@ -58,7 +63,31 @@ function getTiltSupportServerSnapshot() {
   return false;
 }
 
+function Watermark() {
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none fixed inset-x-0 bottom-0 select-none"
+    >
+      <Image
+        src="/yuppie_logo_forte_forward.png"
+        alt=""
+        width={1942}
+        height={641}
+        className="h-auto w-full opacity-10"
+      />
+    </div>
+  );
+}
+
 export default function ApplyPage() {
+  const reduce = useReducedMotion();
+  const fade = (delay: number) => ({
+    initial: reduce ? false : { y: 20, opacity: 0 },
+    animate: { y: 0, opacity: 1 },
+    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
+  });
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<{
     message: string;
@@ -121,55 +150,10 @@ export default function ApplyPage() {
     setSubmitted(true);
   }
 
-  if (submitted) {
-    return (
-      <div
-        className={cn(
-          almarai.variable,
-          instrumentSerif.variable,
-          "flex flex-1 flex-col bg-background text-foreground antialiased",
-        )}
-        style={{
-          fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
-        }}
-      >
-        <section className="relative flex flex-1 flex-col overflow-hidden">
-          <div
-            aria-hidden
-            className="pointer-events-none fixed inset-x-0 bottom-0 select-none"
-          >
-            <Image
-              src="/yuppie_logo_forte_forward.png"
-              alt=""
-              width={1942}
-              height={641}
-              className="h-auto w-full opacity-10"
-            />
-          </div>
-
-          <SiteNav />
-
-          <main className="relative z-10 flex flex-1 flex-col items-center justify-center gap-6 bg-background px-6 py-24 text-center text-foreground">
-            <Image
-              src="/yuppie_logo_forte_forward.png"
-              alt="Yuppie"
-              width={1942}
-              height={641}
-              className="h-auto w-[60vw] max-w-[420px]"
-            />
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-              Thanks for applying!
-            </h1>
-            <p className="max-w-md text-lg text-foreground-muted">
-              Your application is with our membership committee now. If
-              you&apos;re approved, you&apos;ll get a text from Yuppie
-              letting you know.
-            </p>
-          </main>
-        </section>
-      </div>
-    );
-  }
+  const heading =
+    "text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim";
+  const eyebrow =
+    "text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim";
 
   return (
     <div
@@ -183,69 +167,97 @@ export default function ApplyPage() {
       }}
     >
       <section className="relative flex flex-1 flex-col overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-x-0 bottom-0 select-none"
-        >
-          <Image
-            src="/yuppie_logo_forte_forward.png"
-            alt=""
-            width={1942}
-            height={641}
-            className="h-auto w-full opacity-10"
-          />
-        </div>
-
+        <Watermark />
         <SiteNav />
 
-        <main className="relative z-10 flex flex-1 items-center justify-center bg-background px-6 py-16 text-foreground">
-          <div className="flex w-full max-w-md flex-col items-center">
+        {submitted ? (
+          <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-24 text-center sm:px-6">
+            <motion.span {...fade(0.15)} className={eyebrow}>
+              Membership
+            </motion.span>
+
+            <motion.h1 {...fade(0.3)} className={cn("mt-3", heading)}>
+              Thanks for applying.{" "}
+              <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
+                We&apos;ll be in touch.
+              </em>
+            </motion.h1>
+
+            <motion.p
+              {...fade(0.45)}
+              className="mx-auto mt-4 max-w-md text-sm text-foreground-muted sm:text-base"
+            >
+              Your application is with our membership committee now. If
+              you&apos;re approved, you&apos;ll get a text from Yuppie
+              letting you know.
+            </motion.p>
+
+            <motion.div {...fade(0.6)}>
+              <Link
+                href="/"
+                className="mt-6 inline-block text-sm font-bold text-foreground underline underline-offset-2"
+              >
+                Back to home
+              </Link>
+            </motion.div>
+          </main>
+        ) : (
+          <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-28 pb-20 sm:px-6 sm:pt-32 sm:pb-28 md:pb-32">
+            <div className="flex w-full max-w-md flex-col items-center gap-3 text-center">
+              <motion.span {...fade(0.15)} className={eyebrow}>
+                Membership
+              </motion.span>
+
+              <motion.h1
+                {...fade(0.3)}
+                className={cn(
+                  "flex flex-wrap items-center justify-center gap-x-2 gap-y-1",
+                  heading,
+                )}
+              >
+                <span>Apply to</span>
+                <Image
+                  src="/yuppie_logo_forte_forward.png"
+                  alt="Yuppie"
+                  width={1942}
+                  height={641}
+                  priority
+                  className="h-[1em] w-auto translate-y-[10%]"
+                />
+              </motion.h1>
+
+              <motion.p
+                {...fade(0.45)}
+                className="max-w-sm text-sm text-foreground-muted sm:text-base"
+              >
+                £10 a month. Cancel any time. Every application is
+                reviewed by our membership committee before you&apos;re
+                approved.
+              </motion.p>
+            </div>
+
             <motion.div
               ref={cardRef}
               onMouseMove={handleCardMouseMove}
               onMouseLeave={handleCardMouseLeave}
-              initial={{ opacity: 0, y: 20, boxShadow: CARD_SHADOW }}
+              initial={reduce ? false : { opacity: 0, y: 20, boxShadow: CARD_SHADOW }}
               animate={{ opacity: 1, y: 0, boxShadow: CARD_SHADOW }}
               whileHover={{
                 boxShadow: CARD_SHADOW_HOVER,
                 transition: { duration: 0.3 },
               }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
+              transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
               style={
                 supportsTilt
                   ? { rotateX, rotateY, transformPerspective: 1000 }
                   : undefined
               }
-              className="w-full max-w-md rounded-3xl border border-foreground/10 bg-background-muted p-8 sm:p-12"
+              className="mt-8 w-full max-w-md rounded-2xl border border-foreground/10 bg-background-muted p-8 sm:p-12"
             >
-              <div className="mt-8 text-center">
-                <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim">
-                  MEMBERSHIP
-                </span>
-
-                <h1 className="mt-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-3xl font-extrabold leading-[0.95] tracking-tight sm:text-4xl sm:leading-[0.9] optical-trim">
-                  <span>Apply to</span>
-                  <Image
-                    src="/yuppie_logo_forte_forward.png"
-                    alt="Yuppie"
-                    width={1942}
-                    height={641}
-                    priority
-                    className="h-[1em] w-auto translate-y-[10%]"
-                  />
-                </h1>
-
-                <p className="mx-auto mt-4 max-w-md text-center text-sm text-foreground-muted sm:text-base">
-                  £10 a month. Cancel any time. Every application is
-                  reviewed by our membership committee before you&apos;re
-                  approved.
-                </p>
-              </div>
-
               <form
                 onSubmit={handleSubmit}
                 noValidate
-                className="mt-10 flex flex-col gap-7"
+                className="flex flex-col gap-7"
               >
                 <div className="flex flex-col gap-2.5">
                   <label htmlFor="full_name" className={labelClasses}>
@@ -368,23 +380,14 @@ export default function ApplyPage() {
                   {submitting ? "Submitting…" : "Submit application"}
                 </Button>
 
-                <p className="text-center text-sm text-foreground-muted">
-                  Got questions? Check the{" "}
-                  <Link
-                    href="/faq"
-                    className="font-bold text-foreground underline underline-offset-2"
-                  >
-                    FAQ
-                  </Link>
-                </p>
-
-                <p className="text-center text-xs leading-relaxed text-foreground/50">
+                <p className="text-center text-xs leading-relaxed text-foreground-muted">
                   We ask for your Instagram, employer and LinkedIn so our
-                  membership committee can review your application properly.
-                  We won&apos;t share your details with anyone outside
-                  Yuppie, and we&apos;ll only use them to assess your
-                  application and set up your membership if you&apos;re
-                  approved. Want your data deleted? Just email us.
+                  membership committee can review your application
+                  properly. We won&apos;t share your details with anyone
+                  outside Yuppie, and we&apos;ll only use them to assess
+                  your application and set up your membership if
+                  you&apos;re approved. Want your data deleted? Just
+                  email us.
                 </p>
               </form>
             </motion.div>
@@ -398,8 +401,17 @@ export default function ApplyPage() {
                 Log in
               </Link>
             </p>
-          </div>
-        </main>
+            <p className="mt-2 text-center text-sm text-foreground-muted">
+              Got questions? Check the{" "}
+              <Link
+                href="/faq"
+                className="font-bold text-foreground underline underline-offset-2"
+              >
+                FAQ
+              </Link>
+            </p>
+          </main>
+        )}
       </section>
     </div>
   );
