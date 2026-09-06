@@ -17,6 +17,7 @@ type Application = {
   role_title: string | null;
   linkedin_url: string | null;
   instagram_username: string | null;
+  payment_error: string | null;
 };
 
 type AwaitingConfirmation = {
@@ -104,7 +105,7 @@ async function PendingReview({
   const { data } = await adminClient
     .from("applications")
     .select(
-      "id, full_name, email, created_at, phone, employer, role_title, linkedin_url, instagram_username",
+      "id, full_name, email, created_at, phone, employer, role_title, linkedin_url, instagram_username, payment_error",
     )
     .eq("status", "pending")
     .order("created_at", { ascending: true });
@@ -126,31 +127,38 @@ async function PendingReview({
           key={application.id}
           className="flex flex-col gap-6 rounded-2xl border border-foreground/10 bg-[#F5F3E7] p-6 sm:flex-row sm:items-start sm:justify-between"
         >
-          <dl className="grid flex-1 grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
-            <Field label="Name" value={application.full_name} />
-            <Field label="Email" value={application.email} />
-            <Field
-              label="Submitted"
-              value={formatShortDate(application.created_at)}
-            />
-            <Field label="Phone" value={application.phone} />
-            <Field label="Employer" value={application.employer} />
-            <Field label="Role" value={application.role_title} />
-            <Field
-              label="LinkedIn"
-              value={application.linkedin_url}
-              href={application.linkedin_url ?? undefined}
-            />
-            <Field
-              label="Instagram"
-              value={application.instagram_username}
-              href={
-                application.instagram_username
-                  ? `https://instagram.com/${application.instagram_username.replace(/^@/, "")}`
-                  : undefined
-              }
-            />
-          </dl>
+          <div className="flex-1">
+            {application.payment_error && (
+              <p className="mb-4 rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-700">
+                Payment failed: {application.payment_error}
+              </p>
+            )}
+            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+              <Field label="Name" value={application.full_name} />
+              <Field label="Email" value={application.email} />
+              <Field
+                label="Submitted"
+                value={formatShortDate(application.created_at)}
+              />
+              <Field label="Phone" value={application.phone} />
+              <Field label="Employer" value={application.employer} />
+              <Field label="Role" value={application.role_title} />
+              <Field
+                label="LinkedIn"
+                value={application.linkedin_url}
+                href={application.linkedin_url ?? undefined}
+              />
+              <Field
+                label="Instagram"
+                value={application.instagram_username}
+                href={
+                  application.instagram_username
+                    ? `https://instagram.com/${application.instagram_username.replace(/^@/, "")}`
+                    : undefined
+                }
+              />
+            </dl>
+          </div>
 
           <div className="flex shrink-0 gap-3 sm:flex-col">
             <form action={approveApplication} className="flex-1">
@@ -159,7 +167,7 @@ async function PendingReview({
                 type="submit"
                 className="w-full rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background transition-colors hover:bg-[#2A2420]"
               >
-                Approve
+                {application.payment_error ? "Retry payment & approve" : "Approve"}
               </button>
             </form>
             <form action={rejectApplication} className="flex-1">
