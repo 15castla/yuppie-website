@@ -165,7 +165,7 @@ async function PendingReview({
               <input type="hidden" name="id" value={application.id} />
               <button
                 type="submit"
-                className="w-full rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background transition-colors hover:bg-[#2A2420]"
+                className="w-full rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] hover:bg-[#2A2420] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
               >
                 {application.payment_error ? "Retry payment & approve" : "Approve"}
               </button>
