@@ -506,7 +506,11 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           </p>
         )}
 
-        <Button type="submit" disabled={submitting} className="mt-2">
+        <Button
+          type="submit"
+          disabled={submitting}
+          className="mt-2 disabled:transition-none"
+        >
           {submitting ? "Submitting…" : "Submit application"}
         </Button>
 
