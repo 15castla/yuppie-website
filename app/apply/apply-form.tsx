@@ -193,6 +193,13 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
         elements,
         confirmParams: {
           return_url: "https://clubyuppie.com/apply",
+          payment_method_data: {
+            billing_details: {
+              address: {
+                country: "GB",
+              },
+            },
+          },
         },
         redirect: "if_required",
       });
