@@ -138,6 +138,9 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
     try {
       const { error: stripeError, setupIntent } = await stripe.confirmSetup({
         elements,
+        confirmParams: {
+          return_url: "https://clubyuppie.com/apply",
+        },
         redirect: "if_required",
       });
 
