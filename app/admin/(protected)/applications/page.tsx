@@ -1,10 +1,8 @@
-import Link from "next/link";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import {
   approveApplication,
   rejectApplication,
 } from "@/app/admin/applications-actions";
-import { APPLICATION_TAB_LABELS } from "@/app/admin/application-tab-labels";
 import { Field } from "../Field";
 
 type Application = {
@@ -20,33 +18,6 @@ type Application = {
   payment_error: string | null;
 };
 
-type AwaitingConfirmation = {
-  invited_at: string;
-  expires_at: string;
-  applications: {
-    full_name: string;
-    email: string;
-    reviewed_at: string | null;
-  };
-};
-
-const tabClasses = (active: boolean) =>
-  active
-    ? "rounded-full bg-foreground px-4 py-2 text-sm font-semibold text-background outline-none transition-colors focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-    : "rounded-full px-4 py-2 text-sm font-semibold text-foreground/50 outline-none transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background";
-
-function getNow() {
-  return Date.now();
-}
-
-function formatDate(value: string) {
-  return new Date(value).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-}
-
 function formatShortDate(value: string) {
   return new Date(value).toLocaleDateString("en-GB", {
     day: "numeric",
@@ -55,44 +26,16 @@ function formatShortDate(value: string) {
   });
 }
 
-export default async function ApplicationsPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ tab?: string }>;
-}) {
-  const { tab } = await searchParams;
-  const activeTab = tab === "awaiting" ? "awaiting" : "pending";
-
+export default async function ApplicationsPage() {
   const adminClient = createAdminSupabaseClient();
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
-          Applications
-        </h1>
+      <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
+        Applications
+      </h1>
 
-        <div className="mt-6 flex gap-2">
-          <Link
-            href="/admin/applications?tab=pending"
-            className={tabClasses(activeTab === "pending")}
-          >
-            {APPLICATION_TAB_LABELS.pending}
-          </Link>
-          <Link
-            href="/admin/applications?tab=awaiting"
-            className={tabClasses(activeTab === "awaiting")}
-          >
-            {APPLICATION_TAB_LABELS.awaiting}
-          </Link>
-        </div>
-      </div>
-
-      {activeTab === "pending" ? (
-        <PendingReview adminClient={adminClient} />
-      ) : (
-        <AwaitingConfirmationList adminClient={adminClient} />
-      )}
+      <PendingReview adminClient={adminClient} />
     </div>
   );
 }
@@ -182,77 +125,6 @@ async function PendingReview({
           </div>
         </li>
       ))}
-    </ul>
-  );
-}
-
-async function AwaitingConfirmationList({
-  adminClient,
-}: {
-  adminClient: ReturnType<typeof createAdminSupabaseClient>;
-}) {
-  const { data } = await adminClient
-    .from("invited_emails")
-    .select(
-      "invited_at, expires_at, applications!inner(full_name, email, reviewed_at)",
-    )
-    .eq("used", false)
-    .eq("applications.status", "approved")
-    .order("expires_at", { ascending: true });
-
-  const awaiting = (data ?? []) as unknown as AwaitingConfirmation[];
-
-  if (awaiting.length === 0) {
-    return (
-      <p className="rounded-2xl border border-foreground/10 bg-[#F5F3E7] p-8 text-center text-foreground/60">
-        No approved applications are awaiting confirmation.
-      </p>
-    );
-  }
-
-  const now = getNow();
-
-  return (
-    <ul className="flex flex-col gap-4">
-      {awaiting.map((invite) => {
-        const isExpired = new Date(invite.expires_at).getTime() < now;
-
-        return (
-          <li
-            key={`${invite.applications.email}-${invite.invited_at}`}
-            className="rounded-2xl border border-foreground/10 bg-[#F5F3E7] p-6"
-          >
-            <dl className="grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-5">
-              <Field label="Name" value={invite.applications.full_name} />
-              <Field label="Email" value={invite.applications.email} />
-              <Field
-                label="Approved"
-                value={
-                  invite.applications.reviewed_at
-                    ? formatShortDate(invite.applications.reviewed_at)
-                    : null
-                }
-              />
-              <Field label="Invited" value={formatDate(invite.invited_at)} />
-              <div>
-                <dt className="text-xs font-semibold uppercase tracking-wider text-foreground/50">
-                  Expires
-                </dt>
-                <dd
-                  className={
-                    isExpired
-                      ? "text-sm font-semibold text-red-700"
-                      : "text-sm text-foreground"
-                  }
-                >
-                  {formatDate(invite.expires_at)}
-                  {isExpired && " — expired"}
-                </dd>
-              </div>
-            </dl>
-          </li>
-        );
-      })}
     </ul>
   );
 }
