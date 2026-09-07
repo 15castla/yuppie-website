@@ -13,6 +13,11 @@ import {
 import { SiteNav } from "@/components/templates/creative-studio/site-nav";
 import { WordsPullUpMultiStyle } from "@/components/templates/creative-studio/primitives";
 
+// Same curve/pattern as Hero's entrance animation
+// (components/templates/creative-studio/hero.tsx) — reused here so the
+// FAQ page's arrival reads as the same transition as the rest of the site.
+const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
 const HEADING_SEGMENTS = [
   { text: "Got questions?" },
   {
@@ -101,6 +106,13 @@ function FaqAccordionItem({ item }: { item: FaqEntry }) {
 }
 
 export default function FaqPage() {
+  const reduce = useReducedMotion();
+  const fade = (delay: number) => ({
+    initial: reduce ? false : { y: 20, opacity: 0 },
+    animate: { y: 0, opacity: 1 },
+    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
+  });
+
   return (
     <div
       className={cn(
@@ -130,15 +142,24 @@ export default function FaqPage() {
 
         <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-28 pb-20 sm:px-6 sm:pt-32 sm:pb-28 md:pb-32">
           <div className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
-            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim">
+            <motion.span
+              {...fade(0.15)}
+              className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim"
+            >
               FAQ&apos;S
-            </span>
+            </motion.span>
 
-            <h1 className="text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold optical-trim">
+            <motion.h1
+              {...fade(0.3)}
+              className="text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold optical-trim"
+            >
               <WordsPullUpMultiStyle segments={HEADING_SEGMENTS} />
-            </h1>
+            </motion.h1>
 
-            <p className="max-w-md text-sm text-foreground-muted sm:text-base">
+            <motion.p
+              {...fade(0.45)}
+              className="max-w-md text-sm text-foreground-muted sm:text-base"
+            >
               Can&apos;t find what you&apos;re looking for?
               <br />
               Get in touch at{" "}
@@ -148,12 +169,14 @@ export default function FaqPage() {
               >
                 hello@clubyuppie.com
               </a>
-            </p>
+            </motion.p>
           </div>
 
           <div className="mt-12 flex w-full max-w-3xl flex-col gap-4">
-            {FAQ_ITEMS.map((item) => (
-              <FaqAccordionItem key={item.question} item={item} />
+            {FAQ_ITEMS.map((item, index) => (
+              <motion.div key={item.question} {...fade(0.6 + index * 0.08)}>
+                <FaqAccordionItem item={item} />
+              </motion.div>
             ))}
           </div>
         </main>
