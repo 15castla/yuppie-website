@@ -8,6 +8,7 @@ import {
   Percent,
   Key,
   CircleUserRound,
+  ExternalLink,
   type LucideIcon,
 } from "lucide-react";
 
@@ -33,6 +34,14 @@ export function MembersNav() {
 
   return (
     <>
+      <Link
+        href="/"
+        aria-label="Return to clubyuppie.com"
+        className="fixed left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-cream text-foreground shadow-[0_8px_20px_-10px_rgba(27,21,18,0.4)] transition-transform hover:scale-105"
+      >
+        <ExternalLink size={17} />
+      </Link>
+
       {/* Mobile: fixed bottom tab bar. */}
       <nav
         className="fixed left-3.5 right-3.5 bottom-3.5 z-20 flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_18px_34px_-18px_rgba(27,21,18,0.55)] md:hidden"
