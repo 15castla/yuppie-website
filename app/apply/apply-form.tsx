@@ -512,6 +512,9 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
 
         <div className="flex flex-col gap-2.5">
           <span className={labelClasses}>Payment details</span>
+          <p className="-mt-1.5 text-xs text-foreground/60">
+            You won&apos;t be charged until your application is approved.
+          </p>
           <PaymentElement
             options={{
               layout: { type: "accordion", defaultCollapsed: true },
