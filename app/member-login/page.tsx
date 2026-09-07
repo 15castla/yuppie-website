@@ -3,7 +3,6 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
@@ -108,19 +107,6 @@ export default function MemberLoginPage() {
       }}
     >
       <section className="relative flex flex-1 flex-col overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none fixed inset-x-0 bottom-0 select-none"
-        >
-          <Image
-            src="/yuppie_logo_forte_forward.png"
-            alt=""
-            width={1942}
-            height={641}
-            className="h-auto w-full opacity-10"
-          />
-        </div>
-
         <SiteNav />
 
         <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-28 pb-20 sm:px-6 sm:pt-32 sm:pb-28 md:pb-32">

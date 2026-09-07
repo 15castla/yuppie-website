@@ -133,23 +133,6 @@ const PhoneNumberField = forwardRef<HTMLInputElement, ComponentProps<"input">>(
 );
 PhoneNumberField.displayName = "PhoneNumberField";
 
-function Watermark() {
-  return (
-    <div
-      aria-hidden
-      className="pointer-events-none fixed inset-x-0 bottom-0 select-none"
-    >
-      <Image
-        src="/yuppie_logo_forte_forward.png"
-        alt=""
-        width={1942}
-        height={641}
-        className="h-auto w-full opacity-10"
-      />
-    </div>
-  );
-}
-
 function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
@@ -595,7 +578,6 @@ export default function ApplyForm({
       }}
     >
       <section className="relative flex flex-1 flex-col overflow-hidden">
-        <Watermark />
         <SiteNav />
 
         {submitted ? (
