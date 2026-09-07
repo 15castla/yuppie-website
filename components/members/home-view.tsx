@@ -72,10 +72,9 @@ export function HomeView({
 
         <motion.div
           {...fade(0.2)}
-          className={`${CARD_CLASS} flex items-center justify-between p-3.5 px-4`}
+          className={`${CARD_CLASS} flex items-center p-3.5 px-4`}
         >
           <StatusDot status={member.membership_status} />
-          <span className="text-xs font-bold text-foreground-muted">£10/mo</span>
         </motion.div>
 
         <motion.section {...fade(0.3)} className="flex flex-col gap-4">
