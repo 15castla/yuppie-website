@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -13,6 +14,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { signOutMember } from "@/app/members/profile/actions";
 
 type NavItem = { label: string; href: string; Icon: LucideIcon };
 
@@ -31,16 +33,49 @@ function isActive(pathname: string, href: string) {
 
 export function MembersNav() {
   const pathname = usePathname();
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 
   return (
     <>
-      <Link
-        href="/"
+      <button
+        type="button"
+        onClick={() => setLeaveDialogOpen(true)}
         aria-label="Return to clubyuppie.com"
-        className="fixed left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-cream text-foreground shadow-[0_8px_20px_-10px_rgba(27,21,18,0.4)] transition-transform hover:scale-105"
+        className="fixed left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background shadow-[0_8px_20px_-10px_rgba(27,21,18,0.4)] transition-transform hover:scale-105"
       >
         <ExternalLink size={17} />
-      </Link>
+      </button>
+
+      {leaveDialogOpen && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-foreground/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-background-muted p-6 shadow-[0_24px_48px_-16px_rgba(27,21,18,0.5)]">
+            <h3 className="text-base font-bold text-foreground">
+              Leave the members area?
+            </h3>
+            <p className="mt-2 text-sm text-foreground-muted">
+              You&apos;ll be signed out and sent back to the main site. You can
+              log back in whenever you like.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-4">
+              <button
+                type="button"
+                onClick={() => setLeaveDialogOpen(false)}
+                className="text-sm font-medium text-foreground/50 underline underline-offset-2 hover:text-foreground"
+              >
+                Stay signed in
+              </button>
+              <form action={signOutMember}>
+                <button
+                  type="submit"
+                  className="rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background"
+                >
+                  Log out &amp; leave
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile: fixed bottom tab bar. */}
       <nav
