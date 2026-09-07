@@ -37,13 +37,30 @@ export function MembersNav() {
 
   return (
     <>
+      {/* Mobile: small floating circle, matches the bottom tab bar's own
+          fixed/viewport-relative positioning. */}
       <button
         type="button"
         onClick={() => setLeaveDialogOpen(true)}
         aria-label="Return to clubyuppie.com"
-        className="fixed left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background shadow-[0_8px_20px_-10px_rgba(27,21,18,0.4)] transition-transform hover:scale-105"
+        className="fixed left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background shadow-[0_8px_20px_-10px_rgba(27,21,18,0.4)] transition-transform hover:scale-105 md:hidden"
       >
         <ExternalLink size={17} />
+      </button>
+
+      {/* Desktop: a pill sized and positioned like the nav pills next to
+          it (top-2.5 + px-3 py-1 mirrors the nav ul's own py-2.5 outer
+          padding plus each Link's py-1), sitting as its own element at the
+          left rather than inside the centered nav's ul, so it doesn't
+          affect that group's centering. */}
+      <button
+        type="button"
+        onClick={() => setLeaveDialogOpen(true)}
+        aria-label="Return to clubyuppie.com"
+        className="absolute left-4 top-2.5 z-20 hidden items-center gap-1.5 rounded-full bg-foreground px-3 py-1 text-sm font-semibold text-background transition-transform hover:scale-105 md:flex"
+      >
+        <ExternalLink size={14} />
+        Exit
       </button>
 
       {leaveDialogOpen && (
