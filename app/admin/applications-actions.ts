@@ -8,6 +8,37 @@ import { sendWelcomeEmail } from "./send-welcome-email";
 import { sendWelcomeSms } from "./send-welcome-sms";
 import { stripe } from "@/lib/stripe";
 
+// The installed @supabase/auth-js version has no getUserByEmail(), and
+// listUsers() takes no email/filter param (verified against
+// node_modules/@supabase/auth-js/dist/module/GoTrueAdminApi.d.ts) — so
+// finding an existing user by email means paging through everyone and
+// matching locally.
+async function findAuthUserIdByEmail(
+  adminClient: ReturnType<typeof createAdminSupabaseClient>,
+  email: string,
+): Promise<string | null> {
+  const targetEmail = email.toLowerCase();
+  let page = 1;
+
+  for (;;) {
+    const { data, error } = await adminClient.auth.admin.listUsers({
+      page,
+      perPage: 1000,
+    });
+
+    if (error) {
+      console.error(`listUsers failed while looking up ${email}:`, error);
+      return null;
+    }
+
+    const match = data.users.find((user) => user.email?.toLowerCase() === targetEmail);
+    if (match) return match.id;
+
+    if (!data.nextPage) return null;
+    page = data.nextPage;
+  }
+}
+
 async function approve(id: string, adminEmail: string) {
   const adminClient = createAdminSupabaseClient();
 
@@ -110,34 +141,55 @@ async function approve(id: string, adminEmail: string) {
     email_confirm: true,
   });
 
+  let authUserId: string;
+
   if (authError || !authData.user) {
-    console.error(`Auth account creation failed for application ${id}:`, authError);
+    if (authError?.code === "email_exists") {
+      // Supabase enforces unique emails on auth.users, so this collision
+      // can only be one of two things: a prior approve() attempt that got
+      // as far as creating the Auth user but failed before/at the RPC
+      // below, or an existing admin/staff account becoming a paying member
+      // under the same email. Either way it's safe to attach membership to
+      // that existing user rather than reject the approval.
+      const existingUserId = await findAuthUserIdByEmail(adminClient, application.email);
 
-    // A prior attempt already got as far as creating the Auth user, then
-    // failed before/at the RPC step below — retrying lands back here and
-    // createUser correctly rejects the duplicate email. That's a distinct,
-    // more specific situation than "account could not be created" (which
-    // reads as if no account exists at all), so it gets its own message
-    // rather than the generic one.
-    const message =
-      authError?.code === "email_exists"
-        ? `Payment succeeded (Stripe subscription ${subscriptionId}). An account for this email may already exist from a previous attempt — check Supabase Auth before retrying.`
-        : `Payment succeeded (Stripe subscription ${subscriptionId}) but the member account could not be created: ${authError?.message ?? "unknown error"}. It's safe to click Approve again — this will retry account creation without charging again.`;
+      if (!existingUserId) {
+        console.error(
+          `approve: email_exists for application ${id} (${application.email}) but no matching user found via listUsers`,
+        );
+        await adminClient
+          .from("applications")
+          .update({
+            payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}). Supabase reports this email is already registered, but the matching account couldn't be found — check Supabase Auth manually before retrying.`,
+          })
+          .eq("id", id);
+        revalidatePath("/admin/applications");
+        revalidatePath("/admin");
+        return;
+      }
 
-    await adminClient
-      .from("applications")
-      .update({ payment_error: message })
-      .eq("id", id);
-    revalidatePath("/admin/applications");
-    revalidatePath("/admin");
-    return;
+      authUserId = existingUserId;
+    } else {
+      console.error(`Auth account creation failed for application ${id}:`, authError);
+      await adminClient
+        .from("applications")
+        .update({
+          payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}) but the member account could not be created: ${authError?.message ?? "unknown error"}. It's safe to click Approve again — this will retry account creation without charging again.`,
+        })
+        .eq("id", id);
+      revalidatePath("/admin/applications");
+      revalidatePath("/admin");
+      return;
+    }
+  } else {
+    authUserId = authData.user.id;
   }
 
   const { error: rpcError } = await adminClient.rpc(
     "approve_application_and_create_member",
     {
       p_application_id: id,
-      p_auth_user_id: authData.user.id,
+      p_auth_user_id: authUserId,
       p_reviewed_by: adminEmail,
     },
   );
