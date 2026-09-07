@@ -11,7 +11,7 @@ const HEADING_SEGMENTS = [
 ];
 
 const BODY =
-  "An app full of things worth doing, and people actually worth meeting, every time you show up.";
+  "An app full of things worth doing and people actually worth meeting.";
 
 export function About() {
   return (
