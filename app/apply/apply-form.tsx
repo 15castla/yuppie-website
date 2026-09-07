@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  forwardRef,
-  useEffect,
-  useState,
-  type ComponentProps,
-  type FormEvent,
-} from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { loadStripe } from "@stripe/stripe-js";
@@ -22,6 +16,7 @@ import { motion, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/Button";
+import { PhoneNumberField } from "@/components/PhoneNumberField";
 import {
   almarai,
   instrumentSerif,
@@ -118,20 +113,6 @@ function clearRedirectReturnState() {
   sessionStorage.removeItem(DRAFT_STORAGE_KEY);
   window.history.replaceState(null, "", "/apply");
 }
-
-// Keeps the phone field's actual text input looking identical to every
-// other field on this form — react-phone-number-input renders this in
-// place of its own default input, but doesn't get a say in its styling.
-const PhoneNumberField = forwardRef<HTMLInputElement, ComponentProps<"input">>(
-  (props, ref) => (
-    <input
-      {...props}
-      ref={ref}
-      className="w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground"
-    />
-  ),
-);
-PhoneNumberField.displayName = "PhoneNumberField";
 
 function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
   const stripe = useStripe();

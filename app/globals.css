@@ -6,6 +6,7 @@
   --foreground: #1b1512;
   --foreground-muted: #6b6560;
   --accent: #ffd904;
+  --cream: #f5f3e7;
 }
 
 @theme inline {
@@ -14,6 +15,7 @@
   --color-foreground: var(--foreground);
   --color-foreground-muted: var(--foreground-muted);
   --color-accent: var(--accent);
+  --color-cream: var(--cream);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }

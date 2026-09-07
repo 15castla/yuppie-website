@@ -89,9 +89,7 @@ export default function MemberLoginPage() {
       return;
     }
 
-    // No dedicated members dashboard yet — send members to the homepage.
-    // Swap for a real destination route if one exists by the time this ships.
-    router.push("/");
+    router.push("/members");
     router.refresh();
   }
 
