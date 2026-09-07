@@ -35,6 +35,7 @@ function ConfirmDialog({
   title,
   message,
   confirmLabel,
+  cancelLabel = "Never mind",
   onConfirm,
   onClose,
   confirming,
@@ -43,6 +44,7 @@ function ConfirmDialog({
   title: string;
   message: string;
   confirmLabel?: string;
+  cancelLabel?: string;
   onConfirm?: () => void;
   onClose: () => void;
   confirming?: boolean;
@@ -50,7 +52,7 @@ function ConfirmDialog({
 }) {
   return (
     <div className="fixed inset-0 z-30 flex items-center justify-center bg-foreground/40 p-4">
-      <div className="w-full max-w-sm rounded-2xl bg-background p-6 shadow-[0_24px_48px_-16px_rgba(27,21,18,0.5)]">
+      <div className="w-full max-w-sm rounded-2xl bg-cream p-6 shadow-[0_24px_48px_-16px_rgba(27,21,18,0.5)]">
         <h3 className="text-base font-bold text-foreground">{title}</h3>
         <p className="mt-2 text-sm text-foreground-muted">{message}</p>
         <div className="mt-6 flex justify-end gap-3">
@@ -69,7 +71,7 @@ function ConfirmDialog({
                 onClick={onClose}
                 className="rounded-full border-2 border-foreground/20 px-5 py-2 text-sm font-bold text-foreground"
               >
-                Never mind
+                {cancelLabel}
               </button>
               <button
                 type="button"
@@ -131,7 +133,6 @@ export function ProfileView({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
 
-  const [pauseDialogOpen, setPauseDialogOpen] = useState(false);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelResult, setCancelResult] = useState<string | null>(null);
   const [isCancelling, startCancelling] = useTransition();
@@ -233,19 +234,6 @@ export function ProfileView({
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
-                <label htmlFor="bio" className={labelClasses}>
-                  Bio
-                </label>
-                <textarea
-                  id="bio"
-                  name="bio"
-                  rows={3}
-                  defaultValue={member.bio ?? ""}
-                  className={cn(inputClasses, "resize-none")}
-                />
-              </div>
-
               {saveError && (
                 <p className="text-sm font-medium text-red-700">{saveError}</p>
               )}
@@ -291,13 +279,6 @@ export function ProfileView({
           <div className="flex items-center gap-4">
             <button
               type="button"
-              onClick={() => setPauseDialogOpen(true)}
-              className="rounded-full border-2 border-foreground/20 px-5 py-2.5 text-sm font-bold text-foreground transition-colors hover:border-foreground"
-            >
-              Pause membership
-            </button>
-            <button
-              type="button"
               onClick={() => setCancelDialogOpen(true)}
               className="text-sm font-medium text-foreground/50 underline underline-offset-2 hover:text-foreground"
             >
@@ -320,14 +301,6 @@ export function ProfileView({
                 Phone
               </span>
               <span className="text-sm text-foreground">{member.phone || "—"}</span>
-            </div>
-            <div className="flex items-center justify-between p-4">
-              <span className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
-                Bio
-              </span>
-              <span className="max-w-[60%] text-right text-sm text-foreground">
-                {member.bio || "—"}
-              </span>
             </div>
           </div>
         </motion.section>
@@ -376,23 +349,15 @@ export function ProfileView({
         </motion.form>
       </div>
 
-      {pauseDialogOpen && (
-        <ConfirmDialog
-          title="Pause membership"
-          message="Pausing isn't set up yet, email us at hello@clubyuppie.com"
-          dismissOnly
-          onClose={() => setPauseDialogOpen(false)}
-        />
-      )}
-
       {cancelDialogOpen && (
         <ConfirmDialog
-          title="Cancel membership"
+          title={cancelResult ? "Cancel membership" : "Cancel your membership?"}
           message={
             cancelResult ??
-            "You'll keep access until the end of your current billing period, then your membership will end. You can't undo this from here once confirmed."
+            "You'll lose access at the end of your current billing period. If you want back in after that, you'll need to apply again and go through approval, memberships aren't automatically reinstated."
           }
           confirmLabel="Cancel membership"
+          cancelLabel="Keep membership"
           confirming={isCancelling}
           onConfirm={handleCancelMembership}
           dismissOnly={Boolean(cancelResult)}
