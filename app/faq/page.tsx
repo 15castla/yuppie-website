@@ -35,6 +35,11 @@ const FAQ_ITEMS: FaqEntry[] = [
       "Every application is reviewed by our membership committee, so it's not instant. Once you're approved, you'll get a text from Yuppie letting you know.",
   },
   {
+    question: "Will I be charged when I apply?",
+    answer:
+      "No, your card details are saved securely with Stripe when you apply, but you're not charged anything. We only take payment once your application's approved, and you can cancel any time after that.",
+  },
+  {
     question:
       "Do I have to pay for events, or are they included in membership?",
     answer:
