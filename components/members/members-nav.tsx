@@ -131,7 +131,7 @@ export function MembersNav() {
                 <Link
                   href={href}
                   className={cn(
-                    "block text-sm transition-colors",
+                    "block text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     active
                       ? "rounded-full bg-foreground px-3 py-1 font-semibold text-background"
                       : "px-3 py-1 text-foreground/80 hover:text-foreground",
