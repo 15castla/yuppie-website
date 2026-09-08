@@ -118,14 +118,28 @@ export function ProfileEditView({ member }: { member: Member }) {
 
           <div className="flex flex-col gap-2">
             <label htmlFor="employer" className={labelClasses}>
-              Employer / job title
+              Employer
             </label>
             <input
               id="employer"
               name="employer"
               type="text"
-              placeholder="e.g. Product Designer, Monzo"
+              placeholder="e.g. ABC LLP"
               defaultValue={member.employer ?? ""}
+              className={inputClasses}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label htmlFor="role_title" className={labelClasses}>
+              Role / job title
+            </label>
+            <input
+              id="role_title"
+              name="role_title"
+              type="text"
+              placeholder="e.g. Associate"
+              defaultValue={member.role_title ?? ""}
               className={inputClasses}
             />
             <p className="text-xs text-foreground-muted">

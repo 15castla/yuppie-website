@@ -7,6 +7,7 @@ export type Member = {
   email: string;
   phone: string | null;
   employer: string | null;
+  role_title: string | null;
   bio: string | null;
   avatar_url: string | null;
   membership_status: string;
@@ -16,7 +17,7 @@ export type Member = {
 };
 
 const MEMBER_COLUMNS =
-  "id, full_name, email, phone, employer, bio, avatar_url, membership_status, stripe_customer_id, stripe_subscription_id, created_at";
+  "id, full_name, email, phone, employer, role_title, bio, avatar_url, membership_status, stripe_customer_id, stripe_subscription_id, created_at";
 
 // Mirrors app/admin/require-admin.ts's shape, but queries through the
 // request-scoped (RLS-respecting) client rather than the admin service-role

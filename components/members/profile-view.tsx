@@ -227,6 +227,12 @@ export function ProfileView({
             </div>
             <div className="flex items-center justify-between p-4">
               <span className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+                Role
+              </span>
+              <span className="text-sm text-foreground">{member.role_title || "—"}</span>
+            </div>
+            <div className="flex items-center justify-between p-4">
+              <span className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
                 Phone
               </span>
               <span className="text-sm text-foreground">{member.phone || "—"}</span>

@@ -23,6 +23,7 @@ export async function updateProfile(
   const fullName = formData.get("full_name");
   const phone = formData.get("phone");
   const employer = formData.get("employer");
+  const roleTitle = formData.get("role_title");
 
   if (typeof fullName !== "string" || !fullName.trim()) {
     return { success: false, error: "Full name is required." };
@@ -41,6 +42,7 @@ export async function updateProfile(
       full_name: fullName.trim(),
       phone,
       employer: typeof employer === "string" && employer.trim() ? employer.trim() : null,
+      role_title: typeof roleTitle === "string" && roleTitle.trim() ? roleTitle.trim() : null,
     })
     .eq("id", member.id);
 
