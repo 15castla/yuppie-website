@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
-import { Pencil, X } from "lucide-react";
+import { Pencil, X, ExternalLink } from "lucide-react";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
@@ -136,6 +136,8 @@ export function ProfileView({
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelResult, setCancelResult] = useState<string | null>(null);
   const [isCancelling, startCancelling] = useTransition();
+
+  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 
   function handleSave(formData: FormData) {
     setSaveError(null);
@@ -339,15 +341,57 @@ export function ProfileView({
           )}
         </motion.section>
 
-        <motion.form {...fade(0.5)} action={signOutMember} className="mt-2">
+        <motion.div {...fade(0.5)} className="mt-2 flex items-center gap-5">
           <button
-            type="submit"
-            className="text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline"
+            type="button"
+            onClick={() => setLeaveDialogOpen(true)}
+            className="flex items-center gap-1.5 text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline"
           >
-            Sign out
+            <ExternalLink size={14} />
+            Return to main site
           </button>
-        </motion.form>
+
+          <form action={signOutMember}>
+            <button
+              type="submit"
+              className="text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline"
+            >
+              Sign out
+            </button>
+          </form>
+        </motion.div>
       </div>
+
+      {leaveDialogOpen && (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-foreground/40 p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-background-muted p-6 shadow-[0_24px_48px_-16px_rgba(27,21,18,0.5)]">
+            <h3 className="text-base font-bold text-foreground">
+              Leave the members area?
+            </h3>
+            <p className="mt-2 text-sm text-foreground-muted">
+              You&apos;ll be signed out and sent back to the main site. You can
+              log back in whenever you like.
+            </p>
+            <div className="mt-6 flex items-center justify-end gap-4">
+              <button
+                type="button"
+                onClick={() => setLeaveDialogOpen(false)}
+                className="text-sm font-medium text-foreground/50 underline underline-offset-2 hover:text-foreground"
+              >
+                Stay signed in
+              </button>
+              <form action={signOutMember}>
+                <button
+                  type="submit"
+                  className="rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background"
+                >
+                  Log out &amp; leave
+                </button>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
 
       {cancelDialogOpen && (
         <ConfirmDialog

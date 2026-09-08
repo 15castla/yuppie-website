@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -9,12 +8,10 @@ import {
   Percent,
   Key,
   CircleUserRound,
-  ExternalLink,
   type LucideIcon,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { signOutMember } from "@/app/members/profile/actions";
 
 type NavItem = { label: string; href: string; Icon: LucideIcon };
 
@@ -33,67 +30,9 @@ function isActive(pathname: string, href: string) {
 
 export function MembersNav() {
   const pathname = usePathname();
-  const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
 
   return (
     <>
-      {/* Mobile: small floating circle, matches the bottom tab bar's own
-          fixed/viewport-relative positioning. */}
-      <button
-        type="button"
-        onClick={() => setLeaveDialogOpen(true)}
-        aria-label="Return to clubyuppie.com"
-        className="fixed left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-foreground text-background shadow-[0_8px_20px_-10px_rgba(27,21,18,0.4)] transition-transform hover:scale-105 md:hidden"
-      >
-        <ExternalLink size={17} />
-      </button>
-
-      {/* Desktop: a pill sized and positioned like the nav pills next to
-          it (top-2.5 + px-3 py-1 mirrors the nav ul's own py-2.5 outer
-          padding plus each Link's py-1), sitting as its own element at the
-          left rather than inside the centered nav's ul, so it doesn't
-          affect that group's centering. */}
-      <button
-        type="button"
-        onClick={() => setLeaveDialogOpen(true)}
-        aria-label="Return to clubyuppie.com"
-        className="absolute left-4 top-2.5 z-20 hidden items-center gap-1.5 rounded-full bg-foreground px-3 py-1 text-sm font-semibold text-background transition-transform hover:scale-105 md:flex"
-      >
-        <ExternalLink size={14} />
-        Exit
-      </button>
-
-      {leaveDialogOpen && (
-        <div className="fixed inset-0 z-30 flex items-center justify-center bg-foreground/40 p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-background-muted p-6 shadow-[0_24px_48px_-16px_rgba(27,21,18,0.5)]">
-            <h3 className="text-base font-bold text-foreground">
-              Leave the members area?
-            </h3>
-            <p className="mt-2 text-sm text-foreground-muted">
-              You&apos;ll be signed out and sent back to the main site. You can
-              log back in whenever you like.
-            </p>
-            <div className="mt-6 flex items-center justify-end gap-4">
-              <button
-                type="button"
-                onClick={() => setLeaveDialogOpen(false)}
-                className="text-sm font-medium text-foreground/50 underline underline-offset-2 hover:text-foreground"
-              >
-                Stay signed in
-              </button>
-              <form action={signOutMember}>
-                <button
-                  type="submit"
-                  className="rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background"
-                >
-                  Log out &amp; leave
-                </button>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Mobile: fixed bottom tab bar. */}
       <nav
         className="fixed left-3.5 right-3.5 bottom-3.5 z-20 flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_18px_34px_-18px_rgba(27,21,18,0.55)] md:hidden"
