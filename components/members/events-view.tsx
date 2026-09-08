@@ -10,6 +10,7 @@ import {
   CATEGORY_LABEL,
   EventThumbnail,
   EYEBROW_CLASS,
+  MEMBERS_MAIN_CLASS,
   PricePill,
   formatEventDayTime,
 } from "./ui";
@@ -57,7 +58,7 @@ export function EventsView({ events }: { events: Event[] }) {
   );
 
   return (
-    <main className="relative z-10 flex flex-1 flex-col px-4 pt-28 pb-[130px] sm:px-6 sm:pt-32 md:pb-20">
+    <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         <motion.div {...fade(0.1)} className="flex flex-col gap-3">
           <span className={EYEBROW_CLASS}>WHAT&apos;S ON</span>

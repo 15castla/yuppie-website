@@ -11,6 +11,7 @@ import {
   CARD_CLASS,
   DateBadge,
   EYEBROW_CLASS,
+  MEMBERS_MAIN_CLASS,
   PricePill,
   StatusDot,
   formatEventDayTime,
@@ -52,7 +53,7 @@ export function HomeView({
   const accessCount = MOCK_PERKS.filter((perk) => perk.type === "access").length;
 
   return (
-    <main className="relative z-10 flex flex-1 flex-col px-4 pt-28 pb-[130px] sm:px-6 sm:pt-32 md:pb-20">
+    <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
         <motion.div {...fade(0.1)} className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-3">

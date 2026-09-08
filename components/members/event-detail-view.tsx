@@ -109,7 +109,7 @@ export function EventDetailView({
   }
 
   return (
-    <main className="relative z-10 flex flex-1 flex-col pt-20 pb-[160px] md:pt-28 md:pb-24">
+    <main className="relative z-10 flex flex-1 flex-col pt-8 pb-[160px] md:pt-28 md:pb-24">
       <motion.div {...fade(0.1)} className="relative">
         <EventThumbnail category={event.category} className="h-[220px] w-full" iconClassName="h-24 w-24" />
 

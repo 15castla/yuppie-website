@@ -9,7 +9,7 @@ import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Member } from "@/app/members/require-member";
 import { cancelMembership, signOutMember } from "@/app/members/profile/actions";
-import { CARD_CLASS, EYEBROW_CLASS, StatusDot, initialsFor } from "./ui";
+import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS, StatusDot, initialsFor } from "./ui";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -135,7 +135,7 @@ export function ProfileView({
   }
 
   return (
-    <main className="relative z-10 flex flex-1 flex-col px-4 pt-28 pb-[130px] sm:px-6 sm:pt-32 md:pb-20">
+    <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
         <motion.div {...fade(0.1)} className="flex flex-col gap-4">
           <span className={EYEBROW_CLASS}>YOUR PROFILE</span>
