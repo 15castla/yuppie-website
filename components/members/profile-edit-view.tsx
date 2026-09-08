@@ -148,19 +148,6 @@ export function ProfileEditView({ member }: { member: Member }) {
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label htmlFor="bio" className={labelClasses}>
-              Bio
-            </label>
-            <textarea
-              id="bio"
-              name="bio"
-              rows={4}
-              defaultValue={member.bio ?? ""}
-              className={cn(inputClasses, "resize-none")}
-            />
-          </div>
-
           {saveError && (
             <p className="text-sm font-medium text-red-700">{saveError}</p>
           )}
