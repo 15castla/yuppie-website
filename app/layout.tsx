@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteWatermark } from "@/components/SiteWatermark";
 import "./globals.css";
@@ -51,6 +51,15 @@ export const metadata: Metadata = {
       },
     ],
   },
+};
+
+// iOS Safari otherwise auto-samples page edge pixels to color its own
+// chrome (address bar / bottom toolbar), which can land on a nearby
+// element's background (e.g. the members nav bar's cream) instead of the
+// actual page background — an explicit theme-color pins it to the real
+// --background value everywhere.
+export const viewport: Viewport = {
+  themeColor: "#FFD904",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
