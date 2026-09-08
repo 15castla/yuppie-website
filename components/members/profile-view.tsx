@@ -1,20 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
-import { Pencil, X } from "lucide-react";
-import PhoneInput from "react-phone-number-input";
-import "react-phone-number-input/style.css";
+import { Pencil } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { PhoneNumberField } from "@/components/PhoneNumberField";
 import type { Member } from "@/app/members/require-member";
-import {
-  updateProfile,
-  cancelMembership,
-  signOutMember,
-} from "@/app/members/profile/actions";
+import { cancelMembership, signOutMember } from "@/app/members/profile/actions";
 import { CARD_CLASS, EYEBROW_CLASS, StatusDot, initialsFor } from "./ui";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -24,12 +18,6 @@ export type BookingHistoryRow = {
   status: string;
   event: { id: string; title: string; start_time: string } | null;
 };
-
-const inputClasses =
-  "w-full rounded-xl border-2 border-foreground/20 bg-cream px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
-
-const labelClasses =
-  "text-left text-xs font-semibold uppercase tracking-wider text-foreground/60";
 
 function ConfirmDialog({
   title,
@@ -128,30 +116,11 @@ export function ProfileView({
     transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
   });
 
-  const [editing, setEditing] = useState(false);
-  const [phone, setPhone] = useState<string | undefined>(member.phone ?? undefined);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [isSaving, startSaving] = useTransition();
-
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelResult, setCancelResult] = useState<string | null>(null);
   const [isCancelling, startCancelling] = useTransition();
 
   const [signOutDialogOpen, setSignOutDialogOpen] = useState(false);
-
-  function handleSave(formData: FormData) {
-    setSaveError(null);
-    startSaving(async () => {
-      formData.set("phone", phone ?? "");
-      const result = await updateProfile(formData);
-      if (!result.success) {
-        setSaveError(result.error ?? "Something went wrong.");
-        return;
-      }
-      setEditing(false);
-      router.refresh();
-    });
-  }
 
   function handleCancelMembership() {
     startCancelling(async () => {
@@ -193,62 +162,14 @@ export function ProfileView({
               </div>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setEditing((prev) => !prev)}
-              aria-label={editing ? "Close edit form" : "Edit profile"}
+            <Link
+              href="/members/profile/edit"
+              aria-label="Edit profile"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background-muted text-foreground transition-colors hover:bg-foreground hover:text-background"
             >
-              {editing ? <X className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
-            </button>
+              <Pencil className="h-4 w-4" />
+            </Link>
           </div>
-
-          {editing && (
-            <form
-              action={handleSave}
-              className={cn(CARD_CLASS, "flex flex-col gap-4 p-5")}
-            >
-              <div className="flex flex-col gap-2">
-                <label htmlFor="full_name" className={labelClasses}>
-                  Full name
-                </label>
-                <input
-                  id="full_name"
-                  name="full_name"
-                  type="text"
-                  defaultValue={member.full_name ?? ""}
-                  className={inputClasses}
-                />
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <label htmlFor="phone" className={labelClasses}>
-                  Phone
-                </label>
-                <PhoneInput
-                  id="phone"
-                  name="phone"
-                  value={phone}
-                  onChange={setPhone}
-                  defaultCountry="GB"
-                  international
-                  inputComponent={PhoneNumberField}
-                />
-              </div>
-
-              {saveError && (
-                <p className="text-sm font-medium text-red-700">{saveError}</p>
-              )}
-
-              <button
-                type="submit"
-                disabled={isSaving}
-                className="mt-1 rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background disabled:opacity-60"
-              >
-                {isSaving ? "Saving…" : "Save changes"}
-              </button>
-            </form>
-          )}
         </motion.div>
 
         <motion.section {...fade(0.2)} className="flex flex-col gap-4">
@@ -297,6 +218,12 @@ export function ProfileView({
                 Full name
               </span>
               <span className="text-sm text-foreground">{member.full_name || "—"}</span>
+            </div>
+            <div className="flex items-center justify-between p-4">
+              <span className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">
+                Employer
+              </span>
+              <span className="text-sm text-foreground">{member.employer || "—"}</span>
             </div>
             <div className="flex items-center justify-between p-4">
               <span className="text-xs font-semibold uppercase tracking-wider text-foreground-muted">

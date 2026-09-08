@@ -22,6 +22,8 @@ export async function updateProfile(
 
   const fullName = formData.get("full_name");
   const phone = formData.get("phone");
+  const employer = formData.get("employer");
+  const bio = formData.get("bio");
 
   if (typeof fullName !== "string" || !fullName.trim()) {
     return { success: false, error: "Full name is required." };
@@ -31,14 +33,14 @@ export async function updateProfile(
     return { success: false, error: "Please enter a valid phone number." };
   }
 
-  // bio isn't part of this form anymore — deliberately not included in
-  // this update so an unrelated save can't clear it.
   const supabase = await createClient();
   const { error } = await supabase
     .from("members")
     .update({
       full_name: fullName.trim(),
       phone,
+      employer: typeof employer === "string" && employer.trim() ? employer.trim() : null,
+      bio: typeof bio === "string" && bio.trim() ? bio.trim() : null,
     })
     .eq("id", member.id);
 
