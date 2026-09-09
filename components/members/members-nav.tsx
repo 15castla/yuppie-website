@@ -28,8 +28,18 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function isEventDetailPath(pathname: string) {
+  // Event detail pages (e.g. /members/events/padel-and-pints) render their
+  // own price + RSVP bar in the same slot the standard tab bar normally
+  // occupies — see the fixed bar in event-detail-view.tsx. This matches
+  // "/members/events/<slug>" but not the events list page itself
+  // ("/members/events" or "/members/events/").
+  return /^\/members\/events\/[^/]+\/?$/.test(pathname);
+}
+
 export function MembersNav() {
   const pathname = usePathname();
+  const hideTabBar = isEventDetailPath(pathname);
 
   return (
     <>
@@ -43,31 +53,33 @@ export function MembersNav() {
       />
 
       {/* Mobile: fixed bottom tab bar. */}
-      <nav
-        className="fixed left-3.5 right-3.5 bottom-3.5 z-20 flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] md:hidden"
-        aria-label="Members navigation"
-      >
-        {NAV_ITEMS.map(({ label, href, Icon }) => {
-          const active = isActive(pathname, href);
-          return (
-            <Link
-              key={href}
-              href={href}
-              className={cn(
-                "flex flex-col items-center gap-[3px] rounded-[18px] px-3 py-[7px] transition-colors",
-                active
-                  ? "bg-foreground text-background"
-                  : "text-foreground-muted",
-              )}
-            >
-              <Icon size={21} strokeWidth={2.25} />
-              <span className="text-[9.5px] font-bold uppercase tracking-wider">
-                {label}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
+      {!hideTabBar && (
+        <nav
+          className="fixed left-3.5 right-3.5 bottom-3.5 z-20 flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] md:hidden"
+          aria-label="Members navigation"
+        >
+          {NAV_ITEMS.map(({ label, href, Icon }) => {
+            const active = isActive(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "flex flex-col items-center gap-[3px] rounded-[18px] px-3 py-[7px] transition-colors",
+                  active
+                    ? "bg-foreground text-background"
+                    : "text-foreground-muted",
+                )}
+              >
+                <Icon size={21} strokeWidth={2.25} />
+                <span className="text-[9.5px] font-bold uppercase tracking-wider">
+                  {label}
+                </span>
+              </Link>
+            );
+          })}
+        </nav>
+      )}
 
       {/* Desktop: floating top pill nav, same visual pattern as SiteNav. */}
       <nav className="absolute left-1/2 top-0 z-20 hidden max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-b-2xl bg-background md:flex md:max-w-none md:rounded-b-3xl">
