@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 
@@ -24,7 +25,7 @@ const MEMBER_COLUMNS =
 // app/member-login/page.tsx, which needs to redirect *away* to /members
 // when a session already exists, and otherwise just render the login
 // form rather than bouncing to itself).
-export async function getMember(): Promise<Member | null> {
+export const getMember = cache(async (): Promise<Member | null> => {
   const supabase = await createClient();
   const {
     data: { user },
@@ -41,7 +42,7 @@ export async function getMember(): Promise<Member | null> {
     .maybeSingle();
 
   return (member as Member | null) ?? null;
-}
+});
 
 // Mirrors app/admin/require-admin.ts's shape, but queries through the
 // request-scoped (RLS-respecting) client rather than the admin service-role
