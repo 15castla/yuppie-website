@@ -83,7 +83,7 @@ export function EventDetailView({
   const spotsLeft = Math.max(event.capacity - bookedCount, 0);
   const { normal, accent } = splitTitleForAccent(event.title);
   const whatsIncluded =
-    WHATS_INCLUDED[event.id] ??
+    WHATS_INCLUDED[event.title] ??
     "The full experience, organised and hosted by Yuppie from start to finish.";
   const isFree = !event.price_pence;
 
@@ -110,8 +110,16 @@ export function EventDetailView({
 
   return (
     <main className="relative z-10 flex flex-1 flex-col pt-8 pb-[160px] md:pt-28 md:pb-24">
-      <motion.div {...fade(0.1)} className="relative">
-        <EventThumbnail category={event.category} className="h-[220px] w-full" iconClassName="h-24 w-24" />
+      <motion.div
+        {...fade(0.1)}
+        className="relative w-full md:mx-auto md:max-w-3xl md:mt-6 md:overflow-hidden md:rounded-[32px] md:border md:border-foreground/10"
+      >
+        <EventThumbnail
+          category={event.category}
+          className="h-[220px] w-full md:h-[320px]"
+          iconClassName="h-24 w-24 md:h-32 md:w-32"
+          showCategoryBadge={false}
+        />
 
         <Link
           href="/members/events"
@@ -121,7 +129,7 @@ export function EventDetailView({
         </Link>
       </motion.div>
 
-      <div className="mx-auto -mt-4 flex w-full max-w-2xl flex-col gap-6 px-4 sm:px-6">
+      <div className="mx-auto -mt-4 flex w-full max-w-2xl flex-col gap-6 px-4 sm:px-6 md:max-w-3xl">
         <motion.span
           {...fade(0.15)}
           className="w-fit rounded-full bg-cream px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.35)]"

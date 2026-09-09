@@ -139,10 +139,12 @@ export function EventThumbnail({
   category,
   className,
   iconClassName,
+  showCategoryBadge = true,
 }: {
   category: EventCategory;
   className?: string;
   iconClassName?: string;
+  showCategoryBadge?: boolean;
 }) {
   const Icon = CATEGORY_ICON[category];
   return (
@@ -156,9 +158,11 @@ export function EventThumbnail({
         className={cn("text-foreground/15", iconClassName)}
         strokeWidth={1.5}
       />
-      <span className="absolute left-3 top-3 rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">
-        {CATEGORY_LABEL[category]}
-      </span>
+      {showCategoryBadge && (
+        <span className="absolute left-3 top-3 rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">
+          {CATEGORY_LABEL[category]}
+        </span>
+      )}
     </div>
   );
 }
