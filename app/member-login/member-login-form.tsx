@@ -51,14 +51,34 @@ export function MemberLoginForm() {
     const supabase = createClient();
     const { error: signInError } = await supabase.auth.signInWithOtp({
       email,
+      options: { shouldCreateUser: false },
     });
 
     setSubmitting(false);
 
     if (signInError) {
-      setError(
-        "Something went wrong sending the login code. Please try again.",
-      );
+      // Logged so we can see the real shape of Supabase's error during
+      // testing and tighten the checks below if the wording differs.
+      console.error("signInWithOtp error:", signInError);
+
+      const code = (signInError as { code?: string }).code;
+      const message = signInError.message?.toLowerCase() ?? "";
+
+      if (
+        code === "otp_disabled" ||
+        message.includes("signup") ||
+        message.includes("not allowed")
+      ) {
+        setError(
+          "We don't recognise that email as a Yuppie member. Check for typos, or apply to join below.",
+        );
+      } else if (signInError.status === 429 || message.includes("rate limit")) {
+        setError("Too many attempts. Please wait a few minutes and try again.");
+      } else if (message.includes("invalid") || message.includes("valid email")) {
+        setError("That doesn't look like a valid email address.");
+      } else {
+        setError("Something went wrong sending the login code. Please try again.");
+      }
       return;
     }
 
