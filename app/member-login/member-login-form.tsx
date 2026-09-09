@@ -98,7 +98,7 @@ export function MemberLoginForm() {
       className={cn(
         almarai.variable,
         instrumentSerif.variable,
-        "flex flex-1 flex-col bg-background text-foreground antialiased",
+        "flex min-h-dvh flex-1 flex-col bg-background text-foreground antialiased",
       )}
       style={{
         fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
