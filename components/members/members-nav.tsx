@@ -33,6 +33,15 @@ export function MembersNav() {
 
   return (
     <>
+      {/* Soft fade so scrolling content resolves to solid background
+          before it reaches the bottom nav / Safari's own toolbar, instead
+          of getting cut off mid-card. Full width (not inset like the nav
+          pill) so it also covers the gaps beside the pill. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[15] h-32 bg-linear-to-t from-background from-15% to-transparent md:hidden"
+      />
+
       {/* Mobile: fixed bottom tab bar. */}
       <nav
         className="fixed left-3.5 right-3.5 bottom-3.5 z-20 flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] md:hidden"
