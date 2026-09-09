@@ -29,7 +29,7 @@ export default async function MembersLayout({
         fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
       }}
     >
-      <section className="relative flex flex-1 flex-col overflow-hidden">
+      <section className="relative flex flex-1 flex-col">
         <MembersNav />
         {children}
       </section>

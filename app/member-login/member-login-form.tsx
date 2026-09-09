@@ -104,7 +104,7 @@ export function MemberLoginForm() {
         fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
       }}
     >
-      <section className="relative flex flex-1 flex-col overflow-hidden">
+      <section className="relative flex flex-1 flex-col">
         <SiteNav />
 
         <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-28 pb-20 sm:px-6 sm:pt-32 sm:pb-28 md:pb-32">
