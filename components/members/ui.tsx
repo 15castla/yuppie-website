@@ -83,14 +83,21 @@ export function initialsFor(fullName: string | null) {
   return `${first}${last}`.toUpperCase();
 }
 
+const EVENT_TIME_ZONE = "Europe/London";
+
 export function formatMonthAbbrev(iso: string) {
   return new Date(iso)
-    .toLocaleDateString("en-GB", { month: "short" })
+    .toLocaleDateString("en-GB", { month: "short", timeZone: EVENT_TIME_ZONE })
     .toUpperCase();
 }
 
 export function formatDayNumber(iso: string) {
-  return new Date(iso).getDate();
+  return Number(
+    new Intl.DateTimeFormat("en-GB", {
+      day: "numeric",
+      timeZone: EVENT_TIME_ZONE,
+    }).format(new Date(iso)),
+  );
 }
 
 export function formatEventDayTime(iso: string) {
@@ -100,6 +107,7 @@ export function formatEventDayTime(iso: string) {
     month: "short",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: EVENT_TIME_ZONE,
   });
 }
 
@@ -110,14 +118,17 @@ export function formatEventFullDateTime(startIso: string, endIso: string) {
     weekday: "long",
     day: "numeric",
     month: "long",
+    timeZone: EVENT_TIME_ZONE,
   });
   const startTime = start.toLocaleTimeString("en-GB", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: EVENT_TIME_ZONE,
   });
   const endTime = end.toLocaleTimeString("en-GB", {
     hour: "numeric",
     minute: "2-digit",
+    timeZone: EVENT_TIME_ZONE,
   });
   return `${datePart}, ${startTime} – ${endTime}`;
 }
