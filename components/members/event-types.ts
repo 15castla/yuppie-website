@@ -4,6 +4,7 @@ export type EventCategory = "entertainment" | "sport" | "personal_progression";
 
 export type Event = {
   id: string;
+  slug: string;
   title: string;
   description: string | null;
   category: EventCategory;
@@ -16,4 +17,4 @@ export type Event = {
 };
 
 export const EVENT_COLUMNS =
-  "id, title, description, category, location, start_time, end_time, price_pence, capacity, image_url";
+  "id, slug, title, description, category, location, start_time, end_time, price_pence, capacity, image_url";

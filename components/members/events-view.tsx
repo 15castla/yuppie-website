@@ -100,7 +100,7 @@ export function EventsView({ events }: { events: Event[] }) {
             filteredEvents.map((event) => (
               <Link
                 key={event.id}
-                href={`/members/events/${event.id}`}
+                href={`/members/events/${event.slug}`}
                 className={cn(
                   CARD_CLASS,
                   "overflow-hidden transition-colors hover:border-foreground/25",

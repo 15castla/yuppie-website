@@ -144,7 +144,7 @@ export function HomeView({
             {pickedEvents.map((event) => (
               <Link
                 key={event.id}
-                href={`/members/events/${event.id}`}
+                href={`/members/events/${event.slug}`}
                 className={`${CARD_CLASS} flex items-center justify-between gap-4 p-4 transition-colors hover:border-foreground/25`}
               >
                 <div className="min-w-0">
