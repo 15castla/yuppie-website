@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, unstable_cache } from "next/cache";
 // react-phone-number-input's own root export bundles its React PhoneInput
 // component together with its validation utilities in the same module —
 // importing it here (a server-only "use server" file with no React tree to
@@ -89,25 +89,34 @@ export async function cancelMembership(): Promise<{ success: boolean; error?: st
 // Real, but genuinely fallible: current_period_end lives per subscription
 // item in this Stripe API version, not on the subscription itself. Callers
 // treat a null return as "omit the row" rather than showing a fake date.
+// Cached for an hour since a billing date only actually changes once a
+// month — no reason to hit Stripe's API on every profile page load.
+const getCachedNextBillingDate = unstable_cache(
+  async (subscriptionId: string) => {
+    try {
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      const periodEndUnix = subscription.items.data[0]?.current_period_end;
+      if (!periodEndUnix) return null;
+
+      return new Date(periodEndUnix * 1000).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    } catch (err) {
+      console.error(`getNextBillingDate failed for subscription ${subscriptionId}:`, err);
+      return null;
+    }
+  },
+  ["next-billing-date"],
+  { revalidate: 3600 },
+);
+
 export async function getNextBillingDate(
   subscriptionId: string | null,
 ): Promise<string | null> {
   if (!subscriptionId) return null;
-
-  try {
-    const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-    const periodEndUnix = subscription.items.data[0]?.current_period_end;
-    if (!periodEndUnix) return null;
-
-    return new Date(periodEndUnix * 1000).toLocaleDateString("en-GB", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    });
-  } catch (err) {
-    console.error(`getNextBillingDate failed for subscription ${subscriptionId}:`, err);
-    return null;
-  }
+  return getCachedNextBillingDate(subscriptionId);
 }
 
 export async function signOutMember() {
