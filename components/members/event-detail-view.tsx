@@ -7,7 +7,14 @@ import { Calendar, ChevronLeft, MapPin, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { Event } from "./event-types";
-import { CARD_CLASS, CATEGORY_LABEL, EventThumbnail, formatEventFullDateTime } from "./ui";
+import {
+  CARD_CLASS,
+  CATEGORY_LABEL,
+  EventThumbnail,
+  formatDayNumber,
+  formatEventFullDateTime,
+  formatMonthAbbrev,
+} from "./ui";
 import { rsvpToEvent, bookPaidEventStub } from "@/app/members/events/actions";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -109,10 +116,10 @@ export function EventDetailView({
   }
 
   return (
-    <main className="relative z-10 flex flex-1 flex-col pt-8 pb-[160px] md:pt-28 md:pb-16">
+    <main className="relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[170px] sm:px-6 md:pt-28 md:pb-16">
       <motion.div
         {...fade(0.1)}
-        className="relative w-full md:mx-auto md:max-w-3xl md:mt-6 md:overflow-hidden md:rounded-[32px] md:border md:border-foreground/10"
+        className="relative w-full overflow-hidden rounded-2xl border border-foreground/10 md:mx-auto md:max-w-3xl md:mt-6"
       >
         <EventThumbnail
           category={event.category}
@@ -127,9 +134,18 @@ export function EventDetailView({
         >
           <ChevronLeft className="h-5 w-5" />
         </Link>
+
+        <div className="absolute right-4 top-4 flex h-[52px] w-[52px] flex-col items-center justify-center rounded-2xl bg-cream shadow-[0_8px_20px_-8px_rgba(27,21,18,0.5)]">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-foreground-muted">
+            {formatMonthAbbrev(event.start_time)}
+          </span>
+          <span className="text-lg font-extrabold leading-none text-foreground">
+            {formatDayNumber(event.start_time)}
+          </span>
+        </div>
       </motion.div>
 
-      <div className="relative mx-auto -mt-4 flex w-full max-w-2xl flex-col gap-6 px-4 sm:px-6 md:max-w-3xl">
+      <div className="relative mx-auto -mt-4 flex w-full max-w-2xl flex-col gap-6 md:max-w-3xl">
         <motion.span
           {...fade(0.15)}
           className="w-fit rounded-full bg-cream px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.35)]"
@@ -193,7 +209,7 @@ export function EventDetailView({
         )}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-20 rounded-t-[26px] bg-cream p-4 shadow-[0_-18px_34px_-18px_rgba(27,21,18,0.55)] sm:p-5 md:static md:z-auto md:mx-auto md:mt-6 md:w-full md:max-w-3xl md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:p-6 md:shadow-none">
+      <div className="fixed left-3.5 right-3.5 bottom-3.5 z-20 rounded-[26px] bg-cream p-4 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] sm:p-5 md:static md:z-auto md:mx-auto md:mt-6 md:max-w-3xl md:w-full md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:shadow-none">
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 md:max-w-none">
           <div>
             {isFree ? (
