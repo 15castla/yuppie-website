@@ -211,7 +211,7 @@ export function EventDetailView({
         </div>
       </main>
 
-      <div className="fixed left-3.5 right-3.5 bottom-3.5 z-20 rounded-[26px] bg-cream p-4 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] sm:p-5 md:static md:z-auto md:mx-auto md:mt-3 md:max-w-3xl md:w-full md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:shadow-none">
+      <div className="fixed left-3.5 right-3.5 bottom-3.5 z-20 rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] md:static md:z-auto md:mx-auto md:mt-3 md:max-w-3xl md:w-full md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:shadow-none">
         <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 md:max-w-none">
           <div>
             {isFree ? (
