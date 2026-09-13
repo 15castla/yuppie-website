@@ -7,7 +7,7 @@ export default function EventDetailLoading() {
 
       <div
         aria-hidden
-        className="fixed left-3.5 right-3.5 bottom-3.5 z-20 h-16 rounded-[26px] bg-cream shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] md:hidden"
+        className="fixed left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] z-20 h-16 rounded-[26px] bg-cream shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] md:hidden"
       />
     </>
   );

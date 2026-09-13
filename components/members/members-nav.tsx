@@ -55,7 +55,7 @@ export function MembersNav() {
       {/* Mobile: fixed bottom tab bar. */}
       {!hideTabBar && (
         <nav
-          className="fixed left-3.5 right-3.5 bottom-3.5 z-20 flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] md:hidden"
+          className="fixed left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] z-20 flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] md:hidden"
           aria-label="Members navigation"
         >
           {NAV_ITEMS.map(({ label, href, Icon }) => {
