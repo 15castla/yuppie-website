@@ -43,14 +43,17 @@ export function MembersNav() {
 
   return (
     <>
-      {/* Soft fade so scrolling content resolves to solid background
-          before it reaches the bottom nav / Safari's own toolbar, instead
-          of getting cut off mid-card. Full width (not inset like the nav
-          pill) so it also covers the gaps beside the pill. */}
-      <div
+      {/* DIAGNOSTIC: temporarily disabled to test whether two stacked
+          fixed elements near the bottom (this scrim + the tab bar) is
+          what's causing the Safari toolbar seam, as opposed to anything
+          about the gradient's own colors. Not a permanent removal — this
+          fade serves a real purpose (smoothing scrolled content as it
+          reaches the tab bar) and needs to come back in some form once
+          the diagnosis is confirmed. */}
+      {/* <div
         aria-hidden
         className="pointer-events-none fixed inset-x-0 bottom-0 z-[15] h-36 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)] md:hidden"
-      />
+      /> */}
 
       {/* Mobile: fixed bottom tab bar. */}
       {!hideTabBar && (
