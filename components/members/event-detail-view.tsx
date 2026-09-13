@@ -115,6 +115,39 @@ export function EventDetailView({
     });
   }
 
+  // Shared between the mobile fixed bar and the desktop static card below
+  // — same content either way, just two different wrappers (see the
+  // fixed-position restructuring note further down).
+  const rsvpBarContent = (
+    <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 md:max-w-none">
+      <div>
+        {isFree ? (
+          <p className="text-sm font-bold text-foreground">
+            Included in your membership
+          </p>
+        ) : (
+          <>
+            <p className="text-lg font-extrabold text-foreground">
+              £{((event.price_pence ?? 0) / 100).toFixed(0)}pp
+            </p>
+            <p className="text-xs text-foreground-muted">Charged on booking</p>
+          </>
+        )}
+      </div>
+
+      <form action={handleAction}>
+        <input type="hidden" name="event_id" value={event.id} />
+        <button
+          type="submit"
+          disabled={isPending || booked}
+          className="rounded-full bg-foreground px-8 py-3.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+        >
+          {booked ? "You're in" : isPending ? "Booking…" : isFree ? "RSVP" : "Book my spot"}
+        </button>
+      </form>
+    </div>
+  );
+
   return (
     <>
       <main className="relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[150px] sm:px-6 md:pt-28 md:pb-16">
@@ -211,39 +244,36 @@ export function EventDetailView({
         </div>
       </main>
 
+      {/* Mobile: fade scrim + fixed price/RSVP bar, as one single fixed
+          element instead of two stacked ones — same rationale and pattern
+          as members-nav.tsx's tab bar. Two independently-fixed layers near
+          the bottom is what caused a visible Safari toolbar seam. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
+        <div
+          aria-hidden
+          className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
+        />
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.15 }}
+          className="pointer-events-auto absolute left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)]"
+        >
+          {rsvpBarContent}
+        </motion.div>
+      </div>
+
+      {/* Desktop: static card below What's included, matching its width/
+          rounding/border/background — no fixed or gradient behavior here
+          at all, this is a completely separate rendering from the mobile
+          bar above (hidden below md via the wrapper's own classes). */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.15 }}
-        className="fixed left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] z-20 rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] md:static md:z-auto md:mx-auto md:mt-3 md:max-w-3xl md:w-full md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:shadow-none"
+        className="hidden md:mx-auto md:mt-3 md:block md:max-w-3xl md:w-full md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:p-2"
       >
-        <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 md:max-w-none">
-          <div>
-            {isFree ? (
-              <p className="text-sm font-bold text-foreground">
-                Included in your membership
-              </p>
-            ) : (
-              <>
-                <p className="text-lg font-extrabold text-foreground">
-                  £{((event.price_pence ?? 0) / 100).toFixed(0)}pp
-                </p>
-                <p className="text-xs text-foreground-muted">Charged on booking</p>
-              </>
-            )}
-          </div>
-
-          <form action={handleAction}>
-            <input type="hidden" name="event_id" value={event.id} />
-            <button
-              type="submit"
-              disabled={isPending || booked}
-              className="rounded-full bg-foreground px-8 py-3.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
-            >
-              {booked ? "You're in" : isPending ? "Booking…" : isFree ? "RSVP" : "Book my spot"}
-            </button>
-          </form>
-        </div>
+        {rsvpBarContent}
       </motion.div>
     </>
   );

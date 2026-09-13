@@ -43,45 +43,44 @@ export function MembersNav() {
 
   return (
     <>
-      {/* DIAGNOSTIC: temporarily disabled to test whether two stacked
-          fixed elements near the bottom (this scrim + the tab bar) is
-          what's causing the Safari toolbar seam, as opposed to anything
-          about the gradient's own colors. Not a permanent removal — this
-          fade serves a real purpose (smoothing scrolled content as it
-          reaches the tab bar) and needs to come back in some form once
-          the diagnosis is confirmed. */}
-      {/* <div
-        aria-hidden
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[15] h-36 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)] md:hidden"
-      /> */}
-
-      {/* Mobile: fixed bottom tab bar. */}
+      {/* Mobile: fade scrim + fixed bottom tab bar, as one single fixed
+          element instead of two stacked ones. Two independently-fixed
+          layers near the bottom is what caused a visible Safari toolbar
+          seam (confirmed live by disabling the scrim in isolation) — the
+          gradient is now just an absolutely-positioned background layer
+          inside the same fixed container the nav sits in. */}
       {!hideTabBar && (
-        <nav
-          className="fixed left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] z-20 flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)] md:hidden"
-          aria-label="Members navigation"
-        >
-          {NAV_ITEMS.map(({ label, href, Icon }) => {
-            const active = isActive(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                className={cn(
-                  "flex flex-col items-center gap-[3px] rounded-[18px] px-3 py-[7px] transition-colors",
-                  active
-                    ? "bg-foreground text-background"
-                    : "text-foreground-muted",
-                )}
-              >
-                <Icon size={21} strokeWidth={2.25} />
-                <span className="text-[9.5px] font-bold uppercase tracking-wider">
-                  {label}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
+          <div
+            aria-hidden
+            className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
+          />
+          <nav
+            className="pointer-events-auto absolute left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)]"
+            aria-label="Members navigation"
+          >
+            {NAV_ITEMS.map(({ label, href, Icon }) => {
+              const active = isActive(pathname, href);
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={cn(
+                    "flex flex-col items-center gap-[3px] rounded-[18px] px-3 py-[7px] transition-colors",
+                    active
+                      ? "bg-foreground text-background"
+                      : "text-foreground-muted",
+                  )}
+                >
+                  <Icon size={21} strokeWidth={2.25} />
+                  <span className="text-[9.5px] font-bold uppercase tracking-wider">
+                    {label}
+                  </span>
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
       )}
 
       {/* Desktop: floating top pill nav, same visual pattern as SiteNav. */}
