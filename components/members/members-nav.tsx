@@ -49,7 +49,7 @@ export function MembersNav() {
           pill) so it also covers the gaps beside the pill. */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-[15] h-36 bg-linear-to-t from-background from-60% to-transparent md:hidden"
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-[15] h-36 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)] md:hidden"
       />
 
       {/* Mobile: fixed bottom tab bar. */}
