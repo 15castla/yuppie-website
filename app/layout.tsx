@@ -59,18 +59,21 @@ export const metadata: Metadata = {
 // actual page background — an explicit theme-color pins it to the real
 // --background value everywhere.
 //
-// NOTE: Safari's toolbar renders theme-color through its own translucent
-// material rather than a flat fill, which makes it come out visibly
-// darker/duller than the page's actual flat --background (#FFD904),
-// with a hard edge where the page ends and the chrome begins (confirmed
-// via a real device screenshot). #FFC700 (a small nudge) made no visible
-// difference on device, so testing a much larger delta here — #FFB000 —
-// to establish whether direction/magnitude helps at all before assuming
-// this is a fundamental cap on what Safari's translucent chrome can
-// render. --background/--accent in globals.css and app/manifest.ts are
-// unrelated and stay #FFD904; only this value is being tuned.
+// NOTE: mid-investigation into a Safari toolbar color mismatch (toolbar
+// renders visibly darker/duller than the page's flat --background,
+// #FFD904, with a hard edge between the two). Two yellow-family
+// candidates (#FFC700, #FFB000) both produced no visible change on
+// device, which points away from "Safari is desaturating this a bit"
+// and toward "the toolbar isn't picking up the new value at all" —
+// TEMPORARILY set to pure red (#FF0000) as a control: if the toolbar
+// still renders yellow, theme-color isn't being respected/applied here
+// (caching or a mechanism problem); if it visibly turns red, the
+// mechanism works and it's genuinely about how far a yellow can be
+// pushed. Revert to a real value once this test is read.
+// --background/--accent in globals.css and app/manifest.ts are
+// unrelated and stay #FFD904.
 export const viewport: Viewport = {
-  themeColor: "#FFB000",
+  themeColor: "#FF0000",
   viewportFit: "cover",
   colorScheme: "light",
 };
