@@ -63,13 +63,14 @@ export const metadata: Metadata = {
 // material rather than a flat fill, which makes it come out visibly
 // darker/duller than the page's actual flat --background (#FFD904),
 // with a hard edge where the page ends and the chrome begins (confirmed
-// via a real device screenshot). Testing a warmer/brighter compensating
-// value here — #FFC700 — to see if it lands closer once Safari's own
-// blend is applied. --background/--accent in globals.css and
-// app/manifest.ts are unrelated and stay #FFD904; only this value is
-// being tuned.
+// via a real device screenshot). #FFC700 (a small nudge) made no visible
+// difference on device, so testing a much larger delta here — #FFB000 —
+// to establish whether direction/magnitude helps at all before assuming
+// this is a fundamental cap on what Safari's translucent chrome can
+// render. --background/--accent in globals.css and app/manifest.ts are
+// unrelated and stay #FFD904; only this value is being tuned.
 export const viewport: Viewport = {
-  themeColor: "#FFC700",
+  themeColor: "#FFB000",
   viewportFit: "cover",
   colorScheme: "light",
 };
