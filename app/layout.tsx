@@ -58,8 +58,18 @@ export const metadata: Metadata = {
 // element's background (e.g. the members nav bar's cream) instead of the
 // actual page background — an explicit theme-color pins it to the real
 // --background value everywhere.
+//
+// NOTE: Safari's toolbar renders theme-color through its own translucent
+// material rather than a flat fill, which makes it come out visibly
+// darker/duller than the page's actual flat --background (#FFD904),
+// with a hard edge where the page ends and the chrome begins (confirmed
+// via a real device screenshot). Testing a warmer/brighter compensating
+// value here — #FFC700 — to see if it lands closer once Safari's own
+// blend is applied. --background/--accent in globals.css and
+// app/manifest.ts are unrelated and stay #FFD904; only this value is
+// being tuned.
 export const viewport: Viewport = {
-  themeColor: "#FFD904",
+  themeColor: "#FFC700",
   viewportFit: "cover",
   colorScheme: "light",
 };
