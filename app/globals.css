@@ -20,6 +20,17 @@
   --font-mono: var(--font-geist-mono);
 }
 
+/* html gets its own explicit background, not just relying on body's to
+   propagate to the canvas — iOS Safari can fail to extend that
+   propagated color into the safe-area strip under its toolbar
+   (env(safe-area-inset-bottom), enabled by viewport-fit=cover) when a
+   position: sticky element sits at the very bottom of the page, showing
+   its own default white there instead. Members pages are the only ones
+   with such an element (MembersBottomBar); this covers every route. */
+html {
+  background: var(--background);
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
