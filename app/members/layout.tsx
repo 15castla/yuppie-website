@@ -5,7 +5,7 @@ import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
-import { MembersNav } from "@/components/members/members-nav";
+import { MembersNav, MembersBottomBar } from "@/components/members/members-nav";
 import { requireMember } from "./require-member";
 
 export default async function MembersLayout({
@@ -32,6 +32,11 @@ export default async function MembersLayout({
       <section className="relative flex flex-1 flex-col">
         <MembersNav />
         {children}
+        {/* Sticky-footer pattern: rendered after {children}, not before
+            like MembersNav's desktop pill above, so it's a normal-flow
+            sibling of the page content rather than an overlay — see
+            MembersBottomBar's own comment in members-nav.tsx for why. */}
+        <MembersBottomBar />
       </section>
     </div>
   );

@@ -11,9 +11,13 @@ export const CARD_CLASS = "rounded-2xl border border-foreground/10 bg-background
 // Shared <main> wrapper for every top-level members page. Small top
 // padding below md: since the top nav pill is hidden there (mobile uses
 // the bottom tab bar instead), full pt-28 clearance restored at md: for
-// the floating top pill nav.
+// the floating top pill nav. No large bottom-padding workaround needed
+// below md: anymore — MembersBottomBar (members-nav.tsx) is now
+// position: sticky and rendered as a normal-flow sibling after <main> in
+// app/members/layout.tsx, so it reserves its own real space in the page
+// flow instead of floating over content that needs separate clearance.
 export const MEMBERS_MAIN_CLASS =
-  "relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[130px] sm:px-6 md:pt-28 md:pb-20";
+  "relative z-10 flex flex-1 flex-col px-4 pt-8 pb-8 sm:px-6 md:pt-28 md:pb-20";
 
 const STATUS_DOT_COLOR: Record<string, string> = {
   active: "#2F6B3A",

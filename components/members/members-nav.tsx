@@ -37,75 +37,87 @@ function isEventDetailPath(pathname: string) {
   return /^\/members\/events\/[^/]+\/?$/.test(pathname);
 }
 
+// Desktop: floating top pill nav, same visual pattern as SiteNav. Rendered
+// before {children} in app/members/layout.tsx, same as always — this was
+// never position: fixed to begin with (absolute against <section>, not the
+// viewport), so it's untouched by the mobile bar's fixed->sticky
+// restructuring below.
 export function MembersNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav className="absolute left-1/2 top-0 z-20 hidden max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-b-2xl bg-background md:flex md:max-w-none md:rounded-b-3xl">
+      <ul className="flex items-center gap-2 px-5 py-2.5 md:px-6 lg:px-9">
+        {NAV_ITEMS.map(({ label, href }) => {
+          const active = isActive(pathname, href);
+          return (
+            <li key={href}>
+              <Link
+                href={href}
+                className={cn(
+                  "block rounded-full px-3 py-1 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                  active
+                    ? "bg-foreground font-semibold text-background"
+                    : "text-foreground/80 hover:text-foreground",
+                )}
+              >
+                {label}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+// Mobile: fade scrim + tab bar, as one element (unchanged from the earlier
+// fixed version — see that commit for why the scrim and nav are merged
+// rather than two independently-positioned layers). Rendered AFTER
+// {children} in app/members/layout.tsx, not before like MembersNav's
+// desktop pill above, so this is a normal-flow sibling of the page content
+// instead of an overlay rendered ahead of it — required for
+// position: sticky (below) to actually participate in document flow and
+// stick to the bottom of the viewport as the page scrolls, rather than
+// floating above everything regardless of scroll position the way
+// position: fixed did.
+export function MembersBottomBar() {
   const pathname = usePathname();
   const hideTabBar = isEventDetailPath(pathname);
 
-  return (
-    <>
-      {/* Mobile: fade scrim + fixed bottom tab bar, as one single fixed
-          element instead of two stacked ones. Two independently-fixed
-          layers near the bottom is what caused a visible Safari toolbar
-          seam (confirmed live by disabling the scrim in isolation) — the
-          gradient is now just an absolutely-positioned background layer
-          inside the same fixed container the nav sits in. */}
-      {!hideTabBar && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
-          <div
-            aria-hidden
-            className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
-          />
-          <nav
-            className="pointer-events-auto absolute left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)]"
-            aria-label="Members navigation"
-          >
-            {NAV_ITEMS.map(({ label, href, Icon }) => {
-              const active = isActive(pathname, href);
-              return (
-                <Link
-                  key={href}
-                  href={href}
-                  className={cn(
-                    "flex flex-col items-center gap-[3px] rounded-[18px] px-3 py-[7px] transition-colors",
-                    active
-                      ? "bg-foreground text-background"
-                      : "text-foreground-muted",
-                  )}
-                >
-                  <Icon size={21} strokeWidth={2.25} />
-                  <span className="text-[9.5px] font-bold uppercase tracking-wider">
-                    {label}
-                  </span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
-      )}
+  if (hideTabBar) return null;
 
-      {/* Desktop: floating top pill nav, same visual pattern as SiteNav. */}
-      <nav className="absolute left-1/2 top-0 z-20 hidden max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-b-2xl bg-background md:flex md:max-w-none md:rounded-b-3xl">
-        <ul className="flex items-center gap-2 px-5 py-2.5 md:px-6 lg:px-9">
-          {NAV_ITEMS.map(({ label, href }) => {
-            const active = isActive(pathname, href);
-            return (
-              <li key={href}>
-                <Link
-                  href={href}
-                  className={cn(
-                    "block rounded-full px-3 py-1 text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                    active
-                      ? "bg-foreground font-semibold text-background"
-                      : "text-foreground/80 hover:text-foreground",
-                  )}
-                >
-                  {label}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+  return (
+    <div className="pointer-events-none sticky bottom-0 z-20 h-36 md:hidden">
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
+      />
+      <nav
+        className="pointer-events-auto absolute left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)]"
+        aria-label="Members navigation"
+      >
+        {NAV_ITEMS.map(({ label, href, Icon }) => {
+          const active = isActive(pathname, href);
+          return (
+            <Link
+              key={href}
+              href={href}
+              className={cn(
+                "flex flex-col items-center gap-[3px] rounded-[18px] px-3 py-[7px] transition-colors",
+                active
+                  ? "bg-foreground text-background"
+                  : "text-foreground-muted",
+              )}
+            >
+              <Icon size={21} strokeWidth={2.25} />
+              <span className="text-[9.5px] font-bold uppercase tracking-wider">
+                {label}
+              </span>
+            </Link>
+          );
+        })}
       </nav>
-    </>
+    </div>
   );
 }
