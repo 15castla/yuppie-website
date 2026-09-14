@@ -37,9 +37,22 @@ function isEventDetailPath(pathname: string) {
   return /^\/members\/events\/[^/]+\/?$/.test(pathname);
 }
 
+// DIAGNOSTIC ONLY — matches exactly the events list page ("/members/events"
+// or "/members/events/"), so the whole fixed tab bar + scrim can be
+// suppressed there and nowhere else, to test whether Safari's toolbar goes
+// translucent/glass (matching the homepage, which has zero fixed elements
+// near the bottom) once there's no opaque fixed element nearby on this one
+// page. Not a real design — navigation is intentionally left unusable here
+// for the duration of this test. Remove this function and its use in
+// hideTabBar below once the test is done.
+function isEventsListPath(pathname: string) {
+  return pathname === "/members/events" || pathname === "/members/events/";
+}
+
 export function MembersNav() {
   const pathname = usePathname();
-  const hideTabBar = isEventDetailPath(pathname);
+  const hideTabBar =
+    isEventDetailPath(pathname) || isEventsListPath(pathname);
 
   return (
     <>
