@@ -91,9 +91,15 @@ export function MembersBottomBar() {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
+      {/* Flat/opaque up to 70% (vs. the original 35%) so there's a tall,
+          pure --background zone directly behind Safari's bottom toolbar —
+          that toolbar appears to be a frosted/blurred layer that samples
+          actual page pixels rather than reading theme-color, and a short
+          flat zone let it pick up part of the blended/transparent fade
+          above it, washing the color out. */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
+        className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_70%,color-mix(in_oklab,var(--background)_65%,transparent)_85%,color-mix(in_oklab,var(--background)_30%,transparent)_93%,transparent_100%)]"
       />
       <nav
         className="pointer-events-auto absolute left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)]"

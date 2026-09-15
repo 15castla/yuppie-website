@@ -59,21 +59,15 @@ export const metadata: Metadata = {
 // actual page background — an explicit theme-color pins it to the real
 // --background value everywhere.
 //
-// NOTE: mid-investigation into a Safari toolbar color mismatch (toolbar
-// renders visibly darker/duller than the page's flat --background,
-// #FFD904, with a hard edge between the two). Two yellow-family
-// candidates (#FFC700, #FFB000) both produced no visible change on
-// device, which points away from "Safari is desaturating this a bit"
-// and toward "the toolbar isn't picking up the new value at all" —
-// TEMPORARILY set to pure red (#FF0000) as a control: if the toolbar
-// still renders yellow, theme-color isn't being respected/applied here
-// (caching or a mechanism problem); if it visibly turns red, the
-// mechanism works and it's genuinely about how far a yellow can be
-// pushed. Revert to a real value once this test is read.
-// --background/--accent in globals.css and app/manifest.ts are
-// unrelated and stay #FFD904.
+// NOTE: theme-color is NOT what colors the bottom Safari toolbar on
+// member pages — confirmed by a control test where the server-verified
+// value was set to pure red (#FF0000) and the toolbar stayed yellow with
+// zero visible change. The toolbar there appears to be a frosted/blurred
+// layer sampling the actual page pixels behind it, not reading this meta
+// tag — see the gradient-flat-zone fix in members-nav.tsx. Reverted to
+// the real brand value.
 export const viewport: Viewport = {
-  themeColor: "#FF0000",
+  themeColor: "#FFD904",
   viewportFit: "cover",
   colorScheme: "light",
 };
