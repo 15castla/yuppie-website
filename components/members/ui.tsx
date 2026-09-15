@@ -155,19 +155,11 @@ export function EventThumbnail({
   className,
   iconClassName,
   showCategoryBadge = true,
-  thumbnailViewTransitionName,
-  categoryViewTransitionName,
 }: {
   category: EventCategory;
   className?: string;
   iconClassName?: string;
   showCategoryBadge?: boolean;
-  // Optional view-transition-name hooks so the events list and event
-  // detail page can morph the same thumbnail/badge between routes — see
-  // events-view.tsx and event-detail-view.tsx's EventHero. No-ops (no
-  // style applied) for every other caller of this shared component.
-  thumbnailViewTransitionName?: string;
-  categoryViewTransitionName?: string;
 }) {
   const Icon = CATEGORY_ICON[category];
   return (
@@ -175,7 +167,6 @@ export function EventThumbnail({
       className={cn("relative flex items-center justify-center overflow-hidden", className)}
       style={{
         background: "linear-gradient(135deg, #FFD904, #FFF3B0)",
-        viewTransitionName: thumbnailViewTransitionName,
       }}
     >
       <Icon
@@ -183,10 +174,7 @@ export function EventThumbnail({
         strokeWidth={1.5}
       />
       {showCategoryBadge && (
-        <span
-          className="absolute left-3 top-3 rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground"
-          style={{ viewTransitionName: categoryViewTransitionName }}
-        >
+        <span className="absolute left-3 top-3 rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">
           {CATEGORY_LABEL[category]}
         </span>
       )}

@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useState, useTransition } from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { Calendar, ChevronLeft, MapPin, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { Event } from "./event-types";
-import { cacheEventHero, useEventHero } from "./event-hero-cache";
 import {
   CARD_CLASS,
   CATEGORY_LABEL,
@@ -70,99 +69,7 @@ function splitTitleForAccent(title: string) {
   return { normal: `${words.join(" ")} `, accent };
 }
 
-// Image + category badge + title — the part of the page that morphs from
-// the events list card via matching view-transition-name values (see
-// events-view.tsx). Reads the shared hero cache synchronously instead of
-// waiting on this page's own Supabase fetch (EventDetailBody/EventRsvpBar
-// below), so it's present the instant the route mounts rather than ~1s
-// later once data resolves — that's what makes the morph play instead of
-// cutting to blank. Falls back to a plain spinner, matching the previous
-// full-page loading state, for direct/deep-link visits that never went
-// through the list page and so have nothing cached.
-export function EventHero({ slug }: { slug: string }) {
-  const reduce = useReducedMotion();
-  const fade = (delay: number) => ({
-    initial: reduce ? false : { y: 20, opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
-  });
-
-  const hero = useEventHero(slug);
-
-  if (!hero) {
-    return (
-      <div className="flex h-[220px] w-full items-center justify-center md:h-[320px]">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/20 border-t-foreground" />
-      </div>
-    );
-  }
-
-  const { normal, accent } = splitTitleForAccent(hero.title);
-
-  return (
-    <>
-      <motion.div
-        {...fade(0.1)}
-        className="relative w-full overflow-hidden rounded-2xl border border-foreground/10 md:mx-auto md:max-w-3xl md:mt-6"
-      >
-        <EventThumbnail
-          category={hero.category}
-          className="h-[220px] w-full md:h-[320px]"
-          iconClassName="h-24 w-24 md:h-32 md:w-32"
-          showCategoryBadge={false}
-          thumbnailViewTransitionName={`event-thumb-${slug}`}
-        />
-
-        <Link
-          href="/members/events"
-          className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-cream text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.5)] transition-transform hover:scale-105"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </Link>
-
-        <div className="absolute right-4 top-4 flex h-[52px] w-[52px] flex-col items-center justify-center rounded-2xl bg-cream shadow-[0_8px_20px_-8px_rgba(27,21,18,0.5)]">
-          <span className="text-[9px] font-bold uppercase tracking-wider text-foreground-muted">
-            {formatMonthAbbrev(hero.start_time)}
-          </span>
-          <span className="text-lg font-extrabold leading-none text-foreground">
-            {formatDayNumber(hero.start_time)}
-          </span>
-        </div>
-      </motion.div>
-
-      <div className="relative mx-auto -mt-4 flex w-full max-w-2xl flex-col gap-6 pb-6 md:max-w-3xl">
-        <motion.span
-          {...fade(0.15)}
-          className="w-fit rounded-full bg-cream px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.35)]"
-          style={{ viewTransitionName: `event-category-${slug}` }}
-        >
-          {CATEGORY_LABEL[hero.category]}
-        </motion.span>
-
-        <motion.h1
-          {...fade(0.2)}
-          className="text-[23px] font-extrabold leading-[1.1] text-foreground optical-trim"
-          style={{ viewTransitionName: `event-title-${slug}` }}
-        >
-          {normal}
-          <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
-            {accent}
-          </em>
-        </motion.h1>
-      </div>
-    </>
-  );
-}
-
-// Meta rows, description and "what's included" — everything below the
-// hero that still needs the full fetched event (spots left needs
-// bookedCount, which isn't in the hero cache). Unchanged from before the
-// hero/body split other than no longer owning the booking error message,
-// which moved into EventRsvpBar so that component's state stays
-// self-contained rather than needing to be shared across two components
-// rendered in different DOM positions (the RSVP bar has to stay a sibling
-// of <main>, not nested in it — see the comment in page.tsx).
-export function EventDetailBody({
+export function EventDetailView({
   event,
   bookedCount,
 }: {
@@ -176,83 +83,15 @@ export function EventDetailBody({
     transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
   });
 
-  const spotsLeft = Math.max(event.capacity - bookedCount, 0);
-  const whatsIncluded =
-    WHATS_INCLUDED[event.title] ??
-    "The full experience, organised and hosted by Yuppie from start to finish.";
-
-  // Backfills the hero cache from this page's own fetch for direct/deep
-  // links that never went through the events list (so never populated it
-  // themselves) — EventHero is subscribed via useEventHero() and picks
-  // this up reactively once it lands, instead of being stuck showing its
-  // spinner fallback forever.
-  useEffect(() => {
-    cacheEventHero({
-      slug: event.slug,
-      title: event.title,
-      category: event.category,
-      start_time: event.start_time,
-    });
-  }, [event.slug, event.title, event.category, event.start_time]);
-
-  return (
-    <div className="relative mx-auto flex w-full max-w-2xl flex-col gap-6 md:max-w-3xl">
-      <motion.div {...fade(0.1)} className="flex flex-col gap-4">
-        <div className="flex items-start gap-3">
-          <Calendar className="mt-0.5 h-5 w-5 shrink-0 text-foreground/70" />
-          <p className="text-sm text-foreground">
-            {formatEventFullDateTime(event.start_time, event.end_time ?? event.start_time)}
-          </p>
-        </div>
-        <div className="flex items-start gap-3">
-          <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-foreground/70" />
-          <div>
-            <p className="text-sm text-foreground">
-              {event.location || "Location TBC"}
-            </p>
-            {event.location && !isPublicVenueName(event.location) && (
-              <p className="text-xs text-foreground-muted">
-                Exact address sent after booking
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="flex items-start gap-3">
-          <Users className="mt-0.5 h-5 w-5 shrink-0 text-foreground/70" />
-          <p className="text-sm text-foreground">
-            {spotsLeft} of {event.capacity} spots left
-          </p>
-        </div>
-      </motion.div>
-
-      {event.description && (
-        <motion.p {...fade(0.2)} className="text-sm leading-relaxed text-foreground-muted">
-          {event.description}
-        </motion.p>
-      )}
-
-      <motion.div {...fade(0.3)} className={cn(CARD_CLASS, "p-5")}>
-        <h2 className="text-sm font-bold text-foreground">What&apos;s included</h2>
-        <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
-          {whatsIncluded}
-        </p>
-      </motion.div>
-    </div>
-  );
-}
-
-// Mobile fixed bar + desktop static card. Needs the full fetched event
-// (price, id) so it can't render any earlier than EventDetailBody, but
-// it's a separate component/Suspense boundary so it can stay a sibling of
-// <main> in page.tsx — nesting it inside <main> previously caused a real
-// stacking-context bug (commit cbf1efe) where MembersBottomBar/MembersNav,
-// both z-20 outside <main>, always painted above anything inside <main>'s
-// own z-10 context regardless of the RSVP bar's own z-index.
-export function EventRsvpBar({ event }: { event: Event }) {
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [booked, setBooked] = useState(false);
 
+  const spotsLeft = Math.max(event.capacity - bookedCount, 0);
+  const { normal, accent } = splitTitleForAccent(event.title);
+  const whatsIncluded =
+    WHATS_INCLUDED[event.title] ??
+    "The full experience, organised and hosted by Yuppie from start to finish.";
   const isFree = !event.price_pence;
 
   function handleAction(formData: FormData) {
@@ -277,45 +116,134 @@ export function EventRsvpBar({ event }: { event: Event }) {
   }
 
   // Shared between the mobile fixed bar and the desktop static card below
-  // — same content either way, just two different wrappers.
+  // — same content either way, just two different wrappers (see the
+  // fixed-position restructuring note further down).
   const rsvpBarContent = (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-2 md:max-w-none">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          {isFree ? (
-            <p className="text-sm font-bold text-foreground">
-              Included in your membership
+    <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 md:max-w-none">
+      <div>
+        {isFree ? (
+          <p className="text-sm font-bold text-foreground">
+            Included in your membership
+          </p>
+        ) : (
+          <>
+            <p className="text-lg font-extrabold text-foreground">
+              £{((event.price_pence ?? 0) / 100).toFixed(0)}pp
             </p>
-          ) : (
-            <>
-              <p className="text-lg font-extrabold text-foreground">
-                £{((event.price_pence ?? 0) / 100).toFixed(0)}pp
-              </p>
-              <p className="text-xs text-foreground-muted">Charged on booking</p>
-            </>
-          )}
-        </div>
-
-        <form action={handleAction}>
-          <input type="hidden" name="event_id" value={event.id} />
-          <button
-            type="submit"
-            disabled={isPending || booked}
-            className="rounded-full bg-foreground px-8 py-3.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
-          >
-            {booked ? "You're in" : isPending ? "Booking…" : isFree ? "RSVP" : "Book my spot"}
-          </button>
-        </form>
+            <p className="text-xs text-foreground-muted">Charged on booking</p>
+          </>
+        )}
       </div>
 
-      {message && (
-        <p className="text-xs font-medium text-foreground/70">{message}</p>
-      )}
+      <form action={handleAction}>
+        <input type="hidden" name="event_id" value={event.id} />
+        <button
+          type="submit"
+          disabled={isPending || booked}
+          className="rounded-full bg-foreground px-8 py-3.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+        >
+          {booked ? "You're in" : isPending ? "Booking…" : isFree ? "RSVP" : "Book my spot"}
+        </button>
+      </form>
     </div>
   );
 
   return (
     <>
+      <main className="relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[150px] sm:px-6 md:pt-28 md:pb-16">
+        <motion.div
+          {...fade(0.1)}
+          className="relative w-full overflow-hidden rounded-2xl border border-foreground/10 md:mx-auto md:max-w-3xl md:mt-6"
+        >
+          <EventThumbnail
+            category={event.category}
+            className="h-[220px] w-full md:h-[320px]"
+            iconClassName="h-24 w-24 md:h-32 md:w-32"
+            showCategoryBadge={false}
+          />
+
+          <Link
+            href="/members/events"
+            className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-cream text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.5)] transition-transform hover:scale-105"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+
+          <div className="absolute right-4 top-4 flex h-[52px] w-[52px] flex-col items-center justify-center rounded-2xl bg-cream shadow-[0_8px_20px_-8px_rgba(27,21,18,0.5)]">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-foreground-muted">
+              {formatMonthAbbrev(event.start_time)}
+            </span>
+            <span className="text-lg font-extrabold leading-none text-foreground">
+              {formatDayNumber(event.start_time)}
+            </span>
+          </div>
+        </motion.div>
+
+        <div className="relative mx-auto -mt-4 flex w-full max-w-2xl flex-col gap-6 md:max-w-3xl">
+          <motion.span
+            {...fade(0.15)}
+            className="w-fit rounded-full bg-cream px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.35)]"
+          >
+            {CATEGORY_LABEL[event.category]}
+          </motion.span>
+
+          <motion.h1
+            {...fade(0.2)}
+            className="text-[23px] font-extrabold leading-[1.1] text-foreground optical-trim"
+          >
+            {normal}
+            <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
+              {accent}
+            </em>
+          </motion.h1>
+
+          <motion.div {...fade(0.3)} className="flex flex-col gap-4">
+            <div className="flex items-start gap-3">
+              <Calendar className="mt-0.5 h-5 w-5 shrink-0 text-foreground/70" />
+              <p className="text-sm text-foreground">
+                {formatEventFullDateTime(event.start_time, event.end_time ?? event.start_time)}
+              </p>
+            </div>
+            <div className="flex items-start gap-3">
+              <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-foreground/70" />
+              <div>
+                <p className="text-sm text-foreground">
+                  {event.location || "Location TBC"}
+                </p>
+                {event.location && !isPublicVenueName(event.location) && (
+                  <p className="text-xs text-foreground-muted">
+                    Exact address sent after booking
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <Users className="mt-0.5 h-5 w-5 shrink-0 text-foreground/70" />
+              <p className="text-sm text-foreground">
+                {spotsLeft} of {event.capacity} spots left
+              </p>
+            </div>
+          </motion.div>
+
+          {event.description && (
+            <motion.p {...fade(0.4)} className="text-sm leading-relaxed text-foreground-muted">
+              {event.description}
+            </motion.p>
+          )}
+
+          <motion.div {...fade(0.5)} className={cn(CARD_CLASS, "p-5")}>
+            <h2 className="text-sm font-bold text-foreground">What&apos;s included</h2>
+            <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
+              {whatsIncluded}
+            </p>
+          </motion.div>
+
+          {message && (
+            <p className="text-sm font-medium text-foreground/70">{message}</p>
+          )}
+        </div>
+      </main>
+
       {/* Mobile: fade scrim + fixed price/RSVP bar, as one single fixed
           element instead of two stacked ones — same rationale and pattern
           as members-nav.tsx's tab bar. Two independently-fixed layers near
