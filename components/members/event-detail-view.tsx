@@ -253,6 +253,11 @@ export function EventDetailView({
           aria-hidden
           className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
         />
+        {/* Safari 26 tints its bottom toolbar by reading the
+            background-color of a fixed/sticky element near the viewport
+            edge — a background-image gradient doesn't qualify. See the
+            matching strip/comment in members-nav.tsx's MembersBottomBar. */}
+        <div aria-hidden className="fixed inset-x-0 bottom-0 h-4 bg-background" />
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

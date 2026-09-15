@@ -91,16 +91,22 @@ export function MembersBottomBar() {
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
-      {/* Flat/opaque up to 92% — a deliberately extreme test (70% wasn't
-          enough) to tell apart "flat zone still too short" from "Safari's
-          toolbar material always blends in some translucent tint
-          regardless of what's behind it," which would show up as a much
-          bigger visible shift on a bright saturated yellow than on a
-          darker/cooler color. */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_92%,color-mix(in_oklab,var(--background)_65%,transparent)_96%,transparent_100%)]"
+        className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
       />
+      {/* Safari 26 (iOS 26) dropped theme-color entirely — it now scans
+          fixed/sticky elements within ~3px of a viewport edge, at least
+          80% wide and 3px tall, for a literal background-color CSS
+          property to tint its toolbar. The gradient above is a
+          background-image, which doesn't qualify, and this wrapper has
+          no background-color of its own, so Safari found nothing here
+          and fell back to something else — hence every theme-color and
+          gradient-flat-zone test having zero effect. This strip exists
+          purely so there's a real background-color for Safari to read;
+          it's visually redundant since the gradient above is already
+          opaque at the very bottom. */}
+      <div aria-hidden className="fixed inset-x-0 bottom-0 h-4 bg-background" />
       <nav
         className="pointer-events-auto absolute left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)]"
         aria-label="Members navigation"
