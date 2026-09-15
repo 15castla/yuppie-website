@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { ViewTransitions } from "next-view-transitions";
 import { SiteWatermark } from "@/components/SiteWatermark";
 import "./globals.css";
 
@@ -74,14 +75,21 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="min-h-full flex flex-col bg-background text-foreground">
-        <SiteWatermark />
-        {children}
-      </body>
-    </html>
+    // Enables document.startViewTransition-backed navigations app-wide via
+    // next-view-transitions' Link/useTransitionRouter — purely additive,
+    // doesn't affect any existing plain next/link usage. Currently only
+    // used for the events list -> event detail shared-element morph (see
+    // events-view.tsx and event-detail-view.tsx's EventHero).
+    <ViewTransitions>
+      <html
+        lang="en"
+        className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      >
+        <body className="min-h-full flex flex-col bg-background text-foreground">
+          <SiteWatermark />
+          {children}
+        </body>
+      </html>
+    </ViewTransitions>
   );
 }

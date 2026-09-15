@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "next-view-transitions";
 import { motion, useReducedMotion } from "framer-motion";
 
 import type { Event, EventCategory } from "./event-types";
+import { cacheEventHero } from "./event-hero-cache";
 import {
   CARD_CLASS,
   CATEGORY_LABEL,
@@ -56,6 +57,20 @@ export function EventsView({ events }: { events: Event[] }) {
     () => events.filter((event) => matchesFilter(event, filter)),
     [events, filter],
   );
+
+  // Populate the shared hero cache so the detail page's hero can render
+  // (and pair its view-transition names) immediately on navigation,
+  // without waiting on its own Supabase fetch — see event-hero-cache.ts.
+  useEffect(() => {
+    events.forEach((event) =>
+      cacheEventHero({
+        slug: event.slug,
+        title: event.title,
+        category: event.category,
+        start_time: event.start_time,
+      }),
+    );
+  }, [events]);
 
   return (
     <main className={MEMBERS_MAIN_CLASS}>
@@ -110,10 +125,17 @@ export function EventsView({ events }: { events: Event[] }) {
                   category={event.category}
                   className="h-32 w-full"
                   iconClassName="h-14 w-14"
+                  thumbnailViewTransitionName={`event-thumb-${event.slug}`}
+                  categoryViewTransitionName={`event-category-${event.slug}`}
                 />
                 <div className="flex flex-col gap-1 p-4">
                   <div className="flex items-start justify-between gap-3">
-                    <p className="text-sm font-bold text-foreground">{event.title}</p>
+                    <p
+                      className="text-sm font-bold text-foreground"
+                      style={{ viewTransitionName: `event-title-${event.slug}` }}
+                    >
+                      {event.title}
+                    </p>
                     <PricePill pricePence={event.price_pence} />
                   </div>
                   <p className="text-xs text-foreground-muted">

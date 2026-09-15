@@ -37,6 +37,19 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Matches this app's existing useReducedMotion() convention elsewhere
+   (e.g. event-detail-view.tsx's fade()) for the events-list -> event-detail
+   shared-element view transition (next-view-transitions, events-view.tsx +
+   event-detail-view.tsx's EventHero). */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+
 /* Tailwind v4's `container` utility no longer auto-centers or pads by
    default (v3 behavior) — restored here since components/templates/
    creative-studio/*.tsx use bare `container` expecting that. */

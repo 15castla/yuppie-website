@@ -1,9 +1,22 @@
-import { notFound } from "next/navigation";
+import { Suspense } from "react";
 
-import { createAdminSupabaseClient } from "@/app/admin/admin-client";
-import { EVENT_COLUMNS, type Event } from "@/components/members/event-types";
-import { EventDetailView } from "@/components/members/event-detail-view";
+import {
+  EventHero,
+  EventDetailBody,
+  EventRsvpBar,
+} from "@/components/members/event-detail-view";
+import { getEventBySlug } from "./get-event";
 
+// EventHero renders synchronously from the shared hero cache (see
+// components/members/event-hero-cache.ts) — this page itself does no
+// blocking work before returning, so the shared-element view transition
+// from the events list has something to morph into immediately instead
+// of waiting on the fetches below. EventDetailBody and EventRsvpBar are
+// separate Suspense boundaries (not one) so the RSVP bar can stay a
+// sibling of <main> rather than nested inside it — see EventRsvpBar's own
+// comment in event-detail-view.tsx for why that matters. Both call the
+// same cache()-wrapped getEventBySlug, so this is still one Supabase
+// round-trip, not two.
 export default async function EventDetailPage({
   params,
 }: {
@@ -11,27 +24,27 @@ export default async function EventDetailPage({
 }) {
   const { slug } = await params;
 
-  // Same rationale as the events list: shared catalog content, read via
-  // the service-role client. The booked count is likewise an aggregate
-  // across all members, not this member's own data, so it's read the
-  // same way rather than through the RLS-scoped per-member client.
-  const adminClient = createAdminSupabaseClient();
+  return (
+    <>
+      <main className="relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[150px] sm:px-6 md:pt-28 md:pb-16">
+        <EventHero slug={slug} />
+        <Suspense fallback={null}>
+          <EventBodyLoader slug={slug} />
+        </Suspense>
+      </main>
+      <Suspense fallback={null}>
+        <EventRsvpBarLoader slug={slug} />
+      </Suspense>
+    </>
+  );
+}
 
-  const { data: event } = await adminClient
-    .from("events")
-    .select(EVENT_COLUMNS)
-    .eq("slug", slug)
-    .maybeSingle();
+async function EventBodyLoader({ slug }: { slug: string }) {
+  const { event, bookedCount } = await getEventBySlug(slug);
+  return <EventDetailBody event={event} bookedCount={bookedCount} />;
+}
 
-  if (!event) {
-    notFound();
-  }
-
-  const { count: bookedCount } = await adminClient
-    .from("bookings")
-    .select("*", { count: "exact", head: true })
-    .eq("event_id", event.id)
-    .eq("status", "confirmed");
-
-  return <EventDetailView event={event as Event} bookedCount={bookedCount ?? 0} />;
+async function EventRsvpBarLoader({ slug }: { slug: string }) {
+  const { event } = await getEventBySlug(slug);
+  return <EventRsvpBar event={event} />;
 }
