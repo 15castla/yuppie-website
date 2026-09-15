@@ -72,17 +72,18 @@ export function MembersNav() {
 }
 
 // Mobile: fade scrim + tab bar, as one element (scrim and nav merged into
-// one fixed container rather than two independently-positioned layers —
+// one sticky container rather than two independently-positioned layers —
 // two independently-fixed layers near the bottom previously caused a
-// visible Safari toolbar seam). position: fixed, not sticky — sticky was
-// tried (see git history) to avoid needing MEMBERS_MAIN_CLASS's
-// pb-[130px] clearance padding, but it caused a solid white gap in the
-// safe-area strip under Safari's toolbar on real iPhones (at rest and
-// mid-scroll) that neither an explicit theme-color pin nor an explicit
-// html/body background rule fixed — most likely a WebKit sticky+dvh
-// geometry mismatch where the sticky box doesn't reliably reach the true
-// bottom edge in every toolbar state. Reverted back to fixed, which never
-// had this problem.
+// visible Safari toolbar seam). position: sticky, not fixed — fixed
+// glitches/disappears momentarily during active scrolling on real iOS
+// Safari (a well-known old WebKit issue: fixed-position elements
+// composite separately from scrolled content), which sticky doesn't have
+// since it's part of normal document flow. Sticky was tried once before
+// and reverted (see git history) over a suspected dvh-geometry safe-area
+// bug, but that bug's real cause turned out to be unrelated — Safari 26
+// toolbar tinting needing a background-color on a qualifying element,
+// fixed separately below and independent of this wrapper's own
+// positioning — so sticky no longer carries that risk.
 export function MembersBottomBar() {
   const pathname = usePathname();
   const hideTabBar = isEventDetailPath(pathname);
@@ -90,7 +91,7 @@ export function MembersBottomBar() {
   if (hideTabBar) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
+    <div className="pointer-events-none sticky bottom-0 z-20 h-36 md:hidden">
       <div
         aria-hidden
         className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
