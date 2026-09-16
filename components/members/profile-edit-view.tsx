@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
@@ -11,7 +11,7 @@ import "react-phone-number-input/style.css";
 import { cn } from "@/lib/utils";
 import { PhoneNumberField } from "@/components/PhoneNumberField";
 import type { Member } from "@/app/members/require-member";
-import { updateProfile } from "@/app/members/profile/actions";
+import { updateProfile, updateAvatar } from "@/app/members/profile/actions";
 import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS, initialsFor } from "./ui";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -34,7 +34,29 @@ export function ProfileEditView({ member }: { member: Member }) {
   const [phone, setPhone] = useState<string | undefined>(member.phone ?? undefined);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
-  const [showPhotoNote, setShowPhotoNote] = useState(false);
+
+  const [avatarUrl, setAvatarUrl] = useState(member.avatar_url);
+  const [photoError, setPhotoError] = useState<string | null>(null);
+  const [isUploadingPhoto, startPhotoUpload] = useTransition();
+
+  function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setPhotoError(null);
+    startPhotoUpload(async () => {
+      const formData = new FormData();
+      formData.set("photo", file);
+      const result = await updateAvatar(formData);
+      if (!result.success) {
+        setPhotoError(result.error ?? "Something went wrong.");
+        return;
+      }
+      setAvatarUrl(result.url ?? null);
+      router.refresh();
+    });
+  }
 
   function handleSave(formData: FormData) {
     setSaveError(null);
@@ -75,10 +97,10 @@ export function ProfileEditView({ member }: { member: Member }) {
           className={cn(CARD_CLASS, "flex flex-col gap-6 p-5 sm:p-6")}
         >
           <div className="flex items-center gap-4">
-            {member.avatar_url ? (
+            {avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                src={member.avatar_url}
+                src={avatarUrl}
                 alt={member.full_name ?? member.email}
                 className="h-16 w-16 shrink-0 rounded-full object-cover"
               />
@@ -88,17 +110,25 @@ export function ProfileEditView({ member }: { member: Member }) {
               </div>
             )}
             <div className="flex flex-col items-start gap-1">
-              <button
-                type="button"
-                onClick={() => setShowPhotoNote(true)}
-                className="text-sm font-bold text-foreground underline underline-offset-2 hover:text-foreground/70"
+              <label
+                className={cn(
+                  "text-sm font-bold underline underline-offset-2",
+                  isUploadingPhoto
+                    ? "cursor-wait text-foreground/50"
+                    : "cursor-pointer text-foreground hover:text-foreground/70",
+                )}
               >
-                Change photo
-              </button>
-              {showPhotoNote && (
-                <p className="text-xs text-foreground-muted">
-                  Photo uploads aren&apos;t set up yet.
-                </p>
+                {isUploadingPhoto ? "Uploading…" : "Change photo"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  onChange={handlePhotoChange}
+                  disabled={isUploadingPhoto}
+                  className="hidden"
+                />
+              </label>
+              {photoError && (
+                <p className="text-xs font-medium text-red-700">{photoError}</p>
               )}
             </div>
           </div>

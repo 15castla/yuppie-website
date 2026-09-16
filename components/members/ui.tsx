@@ -152,11 +152,13 @@ export function DateBadge({ iso }: { iso: string }) {
 
 export function EventThumbnail({
   category,
+  imageUrl,
   className,
   iconClassName,
   showCategoryBadge = true,
 }: {
   category: EventCategory;
+  imageUrl?: string | null;
   className?: string;
   iconClassName?: string;
   showCategoryBadge?: boolean;
@@ -165,14 +167,18 @@ export function EventThumbnail({
   return (
     <div
       className={cn("relative flex items-center justify-center overflow-hidden", className)}
-      style={{
-        background: "linear-gradient(135deg, #FFD904, #FFF3B0)",
-      }}
+      style={
+        imageUrl
+          ? undefined
+          : { background: "linear-gradient(135deg, #FFD904, #FFF3B0)" }
+      }
     >
-      <Icon
-        className={cn("text-foreground/15", iconClassName)}
-        strokeWidth={1.5}
-      />
+      {imageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+      ) : (
+        <Icon className={cn("text-foreground/15", iconClassName)} strokeWidth={1.5} />
+      )}
       {showCategoryBadge && (
         <span className="absolute left-3 top-3 rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">
           {CATEGORY_LABEL[category]}

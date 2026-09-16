@@ -1,99 +1,25 @@
-// UI-only for this pass. Discounts and Access are really the same
-// underlying thing, a partner venue with a perk attached, just differently
-// framed — kept as one shape here (type: "discount" | "access") so that
-// when this becomes real (a partner_venues table with admin tooling), it's
-// a clean swap to one table with a type column rather than two systems.
+// Discounts and Access are really the same underlying thing, a partner
+// venue with a perk attached, just differently framed — kept as one shape
+// here (type: "discount" | "access") matching the real `partner_perks`
+// table (see supabase/migrations/20260915120000_add_partner_perks_table_and_media_storage.sql).
+// This used to also hold a hardcoded MOCK_PERKS array before that table
+// existed — now perks are real rows, fetched via
+// components/members/perks-data.ts and managed at /admin/discounts.
 export type PartnerPerk = {
   id: string;
   name: string;
-  category: "Food & Drink" | "Fitness" | "Grooming" | "Wellness";
+  // Null for Access-type rows — access-view.tsx groups perks by access_kind
+  // only and never reads category, so it isn't collected on that admin form
+  // (see supabase/migrations/20260916090000_make_perk_category_optional_for_access.sql).
+  // Always set for Discount-type rows.
+  category: "Food & Drink" | "Fitness" | "Grooming" | "Wellness" | null;
   area: string;
   type: "discount" | "access";
-  access_kind?: "skip_queue" | "members_club" | "first_dibs" | "invite_only";
+  access_kind: "skip_queue" | "members_club" | "first_dibs" | "invite_only" | null;
   headline: string;
-  badge?: string;
+  badge: string | null;
+  logo_url: string | null;
 };
 
-export const MOCK_PERKS: PartnerPerk[] = [
-  {
-    id: "bellina-trattoria",
-    name: "Bellina Trattoria",
-    category: "Food & Drink",
-    area: "Soho",
-    type: "discount",
-    headline: "20% off food, Mon–Thu",
-    badge: "20%",
-  },
-  {
-    id: "forge-fitness-studios",
-    name: "Forge Fitness Studios",
-    category: "Fitness",
-    area: "Shoreditch",
-    type: "discount",
-    headline: "1 free class, then 15% off packages",
-    badge: "15%",
-  },
-  {
-    id: "hoxton-barbers-co",
-    name: "Hoxton Barbers Co.",
-    category: "Grooming",
-    area: "Hoxton",
-    type: "discount",
-    headline: "10% off every visit",
-    badge: "10%",
-  },
-  {
-    id: "lumen-sauna-house",
-    name: "Lumen Sauna House",
-    category: "Wellness",
-    area: "Bermondsey",
-    type: "discount",
-    headline: "25% off single sessions",
-    badge: "25%",
-  },
-  {
-    id: "petra-rooftop-bar",
-    name: "Petra Rooftop Bar",
-    category: "Food & Drink",
-    area: "King's Cross",
-    type: "discount",
-    headline: "2-for-1 cocktails before 8pm",
-    badge: "2-for-1",
-  },
-  {
-    id: "casa-fiora",
-    name: "Casa Fiora",
-    category: "Food & Drink",
-    area: "Mayfair",
-    type: "access",
-    access_kind: "skip_queue",
-    headline: "Show your membership at the door, Fri–Sat",
-  },
-  {
-    id: "the-vault-shoreditch",
-    name: "The Vault, Shoreditch",
-    category: "Food & Drink",
-    area: "Shoreditch",
-    type: "access",
-    access_kind: "skip_queue",
-    headline: "Priority line every night after 10pm",
-  },
-  {
-    id: "harewood-house",
-    name: "Harewood House",
-    category: "Food & Drink",
-    area: "Mayfair",
-    type: "access",
-    access_kind: "members_club",
-    headline: "Reciprocal guest access, Mon–Wed",
-  },
-  {
-    id: "24hr-early-access",
-    name: "24hr early access",
-    category: "Food & Drink",
-    area: "Citywide",
-    type: "access",
-    access_kind: "first_dibs",
-    headline: "To any event that looks like it'll sell out",
-  },
-];
+export const PERK_COLUMNS =
+  "id, name, category, area, type, access_kind, headline, badge, logo_url";

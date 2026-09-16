@@ -6,7 +6,6 @@ import { Percent, Zap } from "lucide-react";
 
 import type { Member } from "@/app/members/require-member";
 import type { Event } from "./event-types";
-import { MOCK_PERKS } from "./mock-perks";
 import {
   CARD_CLASS,
   DateBadge,
@@ -36,10 +35,14 @@ export function HomeView({
   member,
   upcomingBookings,
   pickedEvents,
+  discountCount,
+  accessCount,
 }: {
   member: Member;
   upcomingBookings: UpcomingBooking[];
   pickedEvents: Event[];
+  discountCount: number;
+  accessCount: number;
 }) {
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
@@ -49,8 +52,6 @@ export function HomeView({
   });
 
   const firstName = member.full_name?.trim().split(" ")[0] || "there";
-  const discountCount = MOCK_PERKS.filter((perk) => perk.type === "discount").length;
-  const accessCount = MOCK_PERKS.filter((perk) => perk.type === "access").length;
 
   return (
     <main className={MEMBERS_MAIN_CLASS}>

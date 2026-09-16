@@ -108,6 +108,7 @@ export function EventsView({ events }: { events: Event[] }) {
               >
                 <EventThumbnail
                   category={event.category}
+                  imageUrl={event.image_url}
                   className="h-32 w-full"
                   iconClassName="h-14 w-14"
                 />

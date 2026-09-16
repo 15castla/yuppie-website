@@ -30,7 +30,7 @@ export default async function ApplicationsPage() {
   const adminClient = createAdminSupabaseClient();
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex flex-col gap-6">
       <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">
         Applications
       </h1>
@@ -57,18 +57,18 @@ async function PendingReview({
 
   if (pending.length === 0) {
     return (
-      <p className="rounded-2xl border border-foreground/10 bg-[#F5F3E7] p-8 text-center text-foreground/60">
+      <p className="rounded-2xl border border-foreground/10 bg-cream p-8 text-center text-foreground/60">
         No pending applications.
       </p>
     );
   }
 
   return (
-    <ul className="flex flex-col gap-4">
+    <ul className="flex flex-col gap-6">
       {pending.map((application) => (
         <li
           key={application.id}
-          className="flex flex-col gap-6 rounded-2xl border border-foreground/10 bg-[#F5F3E7] p-6 sm:flex-row sm:items-start sm:justify-between"
+          className="flex flex-col gap-6 rounded-2xl border border-foreground/10 bg-cream p-6 sm:flex-row sm:items-start sm:justify-between"
         >
           <div className="flex-1">
             {application.payment_error && (

@@ -13,6 +13,7 @@ import { isValidPhoneNumber } from "libphonenumber-js";
 
 import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe";
+import { uploadMemberMedia } from "@/lib/media-storage";
 import { requireMember } from "../require-member";
 
 export async function updateProfile(
@@ -54,6 +55,44 @@ export async function updateProfile(
   revalidatePath("/members/profile");
   revalidatePath("/members");
   return { success: true };
+}
+
+// Storage write goes through the service-role client (uploadMemberMedia) —
+// there's no member-writable storage policy, by design (see the
+// partner_perks migration's comment) — but the members.avatar_url update
+// itself goes through the request-scoped client, same as updateProfile
+// above, so it's still bounded by that member's own row via RLS + the
+// .eq("id", member.id) below, not just by requireMember() having run.
+export async function updateAvatar(
+  formData: FormData,
+): Promise<{ success: boolean; error?: string; url?: string }> {
+  const member = await requireMember();
+
+  const photo = formData.get("photo");
+  if (!(photo instanceof File)) {
+    return { success: false, error: "Please choose an image to upload." };
+  }
+
+  const uploaded = await uploadMemberMedia("avatars", member.id, photo);
+  if (uploaded.error) {
+    return { success: false, error: uploaded.error };
+  }
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("members")
+    .update({ avatar_url: uploaded.url })
+    .eq("id", member.id);
+
+  if (error) {
+    console.error(`updateAvatar failed for member ${member.id}:`, error);
+    return { success: false, error: "Uploaded, but saving your photo failed." };
+  }
+
+  revalidatePath("/members/profile");
+  revalidatePath("/members/profile/edit");
+  revalidatePath("/members");
+  return { success: true, url: uploaded.url };
 }
 
 // A well-defined single Stripe call, safe to build for real: sets the
