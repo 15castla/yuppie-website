@@ -56,7 +56,7 @@ export default async function AdminProtectedLayout({
               title={user.email}
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background"
             >
-              {initialsFromEmail(user.email)}
+              {initialsFromEmail(user.email ?? "?")}
             </div>
             <form action={signOut}>
               <button

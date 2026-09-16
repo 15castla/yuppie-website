@@ -17,6 +17,24 @@ export default async function AdminDiscountsPage() {
 
   const perks = (data ?? []) as PartnerPerk[];
 
+  // <form action> requires (formData) => void | Promise<void> — these
+  // actions return { success, error } for other callers, so each is
+  // wrapped here rather than changing its return type.
+  async function uploadPerkLogoAction(formData: FormData) {
+    "use server";
+    await uploadPerkLogo(formData);
+  }
+
+  async function updatePerkAction(formData: FormData) {
+    "use server";
+    await updatePerk(formData);
+  }
+
+  async function deletePerkAction(formData: FormData) {
+    "use server";
+    await deletePerk(formData);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -48,7 +66,7 @@ export default async function AdminDiscountsPage() {
                 </span>
                 <PerkPreview perk={perk} />
 
-                <form action={uploadPerkLogo} className="mt-1 w-full">
+                <form action={uploadPerkLogoAction} className="mt-1 w-full">
                   <input type="hidden" name="id" value={perk.id} />
                   <input
                     type="file"
@@ -66,7 +84,7 @@ export default async function AdminDiscountsPage() {
                 </form>
               </div>
 
-              <form action={updatePerk} className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
+              <form action={updatePerkAction} className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
                 <input type="hidden" name="id" value={perk.id} />
                 <input type="hidden" name="type" value="discount" />
                 <div className="flex flex-col gap-1.5">
@@ -91,9 +109,9 @@ export default async function AdminDiscountsPage() {
                 </div>
                 <div className="flex flex-col gap-1.5">
                   <label className={labelClasses}>Category</label>
-                  <select name="category" required defaultValue={perk.category} className={inputClasses}>
+                  <select name="category" required defaultValue={perk.category ?? ""} className={inputClasses}>
                     {PERK_CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
+                      <option key={category} value={category ?? ""}>
                         {category}
                       </option>
                     ))}
@@ -128,7 +146,7 @@ export default async function AdminDiscountsPage() {
                 </div>
               </form>
 
-              <form action={deletePerk} className="shrink-0 self-start">
+              <form action={deletePerkAction} className="shrink-0 self-start">
                 <input type="hidden" name="id" value={perk.id} />
                 <button
                   type="submit"

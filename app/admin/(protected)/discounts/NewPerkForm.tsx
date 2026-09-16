@@ -74,7 +74,7 @@ export function NewPerkForm() {
     const formData = new FormData();
     formData.set("name", fields.name);
     formData.set("area", fields.area);
-    formData.set("category", fields.category);
+    formData.set("category", fields.category ?? "");
     formData.set("type", "discount");
     formData.set("badge", fields.badge);
     formData.set("headline", fields.headline);
@@ -135,7 +135,7 @@ export function NewPerkForm() {
             <label className={labelClasses}>Category</label>
             <select
               required
-              value={fields.category}
+              value={fields.category ?? ""}
               onChange={(event) => updateField("category", event.target.value as PartnerPerk["category"])}
               className={inputClasses}
             >
@@ -143,7 +143,7 @@ export function NewPerkForm() {
                 Choose a category
               </option>
               {PERK_CATEGORIES.map((category) => (
-                <option key={category} value={category}>
+                <option key={category} value={category ?? ""}>
                   {category}
                 </option>
               ))}

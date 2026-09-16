@@ -15,12 +15,29 @@ function revalidatePerks() {
   // getCachedPerks is tagged with — without this, changes here wouldn't
   // show on Discounts/Access/Home for up to 60s. Both admin pages are
   // revalidated since this file's actions serve both (split by `type`).
-  revalidateTag("perks");
+  revalidateTag("perks", "minutes");
   revalidatePath("/admin/discounts");
   revalidatePath("/admin/access");
 }
 
-function readPerkFields(formData: FormData) {
+type PerkFields = {
+  name: string;
+  category: (typeof CATEGORIES)[number] | null;
+  area: string;
+  type: string;
+  access_kind: string | null;
+  headline: string;
+  badge: string | null;
+};
+
+// Literal-tagged discriminated union — a plain `error?: string` /
+// `fields?: PerkFields` shape (varying only in presence/absence, not a
+// literal discriminant) doesn't reliably narrow `result.fields` to defined
+// after checking `result.error`, since TS's discriminated-union narrowing
+// is keyed on a shared literal-typed property, not general truthiness.
+type PerkFieldsResult = { ok: false; error: string } | { ok: true; fields: PerkFields };
+
+function readPerkFields(formData: FormData): PerkFieldsResult {
   const name = formData.get("name");
   const categoryRaw = formData.get("category");
   const area = formData.get("area");
@@ -29,12 +46,12 @@ function readPerkFields(formData: FormData) {
   const headline = formData.get("headline");
   const badgeRaw = formData.get("badge");
 
-  if (typeof name !== "string" || !name.trim()) return { error: "Name is required." };
-  if (typeof area !== "string" || !area.trim()) return { error: "Area is required." };
+  if (typeof name !== "string" || !name.trim()) return { ok: false, error: "Name is required." };
+  if (typeof area !== "string" || !area.trim()) return { ok: false, error: "Area is required." };
   if (typeof type !== "string" || !TYPES.includes(type as (typeof TYPES)[number]))
-    return { error: "Please choose a valid type." };
+    return { ok: false, error: "Please choose a valid type." };
   if (typeof headline !== "string" || !headline.trim())
-    return { error: "Headline is required." };
+    return { ok: false, error: "Headline is required." };
 
   // Category is only meaningful for Discount perks — access-view.tsx groups
   // Access perks purely by access_kind and never reads it (see the
@@ -43,7 +60,7 @@ function readPerkFields(formData: FormData) {
   let category: (typeof CATEGORIES)[number] | null = null;
   if (type === "discount") {
     if (typeof categoryRaw !== "string" || !CATEGORIES.includes(categoryRaw as (typeof CATEGORIES)[number]))
-      return { error: "Please choose a valid category." };
+      return { ok: false, error: "Please choose a valid category." };
     category = categoryRaw as (typeof CATEGORIES)[number];
   }
 
@@ -55,6 +72,7 @@ function readPerkFields(formData: FormData) {
   const badge = typeof badgeRaw === "string" && badgeRaw.trim() ? badgeRaw.trim() : null;
 
   return {
+    ok: true,
     fields: {
       name: name.trim(),
       category,
@@ -80,7 +98,7 @@ export async function createPerk(
   await requireAdmin();
 
   const result = readPerkFields(formData);
-  if (result.error) return { success: false, error: result.error };
+  if (!result.ok) return { success: false, error: result.error };
 
   const logo = formData.get("logo");
   const hasLogo = result.fields.type === "discount" && logo instanceof File && logo.size > 0;
@@ -128,7 +146,7 @@ export async function updatePerk(
   if (typeof id !== "string" || !id) return { success: false, error: "Missing perk." };
 
   const result = readPerkFields(formData);
-  if (result.error) return { success: false, error: result.error };
+  if (!result.ok) return { success: false, error: result.error };
 
   const adminClient = createAdminSupabaseClient();
   const { error } = await adminClient.from("partner_perks").update(result.fields).eq("id", id);

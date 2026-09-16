@@ -151,7 +151,7 @@ export async function createEvent(
         }
       }
 
-      revalidateTag("events");
+      revalidateTag("events", "minutes");
       revalidatePath("/admin/events");
       return { success: true, warning };
     }
@@ -191,7 +191,7 @@ export async function updateEventDetails(
     return { success: false, error: "Something went wrong saving that event." };
   }
 
-  revalidateTag("events");
+  revalidateTag("events", "minutes");
   revalidatePath("/admin/events");
   return { success: true };
 }
@@ -231,7 +231,7 @@ export async function updateEventImage(
   // "events" is the cache tag components/members/events-data.ts's
   // getCachedEvents/getCachedEventBySlug are tagged with — without this,
   // the new photo wouldn't show on the member-facing pages for up to 60s.
-  revalidateTag("events");
+  revalidateTag("events", "minutes");
   revalidatePath("/admin/events");
   return { success: true };
 }
@@ -273,7 +273,7 @@ export async function setFeaturedInviteOnlyEvent(
     }
   }
 
-  revalidateTag("events");
+  revalidateTag("events", "minutes");
   revalidatePath("/admin/access");
   revalidatePath("/admin/events");
   return { success: true };

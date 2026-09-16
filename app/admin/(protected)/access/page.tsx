@@ -31,6 +31,24 @@ export default async function AdminAccessPage() {
   const events = (eventsData ?? []) as EventOption[];
   const featuredEventId = events.find((event) => event.is_invite_only_feature)?.id ?? "";
 
+  // <form action> requires (formData) => void | Promise<void> — these
+  // actions return { success, error } for other callers, so each is
+  // wrapped here rather than changing its return type.
+  async function setFeaturedInviteOnlyEventAction(formData: FormData) {
+    "use server";
+    await setFeaturedInviteOnlyEvent(formData);
+  }
+
+  async function updatePerkAction(formData: FormData) {
+    "use server";
+    await updatePerk(formData);
+  }
+
+  async function deletePerkAction(formData: FormData) {
+    "use server";
+    await deletePerk(formData);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -51,7 +69,7 @@ export default async function AdminAccessPage() {
           a time. Choose &quot;None&quot; to hide the card entirely.
         </p>
         <form
-          action={setFeaturedInviteOnlyEvent}
+          action={setFeaturedInviteOnlyEventAction}
           className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"
         >
           <select name="event_id" defaultValue={featuredEventId} className={inputClasses}>
@@ -91,7 +109,7 @@ export default async function AdminAccessPage() {
                 <PerkPreview perk={perk} />
               </div>
 
-              <form action={updatePerk} className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
+              <form action={updatePerkAction} className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
                 <input type="hidden" name="id" value={perk.id} />
                 <input type="hidden" name="type" value="access" />
                 <div className="flex flex-col gap-1.5">
@@ -149,7 +167,7 @@ export default async function AdminAccessPage() {
                 </div>
               </form>
 
-              <form action={deletePerk} className="shrink-0 self-start">
+              <form action={deletePerkAction} className="shrink-0 self-start">
                 <input type="hidden" name="id" value={perk.id} />
                 <button
                   type="submit"

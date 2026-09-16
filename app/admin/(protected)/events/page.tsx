@@ -31,6 +31,19 @@ export default async function AdminEventsPage() {
 
   const events = (data ?? []) as Event[];
 
+  // <form action> requires (formData) => void | Promise<void> — these
+  // actions return { success, error } for other callers, so each is
+  // wrapped here rather than changing its return type.
+  async function updateEventImageAction(formData: FormData) {
+    "use server";
+    await updateEventImage(formData);
+  }
+
+  async function updateEventDetailsAction(formData: FormData) {
+    "use server";
+    await updateEventDetails(formData);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -84,7 +97,7 @@ export default async function AdminEventsPage() {
                   Same photo shows larger (no card) on the event&apos;s own page.
                 </p>
 
-                <form action={updateEventImage} className="mt-2 flex flex-col gap-2">
+                <form action={updateEventImageAction} className="mt-2 flex flex-col gap-2">
                   <input type="hidden" name="event_id" value={event.id} />
                   <input
                     type="file"
@@ -103,7 +116,7 @@ export default async function AdminEventsPage() {
               </div>
 
               <form
-                action={updateEventDetails}
+                action={updateEventDetailsAction}
                 className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2"
               >
                 <input type="hidden" name="event_id" value={event.id} />
