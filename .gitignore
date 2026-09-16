@@ -42,3 +42,9 @@ next-env.d.ts
 
 # claude code local settings
 .claude/settings.local.json
+
+# local scratch / tool output, not part of the app
+/Claude outputs/
+.playwright-mcp/
+welcome-email-preview.html
+Yuppie_Technical_Reference.docx
