@@ -236,6 +236,38 @@ export async function updateEventImage(
   return { success: true };
 }
 
+// Clears image_url back to null so EventThumbnail falls back to the
+// branded placeholder (components/members/ui.tsx). Takes eventId directly
+// rather than FormData, since it's called straight from EventPhotoForm.tsx
+// once a click resolves to "no file chosen" rather than through a plain
+// <form action>. Deliberately doesn't delete the old file from the
+// member-media bucket — lib/media-storage.ts has no deletion helper today,
+// and an orphaned file only costs storage space, not correctness.
+export async function removeEventImage(
+  eventId: string,
+): Promise<{ success: boolean; error?: string }> {
+  await requireAdmin();
+
+  if (!eventId) {
+    return { success: false, error: "Missing event." };
+  }
+
+  const adminClient = createAdminSupabaseClient();
+  const { error } = await adminClient
+    .from("events")
+    .update({ image_url: null })
+    .eq("id", eventId);
+
+  if (error) {
+    console.error(`removeEventImage failed for event ${eventId}:`, error);
+    return { success: false, error: "Something went wrong removing that photo." };
+  }
+
+  revalidateTag("events", "minutes");
+  revalidatePath("/admin/events");
+  return { success: true };
+}
+
 // Called from the single dropdown on /admin/access ("Featured invite-only
 // event") — an empty event_id means "None", clearing the feature entirely
 // so the black card on /members/access hides itself (see

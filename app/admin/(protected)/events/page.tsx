@@ -1,6 +1,6 @@
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { EVENT_COLUMNS, type Event } from "@/components/members/event-types";
-import { updateEventImage, updateEventDetails } from "@/app/admin/events-actions";
+import { updateEventDetails } from "@/app/admin/events-actions";
 import {
   CARD_CLASS,
   EventThumbnail,
@@ -9,6 +9,7 @@ import {
 } from "@/components/members/ui";
 import { cn, isoToDateTimeLocal } from "@/lib/utils";
 import { NewEventForm } from "./NewEventForm";
+import { EventPhotoForm } from "./EventPhotoForm";
 
 const CATEGORY_LABEL: Record<Event["category"], string> = {
   sport: "Sport",
@@ -31,14 +32,9 @@ export default async function AdminEventsPage() {
 
   const events = (data ?? []) as Event[];
 
-  // <form action> requires (formData) => void | Promise<void> — these
-  // actions return { success, error } for other callers, so each is
-  // wrapped here rather than changing its return type.
-  async function updateEventImageAction(formData: FormData) {
-    "use server";
-    await updateEventImage(formData);
-  }
-
+  // <form action> requires (formData) => void | Promise<void> — this
+  // action returns { success, error } for other callers, so it's wrapped
+  // here rather than changing its return type.
   async function updateEventDetailsAction(formData: FormData) {
     "use server";
     await updateEventDetails(formData);
@@ -96,22 +92,7 @@ export default async function AdminEventsPage() {
                   Same photo shows larger (no card) on the event&apos;s own page.
                 </p>
 
-                <form action={updateEventImageAction} className="mt-2 flex flex-col gap-2">
-                  <input type="hidden" name="event_id" value={event.id} />
-                  <input
-                    type="file"
-                    name="photo"
-                    accept="image/png,image/jpeg,image/webp,image/gif"
-                    required
-                    className="text-[10px] text-foreground/70 file:mr-2 file:rounded-full file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:text-background"
-                  />
-                  <button
-                    type="submit"
-                    className="rounded-full bg-foreground px-4 py-2 text-xs font-bold text-background"
-                  >
-                    {event.image_url ? "Replace photo" : "Upload photo"}
-                  </button>
-                </form>
+                <EventPhotoForm eventId={event.id} hasImage={Boolean(event.image_url)} />
               </div>
 
               <form
