@@ -20,11 +20,13 @@ export default async function AdminAccessPage() {
       .from("partner_perks")
       .select(PERK_COLUMNS)
       .eq("type", "access")
-      .order("created_at", { ascending: true }),
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true }),
     adminClient
       .from("events")
       .select("id, title, is_invite_only_feature")
-      .order("start_time", { ascending: true }),
+      .order("start_time", { ascending: true })
+      .order("id", { ascending: true }),
   ]);
 
   const perks = (perksData ?? []) as PartnerPerk[];

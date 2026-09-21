@@ -42,7 +42,8 @@ export default async function MembersPage({
   let query = adminClient
     .from("members")
     .select("id, full_name, email, membership_status")
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: true });
 
   if (status) {
     query = query.eq("membership_status", status);

@@ -13,7 +13,8 @@ export default async function AdminDiscountsPage() {
     .from("partner_perks")
     .select(PERK_COLUMNS)
     .eq("type", "discount")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
 
   const perks = (data ?? []) as PartnerPerk[];
 

@@ -51,7 +51,8 @@ async function PendingReview({
       "id, full_name, email, created_at, phone, employer, role_title, linkedin_url, instagram_username, payment_error",
     )
     .eq("status", "pending")
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
 
   const pending = (data ?? []) as Application[];
 

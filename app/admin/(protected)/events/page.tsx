@@ -28,7 +28,8 @@ export default async function AdminEventsPage() {
   const { data } = await adminClient
     .from("events")
     .select(EVENT_COLUMNS)
-    .order("start_time", { ascending: true });
+    .order("start_time", { ascending: true })
+    .order("id", { ascending: true });
 
   const events = (data ?? []) as Event[];
 
