@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { Field } from "../../Field";
 import { MembershipStatusBadge } from "../../MembershipStatusBadge";
+import { RevokeMembershipButton } from "./RevokeMembershipButton";
 
 type Member = {
   id: string;
@@ -108,7 +109,15 @@ export default async function MemberDetailPage({
             {member.full_name || member.email}
           </h1>
         </div>
-        <MembershipStatusBadge status={member.membership_status} />
+        <div className="flex flex-col items-end gap-3">
+          <MembershipStatusBadge status={member.membership_status} />
+          {member.membership_status !== "cancelled" && (
+            <RevokeMembershipButton
+              memberId={member.id}
+              memberName={member.full_name || member.email}
+            />
+          )}
+        </div>
       </div>
 
       <div className="rounded-2xl border border-foreground/10 bg-cream p-6 sm:p-8">
