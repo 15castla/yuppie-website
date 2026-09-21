@@ -191,6 +191,33 @@ export async function uploadPerkLogo(
   return { success: true };
 }
 
+// Clears logo_url back to null so PerkPreview falls back to the initial-
+// letter default (app/admin/perk-shared.tsx). Same rationale as
+// removeEventImage in events-actions.ts: doesn't delete the old file from
+// the member-media bucket — lib/media-storage.ts has no deletion helper,
+// and an orphaned file only costs storage space, not correctness.
+export async function removePerkLogo(id: string): Promise<{ success: boolean; error?: string }> {
+  await requireAdmin();
+
+  if (!id) {
+    return { success: false, error: "Missing perk." };
+  }
+
+  const adminClient = createAdminSupabaseClient();
+  const { error } = await adminClient
+    .from("partner_perks")
+    .update({ logo_url: null })
+    .eq("id", id);
+
+  if (error) {
+    console.error(`removePerkLogo failed for perk ${id}:`, error);
+    return { success: false, error: "Something went wrong removing that logo." };
+  }
+
+  revalidatePerks();
+  return { success: true };
+}
+
 export async function deletePerk(formData: FormData): Promise<{ success: boolean; error?: string }> {
   await requireAdmin();
 
