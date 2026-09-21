@@ -11,7 +11,7 @@ import "react-phone-number-input/style.css";
 import { cn } from "@/lib/utils";
 import { PhoneNumberField } from "@/components/PhoneNumberField";
 import type { Member } from "@/app/members/require-member";
-import { updateProfile, updateAvatar } from "@/app/members/profile/actions";
+import { updateProfile, updateAvatar, removeAvatar } from "@/app/members/profile/actions";
 import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS, initialsFor } from "./ui";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -54,6 +54,21 @@ export function ProfileEditView({ member }: { member: Member }) {
         return;
       }
       setAvatarUrl(result.url ?? null);
+      router.refresh();
+    });
+  }
+
+  function handleRemovePhoto() {
+    if (!window.confirm("Remove your profile photo and go back to your initials?")) return;
+
+    setPhotoError(null);
+    startPhotoUpload(async () => {
+      const result = await removeAvatar();
+      if (!result.success) {
+        setPhotoError(result.error ?? "Something went wrong.");
+        return;
+      }
+      setAvatarUrl(null);
       router.refresh();
     });
   }
@@ -127,6 +142,15 @@ export function ProfileEditView({ member }: { member: Member }) {
                   className="hidden"
                 />
               </label>
+              {avatarUrl && !isUploadingPhoto && (
+                <button
+                  type="button"
+                  onClick={handleRemovePhoto}
+                  className="text-xs font-medium text-foreground/40 underline underline-offset-2 hover:text-red-700"
+                >
+                  Remove photo
+                </button>
+              )}
               {photoError && (
                 <p className="text-xs font-medium text-red-700">{photoError}</p>
               )}

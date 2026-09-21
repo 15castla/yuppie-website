@@ -95,6 +95,32 @@ export async function updateAvatar(
   return { success: true, url: uploaded.url };
 }
 
+// Clears avatar_url back to null so the profile falls back to the plain
+// initials avatar (initialsFor in components/members/ui.tsx). Same
+// rationale as removeEventImage/removePerkLogo: doesn't delete the old
+// file from the member-media bucket — lib/media-storage.ts has no
+// deletion helper, and an orphaned file only costs storage space, not
+// correctness.
+export async function removeAvatar(): Promise<{ success: boolean; error?: string }> {
+  const member = await requireMember();
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("members")
+    .update({ avatar_url: null })
+    .eq("id", member.id);
+
+  if (error) {
+    console.error(`removeAvatar failed for member ${member.id}:`, error);
+    return { success: false, error: "Something went wrong removing your photo." };
+  }
+
+  revalidatePath("/members/profile");
+  revalidatePath("/members/profile/edit");
+  revalidatePath("/members");
+  return { success: true };
+}
+
 // A well-defined single Stripe call, safe to build for real: sets the
 // subscription to cancel at the end of the current billing period rather
 // than immediately. Deliberately does not touch members.membership_status
