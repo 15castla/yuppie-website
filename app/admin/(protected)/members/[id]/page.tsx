@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { Field } from "../../Field";
 import { MembershipStatusBadge } from "../../MembershipStatusBadge";
-import { RevokeMembershipButton } from "./RevokeMembershipButton";
+import { DeleteMemberButton } from "./DeleteMemberButton";
 
 type Member = {
   id: string;
@@ -109,15 +109,7 @@ export default async function MemberDetailPage({
             {member.full_name || member.email}
           </h1>
         </div>
-        <div className="flex flex-col items-end gap-3">
-          <MembershipStatusBadge status={member.membership_status} />
-          {member.membership_status !== "cancelled" && (
-            <RevokeMembershipButton
-              memberId={member.id}
-              memberName={member.full_name || member.email}
-            />
-          )}
-        </div>
+        <MembershipStatusBadge status={member.membership_status} />
       </div>
 
       <div className="rounded-2xl border border-foreground/10 bg-cream p-6 sm:p-8">
@@ -177,6 +169,24 @@ export default async function MemberDetailPage({
           </dl>
         </div>
       )}
+
+      <div className="rounded-2xl border border-red-700/20 bg-cream p-6 sm:p-8">
+        <h2 className="text-base font-semibold text-foreground">Danger zone</h2>
+        <p className="mt-1 text-xs text-foreground/50">
+          Permanently deletes this member&apos;s account.{" "}
+          {member.stripe_subscription_id
+            ? "Their Stripe subscription will be cancelled immediately as part of this."
+            : "They have no Stripe subscription on file to cancel."}{" "}
+          This cannot be undone.
+        </p>
+        <div className="mt-4">
+          <DeleteMemberButton
+            memberId={member.id}
+            memberName={member.full_name || member.email}
+            hasStripeSubscription={Boolean(member.stripe_subscription_id)}
+          />
+        </div>
+      </div>
     </div>
   );
 }

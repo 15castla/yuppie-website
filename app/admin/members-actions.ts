@@ -4,18 +4,17 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
+import { stripe } from "@/lib/stripe";
 
-// Revoking a membership just means setting membership_status to
-// "cancelled" — the same three-value enum ('active' | 'paused' |
-// 'cancelled') everywhere else in the app already understands (see
-// admin/(protected)/members/page.tsx's STATUS_FILTERS and the Dashboard's
-// "Cancelled / Expired" stat card). Deliberately does NOT touch Stripe
-// (no cancellation call to stripe_subscription_id) and does NOT delete the
-// member row — this only flips the flag admins already use to tell who's
-// still an active member. Called directly from a client component
-// (RevokeMembershipButton) rather than wired as a <form action>, so it
-// takes a plain memberId argument instead of FormData.
-export async function revokeMembership(
+// Permanently deletes a member's row from `members`. If they have a Stripe
+// subscription on file, it's cancelled immediately first (not
+// cancel_at_period_end like the member's own self-service cancelMembership
+// in app/members/profile/actions.ts — there's no reason to let billing
+// continue for an account that's about to stop existing in our system).
+// Cancellation happens before the delete and blocks it on failure, so this
+// can't leave an orphaned Stripe subscription with no member row left to
+// find it from.
+export async function deleteMember(
   memberId: string,
 ): Promise<{ success: boolean; error?: string }> {
   await requireAdmin();
@@ -25,18 +24,49 @@ export async function revokeMembership(
   }
 
   const adminClient = createAdminSupabaseClient();
-  const { error } = await adminClient
+  const { data: member, error: fetchError } = await adminClient
     .from("members")
-    .update({ membership_status: "cancelled" })
-    .eq("id", memberId);
+    .select("stripe_subscription_id")
+    .eq("id", memberId)
+    .maybeSingle();
+
+  if (fetchError || !member) {
+    console.error(`deleteMember: member ${memberId} not found:`, fetchError);
+    return { success: false, error: "Member not found." };
+  }
+
+  if (member.stripe_subscription_id) {
+    try {
+      await stripe.subscriptions.cancel(member.stripe_subscription_id);
+    } catch (err) {
+      // Already cancelled/gone on Stripe's side isn't a reason to block
+      // deletion — nothing left to cancel. This is a real, expected case:
+      // a member who self-cancelled via cancelMembership sets
+      // cancel_at_period_end, and once that period actually ends Stripe
+      // cancels the subscription on its own — there's no webhook in this
+      // codebase to sync that back, so stripe_subscription_id stays
+      // populated here even though Stripe already considers it gone (see
+      // cancelMembership's own comment on the missing webhook).
+      const code = err && typeof err === "object" && "code" in err ? err.code : undefined;
+      if (code !== "resource_missing") {
+        console.error(`deleteMember: Stripe cancellation failed for member ${memberId}:`, err);
+        const message = err instanceof Error ? err.message : "Stripe cancellation failed.";
+        return {
+          success: false,
+          error: `Couldn't cancel their Stripe subscription, so the account wasn't deleted: ${message}`,
+        };
+      }
+    }
+  }
+
+  const { error } = await adminClient.from("members").delete().eq("id", memberId);
 
   if (error) {
-    console.error(`revokeMembership failed for member ${memberId}:`, error);
-    return { success: false, error: "Something went wrong revoking that membership." };
+    console.error(`deleteMember failed for member ${memberId}:`, error);
+    return { success: false, error: "Something went wrong deleting that member." };
   }
 
   revalidatePath("/admin/members");
-  revalidatePath(`/admin/members/${memberId}`);
   revalidatePath("/admin");
   return { success: true };
 }
