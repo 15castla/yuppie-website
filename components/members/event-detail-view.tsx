@@ -159,7 +159,6 @@ export function EventDetailView({
             category={event.category}
             imageUrl={event.image_url}
             className="h-[220px] w-full md:h-[320px]"
-            iconClassName="h-24 w-24 md:h-32 md:w-32"
             showCategoryBadge={false}
           />
 

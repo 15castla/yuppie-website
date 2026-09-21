@@ -80,7 +80,6 @@ export default async function AdminEventsPage() {
                     category={event.category}
                     imageUrl={event.image_url}
                     className="h-32 w-full"
-                    iconClassName="h-14 w-14"
                   />
                   <div className="flex flex-col gap-1 p-4">
                     <div className="flex items-start justify-between gap-3">

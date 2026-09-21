@@ -1,4 +1,4 @@
-import { Trophy, Sparkles, PartyPopper, type LucideIcon } from "lucide-react";
+import Image from "next/image";
 
 import { cn } from "@/lib/utils";
 import type { EventCategory } from "./event-types";
@@ -66,12 +66,6 @@ export function PricePill({ pricePence }: { pricePence: number | null }) {
     </span>
   );
 }
-
-export const CATEGORY_ICON: Record<EventCategory, LucideIcon> = {
-  sport: Trophy,
-  entertainment: PartyPopper,
-  personal_progression: Sparkles,
-};
 
 export const CATEGORY_LABEL: Record<EventCategory, string> = {
   sport: "Sport",
@@ -154,16 +148,13 @@ export function EventThumbnail({
   category,
   imageUrl,
   className,
-  iconClassName,
   showCategoryBadge = true,
 }: {
   category: EventCategory;
   imageUrl?: string | null;
   className?: string;
-  iconClassName?: string;
   showCategoryBadge?: boolean;
 }) {
-  const Icon = CATEGORY_ICON[category];
   return (
     <div
       className={cn("relative flex items-center justify-center overflow-hidden", className)}
@@ -177,7 +168,21 @@ export function EventThumbnail({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="" className="h-full w-full object-cover" />
       ) : (
-        <Icon className={cn("text-foreground/15", iconClassName)} strokeWidth={1.5} />
+        // Real wordmark (public/yuppie_logo_forte_forward.png), not the old
+        // per-category Lucide icon — faded down to a pale gold watermark
+        // over the gradient rather than recolored (it's a flat near-black
+        // raster PNG, not an SVG, so CSS can't retint it the way the icons
+        // were). Sized as a fraction of the thumbnail's own width so it
+        // scales sensibly across every context EventThumbnail is used in,
+        // rather than each caller needing to hand-tune a fixed pixel size
+        // the way iconClassName used to require.
+        <Image
+          src="/yuppie_logo_forte_forward.png"
+          alt=""
+          width={1942}
+          height={641}
+          className="h-auto w-3/5 opacity-15"
+        />
       )}
       {showCategoryBadge && (
         <span className="absolute left-3 top-3 rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">

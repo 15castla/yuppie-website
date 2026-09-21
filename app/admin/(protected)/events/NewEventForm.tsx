@@ -244,8 +244,8 @@ export function NewEventForm() {
               className="text-xs text-foreground/70 file:mr-2 file:rounded-full file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-background"
             />
             <p className="text-xs text-foreground/50">
-              Leave this blank to start with the category icon shown in the
-              preview — a photo can always be added or replaced later.
+              Leave this blank to start with the branded placeholder shown in
+              the preview — a photo can always be added or replaced later.
             </p>
           </div>
 
@@ -272,7 +272,6 @@ export function NewEventForm() {
               category={previewCategory}
               imageUrl={photoPreviewUrl}
               className="h-32 w-full"
-              iconClassName="h-14 w-14"
             />
             <div className="flex flex-col gap-1 p-4">
               <div className="flex items-start justify-between gap-3">
