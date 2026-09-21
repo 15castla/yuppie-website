@@ -19,7 +19,8 @@ export type PartnerPerk = {
   headline: string;
   badge: string | null;
   logo_url: string | null;
+  display_order: number;
 };
 
 export const PERK_COLUMNS =
-  "id, name, category, area, type, access_kind, headline, badge, logo_url";
+  "id, name, category, area, type, access_kind, headline, badge, logo_url, display_order";

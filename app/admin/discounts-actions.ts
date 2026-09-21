@@ -104,9 +104,22 @@ export async function createPerk(
   const hasLogo = result.fields.type === "discount" && logo instanceof File && logo.size > 0;
 
   const adminClient = createAdminSupabaseClient();
+
+  // New items are pinned to the top of their type's list rather than
+  // appended — one less than the current minimum sorts above every
+  // existing row without needing to renumber anything else.
+  const { data: minOrderRow } = await adminClient
+    .from("partner_perks")
+    .select("display_order")
+    .eq("type", result.fields.type)
+    .order("display_order", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  const displayOrder = (minOrderRow?.display_order ?? 0) - 1;
+
   const { data, error } = await adminClient
     .from("partner_perks")
-    .insert(result.fields)
+    .insert({ ...result.fields, display_order: displayOrder })
     .select("id")
     .single();
 
@@ -212,6 +225,34 @@ export async function removePerkLogo(id: string): Promise<{ success: boolean; er
   if (error) {
     console.error(`removePerkLogo failed for perk ${id}:`, error);
     return { success: false, error: "Something went wrong removing that logo." };
+  }
+
+  revalidatePerks();
+  return { success: true };
+}
+
+// Called from DiscountsList.tsx/AccessList.tsx after a drag settles —
+// orderedIds is the full list of ids for one type, in the admin's chosen
+// order. Only ever scoped to one type at a time by virtue of the caller
+// only ever passing ids from that type's own list, so there's no need to
+// re-check `type` per row here.
+export async function reorderPerks(
+  type: "discount" | "access",
+  orderedIds: string[],
+): Promise<{ success: boolean; error?: string }> {
+  await requireAdmin();
+
+  const adminClient = createAdminSupabaseClient();
+  const results = await Promise.all(
+    orderedIds.map((id, index) =>
+      adminClient.from("partner_perks").update({ display_order: index }).eq("id", id).eq("type", type),
+    ),
+  );
+
+  const failed = results.find((result) => result.error);
+  if (failed?.error) {
+    console.error("reorderPerks failed:", failed.error);
+    return { success: false, error: "Something went wrong saving that order." };
   }
 
   revalidatePerks();

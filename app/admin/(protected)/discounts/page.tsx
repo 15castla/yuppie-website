@@ -2,7 +2,7 @@ import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { PERK_COLUMNS, type PartnerPerk } from "@/components/members/mock-perks";
 import { deletePerk } from "@/app/admin/discounts-actions";
 import { NewPerkForm } from "./NewPerkForm";
-import { EditPerkForm } from "./EditPerkForm";
+import { DiscountsList } from "./DiscountsList";
 
 // Access-type perks live on their own dedicated page now (/admin/access) —
 // this page only ever deals with type: "discount", so the shared
@@ -13,7 +13,7 @@ export default async function AdminDiscountsPage() {
     .from("partner_perks")
     .select(PERK_COLUMNS)
     .eq("type", "discount")
-    .order("created_at", { ascending: true })
+    .order("display_order", { ascending: true })
     .order("id", { ascending: true });
 
   const perks = (data ?? []) as PartnerPerk[];
@@ -45,26 +45,7 @@ export default async function AdminDiscountsPage() {
           No discounts yet.
         </p>
       ) : (
-        <ul className="flex flex-col gap-6">
-          {perks.map((perk) => (
-            <li
-              key={perk.id}
-              className="flex flex-col gap-6 rounded-2xl border border-foreground/10 bg-cream p-6 sm:flex-row sm:items-start"
-            >
-              <EditPerkForm perk={perk} />
-
-              <form action={deletePerkAction} className="shrink-0 self-start">
-                <input type="hidden" name="id" value={perk.id} />
-                <button
-                  type="submit"
-                  className="text-xs font-medium text-foreground/40 underline underline-offset-2 hover:text-red-700"
-                >
-                  Delete
-                </button>
-              </form>
-            </li>
-          ))}
-        </ul>
+        <DiscountsList perks={perks} deletePerkAction={deletePerkAction} />
       )}
     </div>
   );

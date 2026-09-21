@@ -15,7 +15,8 @@ export const getCachedPerks = unstable_cache(
     const { data, error } = await adminClient
       .from("partner_perks")
       .select(PERK_COLUMNS)
-      .order("created_at", { ascending: true });
+      .order("display_order", { ascending: true })
+      .order("id", { ascending: true });
 
     if (error) {
       console.error("Failed to load partner perks:", error);

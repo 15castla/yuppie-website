@@ -94,6 +94,7 @@ export function NewPerkForm() {
 
   const previewPerk: PartnerPerk = {
     id: "preview",
+    display_order: 0,
     name: fields.name,
     category: (fields.category || "Food & Drink") as PartnerPerk["category"],
     area: fields.area,

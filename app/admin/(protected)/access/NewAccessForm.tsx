@@ -59,6 +59,7 @@ export function NewAccessForm() {
 
   const previewPerk: PartnerPerk = {
     id: "preview",
+    display_order: 0,
     name: fields.name,
     category: null,
     area: fields.area,
