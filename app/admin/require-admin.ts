@@ -23,5 +23,16 @@ export async function requireAdmin() {
     redirect("/");
   }
 
+  // A password-only sign-in only ever reaches aal1. Supabase itself
+  // will happily consider that "logged in". Real two-factor enforcement
+  // lives here: every /admin/(protected) page requires aal2 (password
+  // plus a verified TOTP factor, checked directly against this session's
+  // own JWT, not a separate cookie).
+  const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+
+  if (aal?.currentLevel !== "aal2") {
+    redirect("/admin/login");
+  }
+
   return user;
 }
