@@ -4,11 +4,17 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { setFeaturedInviteOnlyEvent } from "@/app/admin/events-actions";
+import { cn } from "@/lib/utils";
 
 const inputClasses =
   "w-full rounded-lg border border-foreground/15 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
 
-type EventOption = { id: string; title: string; is_invite_only_feature: boolean };
+type EventOption = {
+  id: string;
+  title: string;
+  is_invite_only_feature: boolean;
+  invite_only_label: string | null;
+};
 
 // Was a plain <form action={setFeaturedInviteOnlyEvent}> wrapped in a
 // server-action shim that discarded the { success, error } result — any
@@ -19,14 +25,26 @@ type EventOption = { id: string; title: string; is_invite_only_feature: boolean 
 export function FeaturedEventForm({
   events,
   featuredEventId,
+  featuredEventLabel,
 }: {
   events: EventOption[];
   featuredEventId: string;
+  featuredEventLabel: string;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState(featuredEventId);
+  const [label, setLabel] = useState(featuredEventLabel);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
+
+  // The label field always reflects whichever event is currently selected
+  // in the dropdown — switching events shows that event's own saved label
+  // (or blank) rather than leaving behind whatever was typed for the
+  // previously-selected one.
+  function handleSelectChange(eventId: string) {
+    setSelected(eventId);
+    setLabel(events.find((event) => event.id === eventId)?.invite_only_label ?? "");
+  }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -34,6 +52,7 @@ export function FeaturedEventForm({
 
     const formData = new FormData();
     formData.set("event_id", selected);
+    formData.set("invite_only_label", label);
 
     startSaving(async () => {
       const result = await setFeaturedInviteOnlyEvent(formData);
@@ -50,7 +69,7 @@ export function FeaturedEventForm({
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <select
           value={selected}
-          onChange={(event) => setSelected(event.target.value)}
+          onChange={(event) => handleSelectChange(event.target.value)}
           className={inputClasses}
         >
           <option value="">None — hide the card</option>
@@ -60,6 +79,14 @@ export function FeaturedEventForm({
             </option>
           ))}
         </select>
+        <input
+          type="text"
+          value={label}
+          onChange={(event) => setLabel(event.target.value)}
+          disabled={!selected}
+          placeholder="INVITE ONLY"
+          className={cn(inputClasses, "disabled:cursor-not-allowed disabled:opacity-60")}
+        />
         <button
           type="submit"
           disabled={isSaving}
@@ -68,6 +95,9 @@ export function FeaturedEventForm({
           {isSaving ? "Saving…" : "Save"}
         </button>
       </div>
+      <p className="text-xs text-foreground/50">
+        Card label (optional) — leave blank to show the default &quot;INVITE ONLY&quot; text.
+      </p>
       {error && <p className="text-sm font-medium text-red-700">{error}</p>}
     </form>
   );

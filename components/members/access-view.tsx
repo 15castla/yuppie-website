@@ -32,7 +32,7 @@ export function AccessView({
   featuredEvent,
 }: {
   perks: PartnerPerk[];
-  featuredEvent: Pick<Event, "title" | "start_time" | "location"> | null;
+  featuredEvent: Pick<Event, "title" | "start_time" | "location" | "invite_only_label"> | null;
 }) {
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
@@ -61,7 +61,7 @@ export function AccessView({
             className="rounded-2xl bg-foreground p-6"
           >
             <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
-              INVITE ONLY
+              {featuredEvent.invite_only_label || "INVITE ONLY"}
             </span>
             <p className="mt-2 text-lg font-extrabold text-background">
               {featuredEvent.title}

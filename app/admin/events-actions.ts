@@ -281,6 +281,7 @@ export async function setFeaturedInviteOnlyEvent(
   await requireAdmin();
 
   const eventId = formData.get("event_id");
+  const labelRaw = formData.get("invite_only_label");
   const adminClient = createAdminSupabaseClient();
 
   const { error: clearError } = await adminClient
@@ -294,9 +295,14 @@ export async function setFeaturedInviteOnlyEvent(
   }
 
   if (typeof eventId === "string" && eventId) {
+    // Always written alongside is_invite_only_feature, even when blank —
+    // otherwise switching to a different event that's never had a custom
+    // label would leak the previous event's label onto it.
+    const label = typeof labelRaw === "string" ? labelRaw.trim() || null : null;
+
     const { error } = await adminClient
       .from("events")
-      .update({ is_invite_only_feature: true })
+      .update({ is_invite_only_feature: true, invite_only_label: label })
       .eq("id", eventId);
 
     if (error) {

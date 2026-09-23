@@ -5,7 +5,12 @@ import { NewAccessForm } from "./NewAccessForm";
 import { AccessList } from "./AccessList";
 import { FeaturedEventForm } from "./FeaturedEventForm";
 
-type EventOption = { id: string; title: string; is_invite_only_feature: boolean };
+type EventOption = {
+  id: string;
+  title: string;
+  is_invite_only_feature: boolean;
+  invite_only_label: string | null;
+};
 
 // Previously, Access perks were managed from inside /admin/discounts (one
 // shared page for both types, picked via a "Type" dropdown) — split out
@@ -24,14 +29,16 @@ export default async function AdminAccessPage() {
       .order("id", { ascending: true }),
     adminClient
       .from("events")
-      .select("id, title, is_invite_only_feature")
+      .select("id, title, is_invite_only_feature, invite_only_label")
       .order("start_time", { ascending: true })
       .order("id", { ascending: true }),
   ]);
 
   const perks = (perksData ?? []) as PartnerPerk[];
   const events = (eventsData ?? []) as EventOption[];
-  const featuredEventId = events.find((event) => event.is_invite_only_feature)?.id ?? "";
+  const featuredEvent = events.find((event) => event.is_invite_only_feature);
+  const featuredEventId = featuredEvent?.id ?? "";
+  const featuredEventLabel = featuredEvent?.invite_only_label ?? "";
 
   // <form action> requires (formData) => void | Promise<void> — these
   // actions return { success, error } for other callers, so each is
@@ -65,7 +72,11 @@ export default async function AdminAccessPage() {
           members&apos; Access page — only one event can be featured there at
           a time. Choose &quot;None&quot; to hide the card entirely.
         </p>
-        <FeaturedEventForm events={events} featuredEventId={featuredEventId} />
+        <FeaturedEventForm
+          events={events}
+          featuredEventId={featuredEventId}
+          featuredEventLabel={featuredEventLabel}
+        />
       </section>
 
       <NewAccessForm />

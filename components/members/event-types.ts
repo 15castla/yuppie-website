@@ -21,7 +21,12 @@ export type Event = {
   // and by app/admin/events-actions.ts's setFeaturedInviteOnlyEvent, which
   // always clears any existing one before setting a new one.
   is_invite_only_feature: boolean;
+  // Overrides the small-caps badge text on the featured card (see
+  // components/members/access-view.tsx) — null means "use the default
+  // 'INVITE ONLY' text". Only meaningful when is_invite_only_feature is
+  // true, but not enforced as such at the schema level.
+  invite_only_label: string | null;
 };
 
 export const EVENT_COLUMNS =
-  "id, slug, title, description, category, location, start_time, end_time, price_pence, capacity, image_url, is_invite_only_feature";
+  "id, slug, title, description, category, location, start_time, end_time, price_pence, capacity, image_url, is_invite_only_feature, invite_only_label";
