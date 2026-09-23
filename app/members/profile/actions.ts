@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath, unstable_cache } from "next/cache";
 // react-phone-number-input's own root export bundles its React PhoneInput
-// component together with its validation utilities in the same module —
+// component together with its validation utilities in the same module, and
 // importing it here (a server-only "use server" file with no React tree to
 // render into) breaks build-time module evaluation, and its /core subpath
 // needs metadata passed in manually. Validating directly against the
@@ -34,7 +34,7 @@ export async function updateProfile(
     return { success: false, error: "Please enter a valid phone number." };
   }
 
-  // bio is intentionally not part of this form — leave the column alone
+  // bio is intentionally not part of this form. Leave the column alone
   // rather than writing it here.
   const supabase = await createClient();
   const { error } = await supabase
@@ -57,9 +57,9 @@ export async function updateProfile(
   return { success: true };
 }
 
-// Storage write goes through the service-role client (uploadMemberMedia) —
+// Storage write goes through the service-role client (uploadMemberMedia):
 // there's no member-writable storage policy, by design (see the
-// partner_perks migration's comment) — but the members.avatar_url update
+// partner_perks migration's comment). But the members.avatar_url update
 // itself goes through the request-scoped client, same as updateProfile
 // above, so it's still bounded by that member's own row via RLS + the
 // .eq("id", member.id) below, not just by requireMember() having run.
@@ -98,7 +98,7 @@ export async function updateAvatar(
 // Clears avatar_url back to null so the profile falls back to the plain
 // initials avatar (initialsFor in components/members/ui.tsx). Same
 // rationale as removeEventImage/removePerkLogo: doesn't delete the old
-// file from the member-media bucket — lib/media-storage.ts has no
+// file from the member-media bucket. lib/media-storage.ts has no
 // deletion helper, and an orphaned file only costs storage space, not
 // correctness.
 export async function removeAvatar(): Promise<{ success: boolean; error?: string }> {
@@ -124,7 +124,7 @@ export async function removeAvatar(): Promise<{ success: boolean; error?: string
 // A well-defined single Stripe call, safe to build for real: sets the
 // subscription to cancel at the end of the current billing period rather
 // than immediately. Deliberately does not touch members.membership_status
-// here — there's no webhook handler in this codebase yet to flip it to
+// here, since there's no webhook handler in this codebase yet to flip it to
 // "cancelled" once the period actually ends, and guessing an in-between
 // status not in the existing active/paused/cancelled set would be worse
 // than leaving it alone.
@@ -155,7 +155,7 @@ export async function cancelMembership(): Promise<{ success: boolean; error?: st
 // item in this Stripe API version, not on the subscription itself. Callers
 // treat a null return as "omit the row" rather than showing a fake date.
 // Cached for an hour since a billing date only actually changes once a
-// month — no reason to hit Stripe's API on every profile page load.
+// month, so there's no reason to hit Stripe's API on every profile page load.
 const getCachedNextBillingDate = unstable_cache(
   async (subscriptionId: string) => {
     try {

@@ -63,7 +63,7 @@ export function Features() {
           </h2>
         </div>
 
-        {/* 1-up until md, then straight to 3-up — no intermediate 2-up step,
+        {/* 1-up until md, then straight to 3-up: no intermediate 2-up step,
             which with exactly 3 cards would always leave the third one
             stranded alone on its own row instead of redistributing cleanly.
             Cards size to their own (now much longer) copy via a min-height

@@ -20,7 +20,7 @@ import { rsvpToEvent, bookPaidEventStub } from "@/app/members/events/actions";
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 // Keyed by title rather than id (the real events table's ids are opaque
-// UUIDs) — falls back to a generic line for any event not in this list.
+// UUIDs). Falls back to a generic line for any event not in this list.
 const WHATS_INCLUDED: Record<string, string> = {
   "Padel & Pints":
     "Court time, rackets and balls provided, plus your first drink on us afterwards. Just turn up in trainers.",
@@ -33,7 +33,7 @@ const WHATS_INCLUDED: Record<string, string> = {
 };
 
 // Locations that read as a full public venue name (a park, a set of
-// courts, a heath) rather than just a neighbourhood — those get the exact
+// courts, a heath) rather than just a neighbourhood: those get the exact
 // address up front. Anything else is treated as a private venue whose
 // address is only shared once you're booked in.
 const PUBLIC_VENUE_KEYWORDS = [
@@ -115,8 +115,8 @@ export function EventDetailView({
     });
   }
 
-  // Shared between the mobile fixed bar and the desktop static card below
-  // — same content either way, just two different wrappers (see the
+  // Shared between the mobile fixed bar and the desktop static card below,
+  // with the same content either way, just two different wrappers (see the
   // fixed-position restructuring note further down).
   const rsvpBarContent = (
     <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 md:max-w-none">
@@ -245,7 +245,7 @@ export function EventDetailView({
       </main>
 
       {/* Mobile: fade scrim + fixed price/RSVP bar, as one single fixed
-          element instead of two stacked ones — same rationale and pattern
+          element instead of two stacked ones, same rationale and pattern
           as members-nav.tsx's tab bar. Two independently-fixed layers near
           the bottom is what caused a visible Safari toolbar seam. */}
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
@@ -255,7 +255,7 @@ export function EventDetailView({
         />
         {/* Safari 26 tints its bottom toolbar by reading the
             background-color of a fixed/sticky element near the viewport
-            edge — a background-image gradient doesn't qualify. See the
+            edge. A background-image gradient doesn't qualify. See the
             matching strip/comment in members-nav.tsx's MembersBottomBar. */}
         <div aria-hidden className="fixed inset-x-0 bottom-0 h-4 bg-background" />
         <motion.div
@@ -269,7 +269,7 @@ export function EventDetailView({
       </div>
 
       {/* Desktop: static card below What's included, matching its width/
-          rounding/border/background — no fixed or gradient behavior here
+          rounding/border/background, with no fixed or gradient behavior here
           at all, this is a completely separate rendering from the mobile
           bar above (hidden below md via the wrapper's own classes). */}
       <motion.div

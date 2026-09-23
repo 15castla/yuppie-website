@@ -21,12 +21,12 @@ const STATUS_HEADING: Record<StatusFilter, string> = {
 const STATUS_EMPTY: Record<StatusFilter, string> = {
   active: "No active members.",
   paused: "No paused members.",
-  cancelled: "No cancelled members — nobody's cancelled or let their membership lapse yet.",
+  cancelled: "No cancelled members. Nobody's cancelled or let their membership lapse yet.",
 };
 
 // Reused for both the plain /admin/members list and the filtered views
 // linked from the Dashboard's stat cards (e.g. "Cancelled / Expired" ->
-// /admin/members?status=cancelled) — one page, so the two never drift into
+// /admin/members?status=cancelled): one page, so the two never drift into
 // looking different.
 export default async function MembersPage({
   searchParams,

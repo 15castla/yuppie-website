@@ -13,7 +13,7 @@ export default async function MembersLayout({
 }: {
   children: ReactNode;
 }) {
-  // Auth gate only — each page re-fetches the member row it needs via
+  // Auth gate only: each page re-fetches the member row it needs via
   // requireMember(), same style as app/admin/(protected)/layout.tsx does
   // with requireAdmin().
   await requireMember();

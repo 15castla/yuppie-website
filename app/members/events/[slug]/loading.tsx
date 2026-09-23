@@ -1,6 +1,6 @@
 // Mirrors event-detail-view.tsx's actual layout (same wrapper classes,
 // same block sizes/positions) so nothing shifts when real content swaps
-// in — a placeholder for the hero image, bars where the title/meta rows
+// in: a placeholder for the hero image, bars where the title/meta rows
 // go, and an empty pill where the price/RSVP bar goes, instead of a blank
 // page with just a spinner.
 function SkeletonBlock({ className }: { className: string }) {

@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 // Every access_kind the database allows (see the partner_perks check
-// constraint) needs a section here — "invite_only" was previously missing,
+// constraint) needs a section here. "invite_only" was previously missing,
 // which meant a perk saved with that access_kind from /admin/discounts
 // would silently never appear anywhere on this page.
 const SECTIONS: { kind: PartnerPerk["access_kind"]; label: string; Icon: LucideIcon }[] = [
@@ -21,10 +21,10 @@ const SECTIONS: { kind: PartnerPerk["access_kind"]; label: string; Icon: LucideI
 ];
 
 // featureCard is whichever single event, discount, or access perk is
-// currently spotlighted (set from the single dropdown on /admin/access —
+// currently spotlighted (set from the single dropdown on /admin/access,
 // see app/admin/feature-card-actions.ts's setFeatureCard), already
 // resolved into this normalized display shape by
-// app/members/access/page.tsx — null when nothing is currently featured,
+// app/members/access/page.tsx. Null when nothing is currently featured,
 // in which case the card is hidden entirely rather than showing stale or
 // placeholder copy.
 export function AccessView({

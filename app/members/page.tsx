@@ -18,7 +18,7 @@ export default async function MembersHomePage() {
       .gte("event.start_time", nowIso)
       .order("start_time", { referencedTable: "events", ascending: true })
       .limit(2),
-    // Same shared-catalog rationale as app/members/events/page.tsx — read
+    // Same shared-catalog rationale as app/members/events/page.tsx: read
     // via the service-role client, not the member-scoped one.
     createAdminSupabaseClient()
       .from("events")

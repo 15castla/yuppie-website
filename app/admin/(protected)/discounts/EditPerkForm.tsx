@@ -22,7 +22,7 @@ type FormState = {
 // perk until the page reloads after saving. Renders the preview card and
 // PerkLogoForm alongside the editable fields (rather than page.tsx
 // rendering PerkPreview separately, as it used to) since the preview needs
-// this component's live local state, not just the static perk prop —
+// this component's live local state, not just the static perk prop.
 // logo_url itself still comes straight from that prop, refreshed whenever
 // PerkLogoForm's own action succeeds and calls router.refresh().
 export function EditPerkForm({ perk }: { perk: PartnerPerk }) {

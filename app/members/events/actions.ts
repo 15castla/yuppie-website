@@ -32,7 +32,7 @@ export async function rsvpToEvent(
   return { success: true };
 }
 
-// No Stripe Checkout/PaymentIntent flow exists yet for event bookings —
+// No Stripe Checkout/PaymentIntent flow exists yet for event bookings.
 // stripe_payment_intent_id is a column on bookings, but nothing populates
 // it anywhere in this codebase. This stub keeps the paid-event button real
 // in the UI without pretending to charge anyone; wiring it up for real
@@ -44,7 +44,7 @@ export async function bookPaidEventStub(
   const eventId = formData.get("event_id");
 
   console.log(
-    `bookPaidEventStub: member ${member.id} attempted to book paid event ${String(eventId)} — no payment flow wired up yet.`,
+    `bookPaidEventStub: member ${member.id} attempted to book paid event ${String(eventId)}, but no payment flow is wired up yet.`,
   );
 
   return {

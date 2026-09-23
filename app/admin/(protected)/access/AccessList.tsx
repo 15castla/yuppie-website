@@ -9,7 +9,7 @@ import type { PartnerPerk } from "@/components/members/mock-perks";
 import { AccessPerkRow } from "./AccessPerkRow";
 
 // Mirrors app/admin/(protected)/discounts/DiscountsList.tsx exactly, just
-// for type: "access" perks — see that file for the reasoning behind the
+// for type: "access" perks. See that file for the reasoning behind the
 // optimistic local state and onDragEnd-only server call.
 export function AccessList({
   perks,

@@ -9,7 +9,7 @@ import type { PartnerPerk } from "@/components/members/mock-perks";
 import { EditPerkForm } from "./EditPerkForm";
 
 // Local optimistic order, seeded from the server-fetched perks and kept in
-// sync with them (see the effect below) — reorderPerks is only called once
+// sync with them (see the effect below). reorderPerks is only called once
 // dragging settles (onDragEnd), not on every intermediate frame, so a drag
 // in progress never spams the server with writes.
 export function DiscountsList({

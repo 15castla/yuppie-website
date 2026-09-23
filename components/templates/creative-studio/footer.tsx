@@ -12,7 +12,7 @@ const YUPPIE_LINKS: FooterLink[] = [
   { label: "FAQ's", href: "/faq" },
 ];
 
-// Social handles aren't wired up yet — rendered as visibly disabled with a
+// Social handles aren't wired up yet, so they're rendered as visibly disabled with a
 // "Soon" tag rather than live-looking dead links.
 const CONNECT_LINKS: FooterLink[] = [
   { label: "Instagram", href: "#", comingSoon: true },

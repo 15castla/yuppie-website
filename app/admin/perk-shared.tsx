@@ -4,7 +4,7 @@ import type { PartnerPerk } from "@/components/members/mock-perks";
 import { CARD_CLASS } from "@/components/members/ui";
 import { cn } from "@/lib/utils";
 
-// Shared between /admin/discounts and /admin/access — both manage rows in
+// Shared between /admin/discounts and /admin/access, both of which manage rows in
 // the same partner_perks table (see supabase/migrations/
 // 20260915120000_add_partner_perks_table_and_media_storage.sql), split by
 // `type` into two dedicated admin pages that mirror the two member-facing
@@ -38,7 +38,7 @@ export const inputClasses =
   "w-full rounded-lg border border-foreground/15 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
 export const labelClasses = "text-xs font-semibold uppercase tracking-wider text-foreground/50";
 
-// Renders a perk exactly as it appears on its real member-facing page — a
+// Renders a perk exactly as it appears on its real member-facing page: a
 // Discount card with a logo, or an Access card with an icon (Access never
 // shows a logo, so this branch just ignores logo_url). Used both for the
 // live-typing preview on each "Add a new..." form and for the per-row

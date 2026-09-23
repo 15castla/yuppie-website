@@ -47,8 +47,8 @@ export function PerkLogoForm({
       return;
     }
 
-    // No file chosen and nothing to remove either — same no-op the
-    // browser's own required-field block used to produce.
+    // No file chosen and nothing to remove either, so this is the same
+    // no-op the browser's own required-field block used to produce.
     if (!hasLogo) return;
 
     const confirmed = window.confirm(

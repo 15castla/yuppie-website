@@ -14,7 +14,7 @@ type Option = { id: string; label: string };
 
 // Was FeaturedEventForm.tsx, event-only. Generalized alongside
 // setFeatureCard (app/admin/feature-card-actions.ts) to spotlight any one
-// event, discount, or access perk — the <select>'s options are prefixed
+// event, discount, or access perk. The <select>'s options are prefixed
 // with their content type (event:<id>, discount:<id>, access:<id>) so one
 // flat string value can be split back into content_type/content_id on
 // submit, grouped into three <optgroup>s so the three kinds of content
@@ -68,7 +68,7 @@ export function FeatureCardForm({
           onChange={(event) => setSelected(event.target.value)}
           className={inputClasses}
         >
-          <option value="">None — hide the card</option>
+          <option value="">None (hide the card)</option>
           {events.length > 0 && (
             <optgroup label="Events">
               {events.map((event) => (
@@ -114,7 +114,7 @@ export function FeatureCardForm({
         </button>
       </div>
       <p className="text-xs text-foreground/50">
-        Card label (optional) — leave blank to use the default label shown
+        Card label (optional): leave blank to use the default label shown
         above for whichever type is selected.
       </p>
       {error && <p className="text-sm font-medium text-red-700">{error}</p>}

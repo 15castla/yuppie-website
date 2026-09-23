@@ -5,7 +5,7 @@ export function cn(
 }
 
 // Used by admin forms that edit a stored UTC timestamp (e.g. events.start_time)
-// with an <input type="datetime-local"> — that input's value is always a
+// with an <input type="datetime-local">. That input's value is always a
 // timezone-naive "YYYY-MM-DDTHH:mm" wall-clock string, with no offset info,
 // so it has to be explicitly paired with the zone the admin is thinking in
 // (Europe/London, same zone components/members/ui.tsx displays event times
@@ -50,7 +50,7 @@ export function dateTimeLocalToISO(localValue: string, timeZone: string): string
   }).formatToParts(guessUTC);
 
   const get = (type: string) => partsInZone.find((part) => part.type === type)?.value ?? "00";
-  // Intl can render midnight as "24:00" for some locales/zones — normalize.
+  // Intl can render midnight as "24:00" for some locales/zones, so normalize.
   const hour = get("hour") === "24" ? "00" : get("hour");
   const renderedAsUTC = Date.UTC(
     Number(get("year")),

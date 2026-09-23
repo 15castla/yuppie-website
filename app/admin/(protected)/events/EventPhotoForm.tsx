@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 
 import { updateEventImage, removeEventImage } from "@/app/admin/events-actions";
 
-// Was a plain <form action={updateEventImage}> with a required file input —
-// submitting with nothing chosen just got blocked by the browser. Now a
+// Was a plain <form action={updateEventImage}> with a required file input,
+// so submitting with nothing chosen just got blocked by the browser. Now a
 // client component so submit can branch: a chosen file still uploads via
 // updateEventImage same as before, but no file chosen (on an event that
 // already has one) offers to clear it back to the default placeholder via
@@ -47,8 +47,8 @@ export function EventPhotoForm({
       return;
     }
 
-    // No file chosen and nothing to remove either — same no-op the
-    // browser's own required-field block used to produce.
+    // No file chosen and nothing to remove either, so this is the same
+    // no-op the browser's own required-field block used to produce.
     if (!hasImage) return;
 
     const confirmed = window.confirm(

@@ -7,7 +7,7 @@ import type { ReactNode } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 
 // Same curve Hero already uses for its own entrance animation
-// (components/templates/creative-studio/hero.tsx) — reusing it here keeps
+// (components/templates/creative-studio/hero.tsx). Reusing it here keeps
 // every page's arrival feeling consistent with the homepage.
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 

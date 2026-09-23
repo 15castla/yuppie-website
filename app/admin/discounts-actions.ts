@@ -12,7 +12,7 @@ const ACCESS_KINDS = ["skip_queue", "members_club", "first_dibs", "invite_only"]
 
 function revalidatePerks() {
   // "perks" is the cache tag components/members/perks-data.ts's
-  // getCachedPerks is tagged with — without this, changes here wouldn't
+  // getCachedPerks is tagged with. Without this, changes here wouldn't
   // show on Discounts/Access/Home for up to 60s. Both admin pages are
   // revalidated since this file's actions serve both (split by `type`).
   revalidateTag("perks", "minutes");
@@ -30,7 +30,7 @@ type PerkFields = {
   badge: string | null;
 };
 
-// Literal-tagged discriminated union — a plain `error?: string` /
+// Literal-tagged discriminated union: a plain `error?: string` /
 // `fields?: PerkFields` shape (varying only in presence/absence, not a
 // literal discriminant) doesn't reliably narrow `result.fields` to defined
 // after checking `result.error`, since TS's discriminated-union narrowing
@@ -53,7 +53,7 @@ function readPerkFields(formData: FormData): PerkFieldsResult {
   if (typeof headline !== "string" || !headline.trim())
     return { ok: false, error: "Headline is required." };
 
-  // Category is only meaningful for Discount perks — access-view.tsx groups
+  // Category is only meaningful for Discount perks. access-view.tsx groups
   // Access perks purely by access_kind and never reads it (see the
   // 20260916090000 migration that dropped the column's NOT NULL for exactly
   // this reason), so it's neither collected nor validated for type: "access".
@@ -85,11 +85,11 @@ function readPerkFields(formData: FormData): PerkFieldsResult {
   };
 }
 
-// A "logo" file field is optional here — when present (Discount perks
+// A "logo" file field is optional here: when present (Discount perks
 // only; Access cards never show a logo, see PerkPreview), it's uploaded and
 // attached to the new row in the same submission, the same combined-upload
 // pattern as app/admin/events-actions.ts's createEvent. If the insert
-// succeeds but the logo upload fails, the perk still exists — surfaced back
+// succeeds but the logo upload fails, the perk still exists. That's surfaced back
 // as a non-fatal `warning` rather than `error`, so the admin isn't tempted
 // to resubmit and create a duplicate.
 export async function createPerk(
@@ -106,7 +106,7 @@ export async function createPerk(
   const adminClient = createAdminSupabaseClient();
 
   // New items are pinned to the top of their type's list rather than
-  // appended — one less than the current minimum sorts above every
+  // appended: one less than the current minimum sorts above every
   // existing row without needing to renumber anything else.
   const { data: minOrderRow } = await adminClient
     .from("partner_perks")
@@ -207,7 +207,7 @@ export async function uploadPerkLogo(
 // Clears logo_url back to null so PerkPreview falls back to the initial-
 // letter default (app/admin/perk-shared.tsx). Same rationale as
 // removeEventImage in events-actions.ts: doesn't delete the old file from
-// the member-media bucket — lib/media-storage.ts has no deletion helper,
+// the member-media bucket. lib/media-storage.ts has no deletion helper,
 // and an orphaned file only costs storage space, not correctness.
 export async function removePerkLogo(id: string): Promise<{ success: boolean; error?: string }> {
   await requireAdmin();
@@ -231,7 +231,7 @@ export async function removePerkLogo(id: string): Promise<{ success: boolean; er
   return { success: true };
 }
 
-// Called from DiscountsList.tsx/AccessList.tsx after a drag settles —
+// Called from DiscountsList.tsx/AccessList.tsx after a drag settles:
 // orderedIds is the full list of ids for one type, in the admin's chosen
 // order. Only ever scoped to one type at a time by virtue of the caller
 // only ever passing ids from that type's own list, so there's no need to

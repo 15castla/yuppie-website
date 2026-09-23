@@ -14,7 +14,7 @@ where partner_perks.id = sub.id;
 
 alter table partner_perks alter column display_order set not null;
 
--- Deliberately no uniqueness constraint — reorderPerks renumbers a whole
+-- Deliberately no uniqueness constraint: reorderPerks renumbers a whole
 -- type's rows at once, so transient duplicate values mid-update are fine
 -- as long as the final state is a clean sequence. createPerk also relies
 -- on being able to insert a new row's order one below the current min

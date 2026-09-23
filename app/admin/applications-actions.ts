@@ -10,7 +10,7 @@ import { stripe } from "@/lib/stripe";
 
 // The installed @supabase/auth-js version has no getUserByEmail(), and
 // listUsers() takes no email/filter param (verified against
-// node_modules/@supabase/auth-js/dist/module/GoTrueAdminApi.d.ts) — so
+// node_modules/@supabase/auth-js/dist/module/GoTrueAdminApi.d.ts), so
 // finding an existing user by email means paging through everyone and
 // matching locally.
 async function findAuthUserIdByEmail(
@@ -59,7 +59,7 @@ async function approve(id: string, adminEmail: string) {
   }
 
   // status only ever flips to "approved" together with the member row,
-  // atomically, in the RPC below — so this alone means a previous attempt
+  // atomically, in the RPC below, so this alone means a previous attempt
   // already finished the whole thing. Safe no-op for a duplicate click.
   if (application.status === "approved") {
     console.log(`approve: application ${id} already fully approved, skipping`);
@@ -68,7 +68,7 @@ async function approve(id: string, adminEmail: string) {
 
   let subscriptionId = application.stripe_subscription_id;
 
-  // No recorded charge yet on this application — do the charge. If
+  // No recorded charge yet on this application, so do the charge. If
   // subscriptionId is already set (a previous attempt charged Stripe but
   // failed before/at account creation), skip straight past this whole
   // block without creating a second subscription.
@@ -124,7 +124,7 @@ async function approve(id: string, adminEmail: string) {
       await adminClient
         .from("applications")
         .update({
-          payment_error: `Charged (Stripe subscription ${subscriptionId}) but failed to save that — do not approve again without checking Stripe and the database first. Error: ${recordError.message}`,
+          payment_error: `Charged (Stripe subscription ${subscriptionId}) but failed to save that. Do not approve again without checking Stripe and the database first. Error: ${recordError.message}`,
         })
         .eq("id", id);
       revalidatePath("/admin/applications");
@@ -133,8 +133,8 @@ async function approve(id: string, adminEmail: string) {
     }
   }
 
-  // From here on the charge is guaranteed done and recorded — on this
-  // attempt or a previous one. Everything below is account provisioning.
+  // From here on, the charge is guaranteed done and recorded (on this
+  // attempt or a previous one). Everything below is account provisioning.
 
   const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
     email: application.email,
@@ -160,7 +160,7 @@ async function approve(id: string, adminEmail: string) {
         await adminClient
           .from("applications")
           .update({
-            payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}). Supabase reports this email is already registered, but the matching account couldn't be found — check Supabase Auth manually before retrying.`,
+            payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}). Supabase reports this email is already registered, but the matching account couldn't be found. Check Supabase Auth manually before retrying.`,
           })
           .eq("id", id);
         revalidatePath("/admin/applications");
@@ -174,7 +174,7 @@ async function approve(id: string, adminEmail: string) {
       await adminClient
         .from("applications")
         .update({
-          payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}) but the member account could not be created: ${authError?.message ?? "unknown error"}. It's safe to click Approve again — this will retry account creation without charging again.`,
+          payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}) but the member account could not be created: ${authError?.message ?? "unknown error"}. It's safe to click Approve again: this will retry account creation without charging again.`,
         })
         .eq("id", id);
       revalidatePath("/admin/applications");
@@ -202,7 +202,7 @@ async function approve(id: string, adminEmail: string) {
     await adminClient
       .from("applications")
       .update({
-        payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}) but the member account could not be finished: ${rpcError.message}. It's safe to click Approve again — this will retry account creation without charging again.`,
+        payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}) but the member account could not be finished: ${rpcError.message}. It's safe to click Approve again: this will retry account creation without charging again.`,
       })
       .eq("id", id);
     revalidatePath("/admin/applications");
@@ -210,7 +210,7 @@ async function approve(id: string, adminEmail: string) {
     return;
   }
 
-  // Audit-only from here on — login and membership_status don't depend on
+  // Audit-only from here on: login and membership_status don't depend on
   // this succeeding, so it doesn't gate the welcome email/SMS below.
   const { error: inviteError } = await adminClient
     .from("invited_emails")

@@ -4,8 +4,8 @@ import { deletePerk } from "@/app/admin/discounts-actions";
 import { NewPerkForm } from "./NewPerkForm";
 import { DiscountsList } from "./DiscountsList";
 
-// Access-type perks live on their own dedicated page now (/admin/access) —
-// this page only ever deals with type: "discount", so the shared
+// Access-type perks live on their own dedicated page now (/admin/access),
+// so this page only ever deals with type: "discount", and the shared
 // discounts-actions.ts functions are always called with that type fixed.
 export default async function AdminDiscountsPage() {
   const adminClient = createAdminSupabaseClient();
@@ -18,7 +18,7 @@ export default async function AdminDiscountsPage() {
 
   const perks = (data ?? []) as PartnerPerk[];
 
-  // <form action> requires (formData) => void | Promise<void> — this
+  // <form action> requires (formData) => void | Promise<void>, and this
   // action returns { success, error } for other callers, so it's wrapped
   // here rather than changing its return type.
   async function deletePerkAction(formData: FormData) {

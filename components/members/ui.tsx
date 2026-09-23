@@ -12,7 +12,7 @@ export const CARD_CLASS = "rounded-2xl border border-foreground/10 bg-background
 // padding below md: since the top nav pill is hidden there (mobile uses
 // the bottom tab bar instead), full pt-28 clearance restored at md: for
 // the floating top pill nav. No large bottom-padding workaround needed
-// below md: — MembersBottomBar (members-nav.tsx) is position: sticky and
+// below md:, since MembersBottomBar (members-nav.tsx) is position: sticky and
 // rendered as a normal-flow sibling after <main> in app/members/layout.tsx,
 // so it reserves its own real space in the page flow instead of needing
 // padding to avoid being covered by a fixed overlay.
@@ -169,7 +169,7 @@ export function EventThumbnail({
         <img src={imageUrl} alt="" className="h-full w-full object-cover" />
       ) : (
         // Real wordmark (public/yuppie_logo_forte_forward.png), not the old
-        // per-category Lucide icon — faded down to a pale gold watermark
+        // per-category Lucide icon, faded down to a pale gold watermark
         // over the gradient rather than recolored (it's a flat near-black
         // raster PNG, not an SVG, so CSS can't retint it the way the icons
         // were). Sized as a fraction of the thumbnail's own width so it

@@ -51,8 +51,8 @@ export default async function AdminDashboardPage() {
   ] = await Promise.all([
     adminClient.from("members").select("*", { count: "exact", head: true }),
     // "cancelled" is the only lapsed-membership status the schema has
-    // (membership_status: active/paused/cancelled — see require-member.ts) —
-    // there's no separate "expired" value, so a subscription someone let
+    // (membership_status: active/paused/cancelled, see require-member.ts).
+    // There's no separate "expired" value, so a subscription someone let
     // lapse ends up here too, same as one they actively cancelled.
     adminClient
       .from("members")

@@ -92,7 +92,7 @@ const CARD_SHADOW_HOVER =
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 // Bridges the gap when confirmSetup ends up doing a full browser redirect
-// (Apple Pay, some 3D Secure checks) instead of resolving in place — the
+// (Apple Pay, some 3D Secure checks) instead of resolving in place: the
 // form's in-memory state is gone on return, so the field values are
 // stashed here just before confirmSetup and read back once we detect the
 // redirect-return query params.
@@ -212,7 +212,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
 
     handleRedirectReturn();
     // Only re-run if the Stripe instance itself changes (e.g. becomes
-    // available after initial load) — this reads a one-time URL param
+    // available after initial load). This reads a one-time URL param
     // and clears it, not something that should re-fire on other renders.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stripe]);
@@ -225,7 +225,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
     // phone is now controlled React state rather than read live off the
     // DOM (react-phone-number-input doesn't leave a plain uncontrolled
     // <input>), so the form's own submitted value has to be synced in
-    // explicitly before anything else reads it — including the
+    // explicitly before anything else reads it, including the
     // required-field check right below and the sessionStorage draft
     // built further down.
     formData.set("phone", phone ?? "");

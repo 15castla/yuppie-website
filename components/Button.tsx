@@ -1,7 +1,7 @@
 import type { AnchorHTMLAttributes, ButtonHTMLAttributes } from "react";
 
 // Exported so other components that need this exact pill look (but can't
-// use <Button> itself — e.g. a container wrapping more than one link)
+// use <Button> itself, e.g. a container wrapping more than one link)
 // share this one definition instead of copying the class string somewhere
 // else and risking it drifting out of sync.
 export const buttonBaseClasses =

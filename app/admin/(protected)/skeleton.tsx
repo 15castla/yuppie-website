@@ -1,12 +1,12 @@
 // Shared building blocks for this route group's loading.tsx files. None of
 // these admin routes had a loading.tsx before, which meant two things: a
 // navigation showed nothing until the destination's Supabase query (plus
-// requireAdmin()'s own two auth round-trips) fully resolved, and — per
-// Next's prefetching rules — a dynamic route with no loading.js boundary
+// requireAdmin()'s own two auth round-trips) fully resolved, and (per
+// Next's prefetching rules) a dynamic route with no loading.js boundary
 // isn't prefetched at all, so nothing warmed up on hover either. Adding
 // these gives every admin nav click instant visual feedback and enables
 // prefetching, without changing how fresh the actual data is (unlike the
-// member-facing events pages, admin data needs to stay live — an admin
+// member-facing events pages, admin data needs to stay live: an admin
 // checking for a new application can't be looking at a 60s-old cache).
 export function SkeletonBar({ className = "" }: { className?: string }) {
   return <div className={`animate-pulse rounded-full bg-foreground/10 ${className}`} />;

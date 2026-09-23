@@ -33,7 +33,7 @@ export default async function AdminEventsPage() {
 
   const events = (data ?? []) as Event[];
 
-  // <form action> requires (formData) => void | Promise<void> — this
+  // <form action> requires (formData) => void | Promise<void>, and this
   // action returns { success, error } for other callers, so it's wrapped
   // here rather than changing its return type.
   async function updateEventDetailsAction(formData: FormData) {
@@ -46,7 +46,7 @@ export default async function AdminEventsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Events</h1>
         <p className="mt-2 text-sm text-foreground/60">
-          Add new events, edit existing ones, and upload photos — the card
+          Add new events, edit existing ones, and upload photos. The card
           next to each event is exactly what members see, so you can check
           it looks right before it goes live. Start/end times are entered as
           UK local time. Renaming an existing event&apos;s URL slug still

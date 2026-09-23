@@ -8,7 +8,7 @@ import { CARD_CLASS, EventThumbnail, PricePill, formatEventDayTime } from "@/com
 import type { EventCategory } from "@/components/members/event-types";
 import { cn, dateTimeLocalToISO } from "@/lib/utils";
 
-// Same zone the rest of /admin/events and components/members/ui.tsx use —
+// Same zone the rest of /admin/events and components/members/ui.tsx use;
 // see the comment in app/admin/events-actions.ts.
 const EVENT_TIME_ZONE = "Europe/London";
 
@@ -47,7 +47,7 @@ const EMPTY_FORM: FormState = {
 // This section used to be a plain server-bound <form action={createEvent}>
 // with no way to preview the result or attach a photo up front (photos had
 // to be added afterwards, per-event, further down the page). It's a client
-// component now — controlled fields drive a live preview card (the exact
+// component now: controlled fields drive a live preview card (the exact
 // component members see, same as the per-event previews below) and the
 // chosen photo is submitted in the same request via createEvent's optional
 // photo field, following the same useTransition + manual FormData pattern
@@ -62,7 +62,7 @@ export function NewEventForm() {
   const [isSaving, startSaving] = useTransition();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Revoke the object URL whenever it changes or the component unmounts —
+  // Revoke the object URL whenever it changes or the component unmounts,
   // otherwise each new photo choice leaks the previous blob URL.
   useEffect(() => {
     return () => {
@@ -84,7 +84,7 @@ export function NewEventForm() {
   }
 
   // Clears just the in-progress photo selection, not the rest of the
-  // form — unlike EventPhotoForm.tsx's removeEventImage, nothing's been
+  // form. Unlike EventPhotoForm.tsx's removeEventImage, nothing's been
   // saved yet, so there's no confirm() and nothing to persist.
   function handleRemovePhoto() {
     setPhoto(null);
@@ -268,7 +268,7 @@ export function NewEventForm() {
             </div>
             <p className="text-xs text-foreground/50">
               Leave this blank to start with the branded placeholder shown in
-              the preview — a photo can always be added or replaced later.
+              the preview. A photo can always be added or replaced later.
             </p>
           </div>
 

@@ -16,14 +16,14 @@ function revalidateFeatureCard() {
   revalidatePath("/members/access");
 }
 
-// Backs the single "Feature card" dropdown on /admin/access — spotlights
+// Backs the single "Feature card" dropdown on /admin/access. Spotlights
 // any one event, discount, or access perk as the black card at the top of
 // /members/access (see components/members/access-view.tsx). Previously
 // event-only (events.is_invite_only_feature + events.invite_only_label),
 // generalized to a singleton feature_card table (see
 // supabase/migrations/20260924120000_add_feature_card_table.sql) so any of
 // the three content types can be featured. content_type + content_id come
-// as separate FormData fields — FeatureCardForm.tsx splits its single
+// as separate FormData fields: FeatureCardForm.tsx splits its single
 // `type:id`-prefixed <select> value into these before submitting.
 export async function setFeatureCard(
   formData: FormData,
@@ -35,7 +35,7 @@ export async function setFeatureCard(
   const labelRaw = formData.get("label");
   const adminClient = createAdminSupabaseClient();
 
-  // Empty selection means "None" — delete the singleton row, if any,
+  // Empty selection means "None", so delete the singleton row, if any,
   // rather than leaving a row with a null content_id around.
   if (typeof contentId !== "string" || !contentId) {
     const { error } = await adminClient.from("feature_card").delete().eq("id", true);

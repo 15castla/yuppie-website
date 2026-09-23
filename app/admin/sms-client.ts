@@ -22,7 +22,7 @@ export async function sendSms({ to, body }: { to: string; body: string }) {
   const messagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 
   if (!accountSid || !apiKeySid || !apiKeySecret || !messagingServiceSid) {
-    throw new Error("Twilio env vars are not fully set — SMS not sent.");
+    throw new Error("Twilio env vars are not fully set, so SMS was not sent.");
   }
 
   const toNumber = normalizePhoneToE164(to);

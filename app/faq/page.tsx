@@ -13,7 +13,7 @@ import { SiteNav } from "@/components/templates/creative-studio/site-nav";
 import { WordsPullUpMultiStyle } from "@/components/templates/creative-studio/primitives";
 
 // Same curve/pattern as Hero's entrance animation
-// (components/templates/creative-studio/hero.tsx) — reused here so the
+// (components/templates/creative-studio/hero.tsx), reused here so the
 // FAQ page's arrival reads as the same transition as the rest of the site.
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 

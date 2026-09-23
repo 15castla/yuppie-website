@@ -1,11 +1,11 @@
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 
 // Shared by every image-upload path in the app (admin event photos, admin
-// partner logos, member self-service profile photos) — one bucket
+// partner logos, member self-service profile photos): one bucket
 // ("member-media", created in the migration alongside partner_perks),
 // split into folders per use. Always goes through the service-role client:
 // there's no storage RLS write policy for any of these paths, by design
-// (see the migration's comment) — every upload is server-side, gated by
+// (see the migration's comment). Every upload is server-side, gated by
 // requireAdmin()/requireMember() in the caller, not by storage policy.
 const BUCKET = "member-media";
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -35,7 +35,7 @@ export async function uploadMemberMedia(
   }
 
   // Timestamped filename (not just filenameBase.ext) so the public URL
-  // changes on every upload — an unversioned/upsert path would keep
+  // changes on every upload. An unversioned/upsert path would keep
   // serving a browser-cached copy of the old image after a replace.
   const path = `${folder}/${filenameBase}-${Date.now()}.${ext}`;
 

@@ -6,7 +6,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 
 // Grain speckles are tinted with --foreground's own RGB (27,21,18 -> 0-1)
-// rather than white — the template's original noise was pure white for a
+// rather than white: the template's original noise was pure white for a
 // dark page; on Yuppie's light-yellow page a dark speckle is the equivalent
 // "grain on stock" texture, and it keeps the whole page within the two
 // yellows + two near-blacks rule (no third, unaccounted-for color hiding in
@@ -29,7 +29,7 @@ const BG_NOISE = noiseDataUri(0.9, 4);
 // (--foreground, 27 21 18) accents over the vivid yellow base
 // (--background, 255 217 4) instead. Kept as hardcoded rgba (matching how
 // the original hardcoded its own palette here rather than reading CSS
-// vars) so the alpha blending works — the RGB triples are exactly the two
+// vars) so the alpha blending works. The RGB triples are exactly the two
 // tokens above, nothing invented.
 const HERO_GRADIENT =
   "radial-gradient(45% 45% at 28% 30%, rgba(27,21,18,0.03), transparent 70%)," +

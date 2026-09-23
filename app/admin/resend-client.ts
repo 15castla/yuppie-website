@@ -8,7 +8,7 @@ export async function sendEmail({
   html: string;
 }) {
   if (!process.env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is not set in this environment — email not sent.");
+    throw new Error("RESEND_API_KEY is not set in this environment, so email was not sent.");
   }
 
   const response = await fetch("https://api.resend.com/emails", {

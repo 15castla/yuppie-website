@@ -56,8 +56,8 @@ export function NewPerkForm() {
     });
   }
 
-  // Clears just the in-progress logo selection, not the rest of the form —
-  // unlike PerkLogoForm.tsx's removePerkLogo, nothing's been saved yet, so
+  // Clears just the in-progress logo selection, not the rest of the form.
+  // Unlike PerkLogoForm.tsx's removePerkLogo, nothing's been saved yet, so
   // there's no confirm() and nothing to persist.
   function handleRemoveLogo() {
     setLogo(null);
@@ -207,7 +207,7 @@ export function NewPerkForm() {
             </div>
             <p className="text-xs text-foreground/50">
               Leave this blank to start with the venue&apos;s initial shown in
-              the preview — a logo can always be added or replaced later.
+              the preview. A logo can always be added or replaced later.
             </p>
           </div>
 

@@ -20,7 +20,7 @@ type Member = {
   created_at: string;
 };
 
-// The application that became this member, if one exists — matched by
+// The application that became this member, if one exists, matched by
 // email since members and applications aren't linked by a foreign key
 // (approve_application_and_create_member() only copies a handful of
 // fields across; see supabase/migrations/20260906211410_...). Shown as a
@@ -67,7 +67,7 @@ export default async function MemberDetailPage({
     notFound();
   }
 
-  // Most recent application with this email — covers the (rare) case of a
+  // Most recent application with this email. Covers the (rare) case of a
   // rejected-then-reapplied history, where an older application could
   // otherwise be picked up instead of the one that actually got approved.
   const { data: applicationData } = await adminClient
@@ -139,7 +139,7 @@ export default async function MemberDetailPage({
         <div className="rounded-2xl border border-foreground/10 bg-cream p-6 sm:p-8">
           <h2 className="text-base font-semibold text-foreground">From their application</h2>
           <p className="mt-1 text-xs text-foreground/50">
-            Captured when they applied — employer/role here may be out of
+            Captured when they applied, so employer/role here may be out of
             date if they&apos;ve since updated their profile; the card above
             always reflects what&apos;s current.
           </p>

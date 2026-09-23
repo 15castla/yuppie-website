@@ -46,7 +46,7 @@ export const getMember = cache(async (): Promise<Member | null> => {
 
 // Mirrors app/admin/require-admin.ts's shape, but queries through the
 // request-scoped (RLS-respecting) client rather than the admin service-role
-// client — members should only ever be able to read their own row, and
+// client, since members should only ever be able to read their own row, and
 // every query below is additionally scoped by id as a second layer, not
 // relied on as the only one.
 export async function requireMember(): Promise<Member> {

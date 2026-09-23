@@ -2,7 +2,7 @@ import { ACCESS_KIND_LABEL, PerkPreview, inputClasses, labelClasses } from "@/ap
 import type { PartnerPerk } from "@/components/members/mock-perks";
 
 // Extracted from what used to be inline <li> markup in page.tsx so
-// AccessList.tsx can wrap each row in a Reorder.Item — the row content
+// AccessList.tsx can wrap each row in a Reorder.Item. The row content
 // itself is unchanged, just no longer tied to a specific list-rendering
 // spot.
 export function AccessPerkRow({

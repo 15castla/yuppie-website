@@ -18,7 +18,7 @@ const inputClasses =
   "w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
 
 // Same curve/pattern as Hero's entrance animation
-// (components/templates/creative-studio/hero.tsx) — reused here so
+// (components/templates/creative-studio/hero.tsx), reused here so
 // member-login's arrival reads as the same transition as the homepage.
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 

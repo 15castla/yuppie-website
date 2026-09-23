@@ -56,15 +56,15 @@ export const metadata: Metadata = {
 // iOS Safari otherwise auto-samples page edge pixels to color its own
 // chrome (address bar / bottom toolbar), which can land on a nearby
 // element's background (e.g. the members nav bar's cream) instead of the
-// actual page background — an explicit theme-color pins it to the real
+// actual page background, so an explicit theme-color pins it to the real
 // --background value everywhere.
 //
 // NOTE: theme-color is NOT what colors the bottom Safari toolbar on
-// member pages — confirmed by a control test where the server-verified
+// member pages. Confirmed by a control test where the server-verified
 // value was set to pure red (#FF0000) and the toolbar stayed yellow with
 // zero visible change. The toolbar there appears to be a frosted/blurred
 // layer sampling the actual page pixels behind it, not reading this meta
-// tag — see the gradient-flat-zone fix in members-nav.tsx. Reverted to
+// tag (see the gradient-flat-zone fix in members-nav.tsx). Reverted to
 // the real brand value.
 export const viewport: Viewport = {
   themeColor: "#FFD904",

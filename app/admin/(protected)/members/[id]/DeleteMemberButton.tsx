@@ -5,10 +5,10 @@ import { useRouter } from "next/navigation";
 
 import { deleteMember } from "@/app/admin/members-actions";
 
-// window.prompt() rather than a custom modal — this admin panel has no
+// window.prompt() rather than a custom modal, since this admin panel has no
 // modal UI to match elsewhere, and a real delete needs more than an
 // OK/Cancel click. Typing the member's name back to confirm is the same
-// "type to confirm" pattern GitHub/Vercel use for destructive actions —
+// "type to confirm" pattern GitHub/Vercel use for destructive actions,
 // enough deliberate friction that a stray click can't trigger it.
 export function DeleteMemberButton({
   memberId,
@@ -36,7 +36,7 @@ export function DeleteMemberButton({
 
     if (typed === null) return;
     if (typed.trim() !== memberName) {
-      setError("Name didn't match exactly — nothing was deleted.");
+      setError("Name didn't match exactly, so nothing was deleted.");
       return;
     }
 

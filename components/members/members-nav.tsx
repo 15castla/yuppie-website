@@ -31,14 +31,14 @@ function isActive(pathname: string, href: string) {
 function isEventDetailPath(pathname: string) {
   // Event detail pages (e.g. /members/events/padel-and-pints) render their
   // own price + RSVP bar in the same slot the standard tab bar normally
-  // occupies — see the fixed bar in event-detail-view.tsx. This matches
+  // occupies (see the fixed bar in event-detail-view.tsx). This matches
   // "/members/events/<slug>" but not the events list page itself
   // ("/members/events" or "/members/events/").
   return /^\/members\/events\/[^/]+\/?$/.test(pathname);
 }
 
 // Desktop: floating top pill nav, same visual pattern as SiteNav. Rendered
-// before {children} in app/members/layout.tsx, same as always — this was
+// before {children} in app/members/layout.tsx, same as always. This was
 // never position: fixed to begin with (absolute against <section>, not the
 // viewport), so it's untouched by the mobile bar's fixed->sticky
 // restructuring below.
@@ -72,18 +72,18 @@ export function MembersNav() {
 }
 
 // Mobile: fade scrim + tab bar, as one element (scrim and nav merged into
-// one sticky container rather than two independently-positioned layers —
+// one sticky container rather than two independently-positioned layers;
 // two independently-fixed layers near the bottom previously caused a
-// visible Safari toolbar seam). position: sticky, not fixed — fixed
+// visible Safari toolbar seam). position: sticky, not fixed: fixed
 // glitches/disappears momentarily during active scrolling on real iOS
 // Safari (a well-known old WebKit issue: fixed-position elements
 // composite separately from scrolled content), which sticky doesn't have
 // since it's part of normal document flow. Sticky was tried once before
 // and reverted (see git history) over a suspected dvh-geometry safe-area
-// bug, but that bug's real cause turned out to be unrelated — Safari 26
+// bug, but that bug's real cause turned out to be unrelated: Safari 26
 // toolbar tinting needing a background-color on a qualifying element,
 // fixed separately below and independent of this wrapper's own
-// positioning — so sticky no longer carries that risk.
+// positioning. So sticky no longer carries that risk.
 export function MembersBottomBar() {
   const pathname = usePathname();
   const hideTabBar = isEventDetailPath(pathname);
@@ -96,13 +96,13 @@ export function MembersBottomBar() {
         aria-hidden
         className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
       />
-      {/* Safari 26 (iOS 26) dropped theme-color entirely — it now scans
+      {/* Safari 26 (iOS 26) dropped theme-color entirely. It now scans
           fixed/sticky elements within ~3px of a viewport edge, at least
           80% wide and 3px tall, for a literal background-color CSS
           property to tint its toolbar. The gradient above is a
           background-image, which doesn't qualify, and this wrapper has
           no background-color of its own, so Safari found nothing here
-          and fell back to something else — hence every theme-color and
+          and fell back to something else, hence every theme-color and
           gradient-flat-zone test having zero effect. This strip exists
           purely so there's a real background-color for Safari to read;
           it's visually redundant since the gradient above is already

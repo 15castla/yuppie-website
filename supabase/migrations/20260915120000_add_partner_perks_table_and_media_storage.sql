@@ -22,7 +22,7 @@ alter table partner_perks enable row level security;
 -- Same shared-catalog rationale as events: the member-facing pages read
 -- this via the service-role client (components/members/perks-data.ts), not
 -- a member-scoped one, so no member SELECT policy is needed. Only admins
--- manage rows directly (defense in depth — the admin server actions also
+-- manage rows directly (defense in depth: the admin server actions also
 -- call requireAdmin() independently, same pattern as every other admin
 -- action in this codebase).
 create policy "Admins can manage partner perks"
@@ -44,12 +44,12 @@ insert into partner_perks (name, category, area, type, access_kind, headline, ba
 
 -- Single public bucket for member-facing images uploaded via the admin
 -- panel (event photos, partner logos) and member self-service uploads
--- (profile photos) — folders (events/, perks/, avatars/) keep them apart.
+-- (profile photos). Folders (events/, perks/, avatars/) keep them apart.
 -- `public: true` serves objects over the public URL with no RLS policy
 -- needed for reads; every write goes through the service-role client from
 -- a server action (app/admin/*, app/members/profile/actions.ts), which
 -- bypasses storage RLS entirely, so no INSERT/UPDATE policy is needed
--- either — mirrors how every other admin write in this codebase works.
+-- either, mirroring how every other admin write in this codebase works.
 insert into storage.buckets (id, name, public)
 values ('member-media', 'member-media', true)
 on conflict (id) do nothing;

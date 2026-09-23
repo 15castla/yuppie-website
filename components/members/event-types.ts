@@ -1,5 +1,5 @@
 // Matches the real `events` table (introspected via the Supabase REST
-// schema endpoint — no migration file for this table exists in this repo).
+// schema endpoint; no migration file for this table exists in this repo).
 export type EventCategory = "entertainment" | "sport" | "personal_progression";
 
 export type Event = {

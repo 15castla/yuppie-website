@@ -2,7 +2,7 @@ import { unstable_cache } from "next/cache";
 
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 
-// The raw singleton row — see supabase/migrations/20260924120000_add_feature_card_table.sql.
+// The raw singleton row; see supabase/migrations/20260924120000_add_feature_card_table.sql.
 // Resolving content_id into an actual title/subtitle to display is left to
 // the caller (app/members/access/page.tsx), which cross-references its
 // own already-fetched events/perks arrays rather than this file doing a
@@ -14,13 +14,13 @@ export type FeatureCard = {
 };
 
 // A blank label on the feature_card row means "use this type's default",
-// not one fixed string across all three — shared between
+// not one fixed string across all three. Shared between
 // FeatureCardForm.tsx (as the label input's placeholder, so the admin can
 // see what they'll get by leaving it blank) and app/members/access/page.tsx
 // (to resolve the final label before it reaches AccessView.tsx).
 export const DEFAULT_FEATURE_LABEL: Record<FeatureCard["content_type"], string> = {
   event: "INVITE ONLY",
-  discount: "FEATURED PARTNER",
+  discount: "FEATURED DISCOUNT",
   access: "EXCLUSIVE ACCESS",
 };
 

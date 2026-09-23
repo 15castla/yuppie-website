@@ -22,7 +22,7 @@ const EMPTY_FORM: FormState = {
 };
 
 // Same live-preview pattern as NewEventForm.tsx / NewPerkForm.tsx. Access
-// cards are simpler than Discount cards — no logo, no badge, and (per the
+// cards are simpler than Discount cards: no logo, no badge, and (per the
 // 20260916090000 migration) no category either, since access-view.tsx
 // groups perks by access_kind only and never reads category.
 export function NewAccessForm() {

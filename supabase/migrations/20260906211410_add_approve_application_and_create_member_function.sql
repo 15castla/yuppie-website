@@ -29,7 +29,7 @@ begin
   end if;
 
   if v_application.stripe_subscription_id is null then
-    raise exception 'Application % has no recorded Stripe subscription — refusing to create a member without a confirmed charge', p_application_id;
+    raise exception 'Application % has no recorded Stripe subscription, refusing to create a member without a confirmed charge', p_application_id;
   end if;
 
   insert into members (

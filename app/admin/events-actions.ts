@@ -8,7 +8,7 @@ import { uploadMemberMedia } from "@/lib/media-storage";
 import { dateTimeLocalToISO } from "@/lib/utils";
 import type { EventCategory } from "@/components/members/event-types";
 
-// Same zone components/members/ui.tsx formats event times in — the
+// Same zone components/members/ui.tsx formats event times in: the
 // datetime-local inputs on /admin/events are edited (and displayed) as
 // London wall-clock time regardless of what timezone the server or the
 // admin's OS is actually set to. See lib/utils.ts's dateTimeLocalToISO.
@@ -98,16 +98,16 @@ function slugify(title: string): string {
 }
 
 // Auto-generates the slug from the title rather than exposing a raw slug
-// field — keeps it URL-safe and avoids someone hand-typing something that
+// field. That keeps it URL-safe and avoids someone hand-typing something that
 // collides or contains stray characters. Retries with a numeric suffix on
-// a unique-constraint collision (Postgres code 23505) — see
+// a unique-constraint collision (Postgres code 23505); see
 // events_slug_unique in supabase/migrations/20260909190148_add_slug_to_events.sql.
 //
-// A "photo" file field is optional here — when present, it's uploaded and
+// A "photo" file field is optional here: when present, it's uploaded and
 // attached to the new row in the same submission (rather than requiring a
 // second trip through updateEventImage afterwards). If the insert succeeds
-// but the photo upload fails, the event still exists (not rolled back) —
-// that's surfaced back as a non-fatal `warning` rather than `error`, since
+// but the photo upload fails, the event still exists (not rolled back).
+// That's surfaced back as a non-fatal `warning` rather than `error`, since
 // treating the whole submission as failed would make the admin re-submit
 // and risk a duplicate event.
 export async function createEvent(
@@ -163,10 +163,10 @@ export async function createEvent(
     // else: slug collision, loop and try the next suffix.
   }
 
-  return { success: false, error: "Couldn't find a free URL slug for that title — try renaming it slightly." };
+  return { success: false, error: "Couldn't find a free URL slug for that title. Try renaming it slightly." };
 }
 
-// Deliberately doesn't accept a new slug — event URLs may already be
+// Deliberately doesn't accept a new slug, since event URLs may already be
 // shared/bookmarked, and changing one out from under a member silently
 // would just 404 their link. Renaming a slug is rare enough that it can
 // still go through Supabase directly when it's genuinely needed.
@@ -229,7 +229,7 @@ export async function updateEventImage(
   }
 
   // "events" is the cache tag components/members/events-data.ts's
-  // getCachedEvents/getCachedEventBySlug are tagged with — without this,
+  // getCachedEvents/getCachedEventBySlug are tagged with. Without this,
   // the new photo wouldn't show on the member-facing pages for up to 60s.
   revalidateTag("events", "minutes");
   revalidatePath("/admin/events");
@@ -241,7 +241,7 @@ export async function updateEventImage(
 // rather than FormData, since it's called straight from EventPhotoForm.tsx
 // once a click resolves to "no file chosen" rather than through a plain
 // <form action>. Deliberately doesn't delete the old file from the
-// member-media bucket — lib/media-storage.ts has no deletion helper today,
+// member-media bucket. lib/media-storage.ts has no deletion helper today,
 // and an orphaned file only costs storage space, not correctness.
 export async function removeEventImage(
   eventId: string,

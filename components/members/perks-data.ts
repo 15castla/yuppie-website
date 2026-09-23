@@ -5,7 +5,7 @@ import { PERK_COLUMNS, type PartnerPerk } from "./mock-perks";
 
 // Mirrors components/members/events-data.ts exactly: partner perks are
 // shared catalog content, identical for every member, only changed via
-// /admin/discounts — cached for 60s rather than hit on every request, with
+// /admin/discounts, cached for 60s rather than hit on every request, with
 // revalidateTag("perks") called from app/admin/discounts-actions.ts on
 // every write so admin edits show up immediately instead of waiting out
 // the window.

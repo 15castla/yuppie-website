@@ -14,7 +14,7 @@ type FeatureCardRow = {
 };
 
 // Previously, Access perks were managed from inside /admin/discounts (one
-// shared page for both types, picked via a "Type" dropdown) — split out
+// shared page for both types, picked via a "Type" dropdown), split out
 // here into its own page, matching the two separate member-facing pages
 // (components/members/discounts-view.tsx / access-view.tsx). Both pages'
 // server actions still live in discounts-actions.ts since it's the same
@@ -29,7 +29,7 @@ export default async function AdminAccessPage() {
         .eq("type", "access")
         .order("display_order", { ascending: true })
         .order("id", { ascending: true }),
-      // Purely for the Feature card dropdown below — this page doesn't
+      // Purely for the Feature card dropdown below: this page doesn't
       // otherwise manage discounts, so only id/name is needed.
       adminClient.from("partner_perks").select("id, name").eq("type", "discount").order("name"),
       adminClient
@@ -45,7 +45,7 @@ export default async function AdminAccessPage() {
   const events = (eventsData ?? []) as EventOption[];
   const featureCard = (featureCardData ?? null) as FeatureCardRow | null;
 
-  // <form action> requires (formData) => void | Promise<void> — these
+  // <form action> requires (formData) => void | Promise<void>, and these
   // actions return { success, error } for other callers, so each is
   // wrapped here rather than changing its return type.
   async function updatePerkAction(formData: FormData) {
@@ -74,7 +74,7 @@ export default async function AdminAccessPage() {
         <h2 className="text-base font-semibold text-foreground">Feature card</h2>
         <p className="mt-1 text-sm text-foreground/60">
           Powers the black spotlight card at the top of the members&apos;
-          Access page — pick any one event, discount, or access perk to
+          Access page. Pick any one event, discount, or access perk to
           feature there, with an optional custom label. Choose
           &quot;None&quot; to hide the card entirely.
         </p>

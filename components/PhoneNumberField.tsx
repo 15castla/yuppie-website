@@ -1,7 +1,7 @@
 import { forwardRef, type ComponentProps } from "react";
 
 // Keeps the phone field's actual text input looking identical to every
-// other field on the site's forms — react-phone-number-input renders this
+// other field on the site's forms. react-phone-number-input renders this
 // in place of its own default input, but doesn't get a say in its styling.
 // Shared between app/apply/apply-form.tsx and the members profile editor
 // rather than duplicated, so both stay in sync automatically.
