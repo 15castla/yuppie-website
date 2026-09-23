@@ -290,7 +290,7 @@ export async function setFeaturedInviteOnlyEvent(
 
   if (clearError) {
     console.error("setFeaturedInviteOnlyEvent: failed to clear existing feature:", clearError);
-    return { success: false, error: "Something went wrong updating the featured event." };
+    return { success: false, error: `Couldn't clear the current feature: ${clearError.message}` };
   }
 
   if (typeof eventId === "string" && eventId) {
@@ -301,7 +301,7 @@ export async function setFeaturedInviteOnlyEvent(
 
     if (error) {
       console.error(`setFeaturedInviteOnlyEvent failed for event ${eventId}:`, error);
-      return { success: false, error: "Something went wrong setting the featured event." };
+      return { success: false, error: `Couldn't set the new feature: ${error.message}` };
     }
   }
 

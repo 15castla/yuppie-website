@@ -1,10 +1,9 @@
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { PERK_COLUMNS, type PartnerPerk } from "@/components/members/mock-perks";
 import { updatePerk, deletePerk } from "@/app/admin/discounts-actions";
-import { setFeaturedInviteOnlyEvent } from "@/app/admin/events-actions";
-import { inputClasses } from "@/app/admin/perk-shared";
 import { NewAccessForm } from "./NewAccessForm";
 import { AccessList } from "./AccessList";
+import { FeaturedEventForm } from "./FeaturedEventForm";
 
 type EventOption = { id: string; title: string; is_invite_only_feature: boolean };
 
@@ -37,11 +36,6 @@ export default async function AdminAccessPage() {
   // <form action> requires (formData) => void | Promise<void> — these
   // actions return { success, error } for other callers, so each is
   // wrapped here rather than changing its return type.
-  async function setFeaturedInviteOnlyEventAction(formData: FormData) {
-    "use server";
-    await setFeaturedInviteOnlyEvent(formData);
-  }
-
   async function updatePerkAction(formData: FormData) {
     "use server";
     await updatePerk(formData);
@@ -71,25 +65,7 @@ export default async function AdminAccessPage() {
           members&apos; Access page — only one event can be featured there at
           a time. Choose &quot;None&quot; to hide the card entirely.
         </p>
-        <form
-          action={setFeaturedInviteOnlyEventAction}
-          className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center"
-        >
-          <select name="event_id" defaultValue={featuredEventId} className={inputClasses}>
-            <option value="">None — hide the card</option>
-            {events.map((event) => (
-              <option key={event.id} value={event.id}>
-                {event.title}
-              </option>
-            ))}
-          </select>
-          <button
-            type="submit"
-            className="shrink-0 rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background"
-          >
-            Save
-          </button>
-        </form>
+        <FeaturedEventForm events={events} featuredEventId={featuredEventId} />
       </section>
 
       <NewAccessForm />
