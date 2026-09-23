@@ -81,6 +81,8 @@ export default function AdminLoginPage() {
     if (factorsData.totp.length === 0) {
       const { data: enrollData, error: enrollError } = await supabase.auth.mfa.enroll({
         factorType: "totp",
+        issuer: "Yuppie Admin",
+        friendlyName: `admin-${email}`,
       });
 
       setSubmitting(false);
