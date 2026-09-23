@@ -1,11 +1,43 @@
 import { getCachedPerks } from "@/components/members/perks-data";
 import { getCachedEvents } from "@/components/members/events-data";
+import { getCachedFeatureCard } from "@/components/members/feature-card-data";
+import { formatEventDayTime } from "@/components/members/ui";
 import { AccessView } from "@/components/members/access-view";
 
 export default async function MembersAccessPage() {
-  const [perks, events] = await Promise.all([getCachedPerks(), getCachedEvents()]);
+  const [perks, events, featureCard] = await Promise.all([
+    getCachedPerks(),
+    getCachedEvents(),
+    getCachedFeatureCard(),
+  ]);
   const access = perks.filter((perk) => perk.type === "access");
-  const featuredEvent = events.find((event) => event.is_invite_only_feature) ?? null;
 
-  return <AccessView perks={access} featuredEvent={featuredEvent} />;
+  // Resolves the singleton feature_card row's content_type/content_id
+  // into the plain title/subtitle shape AccessView renders, by
+  // cross-referencing the events/perks already fetched above rather than
+  // querying feature_card's target row separately.
+  let resolvedFeatureCard: { title: string; subtitle: string; label: string | null } | null = null;
+  if (featureCard) {
+    if (featureCard.content_type === "event") {
+      const event = events.find((event) => event.id === featureCard.content_id);
+      if (event) {
+        resolvedFeatureCard = {
+          title: event.title,
+          subtitle: `${formatEventDayTime(event.start_time)}${event.location ? ` · ${event.location}` : ""}`,
+          label: featureCard.label,
+        };
+      }
+    } else {
+      const perk = perks.find((perk) => perk.id === featureCard.content_id);
+      if (perk) {
+        resolvedFeatureCard = {
+          title: perk.name,
+          subtitle: perk.headline,
+          label: featureCard.label,
+        };
+      }
+    }
+  }
+
+  return <AccessView perks={access} featureCard={resolvedFeatureCard} />;
 }

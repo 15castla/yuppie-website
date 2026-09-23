@@ -4,8 +4,7 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Zap, Building2, Sparkles, Lock, type LucideIcon } from "lucide-react";
 
 import type { PartnerPerk } from "@/components/members/mock-perks";
-import type { Event } from "@/components/members/event-types";
-import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS, formatEventDayTime } from "@/components/members/ui";
+import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS } from "@/components/members/ui";
 import { cn } from "@/lib/utils";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -21,18 +20,19 @@ const SECTIONS: { kind: PartnerPerk["access_kind"]; label: string; Icon: LucideI
   { kind: "invite_only", label: "Invite only", Icon: Lock },
 ];
 
-// featuredEvent is whichever event is currently flagged
-// is_invite_only_feature in the database (set from the single-select
-// dropdown on /admin/access — see app/admin/events-actions.ts's
-// setFeaturedInviteOnlyEvent) — null when no event is currently featured,
+// featureCard is whichever single event, discount, or access perk is
+// currently spotlighted (set from the single dropdown on /admin/access —
+// see app/admin/feature-card-actions.ts's setFeatureCard), already
+// resolved into this normalized display shape by
+// app/members/access/page.tsx — null when nothing is currently featured,
 // in which case the card is hidden entirely rather than showing stale or
 // placeholder copy.
 export function AccessView({
   perks,
-  featuredEvent,
+  featureCard,
 }: {
   perks: PartnerPerk[];
-  featuredEvent: Pick<Event, "title" | "start_time" | "location" | "invite_only_label"> | null;
+  featureCard: { title: string; subtitle: string; label: string | null } | null;
 }) {
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
@@ -55,20 +55,19 @@ export function AccessView({
           </h1>
         </motion.div>
 
-        {featuredEvent && (
+        {featureCard && (
           <motion.div
             {...fade(0.2)}
             className="rounded-2xl bg-foreground p-6"
           >
             <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
-              {featuredEvent.invite_only_label || "INVITE ONLY"}
+              {featureCard.label || "FEATURED"}
             </span>
             <p className="mt-2 text-lg font-extrabold text-background">
-              {featuredEvent.title}
+              {featureCard.title}
             </p>
             <p className="mt-1 text-sm text-background/60">
-              {formatEventDayTime(featuredEvent.start_time)}
-              {featuredEvent.location ? ` · ${featuredEvent.location}` : ""}
+              {featureCard.subtitle}
             </p>
           </motion.div>
         )}

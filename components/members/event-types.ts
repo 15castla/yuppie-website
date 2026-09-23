@@ -14,19 +14,7 @@ export type Event = {
   price_pence: number;
   capacity: number;
   image_url: string | null;
-  // Powers the black "Invite Only" teaser card at the top of
-  // /members/access (see components/members/access-view.tsx) — at most one
-  // event has this set at a time, enforced by a partial unique index (see
-  // supabase/migrations/20260916150000_add_invite_only_feature_to_events.sql)
-  // and by app/admin/events-actions.ts's setFeaturedInviteOnlyEvent, which
-  // always clears any existing one before setting a new one.
-  is_invite_only_feature: boolean;
-  // Overrides the small-caps badge text on the featured card (see
-  // components/members/access-view.tsx) — null means "use the default
-  // 'INVITE ONLY' text". Only meaningful when is_invite_only_feature is
-  // true, but not enforced as such at the schema level.
-  invite_only_label: string | null;
 };
 
 export const EVENT_COLUMNS =
-  "id, slug, title, description, category, location, start_time, end_time, price_pence, capacity, image_url, is_invite_only_feature, invite_only_label";
+  "id, slug, title, description, category, location, start_time, end_time, price_pence, capacity, image_url";
