@@ -32,7 +32,7 @@ export function AccessView({
   featureCard,
 }: {
   perks: PartnerPerk[];
-  featureCard: { title: string; subtitle: string; label: string | null } | null;
+  featureCard: { title: string; subtitle: string; label: string } | null;
 }) {
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
@@ -61,7 +61,7 @@ export function AccessView({
             className="rounded-2xl bg-foreground p-6"
           >
             <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
-              {featureCard.label || "FEATURED"}
+              {featureCard.label}
             </span>
             <p className="mt-2 text-lg font-extrabold text-background">
               {featureCard.title}

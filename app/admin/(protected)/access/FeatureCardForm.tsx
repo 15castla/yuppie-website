@@ -4,6 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { setFeatureCard } from "@/app/admin/feature-card-actions";
+import { DEFAULT_FEATURE_LABEL, type FeatureCard } from "@/components/members/feature-card-data";
 import { cn } from "@/lib/utils";
 
 const inputClasses =
@@ -27,13 +28,16 @@ export function FeatureCardForm({
   events: Option[];
   discounts: Option[];
   access: Option[];
-  current: { contentType: "event" | "discount" | "access"; contentId: string; label: string | null } | null;
+  current: { contentType: FeatureCard["content_type"]; contentId: string; label: string | null } | null;
 }) {
   const router = useRouter();
   const [selected, setSelected] = useState(current ? `${current.contentType}:${current.contentId}` : "");
   const [label, setLabel] = useState(current?.label ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
+
+  const selectedType = selected.split(":")[0] as FeatureCard["content_type"] | "";
+  const labelPlaceholder = selectedType ? DEFAULT_FEATURE_LABEL[selectedType] : "";
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -98,7 +102,7 @@ export function FeatureCardForm({
           value={label}
           onChange={(event) => setLabel(event.target.value)}
           disabled={!selected}
-          placeholder="FEATURED"
+          placeholder={labelPlaceholder}
           className={cn(inputClasses, "disabled:cursor-not-allowed disabled:opacity-60")}
         />
         <button
@@ -110,7 +114,8 @@ export function FeatureCardForm({
         </button>
       </div>
       <p className="text-xs text-foreground/50">
-        Card label (optional) — leave blank to show the default &quot;FEATURED&quot; text.
+        Card label (optional) — leave blank to use the default label shown
+        above for whichever type is selected.
       </p>
       {error && <p className="text-sm font-medium text-red-700">{error}</p>}
     </form>

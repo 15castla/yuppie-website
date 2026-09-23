@@ -13,6 +13,17 @@ export type FeatureCard = {
   label: string | null;
 };
 
+// A blank label on the feature_card row means "use this type's default",
+// not one fixed string across all three — shared between
+// FeatureCardForm.tsx (as the label input's placeholder, so the admin can
+// see what they'll get by leaving it blank) and app/members/access/page.tsx
+// (to resolve the final label before it reaches AccessView.tsx).
+export const DEFAULT_FEATURE_LABEL: Record<FeatureCard["content_type"], string> = {
+  event: "INVITE ONLY",
+  discount: "FEATURED PARTNER",
+  access: "EXCLUSIVE ACCESS",
+};
+
 // Mirrors components/members/events-data.ts / perks-data.ts exactly:
 // shared catalog content, only changed via /admin/access's
 // FeatureCardForm.tsx (app/admin/feature-card-actions.ts's setFeatureCard
