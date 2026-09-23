@@ -56,6 +56,18 @@ export function NewPerkForm() {
     });
   }
 
+  // Clears just the in-progress logo selection, not the rest of the form —
+  // unlike PerkLogoForm.tsx's removePerkLogo, nothing's been saved yet, so
+  // there's no confirm() and nothing to persist.
+  function handleRemoveLogo() {
+    setLogo(null);
+    setLogoPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return null;
+    });
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
   function resetForm() {
     setFields(EMPTY_FORM);
     setLogo(null);
@@ -175,13 +187,24 @@ export function NewPerkForm() {
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label className={labelClasses}>Logo (optional)</label>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              onChange={handleLogoChange}
-              className="text-xs text-foreground/70 file:mr-2 file:rounded-full file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-background"
-            />
+            <div className="flex items-center gap-3">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/webp,image/gif"
+                onChange={handleLogoChange}
+                className="text-xs text-foreground/70 file:mr-2 file:rounded-full file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-xs file:font-bold file:text-background"
+              />
+              {logo && (
+                <button
+                  type="button"
+                  onClick={handleRemoveLogo}
+                  className="shrink-0 text-xs font-medium text-foreground/40 underline underline-offset-2 hover:text-red-700"
+                >
+                  Remove logo
+                </button>
+              )}
+            </div>
             <p className="text-xs text-foreground/50">
               Leave this blank to start with the venue&apos;s initial shown in
               the preview — a logo can always be added or replaced later.
