@@ -2,20 +2,8 @@ import Image from "next/image";
 import Link from "next/link";
 
 import { requireAdmin } from "@/app/admin/require-admin";
-import { signOut } from "@/app/admin/actions";
 import { AdminNav } from "./AdminNav";
-
-// Short initials for the header avatar — no separators in the local part
-// ("albertjcastle") just takes the first two letters; a dotted/underscored
-// one ("albert.castle") takes the first letter of each of the first two
-// segments instead, so it reads more like a real set of initials.
-function initialsFromEmail(email: string) {
-  const local = email.split("@")[0] ?? email;
-  const segments = local.split(/[._-]+/).filter(Boolean);
-  const first = segments[0]?.[0] ?? local[0] ?? "?";
-  const second = segments.length > 1 ? segments[1][0] : (local[1] ?? "");
-  return `${first}${second}`.toUpperCase();
-}
+import { AdminUserMenu } from "./AdminUserMenu";
 
 export default async function AdminProtectedLayout({
   children,
@@ -27,7 +15,7 @@ export default async function AdminProtectedLayout({
   return (
     <div className="min-h-dvh bg-background text-foreground">
       {/* Same brand yellow as the rest of the page, not a separate cream
-          bar — a full-width block of the paler cream read as a flat grey
+          bar: a full-width block of the paler cream read as a flat grey
           box against the yellow everywhere else. The nav pill below carries
           the cream instead, echoing the same yellow-page/cream-pill
           pairing used by the member bottom tab bar (members-nav.tsx). The
@@ -48,25 +36,7 @@ export default async function AdminProtectedLayout({
             </Link>
             <AdminNav />
           </div>
-          <div className="flex items-center gap-3">
-            {/* Initials avatar instead of spelling out the email inline —
-                tidier next to the nav, with the full address still just a
-                hover away. */}
-            <div
-              title={user.email}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-foreground text-xs font-bold text-background"
-            >
-              {initialsFromEmail(user.email ?? "?")}
-            </div>
-            <form action={signOut}>
-              <button
-                type="submit"
-                className="text-sm font-medium text-foreground/60 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
-              >
-                Sign out
-              </button>
-            </form>
-          </div>
+          <AdminUserMenu email={user.email ?? "?"} />
         </div>
       </header>
 
