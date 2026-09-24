@@ -3,13 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import { CircleUserRound } from "lucide-react";
 
+import { cn } from "@/lib/utils";
 import { signOut } from "@/app/admin/actions";
 
 // Was an always-visible initials avatar (title={email}, so the address
-// only ever showed on a mouse hover — nothing on touch) sitting next to a
+// only ever showed on a mouse hover, nothing on touch) sitting next to a
 // permanent, always-visible "Sign out" link. Replaced with a single
 // profile-icon button: clicking it reveals a small menu with the email
 // and the sign-out action, closing on an outside click or Escape.
+//
+// Below sm, the header pill only has room for the nav links (see
+// AdminNav.tsx), so this floats as a fixed bottom-right button instead of
+// sitting inline there. At sm and up it's back to normal inline flow in
+// the header, unchanged from before. The "fixed" base + "sm:relative"
+// override (rather than two competing unprefixed position utilities) is
+// deliberate: Tailwind's responsive variants only apply within their own
+// media query, so there's no cascade ambiguity the way there would be
+// mixing two unprefixed position classes on the same element.
 export function AdminUserMenu({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -35,14 +45,22 @@ export function AdminUserMenu({ email }: { email: string }) {
   }, [open]);
 
   return (
-    <div ref={rootRef} className="relative">
+    <div
+      ref={rootRef}
+      className="fixed bottom-4 right-4 z-40 sm:relative sm:bottom-auto sm:right-auto sm:z-auto"
+    >
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label="Account menu"
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-foreground/70 outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className={cn(
+          "flex h-8 w-8 shrink-0 items-center justify-center rounded-full outline-none transition-colors",
+          "bg-foreground text-background shadow-[0_6px_16px_-4px_rgba(27,21,18,0.4)]",
+          "sm:bg-transparent sm:text-foreground/70 sm:shadow-none sm:hover:text-foreground",
+          "focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        )}
       >
         <CircleUserRound size={26} strokeWidth={1.75} />
       </button>
@@ -50,7 +68,7 @@ export function AdminUserMenu({ email }: { email: string }) {
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-full z-40 mt-2 w-56 rounded-xl border border-foreground/10 bg-background p-2 shadow-[0_10px_24px_-10px_rgba(27,21,18,0.25)]"
+          className="absolute bottom-full right-0 z-40 mb-2 w-56 rounded-xl border border-foreground/10 bg-background p-2 shadow-[0_10px_24px_-10px_rgba(27,21,18,0.25)] sm:bottom-auto sm:top-full sm:mb-0 sm:mt-2"
         >
           <p className="truncate px-2 py-1.5 text-xs text-foreground/60">{email}</p>
           <div className="my-1 h-px bg-foreground/10" />
