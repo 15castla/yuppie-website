@@ -154,6 +154,7 @@ export function NewEventForm() {
               required
               value={fields.title}
               onChange={(event) => updateField("title", event.target.value)}
+              placeholder="e.g. Rooftop Summer Mixer"
               className={inputClasses}
             />
           </div>
@@ -182,6 +183,7 @@ export function NewEventForm() {
               type="text"
               value={fields.location}
               onChange={(event) => updateField("location", event.target.value)}
+              placeholder="e.g. Shoreditch, London"
               className={inputClasses}
             />
           </div>
@@ -228,6 +230,7 @@ export function NewEventForm() {
               required
               value={fields.capacity}
               onChange={(event) => updateField("capacity", event.target.value)}
+              placeholder="e.g. 50"
               className={inputClasses}
             />
           </div>
@@ -238,6 +241,7 @@ export function NewEventForm() {
               rows={3}
               value={fields.description}
               onChange={(event) => updateField("description", event.target.value)}
+              placeholder="e.g. Join fellow members for an evening of drinks and music."
               className={inputClasses}
             />
           </div>

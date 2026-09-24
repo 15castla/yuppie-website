@@ -83,6 +83,7 @@ export function NewAccessForm() {
               required
               value={fields.name}
               onChange={(event) => updateField("name", event.target.value)}
+              placeholder="e.g. Members' Lounge"
               className={inputClasses}
             />
           </div>
@@ -94,6 +95,7 @@ export function NewAccessForm() {
               required
               value={fields.area}
               onChange={(event) => updateField("area", event.target.value)}
+              placeholder="e.g. Mayfair"
               className={inputClasses}
             />
           </div>
@@ -128,6 +130,7 @@ export function NewAccessForm() {
               required
               value={fields.headline}
               onChange={(event) => updateField("headline", event.target.value)}
+              placeholder="e.g. Skip the queue with your membership card"
               className={inputClasses}
             />
           </div>

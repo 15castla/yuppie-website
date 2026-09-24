@@ -130,6 +130,7 @@ export function NewPerkForm() {
               required
               value={fields.name}
               onChange={(event) => updateField("name", event.target.value)}
+              placeholder="e.g. The Rooftop Bar"
               className={inputClasses}
             />
           </div>
@@ -141,6 +142,7 @@ export function NewPerkForm() {
               required
               value={fields.area}
               onChange={(event) => updateField("area", event.target.value)}
+              placeholder="e.g. Shoreditch"
               className={inputClasses}
             />
           </div>
@@ -181,6 +183,7 @@ export function NewPerkForm() {
               required
               value={fields.headline}
               onChange={(event) => updateField("headline", event.target.value)}
+              placeholder="e.g. 20% off food and drinks for members"
               className={inputClasses}
             />
           </div>
