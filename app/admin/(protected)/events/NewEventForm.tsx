@@ -193,7 +193,7 @@ export function NewEventForm() {
               required
               value={fields.start_time}
               onChange={(event) => updateField("start_time", event.target.value)}
-              className={cn(inputClasses, "min-w-0")}
+              className={cn(inputClasses, "min-w-0 max-w-full appearance-none")}
             />
           </div>
 
@@ -203,7 +203,7 @@ export function NewEventForm() {
               type="datetime-local"
               value={fields.end_time}
               onChange={(event) => updateField("end_time", event.target.value)}
-              className={cn(inputClasses, "min-w-0")}
+              className={cn(inputClasses, "min-w-0 max-w-full appearance-none")}
             />
           </div>
 

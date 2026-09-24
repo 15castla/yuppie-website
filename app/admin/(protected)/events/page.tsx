@@ -138,7 +138,7 @@ export default async function AdminEventsPage() {
                     type="datetime-local"
                     required
                     defaultValue={isoToDateTimeLocal(event.start_time, EVENT_TIME_ZONE)}
-                    className={cn(inputClasses, "min-w-0")}
+                    className={cn(inputClasses, "min-w-0 max-w-full appearance-none")}
                   />
                 </div>
 
@@ -150,7 +150,7 @@ export default async function AdminEventsPage() {
                     defaultValue={
                       event.end_time ? isoToDateTimeLocal(event.end_time, EVENT_TIME_ZONE) : ""
                     }
-                    className={cn(inputClasses, "min-w-0")}
+                    className={cn(inputClasses, "min-w-0 max-w-full appearance-none")}
                   />
                 </div>
 
