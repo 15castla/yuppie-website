@@ -22,21 +22,18 @@ export default async function AdminProtectedLayout({
           hairline shadow (rather than a border) gives it just enough
           separation from scrolled content without reintroducing a box. */}
       <header className="sticky top-0 z-30 bg-background shadow-[0_1px_0_rgba(27,21,18,0.08)]">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-3.5">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <Link href="/admin" className="shrink-0">
-              <Image
-                src="/yuppie_logo_forte_forward.png"
-                alt="Yuppie"
-                width={1942}
-                height={641}
-                priority
-                className="h-6 w-auto sm:h-7"
-              />
-            </Link>
-            <AdminNav />
-          </div>
-          <AdminUserMenu email={user.email ?? "?"} />
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-6 py-3.5">
+          <Link href="/admin" className="shrink-0">
+            <Image
+              src="/yuppie_logo_forte_forward.png"
+              alt="Yuppie"
+              width={1942}
+              height={641}
+              priority
+              className="h-6 w-auto sm:h-7"
+            />
+          </Link>
+          <AdminNav trailing={<AdminUserMenu email={user.email ?? "?"} />} />
         </div>
       </header>
 
