@@ -1,4 +1,5 @@
 import { ACCESS_KIND_LABEL, PerkPreview, inputClasses, labelClasses } from "@/app/admin/perk-shared";
+import { Select } from "@/app/admin/form-controls";
 import type { PartnerPerk } from "@/components/members/mock-perks";
 
 // Extracted from what used to be inline <li> markup in page.tsx so
@@ -36,18 +37,13 @@ export function AccessPerkRow({
         </div>
         <div className="flex flex-col gap-1.5">
           <label className={labelClasses}>Access kind</label>
-          <select
-            name="access_kind"
-            required
-            defaultValue={perk.access_kind ?? ""}
-            className={inputClasses}
-          >
+          <Select name="access_kind" required defaultValue={perk.access_kind ?? ""}>
             {Object.entries(ACCESS_KIND_LABEL).map(([kind, label]) => (
               <option key={kind} value={kind}>
                 {label}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <label className={labelClasses}>Headline</label>

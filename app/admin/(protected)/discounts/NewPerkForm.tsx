@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { createPerk } from "@/app/admin/discounts-actions";
 import { PERK_CATEGORIES, PerkPreview, inputClasses, labelClasses } from "@/app/admin/perk-shared";
+import { Select } from "@/app/admin/form-controls";
 import type { PartnerPerk } from "@/components/members/mock-perks";
 
 type FormState = {
@@ -146,11 +147,10 @@ export function NewPerkForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className={labelClasses}>Category</label>
-            <select
+            <Select
               required
               value={fields.category ?? ""}
               onChange={(event) => updateField("category", event.target.value as PartnerPerk["category"])}
-              className={inputClasses}
             >
               <option value="" disabled>
                 Choose a category
@@ -160,7 +160,7 @@ export function NewPerkForm() {
                   {category}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-1.5">

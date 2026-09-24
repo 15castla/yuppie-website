@@ -8,6 +8,7 @@ import {
   formatEventDayTime,
 } from "@/components/members/ui";
 import { cn, isoToDateTimeLocal } from "@/lib/utils";
+import { inputClasses, labelClasses, Select } from "@/app/admin/form-controls";
 import { NewEventForm } from "./NewEventForm";
 import { EventPhotoForm } from "./EventPhotoForm";
 
@@ -18,10 +19,6 @@ const CATEGORY_LABEL: Record<Event["category"], string> = {
 };
 
 const EVENT_TIME_ZONE = "Europe/London";
-
-const inputClasses =
-  "w-full rounded-lg border border-foreground/15 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
-const labelClasses = "text-xs font-semibold uppercase tracking-wider text-foreground/50";
 
 export default async function AdminEventsPage() {
   const adminClient = createAdminSupabaseClient();
@@ -115,18 +112,13 @@ export default async function AdminEventsPage() {
 
                 <div className="flex flex-col gap-1.5">
                   <label className={labelClasses}>Category</label>
-                  <select
-                    name="category"
-                    required
-                    defaultValue={event.category}
-                    className={inputClasses}
-                  >
+                  <Select name="category" required defaultValue={event.category}>
                     {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
                       <option key={value} value={value}>
                         {label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
 
                 <div className="flex flex-col gap-1.5">

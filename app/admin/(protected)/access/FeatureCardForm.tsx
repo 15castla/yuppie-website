@@ -6,9 +6,7 @@ import { useRouter } from "next/navigation";
 import { setFeatureCard } from "@/app/admin/feature-card-actions";
 import { DEFAULT_FEATURE_LABEL, type FeatureCard } from "@/components/members/feature-card-data";
 import { cn } from "@/lib/utils";
-
-const inputClasses =
-  "w-full rounded-lg border border-foreground/15 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
+import { inputClasses, Select } from "@/app/admin/form-controls";
 
 type Option = { id: string; label: string };
 
@@ -63,11 +61,7 @@ export function FeatureCardForm({
   return (
     <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <select
-          value={selected}
-          onChange={(event) => setSelected(event.target.value)}
-          className={inputClasses}
-        >
+        <Select value={selected} onChange={(event) => setSelected(event.target.value)}>
           <option value="">None (hide the card)</option>
           {events.length > 0 && (
             <optgroup label="Events">
@@ -96,7 +90,7 @@ export function FeatureCardForm({
               ))}
             </optgroup>
           )}
-        </select>
+        </Select>
         <input
           type="text"
           value={label}

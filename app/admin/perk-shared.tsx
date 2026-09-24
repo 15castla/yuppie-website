@@ -3,6 +3,10 @@ import { Zap, Building2, Sparkles, Lock, type LucideIcon } from "lucide-react";
 import type { PartnerPerk } from "@/components/members/mock-perks";
 import { CARD_CLASS } from "@/components/members/ui";
 import { cn } from "@/lib/utils";
+import { inputClasses, labelClasses } from "@/app/admin/form-controls";
+
+// Re-exported so existing imports from perk-shared keep working.
+export { inputClasses, labelClasses };
 
 // Shared between /admin/discounts and /admin/access, both of which manage rows in
 // the same partner_perks table (see supabase/migrations/
@@ -33,10 +37,6 @@ export const ACCESS_ICON: Record<NonNullable<PartnerPerk["access_kind"]>, Lucide
   first_dibs: Sparkles,
   invite_only: Lock,
 };
-
-export const inputClasses =
-  "w-full rounded-lg border border-foreground/15 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
-export const labelClasses = "text-xs font-semibold uppercase tracking-wider text-foreground/50";
 
 // Renders a perk exactly as it appears on its real member-facing page: a
 // Discount card with a logo, or an Access card with an icon (Access never

@@ -7,6 +7,7 @@ import { createEvent } from "@/app/admin/events-actions";
 import { CARD_CLASS, EventThumbnail, PricePill, formatEventDayTime } from "@/components/members/ui";
 import type { EventCategory } from "@/components/members/event-types";
 import { cn, dateTimeLocalToISO } from "@/lib/utils";
+import { inputClasses, labelClasses, Select } from "@/app/admin/form-controls";
 
 // Same zone the rest of /admin/events and components/members/ui.tsx use;
 // see the comment in app/admin/events-actions.ts.
@@ -17,10 +18,6 @@ const CATEGORY_LABEL: Record<EventCategory, string> = {
   entertainment: "Entertainment",
   personal_progression: "Personal Progression",
 };
-
-const inputClasses =
-  "w-full rounded-lg border border-foreground/15 bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-foreground/40";
-const labelClasses = "text-xs font-semibold uppercase tracking-wider text-foreground/50";
 
 type FormState = {
   title: string;
@@ -163,11 +160,10 @@ export function NewEventForm() {
 
           <div className="flex flex-col gap-1.5">
             <label className={labelClasses}>Category</label>
-            <select
+            <Select
               required
               value={fields.category}
               onChange={(event) => updateField("category", event.target.value as EventCategory)}
-              className={inputClasses}
             >
               <option value="" disabled>
                 Choose a category
@@ -177,7 +173,7 @@ export function NewEventForm() {
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="flex flex-col gap-1.5">

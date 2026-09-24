@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { createPerk } from "@/app/admin/discounts-actions";
 import { ACCESS_KIND_LABEL, PerkPreview, inputClasses, labelClasses } from "@/app/admin/perk-shared";
+import { Select } from "@/app/admin/form-controls";
 import type { PartnerPerk } from "@/components/members/mock-perks";
 
 type FormState = {
@@ -99,13 +100,12 @@ export function NewAccessForm() {
 
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label className={labelClasses}>Access kind</label>
-            <select
+            <Select
               required
               value={fields.access_kind}
               onChange={(event) =>
                 updateField("access_kind", event.target.value as NonNullable<PartnerPerk["access_kind"]>)
               }
-              className={inputClasses}
             >
               <option value="" disabled>
                 Choose a section
@@ -115,7 +115,7 @@ export function NewAccessForm() {
                   {label}
                 </option>
               ))}
-            </select>
+            </Select>
             <p className="text-[11px] text-foreground/40">
               Which section of the Access page this appears under.
             </p>
