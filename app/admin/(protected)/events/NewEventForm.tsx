@@ -147,7 +147,7 @@ export function NewEventForm() {
       <h2 className="text-base font-semibold text-foreground">Add a new event</h2>
       <div className="mt-4 flex flex-col gap-6 sm:flex-row sm:items-start">
         <form onSubmit={handleSubmit} className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
             <label className={labelClasses}>Title</label>
             <input
               type="text"
@@ -158,7 +158,7 @@ export function NewEventForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label className={labelClasses}>Category</label>
             <Select
               required
@@ -176,7 +176,7 @@ export function NewEventForm() {
             </Select>
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label className={labelClasses}>Location</label>
             <input
               type="text"
@@ -186,7 +186,7 @@ export function NewEventForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label className={labelClasses}>Start time (UK)</label>
             <input
               type="datetime-local"
@@ -197,7 +197,7 @@ export function NewEventForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label className={labelClasses}>End time (UK, optional)</label>
             <input
               type="datetime-local"
@@ -207,7 +207,7 @@ export function NewEventForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label className={labelClasses}>Price per person (£, 0 = included)</label>
             <input
               type="number"
@@ -219,7 +219,7 @@ export function NewEventForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label className={labelClasses}>Capacity</label>
             <input
               type="number"
@@ -232,7 +232,7 @@ export function NewEventForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
             <label className={labelClasses}>Description</label>
             <textarea
               rows={3}
@@ -242,7 +242,7 @@ export function NewEventForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
             <label className={labelClasses}>Photo (optional)</label>
             <div className="flex items-center gap-3">
               <input

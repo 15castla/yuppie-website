@@ -99,7 +99,7 @@ export default async function AdminEventsPage() {
               >
                 <input type="hidden" name="event_id" value={event.id} />
 
-                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
                   <label className={labelClasses}>Title</label>
                   <input
                     name="title"
@@ -110,7 +110,7 @@ export default async function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex min-w-0 flex-col gap-1.5">
                   <label className={labelClasses}>Category</label>
                   <Select name="category" required defaultValue={event.category}>
                     {Object.entries(CATEGORY_LABEL).map(([value, label]) => (
@@ -121,7 +121,7 @@ export default async function AdminEventsPage() {
                   </Select>
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex min-w-0 flex-col gap-1.5">
                   <label className={labelClasses}>Location</label>
                   <input
                     name="location"
@@ -131,7 +131,7 @@ export default async function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex min-w-0 flex-col gap-1.5">
                   <label className={labelClasses}>Start time (UK)</label>
                   <input
                     name="start_time"
@@ -142,7 +142,7 @@ export default async function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex min-w-0 flex-col gap-1.5">
                   <label className={labelClasses}>End time (UK, optional)</label>
                   <input
                     name="end_time"
@@ -154,7 +154,7 @@ export default async function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex min-w-0 flex-col gap-1.5">
                   <label className={labelClasses}>Price per person (£, 0 = included)</label>
                   <input
                     name="price_pounds"
@@ -166,7 +166,7 @@ export default async function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5">
+                <div className="flex min-w-0 flex-col gap-1.5">
                   <label className={labelClasses}>Capacity</label>
                   <input
                     name="capacity"
@@ -179,7 +179,7 @@ export default async function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
                   <label className={labelClasses}>Description</label>
                   <textarea
                     name="description"

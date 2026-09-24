@@ -76,7 +76,7 @@ export function NewAccessForm() {
       <h2 className="text-base font-semibold text-foreground">Add a new access perk</h2>
       <div className="mt-4 flex flex-col gap-6 sm:flex-row sm:items-start">
         <form onSubmit={handleSubmit} className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label className={labelClasses}>Name</label>
             <input
               type="text"
@@ -87,7 +87,7 @@ export function NewAccessForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <label className={labelClasses}>Area</label>
             <input
               type="text"
@@ -98,7 +98,7 @@ export function NewAccessForm() {
             />
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
             <label className={labelClasses}>Access kind</label>
             <Select
               required
@@ -121,7 +121,7 @@ export function NewAccessForm() {
             </p>
           </div>
 
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
             <label className={labelClasses}>Headline</label>
             <input
               type="text"

@@ -27,15 +27,15 @@ export function AccessPerkRow({
       <form action={updatePerkAction} className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
         <input type="hidden" name="id" value={perk.id} />
         <input type="hidden" name="type" value="access" />
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <label className={labelClasses}>Name</label>
           <input name="name" type="text" required defaultValue={perk.name} className={inputClasses} />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <label className={labelClasses}>Area</label>
           <input name="area" type="text" required defaultValue={perk.area} className={inputClasses} />
         </div>
-        <div className="flex flex-col gap-1.5">
+        <div className="flex min-w-0 flex-col gap-1.5">
           <label className={labelClasses}>Access kind</label>
           <Select name="access_kind" required defaultValue={perk.access_kind ?? ""}>
             {Object.entries(ACCESS_KIND_LABEL).map(([kind, label]) => (
@@ -45,7 +45,7 @@ export function AccessPerkRow({
             ))}
           </Select>
         </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
+        <div className="flex min-w-0 flex-col gap-1.5 sm:col-span-2">
           <label className={labelClasses}>Headline</label>
           <input
             name="headline"
