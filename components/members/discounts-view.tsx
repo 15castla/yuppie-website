@@ -5,6 +5,7 @@ import { motion, useReducedMotion } from "framer-motion";
 
 import type { PartnerPerk } from "@/components/members/mock-perks";
 import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS } from "@/components/members/ui";
+import { RedeemCard } from "@/components/members/RedeemCard";
 import { cn } from "@/lib/utils";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -25,6 +26,9 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
     () => perks.filter((perk) => filter === "All" || perk.category === filter),
     [perks, filter],
   );
+
+  const [selectedPerkId, setSelectedPerkId] = useState<string | null>(null);
+  const selectedPerk = perks.find((perk) => perk.id === selectedPerkId) ?? null;
 
   return (
     <main className={MEMBERS_MAIN_CLASS}>
@@ -63,7 +67,12 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
 
         <motion.div {...fade(0.3)} className="flex flex-col gap-3">
           {filtered.map((perk) => (
-            <div key={perk.id} className={cn(CARD_CLASS, "flex items-center gap-4 p-4")}>
+            <button
+              key={perk.id}
+              type="button"
+              onClick={() => setSelectedPerkId(perk.id)}
+              className={cn(CARD_CLASS, "flex w-full items-center gap-4 p-4 text-left cursor-pointer")}
+            >
               {perk.logo_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -90,10 +99,23 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
                   {perk.badge}
                 </span>
               )}
-            </div>
+            </button>
           ))}
         </motion.div>
       </div>
+
+      {selectedPerk && (
+        <RedeemCard
+          isOpen={selectedPerk !== null}
+          onClose={() => setSelectedPerkId(null)}
+          kind="discount"
+          name={selectedPerk.name}
+          headline={selectedPerk.headline}
+          category={selectedPerk.category}
+          area={selectedPerk.area}
+          badge={selectedPerk.badge}
+        />
+      )}
     </main>
   );
 }

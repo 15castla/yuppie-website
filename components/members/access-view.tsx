@@ -1,10 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Zap, Building2, Sparkles, Lock, type LucideIcon } from "lucide-react";
 
 import type { PartnerPerk } from "@/components/members/mock-perks";
 import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS } from "@/components/members/ui";
+import { RedeemCard } from "@/components/members/RedeemCard";
 import { cn } from "@/lib/utils";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
@@ -40,6 +42,12 @@ export function AccessView({
     animate: { y: 0, opacity: 1 },
     transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
   });
+
+  const [selectedPerkId, setSelectedPerkId] = useState<string | null>(null);
+  const selectedPerk = perks.find((perk) => perk.id === selectedPerkId) ?? null;
+  const selectedSection = selectedPerk
+    ? SECTIONS.find((section) => section.kind === selectedPerk.access_kind) ?? null
+    : null;
 
   return (
     <main className={MEMBERS_MAIN_CLASS}>
@@ -87,9 +95,11 @@ export function AccessView({
               </span>
               <div className="flex flex-col gap-3">
                 {sectionPerks.map((perk) => (
-                  <div
+                  <button
                     key={perk.id}
-                    className={cn(CARD_CLASS, "flex items-center gap-4 p-4")}
+                    type="button"
+                    onClick={() => setSelectedPerkId(perk.id)}
+                    className={cn(CARD_CLASS, "flex w-full items-center gap-4 p-4 text-left cursor-pointer")}
                   >
                     <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-background">
                       <section.Icon className="h-5 w-5 text-foreground" />
@@ -102,13 +112,24 @@ export function AccessView({
                         {perk.headline}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </motion.section>
           );
         })}
       </div>
+
+      {selectedPerk && (
+        <RedeemCard
+          isOpen={selectedPerk !== null}
+          onClose={() => setSelectedPerkId(null)}
+          kind="access"
+          name={selectedPerk.name}
+          headline={selectedPerk.headline}
+          sectionLabel={selectedSection?.label ?? "Access"}
+        />
+      )}
     </main>
   );
 }
