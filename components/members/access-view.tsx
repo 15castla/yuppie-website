@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { Zap, Building2, Sparkles, Lock, type LucideIcon } from "lucide-react";
 
@@ -24,17 +25,26 @@ const SECTIONS: { kind: PartnerPerk["access_kind"]; label: string; Icon: LucideI
 
 // featureCard is whichever single event, discount, or access perk is
 // currently spotlighted (set from the single dropdown on /admin/access,
-// see app/admin/feature-card-actions.ts's setFeatureCard), already
-// resolved into this normalized display shape by
-// app/members/access/page.tsx. Null when nothing is currently featured,
-// in which case the card is hidden entirely rather than showing stale or
-// placeholder copy.
+// see app/admin/feature-card-actions.ts's setFeatureCard), resolved by
+// app/members/access/page.tsx into this discriminated union rather than
+// a flat title/subtitle shape, so tapping the card can do the right
+// thing for whichever kind of content it is: open the event page, or
+// open the redemption modal for the perk. Null when nothing is
+// currently featured, in which case the card is hidden entirely rather
+// than showing stale or placeholder copy.
+export type ResolvedFeatureCard =
+  | { kind: "event"; slug: string; title: string; subtitle: string; label: string }
+  | { kind: "perk"; perk: PartnerPerk; label: string };
+
+const FEATURE_CARD_CLASSES =
+  "block w-full rounded-2xl bg-foreground p-6 text-left outline-none transition-transform duration-150 cursor-pointer hover:scale-[1.01] active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-background/60 focus-visible:ring-offset-2 focus-visible:ring-offset-foreground";
+
 export function AccessView({
   perks,
   featureCard,
 }: {
   perks: PartnerPerk[];
-  featureCard: { title: string; subtitle: string; label: string } | null;
+  featureCard: ResolvedFeatureCard | null;
 }) {
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
@@ -47,6 +57,12 @@ export function AccessView({
   const selectedPerk = perks.find((perk) => perk.id === selectedPerkId) ?? null;
   const selectedSection = selectedPerk
     ? SECTIONS.find((section) => section.kind === selectedPerk.access_kind) ?? null
+    : null;
+
+  const [featureCardOpen, setFeatureCardOpen] = useState(false);
+  const featurePerk = featureCard?.kind === "perk" ? featureCard.perk : null;
+  const featureSection = featurePerk
+    ? SECTIONS.find((section) => section.kind === featurePerk.access_kind) ?? null
     : null;
 
   return (
@@ -63,20 +79,39 @@ export function AccessView({
           </h1>
         </motion.div>
 
-        {featureCard && (
-          <motion.div
-            {...fade(0.2)}
-            className="rounded-2xl bg-foreground p-6"
-          >
-            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
-              {featureCard.label}
-            </span>
-            <p className="mt-2 text-lg font-extrabold text-background">
-              {featureCard.title}
-            </p>
-            <p className="mt-1 text-sm text-background/60">
-              {featureCard.subtitle}
-            </p>
+        {featureCard && featureCard.kind === "event" && (
+          <motion.div {...fade(0.2)}>
+            <Link href={`/members/events/${featureCard.slug}`} className={FEATURE_CARD_CLASSES}>
+              <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
+                {featureCard.label}
+              </span>
+              <p className="mt-2 text-lg font-extrabold text-background">
+                {featureCard.title}
+              </p>
+              <p className="mt-1 text-sm text-background/60">
+                {featureCard.subtitle}
+              </p>
+            </Link>
+          </motion.div>
+        )}
+
+        {featureCard && featureCard.kind === "perk" && (
+          <motion.div {...fade(0.2)}>
+            <button
+              type="button"
+              onClick={() => setFeatureCardOpen(true)}
+              className={FEATURE_CARD_CLASSES}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
+                {featureCard.label}
+              </span>
+              <p className="mt-2 text-lg font-extrabold text-background">
+                {featureCard.perk.name}
+              </p>
+              <p className="mt-1 text-sm text-background/60">
+                {featureCard.perk.headline}
+              </p>
+            </button>
           </motion.div>
         )}
 
@@ -128,6 +163,30 @@ export function AccessView({
           name={selectedPerk.name}
           headline={selectedPerk.headline}
           sectionLabel={selectedSection?.label ?? "Access"}
+        />
+      )}
+
+      {featurePerk && featurePerk.type === "discount" && (
+        <RedeemCard
+          isOpen={featureCardOpen}
+          onClose={() => setFeatureCardOpen(false)}
+          kind="discount"
+          name={featurePerk.name}
+          headline={featurePerk.headline}
+          category={featurePerk.category}
+          area={featurePerk.area}
+          badge={featurePerk.badge}
+        />
+      )}
+
+      {featurePerk && featurePerk.type === "access" && (
+        <RedeemCard
+          isOpen={featureCardOpen}
+          onClose={() => setFeatureCardOpen(false)}
+          kind="access"
+          name={featurePerk.name}
+          headline={featurePerk.headline}
+          sectionLabel={featureSection?.label ?? "Access"}
         />
       )}
     </main>
