@@ -67,9 +67,13 @@ export function HomeView({
               </em>
             </h1>
           </div>
-          <div className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-bold text-background">
+          <Link
+            href="/members/profile"
+            className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-full bg-foreground text-sm font-bold text-background outline-none transition-opacity hover:opacity-80 focus-visible:ring-2 focus-visible:ring-foreground/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            aria-label="Go to your profile"
+          >
             {initialsFor(member.full_name)}
-          </div>
+          </Link>
         </motion.div>
 
         <motion.div
