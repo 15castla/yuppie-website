@@ -14,9 +14,11 @@ import { EditPerkForm } from "./EditPerkForm";
 // in progress never spams the server with writes.
 export function DiscountsList({
   perks,
+  categories,
   deletePerkAction,
 }: {
   perks: PartnerPerk[];
+  categories: string[];
   deletePerkAction: (formData: FormData) => void;
 }) {
   const [items, setItems] = useState(perks);
@@ -37,7 +39,13 @@ export function DiscountsList({
   return (
     <Reorder.Group axis="y" values={items} onReorder={setItems} className="flex flex-col gap-6">
       {items.map((perk) => (
-        <PerkRow key={perk.id} perk={perk} deletePerkAction={deletePerkAction} onDragEnd={handleDragEnd} />
+        <PerkRow
+          key={perk.id}
+          perk={perk}
+          categories={categories}
+          deletePerkAction={deletePerkAction}
+          onDragEnd={handleDragEnd}
+        />
       ))}
     </Reorder.Group>
   );
@@ -45,10 +53,12 @@ export function DiscountsList({
 
 function PerkRow({
   perk,
+  categories,
   deletePerkAction,
   onDragEnd,
 }: {
   perk: PartnerPerk;
+  categories: string[];
   deletePerkAction: (formData: FormData) => void;
   onDragEnd: () => void;
 }) {
@@ -71,7 +81,7 @@ function PerkRow({
         <GripVertical className="h-5 w-5" />
       </button>
 
-      <EditPerkForm perk={perk} />
+      <EditPerkForm perk={perk} categories={categories} />
 
       <form action={deletePerkAction} className="shrink-0 self-start">
         <input type="hidden" name="id" value={perk.id} />

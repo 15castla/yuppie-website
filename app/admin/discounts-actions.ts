@@ -6,7 +6,6 @@ import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
 import { uploadMemberMedia } from "@/lib/media-storage";
 
-const CATEGORIES = ["Food & Drink", "Fitness", "Grooming", "Wellness"] as const;
 const TYPES = ["discount", "access"] as const;
 const ACCESS_KINDS = ["skip_queue", "members_club", "first_dibs", "invite_only"] as const;
 
@@ -22,7 +21,7 @@ function revalidatePerks() {
 
 type PerkFields = {
   name: string;
-  category: (typeof CATEGORIES)[number] | null;
+  category: string | null;
   area: string;
   type: string;
   access_kind: string | null;
@@ -57,11 +56,14 @@ function readPerkFields(formData: FormData): PerkFieldsResult {
   // Access perks purely by access_kind and never reads it (see the
   // 20260916090000 migration that dropped the column's NOT NULL for exactly
   // this reason), so it's neither collected nor validated for type: "access".
-  let category: (typeof CATEGORIES)[number] | null = null;
+  // No longer checked against a fixed allow list (see the
+  // 20260926120000 migration): admins can type a brand new category, so
+  // this just requires a non-empty value, same style as name/area/headline.
+  let category: string | null = null;
   if (type === "discount") {
-    if (typeof categoryRaw !== "string" || !CATEGORIES.includes(categoryRaw as (typeof CATEGORIES)[number]))
-      return { ok: false, error: "Please choose a valid category." };
-    category = categoryRaw as (typeof CATEGORIES)[number];
+    if (typeof categoryRaw !== "string" || !categoryRaw.trim())
+      return { ok: false, error: "Category is required." };
+    category = categoryRaw.trim();
   }
 
   const accessKind =

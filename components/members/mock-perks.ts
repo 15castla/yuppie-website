@@ -11,8 +11,12 @@ export type PartnerPerk = {
   // Null for Access-type rows: access-view.tsx groups perks by access_kind
   // only and never reads category, so it isn't collected on that admin form
   // (see supabase/migrations/20260916090000_make_perk_category_optional_for_access.sql).
-  // Always set for Discount-type rows.
-  category: "Food & Drink" | "Fitness" | "Grooming" | "Wellness" | null;
+  // Always set for Discount-type rows. Free text rather than a fixed union
+  // since admins can type a brand new category (see
+  // supabase/migrations/20260926120000_allow_custom_partner_perk_categories.sql);
+  // app/admin/perk-shared.tsx's DEFAULT_PERK_CATEGORIES is just a baseline
+  // fallback list, not the full set of allowed values.
+  category: string | null;
   area: string;
   type: "discount" | "access";
   access_kind: "skip_queue" | "members_club" | "first_dibs" | "invite_only" | null;

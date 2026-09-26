@@ -14,12 +14,12 @@ export { inputClasses, labelClasses };
 // `type` into two dedicated admin pages that mirror the two member-facing
 // pages (components/members/discounts-view.tsx / access-view.tsx).
 
-export const PERK_CATEGORIES: PartnerPerk["category"][] = [
-  "Food & Drink",
-  "Fitness",
-  "Grooming",
-  "Wellness",
-];
+// A baseline fallback list, not the full set of allowed values: admins
+// can type a brand new category from the dropdown (see
+// app/admin/(protected)/discounts/NewPerkForm.tsx / EditPerkForm.tsx and
+// supabase/migrations/20260926120000_allow_custom_partner_perk_categories.sql),
+// which then shows up alongside these for every future discount.
+export const DEFAULT_PERK_CATEGORIES = ["Food & Drink", "Fitness", "Grooming", "Wellness"];
 
 export const ACCESS_KIND_LABEL: Record<NonNullable<PartnerPerk["access_kind"]>, string> = {
   skip_queue: "Skip the queue",

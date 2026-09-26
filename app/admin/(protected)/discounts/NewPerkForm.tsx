@@ -4,14 +4,14 @@ import { useEffect, useRef, useState, useTransition, type ChangeEvent, type Form
 import { useRouter } from "next/navigation";
 
 import { createPerk } from "@/app/admin/discounts-actions";
-import { PERK_CATEGORIES, PerkPreview, inputClasses, labelClasses } from "@/app/admin/perk-shared";
+import { PerkPreview, inputClasses, labelClasses } from "@/app/admin/perk-shared";
 import { Select } from "@/app/admin/form-controls";
 import type { PartnerPerk } from "@/components/members/mock-perks";
 
 type FormState = {
   name: string;
   area: string;
-  category: PartnerPerk["category"] | "";
+  category: string;
   badge: string;
   headline: string;
 };
@@ -24,13 +24,19 @@ const EMPTY_FORM: FormState = {
   headline: "",
 };
 
+const ADD_NEW_CATEGORY_VALUE = "__add_new__";
+
+const linkClasses =
+  "text-left text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline";
+
 // Same pattern as app/admin/(protected)/events/NewEventForm.tsx: controlled
 // fields drive a live preview (the exact PerkPreview card members see on
 // /members/discounts), and the logo is submitted in the same request as
 // the rest of the perk via createPerk's optional logo field.
-export function NewPerkForm() {
+export function NewPerkForm({ categories }: { categories: string[] }) {
   const router = useRouter();
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
+  const [addingCategory, setAddingCategory] = useState(false);
   const [logo, setLogo] = useState<File | null>(null);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -46,6 +52,20 @@ export function NewPerkForm() {
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setFields((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleCategorySelectChange(value: string) {
+    if (value === ADD_NEW_CATEGORY_VALUE) {
+      setAddingCategory(true);
+      updateField("category", "");
+      return;
+    }
+    updateField("category", value);
+  }
+
+  function handleUseExistingCategories() {
+    setAddingCategory(false);
+    updateField("category", "");
   }
 
   function handleLogoChange(event: ChangeEvent<HTMLInputElement>) {
@@ -71,6 +91,7 @@ export function NewPerkForm() {
 
   function resetForm() {
     setFields(EMPTY_FORM);
+    setAddingCategory(false);
     setLogo(null);
     setLogoPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
@@ -109,7 +130,7 @@ export function NewPerkForm() {
     id: "preview",
     display_order: 0,
     name: fields.name,
-    category: (fields.category || "Food & Drink") as PartnerPerk["category"],
+    category: fields.category || "Food & Drink",
     area: fields.area,
     type: "discount",
     access_kind: null,
@@ -149,20 +170,37 @@ export function NewPerkForm() {
 
           <div className="flex min-w-0 flex-col gap-1.5">
             <label className={labelClasses}>Category</label>
-            <Select
-              required
-              value={fields.category ?? ""}
-              onChange={(event) => updateField("category", event.target.value as PartnerPerk["category"])}
-            >
-              <option value="" disabled>
-                Choose a category
-              </option>
-              {PERK_CATEGORIES.map((category) => (
-                <option key={category} value={category ?? ""}>
-                  {category}
+            {addingCategory ? (
+              <>
+                <input
+                  type="text"
+                  required
+                  value={fields.category}
+                  onChange={(event) => updateField("category", event.target.value)}
+                  placeholder="e.g. Live Music"
+                  className={inputClasses}
+                />
+                <button type="button" onClick={handleUseExistingCategories} className={linkClasses}>
+                  Choose from existing categories instead
+                </button>
+              </>
+            ) : (
+              <Select
+                required
+                value={fields.category}
+                onChange={(event) => handleCategorySelectChange(event.target.value)}
+              >
+                <option value="" disabled>
+                  Choose a category
                 </option>
-              ))}
-            </Select>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+                <option value={ADD_NEW_CATEGORY_VALUE}>+ Add new category</option>
+              </Select>
+            )}
           </div>
 
           <div className="flex min-w-0 flex-col gap-1.5">

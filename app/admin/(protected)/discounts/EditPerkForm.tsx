@@ -4,7 +4,7 @@ import { useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 import { updatePerk } from "@/app/admin/discounts-actions";
-import { PERK_CATEGORIES, PerkPreview, inputClasses, labelClasses } from "@/app/admin/perk-shared";
+import { PerkPreview, inputClasses, labelClasses } from "@/app/admin/perk-shared";
 import { Select } from "@/app/admin/form-controls";
 import type { PartnerPerk } from "@/components/members/mock-perks";
 import { PerkLogoForm } from "./PerkLogoForm";
@@ -12,10 +12,15 @@ import { PerkLogoForm } from "./PerkLogoForm";
 type FormState = {
   name: string;
   area: string;
-  category: PartnerPerk["category"] | "";
+  category: string;
   badge: string;
   headline: string;
 };
+
+const ADD_NEW_CATEGORY_VALUE = "__add_new__";
+
+const linkClasses =
+  "text-left text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline";
 
 // Same live-preview technique as NewPerkForm.tsx: controlled fields drive
 // a previewPerk object fed into PerkPreview, so the card above updates as
@@ -26,7 +31,7 @@ type FormState = {
 // this component's live local state, not just the static perk prop.
 // logo_url itself still comes straight from that prop, refreshed whenever
 // PerkLogoForm's own action succeeds and calls router.refresh().
-export function EditPerkForm({ perk }: { perk: PartnerPerk }) {
+export function EditPerkForm({ perk, categories }: { perk: PartnerPerk; categories: string[] }) {
   const router = useRouter();
   const [fields, setFields] = useState<FormState>({
     name: perk.name,
@@ -35,11 +40,26 @@ export function EditPerkForm({ perk }: { perk: PartnerPerk }) {
     badge: perk.badge ?? "",
     headline: perk.headline,
   });
+  const [addingCategory, setAddingCategory] = useState(false);
   const [isSaving, startSaving] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setFields((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function handleCategorySelectChange(value: string) {
+    if (value === ADD_NEW_CATEGORY_VALUE) {
+      setAddingCategory(true);
+      updateField("category", "");
+      return;
+    }
+    updateField("category", value);
+  }
+
+  function handleUseExistingCategories() {
+    setAddingCategory(false);
+    updateField("category", "");
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -69,7 +89,7 @@ export function EditPerkForm({ perk }: { perk: PartnerPerk }) {
     ...perk,
     name: fields.name,
     area: fields.area,
-    category: (fields.category || "Food & Drink") as PartnerPerk["category"],
+    category: fields.category || "Food & Drink",
     badge: fields.badge.trim() || null,
     headline: fields.headline,
   };
@@ -107,17 +127,34 @@ export function EditPerkForm({ perk }: { perk: PartnerPerk }) {
         </div>
         <div className="flex min-w-0 flex-col gap-1.5">
           <label className={labelClasses}>Category</label>
-          <Select
-            required
-            value={fields.category ?? ""}
-            onChange={(event) => updateField("category", event.target.value as PartnerPerk["category"])}
-          >
-            {PERK_CATEGORIES.map((category) => (
-              <option key={category} value={category ?? ""}>
-                {category}
-              </option>
-            ))}
-          </Select>
+          {addingCategory ? (
+            <>
+              <input
+                type="text"
+                required
+                value={fields.category}
+                onChange={(event) => updateField("category", event.target.value)}
+                placeholder="e.g. Live Music"
+                className={inputClasses}
+              />
+              <button type="button" onClick={handleUseExistingCategories} className={linkClasses}>
+                Choose from existing categories instead
+              </button>
+            </>
+          ) : (
+            <Select
+              required
+              value={fields.category}
+              onChange={(event) => handleCategorySelectChange(event.target.value)}
+            >
+              {categories.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+              <option value={ADD_NEW_CATEGORY_VALUE}>+ Add new category</option>
+            </Select>
+          )}
         </div>
         <div className="flex min-w-0 flex-col gap-1.5">
           <label className={labelClasses}>Badge</label>

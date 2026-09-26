@@ -1,6 +1,7 @@
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { PERK_COLUMNS, type PartnerPerk } from "@/components/members/mock-perks";
 import { deletePerk } from "@/app/admin/discounts-actions";
+import { DEFAULT_PERK_CATEGORIES } from "@/app/admin/perk-shared";
 import { NewPerkForm } from "./NewPerkForm";
 import { DiscountsList } from "./DiscountsList";
 
@@ -17,6 +18,17 @@ export default async function AdminDiscountsPage() {
     .order("id", { ascending: true });
 
   const perks = (data ?? []) as PartnerPerk[];
+
+  // Baseline categories plus whatever custom ones admins have already
+  // typed in, so a category someone added stays offered as a normal
+  // dropdown option for every future discount rather than being a
+  // one-off free text entry.
+  const categories = Array.from(
+    new Set([
+      ...DEFAULT_PERK_CATEGORIES,
+      ...perks.map((perk) => perk.category).filter((c): c is string => Boolean(c)),
+    ]),
+  ).sort((a, b) => a.localeCompare(b));
 
   // <form action> requires (formData) => void | Promise<void>, and this
   // action returns { success, error } for other callers, so it's wrapped
@@ -38,14 +50,14 @@ export default async function AdminDiscountsPage() {
         </p>
       </div>
 
-      <NewPerkForm />
+      <NewPerkForm categories={categories} />
 
       {perks.length === 0 ? (
         <p className="rounded-2xl border border-foreground/10 bg-cream p-8 text-center text-foreground/60">
           No discounts yet.
         </p>
       ) : (
-        <DiscountsList perks={perks} deletePerkAction={deletePerkAction} />
+        <DiscountsList perks={perks} categories={categories} deletePerkAction={deletePerkAction} />
       )}
     </div>
   );
