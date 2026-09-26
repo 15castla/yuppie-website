@@ -1,5 +1,5 @@
-import { SkeletonListPage } from "../skeleton";
+import AdminSpinner from "../AdminSpinner";
 
 export default function MembersLoading() {
-  return <SkeletonListPage title="Members" cardCount={6} />;
+  return <AdminSpinner />;
 }

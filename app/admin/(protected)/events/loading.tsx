@@ -1,5 +1,5 @@
-import { SkeletonListPage } from "../skeleton";
+import AdminSpinner from "../AdminSpinner";
 
 export default function EventsLoading() {
-  return <SkeletonListPage title="Events" cardCount={4} />;
+  return <AdminSpinner />;
 }
