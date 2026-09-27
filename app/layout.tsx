@@ -78,6 +78,17 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
+      <head>
+        {/* Duplicates globals.css's `html { background: var(--background) }`
+            inline so it's present on the very first painted byte, before the
+            external stylesheet has loaded. On a cold load (not a client-side
+            navigation within an already-open session), iOS Safari can sample
+            the toolbar safe-area strip's color before that stylesheet
+            arrives, landing on the browser's own default white instead of
+            the real background, and won't re-sample until the next trigger
+            (scroll, reload). Keep this in sync with --background above. */}
+        <style>{`html{background:#ffd904}`}</style>
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <SiteWatermark />
         {children}
