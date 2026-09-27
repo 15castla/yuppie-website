@@ -66,94 +66,96 @@ export function AccessView({
     : null;
 
   return (
-    <main className={MEMBERS_MAIN_CLASS}>
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <motion.div {...fade(0.1)} className="flex flex-col gap-3">
-          <span className={EYEBROW_CLASS}>MEMBERS&apos; ACCESS</span>
-          <h1 className="text-2xl font-extrabold leading-[1.1] text-foreground sm:text-3xl optical-trim">
-            The doors that
-            <br />
-            <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
-              aren&apos;t open to the public.
-            </em>
-          </h1>
-        </motion.div>
-
-        {featureCard && featureCard.kind === "event" && (
-          <motion.div {...fade(0.2)}>
-            <Link href={`/members/events/${featureCard.slug}`} className={FEATURE_CARD_CLASSES}>
-              <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
-                {featureCard.label}
-              </span>
-              <p className="mt-2 text-lg font-extrabold text-background">
-                {featureCard.title}
-              </p>
-              <p className="mt-1 text-sm text-background/60">
-                {featureCard.subtitle}
-              </p>
-            </Link>
+    <>
+      <main className={MEMBERS_MAIN_CLASS}>
+        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+          <motion.div {...fade(0.1)} className="flex flex-col gap-3">
+            <span className={EYEBROW_CLASS}>MEMBERS&apos; ACCESS</span>
+            <h1 className="text-2xl font-extrabold leading-[1.1] text-foreground sm:text-3xl optical-trim">
+              The doors that
+              <br />
+              <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
+                aren&apos;t open to the public.
+              </em>
+            </h1>
           </motion.div>
-        )}
 
-        {featureCard && featureCard.kind === "perk" && (
-          <motion.div {...fade(0.2)}>
-            <button
-              type="button"
-              onClick={() => setFeatureCardOpen(true)}
-              className={FEATURE_CARD_CLASSES}
-            >
-              <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
-                {featureCard.label}
-              </span>
-              <p className="mt-2 text-lg font-extrabold text-background">
-                {featureCard.perk.name}
-              </p>
-              <p className="mt-1 text-sm text-background/60">
-                {featureCard.perk.headline}
-              </p>
-            </button>
-          </motion.div>
-        )}
+          {featureCard && featureCard.kind === "event" && (
+            <motion.div {...fade(0.2)}>
+              <Link href={`/members/events/${featureCard.slug}`} className={FEATURE_CARD_CLASSES}>
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
+                  {featureCard.label}
+                </span>
+                <p className="mt-2 text-lg font-extrabold text-background">
+                  {featureCard.title}
+                </p>
+                <p className="mt-1 text-sm text-background/60">
+                  {featureCard.subtitle}
+                </p>
+              </Link>
+            </motion.div>
+          )}
 
-        {SECTIONS.map((section, index) => {
-          const sectionPerks = perks.filter((perk) => perk.access_kind === section.kind);
-          if (sectionPerks.length === 0) return null;
+          {featureCard && featureCard.kind === "perk" && (
+            <motion.div {...fade(0.2)}>
+              <button
+                type="button"
+                onClick={() => setFeatureCardOpen(true)}
+                className={FEATURE_CARD_CLASSES}
+              >
+                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
+                  {featureCard.label}
+                </span>
+                <p className="mt-2 text-lg font-extrabold text-background">
+                  {featureCard.perk.name}
+                </p>
+                <p className="mt-1 text-sm text-background/60">
+                  {featureCard.perk.headline}
+                </p>
+              </button>
+            </motion.div>
+          )}
 
-          return (
-            <motion.section
-              key={section.kind}
-              {...fade(0.3 + index * 0.1)}
-              className="flex flex-col gap-3"
-            >
-              <span className="text-xs font-bold uppercase tracking-wider text-foreground-muted">
-                {section.label}
-              </span>
-              <div className="flex flex-col gap-3">
-                {sectionPerks.map((perk) => (
-                  <button
-                    key={perk.id}
-                    type="button"
-                    onClick={() => setSelectedPerkId(perk.id)}
-                    className={cn(CARD_CLASS, "flex w-full items-center gap-4 p-4 text-left cursor-pointer")}
-                  >
-                    <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-background">
-                      <section.Icon className="h-5 w-5 text-foreground" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13.5px] font-bold text-foreground">
-                        {perk.name}
-                      </p>
-                      <p className="mt-1 text-xs text-foreground-muted">
-                        {perk.headline}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </motion.section>
-          );
-        })}
-      </div>
+          {SECTIONS.map((section, index) => {
+            const sectionPerks = perks.filter((perk) => perk.access_kind === section.kind);
+            if (sectionPerks.length === 0) return null;
+
+            return (
+              <motion.section
+                key={section.kind}
+                {...fade(0.3 + index * 0.1)}
+                className="flex flex-col gap-3"
+              >
+                <span className="text-xs font-bold uppercase tracking-wider text-foreground-muted">
+                  {section.label}
+                </span>
+                <div className="flex flex-col gap-3">
+                  {sectionPerks.map((perk) => (
+                    <button
+                      key={perk.id}
+                      type="button"
+                      onClick={() => setSelectedPerkId(perk.id)}
+                      className={cn(CARD_CLASS, "flex w-full items-center gap-4 p-4 text-left cursor-pointer")}
+                    >
+                      <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-background">
+                        <section.Icon className="h-5 w-5 text-foreground" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-[13.5px] font-bold text-foreground">
+                          {perk.name}
+                        </p>
+                        <p className="mt-1 text-xs text-foreground-muted">
+                          {perk.headline}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </motion.section>
+            );
+          })}
+        </div>
+      </main>
 
       {selectedPerk && (
         <RedeemCard
@@ -189,6 +191,6 @@ export function AccessView({
           sectionLabel={featureSection?.label ?? "Access"}
         />
       )}
-    </main>
+    </>
   );
 }
