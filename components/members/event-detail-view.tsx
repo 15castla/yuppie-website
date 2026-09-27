@@ -300,9 +300,15 @@ export function EventDetailView({
         />
         {/* Safari 26 tints its bottom toolbar by reading the
             background-color of a fixed/sticky element near the viewport
-            edge. A background-image gradient doesn't qualify. See the
-            matching strip/comment in members-nav.tsx's MembersBottomBar. */}
-        <div aria-hidden className="fixed inset-x-0 bottom-0 h-4 bg-background" />
+            edge. A background-image gradient doesn't qualify. Height
+            covers the real safe area (not a flat 16px) so nothing is
+            left for Safari's own, less reliable color-extension into
+            that zone to fill in. See the matching strip/comment in
+            members-nav.tsx's MembersBottomBar. */}
+        <div
+          aria-hidden
+          className="fixed inset-x-0 bottom-0 h-[max(1rem,env(safe-area-inset-bottom))] bg-background"
+        />
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

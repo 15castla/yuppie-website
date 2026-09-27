@@ -10,9 +10,13 @@ export default function EventDetailLoading() {
           supplies this same strip for every other members route. Without
           it here, Safari 26's toolbar finds no qualifying background-color
           element near the bottom edge during this loading state and falls
-          back to a plain white bar. See the matching strip/comment in
-          event-detail-view.tsx and members-nav.tsx's MembersBottomBar. */}
-      <div aria-hidden className="fixed inset-x-0 bottom-0 z-20 h-4 bg-background md:hidden" />
+          back to a plain white bar. Height matches the real safe area (not
+          a flat 16px), see the matching comment in members-nav.tsx's
+          MembersBottomBar. */}
+      <div
+        aria-hidden
+        className="fixed inset-x-0 bottom-0 z-20 h-[max(1rem,env(safe-area-inset-bottom))] bg-background md:hidden"
+      />
     </>
   );
 }

@@ -106,8 +106,20 @@ export function MembersBottomBar() {
           gradient-flat-zone test having zero effect. This strip exists
           purely so there's a real background-color for Safari to read;
           it's visually redundant since the gradient above is already
-          opaque at the very bottom. */}
-      <div aria-hidden className="fixed inset-x-0 bottom-0 h-4 bg-background" />
+          opaque at the very bottom.
+
+          Height is env(safe-area-inset-bottom) (with a 1rem floor for
+          devices with no inset), not a flat h-4: a flat 16px strip left
+          the true safe-area zone on notched/Dynamic Island iPhones
+          (commonly ~34px) mostly uncovered by anything we render
+          ourselves, leaving that remainder dependent on Safari's own
+          color-extension into that zone succeeding (see the html
+          background comment in globals.css), which only reliably happens
+          after the first successful render, not on a cold load. */}
+      <div
+        aria-hidden
+        className="fixed inset-x-0 bottom-0 h-[max(1rem,env(safe-area-inset-bottom))] bg-background"
+      />
       <nav
         className="pointer-events-auto absolute left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)]"
         aria-label="Members navigation"
