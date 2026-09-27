@@ -109,6 +109,16 @@ export function EventDetailView({
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [clientSecret]);
 
+  useEffect(() => {
+    if (!clientSecret) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [clientSecret]);
+
   function handleRsvp(formData: FormData) {
     startTransition(async () => {
       setMessage(null);
@@ -331,7 +341,7 @@ export function EventDetailView({
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.2 }}
               onClick={(event) => event.stopPropagation()}
-              className={cn(CARD_CLASS, "relative w-full max-w-sm p-6")}
+              className={cn(CARD_CLASS, "relative w-full max-w-sm max-h-[85vh] overflow-y-auto p-6")}
             >
               <button
                 type="button"
