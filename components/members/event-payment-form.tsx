@@ -149,7 +149,7 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
     <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-5">
       <PaymentElement
         options={{
-          layout: { type: "accordion", defaultCollapsed: false },
+          layout: { type: "accordion", defaultCollapsed: true },
           wallets: { applePay: "auto", googlePay: "auto" },
           fields: {
             billingDetails: {
