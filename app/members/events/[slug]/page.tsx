@@ -9,11 +9,17 @@ export default async function EventDetailPage({
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ checkout?: string }>;
+  searchParams: Promise<{ payment_intent_client_secret?: string; redirect_status?: string }>;
 }) {
   const { slug } = await params;
-  const { checkout } = await searchParams;
-  const initialCheckoutStatus = checkout === "success" || checkout === "cancelled" ? checkout : null;
+  const { payment_intent_client_secret, redirect_status } = await searchParams;
+  // Set only when Stripe has redirected the browser back here (Apple Pay,
+  // some 3D Secure checks) rather than confirming the payment in place:
+  // this reopens the payment modal with the same PaymentIntent so
+  // EventPaymentForm's own redirect-return handling can pick up where it
+  // left off. A normal first visit to this page has neither param.
+  const initialClientSecret =
+    redirect_status && payment_intent_client_secret ? payment_intent_client_secret : null;
 
   const event = await getCachedEventBySlug(slug);
 
@@ -36,7 +42,7 @@ export default async function EventDetailPage({
     <EventDetailView
       event={event}
       bookedCount={bookedCount ?? 0}
-      initialCheckoutStatus={initialCheckoutStatus}
+      initialClientSecret={initialClientSecret}
     />
   );
 }

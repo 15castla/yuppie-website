@@ -28,24 +28,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
   }
 
-  if (event.type !== "checkout.session.completed") {
+  if (event.type !== "payment_intent.succeeded") {
     return NextResponse.json({ received: true });
   }
 
-  const session = event.data.object as Stripe.Checkout.Session;
-  const memberId = session.metadata?.member_id;
-  const eventId = session.metadata?.event_id;
-  const paymentIntentId =
-    typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id;
+  const paymentIntent = event.data.object as Stripe.PaymentIntent;
+  const memberId = paymentIntent.metadata?.member_id;
+  const eventId = paymentIntent.metadata?.event_id;
+  const paymentIntentId = paymentIntent.id;
 
-  if (!memberId || !eventId || !paymentIntentId) {
-    console.error(
-      `Stripe webhook: checkout.session.completed for session ${session.id} is missing member_id, event_id, or payment_intent`,
-    );
-    // Acknowledged with 200 rather than an error status: the data this
-    // handler needs just isn't here, and it never will be on a retry
-    // either, so returning an error status would only make Stripe retry
-    // delivery of the same incomplete event pointlessly.
+  if (!memberId || !eventId) {
+    // Not every payment_intent.succeeded event is an event booking: the
+    // membership subscription flow's invoice payments fire this same
+    // event type too, they just don't carry this metadata (subscriptions
+    // are created synchronously in app/admin/applications-actions.ts, not
+    // through this webhook), so this just isn't one of ours to handle.
     return NextResponse.json({ received: true });
   }
 

@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
-import { Calendar, ChevronLeft, MapPin, Users } from "lucide-react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { Calendar, ChevronLeft, MapPin, Users, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import type { Event } from "./event-types";
@@ -15,7 +15,8 @@ import {
   formatEventFullDateTime,
   formatMonthAbbrev,
 } from "./ui";
-import { rsvpToEvent, createEventCheckoutSession } from "@/app/members/events/actions";
+import { rsvpToEvent, createEventPaymentIntent } from "@/app/members/events/actions";
+import { EventPaymentForm } from "./event-payment-form";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -72,11 +73,11 @@ function splitTitleForAccent(title: string) {
 export function EventDetailView({
   event,
   bookedCount,
-  initialCheckoutStatus,
+  initialClientSecret,
 }: {
   event: Event;
   bookedCount: number;
-  initialCheckoutStatus?: "success" | "cancelled" | null;
+  initialClientSecret?: string | null;
 }) {
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
@@ -86,10 +87,9 @@ export function EventDetailView({
   });
 
   const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(
-    initialCheckoutStatus === "cancelled" ? "Checkout cancelled, you have not been charged." : null,
-  );
-  const [booked, setBooked] = useState(initialCheckoutStatus === "success");
+  const [message, setMessage] = useState<string | null>(null);
+  const [booked, setBooked] = useState(false);
+  const [clientSecret, setClientSecret] = useState<string | null>(initialClientSecret ?? null);
 
   const spotsLeft = Math.max(event.capacity - bookedCount, 0);
   const { normal, accent } = splitTitleForAccent(event.title);
@@ -98,15 +98,21 @@ export function EventDetailView({
     "The full experience, organised and hosted by Yuppie from start to finish.";
   const isFree = !event.price_pence;
 
-  function handleAction(formData: FormData) {
+  useEffect(() => {
+    if (!clientSecret) return;
+
+    function handleKeyDown(keyEvent: KeyboardEvent) {
+      if (keyEvent.key === "Escape") setClientSecret(null);
+    }
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [clientSecret]);
+
+  function handleRsvp(formData: FormData) {
     startTransition(async () => {
       setMessage(null);
-      // createEventCheckoutSession redirects the browser to Stripe on
-      // success rather than returning, so in practice this only ever
-      // resolves (rather than navigating away) on the error path for
-      // paid events.
-      const action = isFree ? rsvpToEvent : createEventCheckoutSession;
-      const result = await action(formData);
+      const result = await rsvpToEvent(formData);
 
       if (result.success) {
         setBooked(true);
@@ -117,9 +123,28 @@ export function EventDetailView({
     });
   }
 
+  function handleOpenPayment() {
+    startTransition(async () => {
+      setMessage(null);
+      const formData = new FormData();
+      formData.set("event_id", event.id);
+      const result = await createEventPaymentIntent(formData);
+
+      if (!result.success) {
+        setMessage(result.error);
+        return;
+      }
+
+      setClientSecret(result.clientSecret);
+    });
+  }
+
   // Shared between the mobile fixed bar and the desktop static card below,
   // with the same content either way, just two different wrappers (see the
   // fixed-position restructuring note further down).
+  const bookButtonClasses =
+    "rounded-full bg-foreground px-8 py-3.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 disabled:transition-none";
+
   const rsvpBarContent = (
     <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 md:max-w-none">
       <div>
@@ -137,16 +162,23 @@ export function EventDetailView({
         )}
       </div>
 
-      <form action={handleAction}>
-        <input type="hidden" name="event_id" value={event.id} />
+      {isFree ? (
+        <form action={handleRsvp}>
+          <input type="hidden" name="event_id" value={event.id} />
+          <button type="submit" disabled={isPending || booked} className={bookButtonClasses}>
+            {booked ? "You're in" : isPending ? "Booking…" : "RSVP"}
+          </button>
+        </form>
+      ) : (
         <button
-          type="submit"
+          type="button"
+          onClick={handleOpenPayment}
           disabled={isPending || booked}
-          className="rounded-full bg-foreground px-8 py-3.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+          className={bookButtonClasses}
         >
-          {booked ? "You're in" : isPending ? "Booking…" : isFree ? "RSVP" : "Book my spot"}
+          {booked ? "You're in" : isPending ? "Starting…" : "Book my spot"}
         </button>
-      </form>
+      )}
     </div>
   );
 
@@ -282,6 +314,54 @@ export function EventDetailView({
       >
         {rsvpBarContent}
       </motion.div>
+
+      <AnimatePresence>
+        {clientSecret && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+            onClick={() => setClientSecret(null)}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.2 }}
+              onClick={(event) => event.stopPropagation()}
+              className={cn(CARD_CLASS, "relative w-full max-w-sm p-6")}
+            >
+              <button
+                type="button"
+                onClick={() => setClientSecret(null)}
+                aria-label="Close"
+                className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-foreground/50 outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-foreground/40"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              <div className="flex flex-col gap-1 pr-8">
+                <p className="text-base font-bold text-foreground">{event.title}</p>
+                <p className="text-sm text-foreground-muted">
+                  £{((event.price_pence ?? 0) / 100).toFixed(0)}pp, charged now.
+                </p>
+              </div>
+
+              <div className="mt-5">
+                <EventPaymentForm
+                  clientSecret={clientSecret}
+                  onSuccess={() => {
+                    setClientSecret(null);
+                    setBooked(true);
+                  }}
+                />
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   );
 }

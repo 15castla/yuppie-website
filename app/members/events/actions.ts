@@ -1,7 +1,5 @@
 "use server";
 
-import { headers } from "next/headers";
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
@@ -36,16 +34,21 @@ export async function rsvpToEvent(
   return { success: true };
 }
 
-// Real Stripe Checkout, replacing the old bookPaidEventStub. Reads the
-// event straight from the table (not getCachedEventBySlug) since price
-// and title need to be current at the moment of charging, not whatever
-// was cached up to 60s ago. The actual booking row only gets created by
-// the webhook (app/api/stripe/webhook/route.ts) once Stripe confirms the
-// payment succeeded, not here: this action only ever gets as far as
-// redirecting to Stripe.
-export async function createEventCheckoutSession(
+export type CreateEventPaymentIntentResult =
+  | { success: true; clientSecret: string }
+  | { success: false; error: string };
+
+// Embedded payment flow, replacing the old Stripe Checkout redirect
+// (createEventCheckoutSession). Reads the event straight from the table
+// (not getCachedEventBySlug) since price and title need to be current at
+// the moment of charging, not whatever was cached up to 60s ago. The
+// actual booking row only gets created by the webhook
+// (app/api/stripe/webhook/route.ts) once Stripe confirms the payment
+// succeeded, not here: this action only ever gets as far as handing back
+// a PaymentIntent client secret for the on-page Payment Element to use.
+export async function createEventPaymentIntent(
   formData: FormData,
-): Promise<{ success: boolean; error?: string }> {
+): Promise<CreateEventPaymentIntentResult> {
   const member = await requireMember();
   const eventId = formData.get("event_id");
 
@@ -56,7 +59,7 @@ export async function createEventCheckoutSession(
   const adminClient = createAdminSupabaseClient();
   const { data: event } = await adminClient
     .from("events")
-    .select("title, price_pence, slug")
+    .select("title, price_pence")
     .eq("id", eventId)
     .maybeSingle();
 
@@ -72,7 +75,7 @@ export async function createEventCheckoutSession(
   }
 
   if (!member.stripe_customer_id) {
-    console.error(`createEventCheckoutSession: member ${member.id} has no stripe_customer_id`);
+    console.error(`createEventPaymentIntent: member ${member.id} has no stripe_customer_id`);
     return {
       success: false,
       error: "No payment details on file for your account. Please contact us.",
@@ -92,57 +95,30 @@ export async function createEventCheckoutSession(
     return { success: false, error: "You're already booked in for this event." };
   }
 
-  let checkoutUrl: string;
-
   try {
-    // No env var or hardcoded domain for the site origin: this only ever
-    // needs to work in production, so the incoming request's own host
-    // header is the simplest source of truth for where to send Stripe
-    // back to.
-    const host = (await headers()).get("host");
-    const eventUrl = `https://${host}/members/events/${event.slug}`;
-
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: event.price_pence,
+      currency: "gbp",
       customer: member.stripe_customer_id,
-      line_items: [
-        {
-          price_data: {
-            currency: "gbp",
-            unit_amount: event.price_pence,
-            product_data: { name: event.title },
-          },
-          quantity: 1,
-        },
-      ],
+      description: event.title,
+      automatic_payment_methods: { enabled: true },
       metadata: { member_id: member.id, event_id: eventId },
-      payment_intent_data: {
-        metadata: { member_id: member.id, event_id: eventId },
-      },
-      success_url: `${eventUrl}?checkout=success`,
-      cancel_url: `${eventUrl}?checkout=cancelled`,
     });
 
-    if (!session.url) {
-      console.error(`createEventCheckoutSession: Stripe session ${session.id} has no url`);
+    if (!paymentIntent.client_secret) {
+      console.error(`createEventPaymentIntent: PaymentIntent ${paymentIntent.id} has no client_secret`);
       return {
         success: false,
-        error: "Something went wrong starting checkout. Please try again.",
+        error: "Something went wrong starting payment. Please try again.",
       };
     }
 
-    checkoutUrl = session.url;
+    return { success: true, clientSecret: paymentIntent.client_secret };
   } catch (err) {
-    console.error(`createEventCheckoutSession failed for member ${member.id}, event ${eventId}:`, err);
+    console.error(`createEventPaymentIntent failed for member ${member.id}, event ${eventId}:`, err);
     return {
       success: false,
-      error: "Something went wrong starting checkout. Please try again.",
+      error: "Something went wrong starting payment. Please try again.",
     };
   }
-
-  // Deliberately outside the try/catch above: redirect() works by
-  // throwing internally, and a catch block wrapping it would treat that
-  // as a real failure and swallow the redirect instead of letting it
-  // happen.
-  redirect(checkoutUrl);
 }
