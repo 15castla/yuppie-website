@@ -15,7 +15,7 @@ import {
   formatEventFullDateTime,
   formatMonthAbbrev,
 } from "./ui";
-import { rsvpToEvent, bookPaidEventStub } from "@/app/members/events/actions";
+import { rsvpToEvent, createEventCheckoutSession } from "@/app/members/events/actions";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -72,9 +72,11 @@ function splitTitleForAccent(title: string) {
 export function EventDetailView({
   event,
   bookedCount,
+  initialCheckoutStatus,
 }: {
   event: Event;
   bookedCount: number;
+  initialCheckoutStatus?: "success" | "cancelled" | null;
 }) {
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
@@ -84,8 +86,10 @@ export function EventDetailView({
   });
 
   const [isPending, startTransition] = useTransition();
-  const [message, setMessage] = useState<string | null>(null);
-  const [booked, setBooked] = useState(false);
+  const [message, setMessage] = useState<string | null>(
+    initialCheckoutStatus === "cancelled" ? "Checkout cancelled, you have not been charged." : null,
+  );
+  const [booked, setBooked] = useState(initialCheckoutStatus === "success");
 
   const spotsLeft = Math.max(event.capacity - bookedCount, 0);
   const { normal, accent } = splitTitleForAccent(event.title);
@@ -97,21 +101,19 @@ export function EventDetailView({
   function handleAction(formData: FormData) {
     startTransition(async () => {
       setMessage(null);
-      const action = isFree ? rsvpToEvent : bookPaidEventStub;
+      // createEventCheckoutSession redirects the browser to Stripe on
+      // success rather than returning, so in practice this only ever
+      // resolves (rather than navigating away) on the error path for
+      // paid events.
+      const action = isFree ? rsvpToEvent : createEventCheckoutSession;
       const result = await action(formData);
 
-      if ("success" in result && result.success) {
+      if (result.success) {
         setBooked(true);
         return;
       }
 
-      setMessage(
-        "error" in result && result.error
-          ? result.error
-          : "message" in result
-            ? result.message
-            : "Something went wrong. Please try again.",
-      );
+      setMessage(result.error ?? "Something went wrong. Please try again.");
     });
   }
 

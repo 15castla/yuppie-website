@@ -6,10 +6,14 @@ import { EventDetailView } from "@/components/members/event-detail-view";
 
 export default async function EventDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ checkout?: string }>;
 }) {
   const { slug } = await params;
+  const { checkout } = await searchParams;
+  const initialCheckoutStatus = checkout === "success" || checkout === "cancelled" ? checkout : null;
 
   const event = await getCachedEventBySlug(slug);
 
@@ -28,5 +32,11 @@ export default async function EventDetailPage({
     .eq("event_id", event.id)
     .eq("status", "confirmed");
 
-  return <EventDetailView event={event} bookedCount={bookedCount ?? 0} />;
+  return (
+    <EventDetailView
+      event={event}
+      bookedCount={bookedCount ?? 0}
+      initialCheckoutStatus={initialCheckoutStatus}
+    />
+  );
 }
