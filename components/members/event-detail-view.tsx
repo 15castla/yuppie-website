@@ -208,7 +208,7 @@ export function EventDetailView({
           comes from html/body's own explicit background (globals.css) and
           the min-h-dvh wrapper in app/members/layout.tsx, both unaffected
           by this element's height either way. */}
-      <main className="relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[150px] sm:px-6 md:flex-none md:pt-28 md:pb-16">
+      <main className="relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[150px] sm:px-6 md:flex-none md:pt-28 md:pb-28">
         <motion.div
           {...fade(0.1)}
           className="relative w-full overflow-hidden rounded-2xl border border-foreground/10 md:mx-auto md:max-w-3xl md:mt-6"
@@ -332,17 +332,26 @@ export function EventDetailView({
         </motion.div>
       </div>
 
-      {/* Desktop: static card below What's included, matching its width/
-          rounding/border/background, with no fixed or gradient behavior here
-          at all, this is a completely separate rendering from the mobile
-          bar above (hidden below md via the wrapper's own classes). */}
+      {/* Desktop: fixed to the bottom of the viewport, same positioning
+          strategy as the mobile bar above rather than a normal-flow
+          sibling (which is what this used to be): on a laptop-height
+          window, most events' own content doesn't reach anywhere near the
+          bottom of the viewport, so a normal-flow placement left a large
+          gap above it instead of sitting tight to the screen edge the way
+          the mobile bar does. No gradient scrim or Safari-toolbar strip
+          needed here, unlike the mobile version, since neither concern
+          applies at desktop widths. <main>'s own md:pb-* below reserves
+          enough room for this bar's height so content never ends up
+          underneath it when scrolled to the bottom of a tall page. */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.15 }}
-        className="hidden md:mx-auto md:mt-3 md:block md:max-w-3xl md:w-full md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:p-2"
+        className="hidden md:fixed md:inset-x-0 md:bottom-6 md:z-20 md:flex md:justify-center md:px-6"
       >
-        {rsvpBarContent}
+        <div className="w-full max-w-3xl rounded-2xl border border-foreground/10 bg-background-muted p-2">
+          {rsvpBarContent}
+        </div>
       </motion.div>
 
       <AnimatePresence>
