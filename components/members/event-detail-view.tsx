@@ -13,6 +13,7 @@ import {
   EventThumbnail,
   formatDayNumber,
   formatEventFullDateTime,
+  formatEventPrice,
   formatMonthAbbrev,
 } from "./ui";
 import { rsvpToEvent, createEventPaymentIntent } from "@/app/members/events/actions";
@@ -165,7 +166,7 @@ export function EventDetailView({
         ) : (
           <>
             <p className="text-lg font-extrabold text-foreground">
-              £{((event.price_pence ?? 0) / 100).toFixed(0)}pp
+              {formatEventPrice(event.price_pence ?? 0)}
             </p>
             <p className="text-xs text-foreground-muted">Charged on booking</p>
           </>
@@ -355,7 +356,7 @@ export function EventDetailView({
               <div className="flex flex-col gap-1 pr-8">
                 <p className="text-base font-bold text-foreground">{event.title}</p>
                 <p className="text-sm text-foreground-muted">
-                  £{((event.price_pence ?? 0) / 100).toFixed(0)}pp, charged now.
+                  {formatEventPrice(event.price_pence ?? 0)}, charged now.
                 </p>
               </div>
 

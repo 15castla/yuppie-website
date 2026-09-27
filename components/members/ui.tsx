@@ -51,6 +51,10 @@ export function StatusDot({
   );
 }
 
+export function formatEventPrice(pricePence: number) {
+  return `£${(pricePence / 100).toFixed(pricePence % 100 === 0 ? 0 : 2)}pp`;
+}
+
 export function PricePill({ pricePence }: { pricePence: number | null }) {
   if (!pricePence) {
     return (
@@ -62,7 +66,7 @@ export function PricePill({ pricePence }: { pricePence: number | null }) {
 
   return (
     <span className="shrink-0 rounded-full border border-foreground/20 px-3 py-1 text-xs font-bold text-foreground">
-      £{(pricePence / 100).toFixed(pricePence % 100 === 0 ? 0 : 2)}pp
+      {formatEventPrice(pricePence)}
     </span>
   );
 }
