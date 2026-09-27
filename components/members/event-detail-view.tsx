@@ -198,17 +198,17 @@ export function EventDetailView({
       {/* flex-1 (not md:flex-none) is deliberate on mobile: it doesn't
           affect the mobile fixed bottom bar's position (that's purely
           position: fixed, independent of this element's box height), but
-          it does on desktop, where the price/booking bar below is a
-          normal-flow sibling instead. Without md:flex-none there, this
-          stretched to fill the flex-1 chain from app/members/layout.tsx
-          (min-h-dvh down through <section>), pushing that bar to the
-          bottom of the viewport instead of right under the content above
-          it on any page short enough not to fill the viewport on its own.
-          The page background itself doesn't depend on this stretching: it
-          comes from html/body's own explicit background (globals.css) and
-          the min-h-dvh wrapper in app/members/layout.tsx, both unaffected
-          by this element's height either way. */}
-      <main className="relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[150px] sm:px-6 md:flex-none md:pt-28 md:pb-28">
+          it does on desktop, where the price/booking bar is a normal-flow
+          element within <main> itself (see the gap-6 column further down).
+          Without md:flex-none there, <main> stretched to fill the flex-1
+          chain from app/members/layout.tsx (min-h-dvh down through
+          <section>), pushing that bar down to wherever the stretched
+          <main> happened to end instead of right after the content above
+          it. The page background itself doesn't depend on this
+          stretching: it comes from html/body's own explicit background
+          (globals.css) and the min-h-dvh wrapper in app/members/layout.tsx,
+          both unaffected by this element's height either way. */}
+      <main className="relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[150px] sm:px-6 md:flex-none md:pt-28 md:pb-16">
         <motion.div
           {...fade(0.1)}
           className="relative w-full overflow-hidden rounded-2xl border border-foreground/10 md:mx-auto md:max-w-3xl md:mt-6"
@@ -299,6 +299,23 @@ export function EventDetailView({
           {message && (
             <p className="text-sm font-medium text-foreground/70">{message}</p>
           )}
+
+          {/* Desktop: normal-flow, part of the same gap-6 rhythm as every
+              other section above (category pill, title, details, "What's
+              included"), rather than pinned to the viewport bottom. A
+              fixed/sticky-to-viewport version was tried and reverted: it
+              read as disconnected from the content it belongs to, and left
+              leftover space on a tall screen above the bar instead of below
+              it. Hidden below md (the mobile fixed bar further down covers
+              that). */}
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.15 }}
+            className="hidden md:block md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:p-2"
+          >
+            {rsvpBarContent}
+          </motion.div>
         </div>
       </main>
 
@@ -331,28 +348,6 @@ export function EventDetailView({
           {rsvpBarContent}
         </motion.div>
       </div>
-
-      {/* Desktop: fixed to the bottom of the viewport, same positioning
-          strategy as the mobile bar above rather than a normal-flow
-          sibling (which is what this used to be): on a laptop-height
-          window, most events' own content doesn't reach anywhere near the
-          bottom of the viewport, so a normal-flow placement left a large
-          gap above it instead of sitting tight to the screen edge the way
-          the mobile bar does. No gradient scrim or Safari-toolbar strip
-          needed here, unlike the mobile version, since neither concern
-          applies at desktop widths. <main>'s own md:pb-* below reserves
-          enough room for this bar's height so content never ends up
-          underneath it when scrolled to the bottom of a tall page. */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.15 }}
-        className="hidden md:fixed md:inset-x-0 md:bottom-6 md:z-20 md:flex md:justify-center md:px-6"
-      >
-        <div className="w-full max-w-3xl rounded-2xl border border-foreground/10 bg-background-muted p-2">
-          {rsvpBarContent}
-        </div>
-      </motion.div>
 
       <AnimatePresence>
         {clientSecret && (
