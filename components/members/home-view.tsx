@@ -145,26 +145,34 @@ export function HomeView({
             </Link>
           </div>
 
-          <div className="flex flex-col gap-3">
-            {pickedEvents.map((event) => (
-              <Link
-                key={event.id}
-                href={`/members/events/${event.slug}`}
-                className={`${CARD_CLASS} flex items-center justify-between gap-4 p-4 transition-colors hover:border-foreground/25`}
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold text-foreground">
-                    {event.title}
-                  </p>
-                  <p className="truncate text-xs text-foreground-muted">
-                    {formatEventDayTime(event.start_time)}
-                    {event.location ? ` · ${event.location}` : ""}
-                  </p>
-                </div>
-                <PricePill pricePence={event.price_pence} />
-              </Link>
-            ))}
-          </div>
+          {pickedEvents.length === 0 ? (
+            <div className={`${CARD_CLASS} p-5 text-center`}>
+              <p className="text-sm text-foreground-muted">
+                No events lined up yet. Check back soon.
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-3">
+              {pickedEvents.map((event) => (
+                <Link
+                  key={event.id}
+                  href={`/members/events/${event.slug}`}
+                  className={`${CARD_CLASS} flex items-center justify-between gap-4 p-4 transition-colors hover:border-foreground/25`}
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-bold text-foreground">
+                      {event.title}
+                    </p>
+                    <p className="truncate text-xs text-foreground-muted">
+                      {formatEventDayTime(event.start_time)}
+                      {event.location ? ` · ${event.location}` : ""}
+                    </p>
+                  </div>
+                  <PricePill pricePence={event.price_pence} />
+                </Link>
+              ))}
+            </div>
+          )}
         </motion.section>
 
         <motion.div {...fade(0.5)} className="grid grid-cols-2 gap-3">
