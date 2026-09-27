@@ -4,6 +4,7 @@ import {
   rejectApplication,
 } from "@/app/admin/applications-actions";
 import { Field } from "../Field";
+import { SubmitButton } from "./SubmitButton";
 
 type Application = {
   id: string;
@@ -107,21 +108,21 @@ async function PendingReview({
           <div className="flex shrink-0 gap-3 sm:flex-col">
             <form action={approveApplication} className="flex-1">
               <input type="hidden" name="id" value={application.id} />
-              <button
-                type="submit"
+              <SubmitButton
+                pendingLabel="Approving…"
                 className="w-full rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] hover:bg-[#2A2420] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
               >
                 {application.payment_error ? "Retry payment & approve" : "Approve"}
-              </button>
+              </SubmitButton>
             </form>
             <form action={rejectApplication} className="flex-1">
               <input type="hidden" name="id" value={application.id} />
-              <button
-                type="submit"
-                className="w-full rounded-full border-2 border-foreground/30 px-6 py-2.5 text-sm font-bold text-foreground transition-colors hover:border-foreground hover:bg-foreground/5"
+              <SubmitButton
+                pendingLabel="Rejecting…"
+                className="w-full rounded-full border-2 border-foreground/30 px-6 py-2.5 text-sm font-bold text-foreground transition-colors hover:border-foreground hover:bg-foreground/5 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Reject
-              </button>
+              </SubmitButton>
             </form>
           </div>
         </li>
