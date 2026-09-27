@@ -186,7 +186,7 @@ export function EventDetailView({
           disabled={isPending || booked}
           className={bookButtonClasses}
         >
-          {booked ? "You're in" : isPending ? "Starting…" : "Book my spot"}
+          {booked ? "You're in" : isPending ? "Loading…" : "Book my spot"}
         </button>
       )}
     </div>
