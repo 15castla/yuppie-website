@@ -9,20 +9,33 @@ import { useEffect } from "react";
 // bug where it doesn't correctly recompute on a plain reload afterwards,
 // confirmed on a real device even from a fully cleared Safari cache.
 // Developers report the one thing that reliably "unsticks" it is any
-// viewport-geometry change, most commonly rotating the device. This
-// nudges the scroll position by a single pixel and back immediately
-// after mount to try to trigger that same recomputation programmatically,
-// without requiring the user to actually rotate their phone. Cheap and
-// harmless if it turns out not to help: a 1px scroll and back is not
-// visible to a user.
+// viewport-geometry change, most commonly rotating the device.
+//
+// A plain scroll nudge (tried first, see git history) didn't measurably
+// help. This instead briefly toggles the viewport meta tag's
+// viewport-fit value from cover to auto and back, which is the specific
+// setting controlling env(safe-area-inset-*) and the "obscured content
+// inset" this toolbar behavior is keyed off, forcing the browser to
+// recompute that geometry from scratch rather than nudging something
+// only incidentally related to it.
 export function useToolbarTintNudge() {
   useEffect(() => {
-    const raf1 = requestAnimationFrame(() => {
-      window.scrollTo(window.scrollX, window.scrollY + 1);
-      requestAnimationFrame(() => {
-        window.scrollTo(window.scrollX, window.scrollY - 1);
-      });
-    });
-    return () => cancelAnimationFrame(raf1);
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (!meta) return;
+
+    const original = meta.getAttribute("content");
+    if (!original || !original.includes("viewport-fit=cover")) return;
+
+    const toggled = original.replace("viewport-fit=cover", "viewport-fit=auto");
+    meta.setAttribute("content", toggled);
+
+    const timeoutId = setTimeout(() => {
+      meta.setAttribute("content", original);
+    }, 50);
+
+    return () => {
+      clearTimeout(timeoutId);
+      meta.setAttribute("content", original);
+    };
   }, []);
 }
