@@ -92,6 +92,18 @@ export function EventDetailView({
   const [booked, setBooked] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(initialClientSecret ?? null);
 
+  // See the matching comment in members-nav.tsx's MembersBottomBar: hides
+  // this bar (opacity, not display: none, so Safari's toolbar-tinting
+  // detection still samples it) until just after mount, so any
+  // repositioning while iOS Safari's own chrome settles on a cold load
+  // happens invisibly instead of visibly dragging this bottom-0 fixed
+  // bar along with it.
+  const [settled, setSettled] = useState(false);
+  useEffect(() => {
+    const id = setTimeout(() => setSettled(true), 150);
+    return () => clearTimeout(id);
+  }, []);
+
   const spotsLeft = Math.max(event.capacity - bookedCount, 0);
   const { normal, accent } = splitTitleForAccent(event.title);
   const whatsIncluded =
@@ -328,7 +340,12 @@ export function EventDetailView({
           position: fixed elements otherwise visibly lagging behind/janking
           during scroll on iOS Safari. See the matching comment in
           members-nav.tsx's MembersBottomBar. */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 [transform:translateZ(0)] will-change-transform md:hidden">
+      <div
+        className={cn(
+          "pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 [transform:translateZ(0)] will-change-transform transition-opacity duration-200 md:hidden",
+          settled ? "opacity-100" : "opacity-0",
+        )}
+      >
         {/* Every stop here has a distinct opacity, deliberately: see the
             matching comment in members-nav.tsx's MembersBottomBar for why
             a repeated-stop (flat, no-fade) zone at the bottom caused a
