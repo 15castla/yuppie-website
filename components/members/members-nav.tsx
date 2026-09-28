@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -92,30 +91,11 @@ export function MembersBottomBar() {
   const pathname = usePathname();
   const hideTabBar = isEventDetailPath(pathname);
 
-  // There's no intentional animation on this bar at all: this settled
-  // state exists purely to hide it (opacity, not display: none — Safari's
-  // toolbar-tinting detection still samples opacity: 0 elements, so this
-  // doesn't reopen the white-bar bug) until just after mount, instead of
-  // showing it while iOS Safari's own chrome is still settling on a cold
-  // load. That settling visibly drags a bottom-0 fixed element along
-  // with it (reported as the bar sliding up, stalling, then jumping into
-  // place), since fixed positioning tracks the live viewport edge by
-  // definition. Rather than fight that, this just waits it out invisibly
-  // and reveals the bar already in its correct final position.
-  const [settled, setSettled] = useState(false);
-  useEffect(() => {
-    const id = setTimeout(() => setSettled(true), 150);
-    return () => clearTimeout(id);
-  }, []);
-
   if (hideTabBar) return null;
 
   return (
     <div
-      className={cn(
-        "pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 [transform:translateZ(0)] will-change-transform transition-opacity duration-200 md:hidden",
-        settled ? "opacity-100" : "opacity-0",
-      )}
+      className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 [transform:translateZ(0)] will-change-transform md:hidden"
     >
       {/* Every stop here has a distinct opacity, deliberately: the
           previous version repeated var(--background) at both 0% and 35%,
