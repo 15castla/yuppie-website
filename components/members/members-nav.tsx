@@ -78,12 +78,18 @@ export function MembersNav() {
 // glitches/disappears momentarily during active scrolling on real iOS
 // Safari (a well-known old WebKit issue: fixed-position elements
 // composite separately from scrolled content), which sticky doesn't have
-// since it's part of normal document flow. Sticky was tried once before
-// and reverted (see git history) over a suspected dvh-geometry safe-area
-// bug, but that bug's real cause turned out to be unrelated: Safari 26
-// toolbar tinting needing a background-color on a qualifying element,
-// fixed separately below and independent of this wrapper's own
-// positioning. So sticky no longer carries that risk.
+// since it's part of normal document flow.
+//
+// No separate "Safari tinting strip" here (tried and removed, see git
+// history): Safari 26 dropped theme-color and, per Apple's own developer
+// forum, derives its browser chrome color from html/body's own
+// background-color by default, which is already set correctly
+// (globals.css, plus an inline copy in app/layout.tsx's <head> for the
+// very first paint). A fixed/sticky element's own background-color can
+// override that default in some cases, which is what the removed strip
+// was trying to leverage, but that turned out to behave worse in
+// practice (regressed from a brief self-correcting flash to a
+// permanently wrong color), not better. Trusting the default instead.
 export function MembersBottomBar() {
   const pathname = usePathname();
   const hideTabBar = isEventDetailPath(pathname);
@@ -95,30 +101,6 @@ export function MembersBottomBar() {
       <div
         aria-hidden
         className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
-      />
-      {/* Safari 26 (iOS 26) dropped theme-color entirely. It now scans
-          fixed/sticky elements within ~3px of a viewport edge, at least
-          80% wide and 3px tall, for a literal background-color CSS
-          property to tint its toolbar. The gradient above is a
-          background-image, which doesn't qualify, and this wrapper has
-          no background-color of its own, so Safari found nothing here
-          and fell back to something else, hence every theme-color and
-          gradient-flat-zone test having zero effect. This strip exists
-          purely so there's a real background-color for Safari to read;
-          it's visually redundant since the gradient above is already
-          opaque at the very bottom.
-
-          Height is env(safe-area-inset-bottom) (with a 1rem floor for
-          devices with no inset), not a flat h-4: a flat 16px strip left
-          the true safe-area zone on notched/Dynamic Island iPhones
-          (commonly ~34px) mostly uncovered by anything we render
-          ourselves, leaving that remainder dependent on Safari's own
-          color-extension into that zone succeeding (see the html
-          background comment in globals.css), which only reliably happens
-          after the first successful render, not on a cold load. */}
-      <div
-        aria-hidden
-        className="fixed inset-x-0 bottom-0 h-[max(1rem,env(safe-area-inset-bottom))] bg-background"
       />
       <nav
         className="pointer-events-auto absolute left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] flex items-center justify-around rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)]"
