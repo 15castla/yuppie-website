@@ -94,9 +94,17 @@ export function MembersBottomBar() {
 
   return (
     <div className="pointer-events-none sticky bottom-0 z-20 h-36 md:hidden">
+      {/* Every stop here has a distinct opacity, deliberately: the
+          previous version repeated var(--background) at both 0% and 35%,
+          making the bottom 35% of this 144px zone perfectly flat and
+          100% opaque with no fade happening in it at all. Content
+          scrolling from the softer upper region into that flat zone hit
+          a hard wall of full opacity instantly instead of dissolving,
+          visible as a sharp cut through whatever card happened to be
+          there. This curve fades continuously the whole way up instead. */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
+        className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,color-mix(in_oklab,var(--background)_90%,transparent)_20%,color-mix(in_oklab,var(--background)_70%,transparent)_40%,color-mix(in_oklab,var(--background)_45%,transparent)_60%,color-mix(in_oklab,var(--background)_20%,transparent)_80%,transparent_100%)]"
       />
       {/* Safari 26 (iOS 26) dropped theme-color entirely. It now scans
           fixed/sticky elements within ~3px of a viewport edge, at least

@@ -324,9 +324,13 @@ export function EventDetailView({
           as members-nav.tsx's tab bar. Two independently-fixed layers near
           the bottom is what caused a visible Safari toolbar seam. */}
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
+        {/* Every stop here has a distinct opacity, deliberately: see the
+            matching comment in members-nav.tsx's MembersBottomBar for why
+            a repeated-stop (flat, no-fade) zone at the bottom caused a
+            sharp cut through content instead of a smooth dissolve. */}
         <div
           aria-hidden
-          className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
+          className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,color-mix(in_oklab,var(--background)_90%,transparent)_20%,color-mix(in_oklab,var(--background)_70%,transparent)_40%,color-mix(in_oklab,var(--background)_45%,transparent)_60%,color-mix(in_oklab,var(--background)_20%,transparent)_80%,transparent_100%)]"
         />
         {/* Safari 26 tints its bottom toolbar by reading the
             background-color of a fixed/sticky element near the viewport
