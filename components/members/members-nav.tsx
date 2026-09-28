@@ -84,6 +84,10 @@ export function MembersNav() {
 // members page, which all went through sticky. inset-x-0 here (sticky
 // didn't need it, relying on normal block-level flow for its width) is
 // required now that this escapes to the viewport via fixed positioning.
+// [transform:translateZ(0)] + will-change-transform force this onto its
+// own GPU compositor layer, the standard fix for plain position: fixed
+// elements otherwise visibly lagging behind/janking during scroll on
+// iOS Safari (repainted per frame instead of composited).
 export function MembersBottomBar() {
   const pathname = usePathname();
   const hideTabBar = isEventDetailPath(pathname);
@@ -92,7 +96,7 @@ export function MembersBottomBar() {
   if (hideTabBar) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 [transform:translateZ(0)] will-change-transform md:hidden">
       {/* Every stop here has a distinct opacity, deliberately: the
           previous version repeated var(--background) at both 0% and 35%,
           making the bottom 35% of this 144px zone perfectly flat and

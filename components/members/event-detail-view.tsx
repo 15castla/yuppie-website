@@ -323,7 +323,12 @@ export function EventDetailView({
           element instead of two stacked ones, same rationale and pattern
           as members-nav.tsx's tab bar. Two independently-fixed layers near
           the bottom is what caused a visible Safari toolbar seam. */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
+      {/* [transform:translateZ(0)] + will-change-transform force this onto
+          its own GPU compositor layer, the standard fix for plain
+          position: fixed elements otherwise visibly lagging behind/janking
+          during scroll on iOS Safari. See the matching comment in
+          members-nav.tsx's MembersBottomBar. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 [transform:translateZ(0)] will-change-transform md:hidden">
         {/* Every stop here has a distinct opacity, deliberately: see the
             matching comment in members-nav.tsx's MembersBottomBar for why
             a repeated-stop (flat, no-fade) zone at the bottom caused a
