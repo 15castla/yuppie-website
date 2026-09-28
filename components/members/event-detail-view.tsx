@@ -319,6 +319,17 @@ export function EventDetailView({
         </div>
       </main>
 
+      {/* Safari's own tinting detection wants a genuinely top-level
+          position: fixed element with its own background-color, not one
+          nested inside another positioned ancestor (reported to confuse
+          it, see the matching comment in members-nav.tsx's
+          MembersBottomBar). Rendered as a sibling of the scrim wrapper
+          below rather than nested inside it for that reason. */}
+      <div
+        aria-hidden
+        className="fixed inset-x-0 bottom-0 z-20 h-[max(1rem,env(safe-area-inset-bottom))] bg-background md:hidden"
+      />
+
       {/* Mobile: fade scrim + fixed price/RSVP bar, as one single fixed
           element instead of two stacked ones, same rationale and pattern
           as members-nav.tsx's tab bar. Two independently-fixed layers near
@@ -327,17 +338,6 @@ export function EventDetailView({
         <div
           aria-hidden
           className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
-        />
-        {/* Safari 26 tints its bottom toolbar by reading the
-            background-color of a fixed/sticky element near the viewport
-            edge. A background-image gradient doesn't qualify. Height
-            covers the real safe area (not a flat 16px) so nothing is
-            left for Safari's own, less reliable color-extension into
-            that zone to fill in. See the matching strip/comment in
-            members-nav.tsx's MembersBottomBar. */}
-        <div
-          aria-hidden
-          className="fixed inset-x-0 bottom-0 h-[max(1rem,env(safe-area-inset-bottom))] bg-background"
         />
         <motion.div
           initial={{ opacity: 0 }}
