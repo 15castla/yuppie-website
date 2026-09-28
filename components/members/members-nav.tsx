@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { useToolbarTintNudge } from "./use-toolbar-tint-nudge";
 
 type NavItem = { label: string; href: string; Icon: LucideIcon };
 
@@ -82,6 +83,7 @@ export function MembersNav() {
 export function MembersBottomBar() {
   const pathname = usePathname();
   const hideTabBar = isEventDetailPath(pathname);
+  useToolbarTintNudge();
 
   if (hideTabBar) return null;
 
