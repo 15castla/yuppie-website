@@ -73,18 +73,17 @@ export function MembersNav() {
 }
 
 // Mobile: fade scrim + tab bar, as one element (scrim and nav merged into
-// one sticky container rather than two independently-positioned layers;
+// one fixed container rather than two independently-positioned layers;
 // two independently-fixed layers near the bottom previously caused a
-// visible Safari toolbar seam). position: sticky, not fixed: fixed
-// glitches/disappears momentarily during active scrolling on real iOS
-// Safari (a well-known old WebKit issue: fixed-position elements
-// composite separately from scrolled content), which sticky doesn't have
-// since it's part of normal document flow. Sticky was tried once before
-// and reverted (see git history) over a suspected dvh-geometry safe-area
-// bug, but that bug's real cause turned out to be unrelated: Safari 26
-// toolbar tinting needing a background-color on a qualifying element,
-// fixed separately below and independent of this wrapper's own
-// positioning. So sticky no longer carries that risk.
+// visible Safari toolbar seam). position: fixed, not sticky: this was
+// sticky for a while to avoid an old WebKit issue where fixed elements
+// briefly glitch/disappear during active scrolling, but that traded one
+// visible bug for a worse one. event-detail-view.tsx's own equivalent
+// bar was never switched away from fixed in the first place, and has
+// never shown the iOS 26 white-toolbar bug reported on every other
+// members page, which all went through sticky. inset-x-0 here (sticky
+// didn't need it, relying on normal block-level flow for its width) is
+// required now that this escapes to the viewport via fixed positioning.
 export function MembersBottomBar() {
   const pathname = usePathname();
   const hideTabBar = isEventDetailPath(pathname);
@@ -93,7 +92,7 @@ export function MembersBottomBar() {
   if (hideTabBar) return null;
 
   return (
-    <div className="pointer-events-none sticky bottom-0 z-20 h-36 md:hidden">
+    <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
       {/* Every stop here has a distinct opacity, deliberately: the
           previous version repeated var(--background) at both 0% and 35%,
           making the bottom 35% of this 144px zone perfectly flat and
