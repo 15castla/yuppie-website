@@ -322,22 +322,16 @@ export function EventDetailView({
       {/* Mobile: fade scrim + fixed price/RSVP bar, as one single fixed
           element instead of two stacked ones, same rationale and pattern
           as members-nav.tsx's tab bar. Two independently-fixed layers near
-          the bottom is what caused a visible Safari toolbar seam. */}
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 md:hidden">
+          the bottom is what caused a visible Safari toolbar seam.
+          bg-background directly on this wrapper (not a separate invisible
+          strip, see members-nav.tsx's MembersBottomBar for why) is what
+          gives Safari's toolbar-tinting a genuinely qualifying element to
+          read, near-identical visually since the gradient below is
+          already 100% opaque var(--background) for its bottom third. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-36 bg-background md:hidden">
         <div
           aria-hidden
           className="absolute inset-0 bg-[linear-gradient(to_top,var(--background)_0%,var(--background)_35%,color-mix(in_oklab,var(--background)_65%,transparent)_55%,color-mix(in_oklab,var(--background)_30%,transparent)_75%,transparent_100%)]"
-        />
-        {/* Safari 26 tints its bottom toolbar by reading the
-            background-color of a fixed/sticky element near the viewport
-            edge. A background-image gradient doesn't qualify. Height
-            covers the real safe area (not a flat 16px) so nothing is
-            left for Safari's own, less reliable color-extension into
-            that zone to fill in. See the matching strip/comment in
-            members-nav.tsx's MembersBottomBar. */}
-        <div
-          aria-hidden
-          className="fixed inset-x-0 bottom-0 h-[max(1rem,env(safe-area-inset-bottom))] bg-background"
         />
         <motion.div
           initial={{ opacity: 0 }}
