@@ -113,7 +113,7 @@ export function ProfileView({
   const fade = (delay: number) => ({
     initial: reduce ? false : { y: 20, opacity: 0 },
     animate: { y: 0, opacity: 1 },
-    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
+    transition: { duration: 0.35, delay, ease: EASE_OUT_EXPO },
   });
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
