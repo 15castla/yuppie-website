@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -88,7 +89,21 @@ export function MembersBottomBar() {
   const pathname = usePathname();
   const hideTabBar = isEventDetailPath(pathname);
 
-  if (hideTabBar) return null;
+  // Mounted only after hydration, matching the server-rendered HTML (null)
+  // exactly on first paint to avoid a hydration mismatch: this is the only
+  // sticky/fixed bottom-positioned element anywhere on the site (public
+  // pages have none), and per iOS Safari's own toolbar-tinting behavior,
+  // having one present at the very first paint on a cold load is a
+  // stronger candidate for the white-bar flash than anything about this
+  // element's own CSS, which has already been through several rounds of
+  // fixes (safe-area-sized strip, inline critical background) without
+  // resolving it. Delaying its mount to just after hydration means the
+  // first paint has no such element at all, same as every public page,
+  // at the cost of a brief (sub-100ms) flash of no bottom nav on load.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (hideTabBar || !mounted) return null;
 
   return (
     <div className="pointer-events-none sticky bottom-0 z-20 h-36 md:hidden">
