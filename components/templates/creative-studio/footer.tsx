@@ -132,12 +132,12 @@ export function Footer() {
             © 2026 Yuppie. All rights reserved.
           </p>
           <div className="flex items-center gap-5">
-            <a
-              href="#"
+            <Link
+              href="/privacy"
               className="text-xs text-foreground-muted transition-colors hover:text-foreground"
             >
               Privacy
-            </a>
+            </Link>
             <a
               href="#"
               className="text-xs text-foreground-muted transition-colors hover:text-foreground"

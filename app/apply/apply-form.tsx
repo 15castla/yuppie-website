@@ -486,6 +486,16 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           {submitting ? "Submitting…" : "Submit application"}
         </Button>
 
+        <p className="-mt-4 text-center text-xs text-foreground-muted">
+          By applying, you agree to our{" "}
+          <Link
+            href="/privacy"
+            className="font-bold text-foreground underline underline-offset-2"
+          >
+            Privacy Policy
+          </Link>
+        </p>
+
         <p className="text-center text-xs leading-relaxed text-foreground-muted">
           We ask for your Instagram, employer and LinkedIn so our
           membership committee can review your application properly. Your
