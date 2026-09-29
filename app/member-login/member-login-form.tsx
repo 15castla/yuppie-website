@@ -110,7 +110,6 @@ export function MemberLoginForm() {
     }
 
     router.push("/members");
-    router.refresh();
   }
 
   return (
