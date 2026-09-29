@@ -115,8 +115,8 @@ export default function PrivacyPage() {
               This policy explains what personal data Yuppie (&quot;we&quot;,
               &quot;us&quot;) collects through clubyuppie.com and the Yuppie
               app, why, and what rights you have over it. Yuppie is operated
-              by Club Yuppie, a sole trader registered at 1 Westmoreland
-              Mansions, Westminster, London W1G 8TN.
+              by Club Yuppie, registered at 1 Westmoreland Mansions,
+              Westminster, London W1G 8TN.
             </p>
           </div>
 
