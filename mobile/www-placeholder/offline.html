@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Yuppie</title>
+<style>
+  :root { color-scheme: light; }
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #FFD904;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #1B1512;
+  }
+  body {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 24px;
+    padding-top: calc(24px + env(safe-area-inset-top));
+    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    box-sizing: border-box;
+  }
+  img {
+    width: 96px;
+    height: 96px;
+    border-radius: 22px;
+    margin-bottom: 24px;
+  }
+  h1 {
+    font-size: 22px;
+    font-weight: 800;
+    margin: 0 0 8px;
+  }
+  p {
+    font-size: 15px;
+    color: rgba(27, 21, 18, 0.7);
+    max-width: 320px;
+    margin: 0 0 28px;
+    line-height: 1.5;
+  }
+  button {
+    appearance: none;
+    border: none;
+    background: #1B1512;
+    color: #FFD904;
+    font-size: 15px;
+    font-weight: 700;
+    padding: 14px 32px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  button:active {
+    opacity: 0.8;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+</style>
+</head>
+<body>
+  <img src="yuppie_app_icon_1024.png" alt="" />
+  <h1>You&rsquo;re offline</h1>
+  <p id="message">Check your connection and try again &mdash; Yuppie needs the internet to load.</p>
+  <button id="retry" type="button">Try again</button>
+
+<script>
+  // This page only ever loads as a native-side fallback, when the initial
+  // load of the real site (capacitor.config.ts's server.url) fails because
+  // there's no connectivity at all. See ios/App/App/AppDelegate.swift and
+  // android/app/src/main/java/.../MainActivity.java, which catch that
+  // failed load and swap the WebView to this bundled page instead of
+  // showing the WebView engine's own default error page.
+  //
+  // window.Capacitor.Plugins.<Name> is Capacitor's plugin bridge, exposed
+  // globally on every page (including this plain, non-bundled one)
+  // regardless of the ESM import style the main app uses.
+  var retryBtn = document.getElementById("retry");
+  var messageEl = document.getElementById("message");
+  var SITE_URL = "https://clubyuppie.com"; // replaced at build/sync time, see scripts/inject-server-url.cjs
+
+  function attemptReturn() {
+    retryBtn.disabled = true;
+    retryBtn.textContent = "Checking…";
+    var Network = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Network;
+    var proceed = function () {
+      window.location.href = SITE_URL;
+    };
+    if (!Network) {
+      // Network plugin unavailable for some reason: fall back to just
+      // attempting the navigation directly rather than getting stuck.
+      proceed();
+      return;
+    }
+    Network.getStatus()
+      .then(function (status) {
+        if (status && status.connected) {
+          proceed();
+        } else {
+          retryBtn.disabled = false;
+          retryBtn.textContent = "Try again";
+          messageEl.textContent = "Still no connection. Check Wi-Fi or mobile data and try again.";
+        }
+      })
+      .catch(proceed);
+  }
+
+  retryBtn.addEventListener("click", attemptReturn);
+
+  // Auto-retry the instant connectivity comes back, so a member doesn't
+  // have to notice and tap the button themselves.
+  var Network = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Network;
+  if (Network && Network.addListener) {
+    Network.addListener("networkStatusChange", function (status) {
+      if (status && status.connected) {
+        attemptReturn();
+      }
+    });
+  }
+</script>
+</body>
+</html>

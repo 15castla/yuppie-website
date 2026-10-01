@@ -1,0 +1,6 @@
+# The root repo's .gitignore only ignores /node_modules at the repo root,
+# not this nested one.
+node_modules/
+
+# Editor/OS cruft not already covered by ios/.gitignore or android/.gitignore.
+.DS_Store

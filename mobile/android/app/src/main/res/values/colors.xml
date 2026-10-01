@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Referenced by styles.xml, which the stock `cap add android`
+         template ships without ever defining these — an undefined
+         @color/colorPrimary etc. would fail the Android build. Brand
+         yellow for colorPrimary (also used as the Activity's
+         android:navigationBarColor, see styles.xml) so the launcher/task-
+         switcher chrome matches the app itself. -->
+    <color name="colorPrimary">#FFD904</color>
+    <color name="colorPrimaryDark">#FFD904</color>
+    <color name="colorAccent">#1B1512</color>
+</resources>
