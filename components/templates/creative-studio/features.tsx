@@ -75,18 +75,17 @@ export function Features() {
           </h2>
         </div>
 
-        {/* 1-up on mobile, 2-up from sm, 4-up at lg: with exactly 4 cards
-            this divides evenly at every step, so no card is ever stranded
-            alone on its own row the way a 3-card grid would be. Cards size
-            to their own copy via a min-height floor rather than a fixed
-            height, which was tuned for the removed video card's short
-            caption and would have either clipped or left dead space under
-            this much text. */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {/* 1-up on mobile, 2-up from sm all the way up: a clean 2x2 for
+            exactly 4 cards at any width sm and above, no stranded cards at
+            either step. Cards size to their own copy via a min-height
+            floor rather than a fixed height, which was tuned for the
+            removed video card's short caption and would have either
+            clipped or left dead space under this much text. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {INFO_CARDS.map((card) => (
             <FeatureCard
               key={card.title}
-              className="min-h-[280px] border border-foreground/10 bg-background-muted"
+              className="min-h-[240px] border border-foreground/10 bg-background-muted"
             >
               <div className="flex h-full flex-col gap-4 p-6 sm:p-8">
                 <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-background sm:h-12 sm:w-12">
