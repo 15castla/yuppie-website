@@ -40,7 +40,7 @@ const INFO_CARDS: InfoCard[] = [
     title: "Members' Concierge.",
     Icon: MessageCircle,
     description:
-      "And when you can't decide where to go: a chat built into the app that knows our own curated list of restaurants and bars, never the open internet. Ask what you're in the mood for and get a straight answer back, from places we'd actually send a friend to. Landing in the app.",
+      "Built by two very different worlds: years in banking with a genuine love of food and wine, and a head concierge from some of London's top hotels. Their own knowledge only, never the open internet. Food, wine, bars and dessert spots, so you never book a disappointing night again.",
   },
 ];
 
