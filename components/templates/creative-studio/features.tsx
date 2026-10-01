@@ -1,7 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Calendar, Key, Percent, type LucideIcon } from "lucide-react";
+import {
+  Calendar,
+  Key,
+  MessageCircle,
+  Percent,
+  type LucideIcon,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -29,6 +35,12 @@ const INFO_CARDS: InfoCard[] = [
     Icon: Key,
     description:
       "And the doors that aren't open to the public: skip-the-queue entry at partner venues, access to London's members' clubs, invite-only parties, and first dibs before things sell out.",
+  },
+  {
+    title: "Members' Concierge.",
+    Icon: MessageCircle,
+    description:
+      "And when you can't decide where to go: a chat built into the app that knows our own curated list of restaurants and bars, never the open internet. Ask what you're in the mood for and get a straight answer back, from places we'd actually send a friend to. Landing in the app.",
   },
 ];
 
@@ -63,14 +75,14 @@ export function Features() {
           </h2>
         </div>
 
-        {/* 1-up until md, then straight to 3-up: no intermediate 2-up step,
-            which with exactly 3 cards would always leave the third one
-            stranded alone on its own row instead of redistributing cleanly.
-            Cards size to their own (now much longer) copy via a min-height
-            floor rather than the old grid's fixed lg:h-[480px], which was
-            tuned for the removed video card's short caption and would have
-            either clipped or left a lot of dead space under this much text. */}
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        {/* 1-up on mobile, 2-up from sm, 4-up at lg: with exactly 4 cards
+            this divides evenly at every step, so no card is ever stranded
+            alone on its own row the way a 3-card grid would be. Cards size
+            to their own copy via a min-height floor rather than a fixed
+            height, which was tuned for the removed video card's short
+            caption and would have either clipped or left dead space under
+            this much text. */}
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {INFO_CARDS.map((card) => (
             <FeatureCard
               key={card.title}
