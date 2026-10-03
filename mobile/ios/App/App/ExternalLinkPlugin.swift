@@ -3,28 +3,35 @@ import WebKit
 import SafariServices
 import Capacitor
 
-// Capacitor's own built-in navigation handling (WebViewDelegationHandler,
-// in the @capacitor/ios pod) already keeps server.url's own host and
-// anything in capacitor.config.ts's server.allowNavigation (Stripe,
-// Supabase — see the comment there) inside the main WebView, and for
-// everything else it falls back to UIApplication.shared.open, which
-// switches away to the full Safari app. That default fallback is what
-// this file replaces: shouldOverrideLoad is a supported extension point
-// every registered plugin gets a chance at (see CAPPlugin.h /
-// WebViewDelegationHandler.swift's decidePolicyFor), called BEFORE
-// Capacitor's own allowNavigation/app-origin checks. Returning nil here
-// for anything in-app defers straight back to that existing, correct
-// logic instead of duplicating it — this only needs to make its own call
-// for genuinely external links, opening them in-app via
-// SFSafariViewController instead of bouncing the member out to a
-// separate app. This presents the same in-app sheet @capacitor/browser's
-// own "open" call does (its native implementation is this exact class,
-// see node_modules/@capacitor/browser/ios/.../Browser.swift) — used
-// directly here rather than importing that plugin's Swift module, since
-// there's no web JS context on the app's own pages to call
-// Browser.open() from in the first place (the WebView loads
-// clubyuppie.com directly; this plugin exists purely to react to native
-// navigation events).
+// shouldOverrideLoad is a supported extension point every registered
+// plugin gets a chance at (see CAPPlugin.h / WebViewDelegationHandler.swift's
+// decidePolicyFor), called BEFORE Capacitor's own allowNavigation/app-origin
+// checks. This plugin is authoritative (returns true or false, never nil)
+// for every top-level http(s) navigation: true opens genuinely external
+// links in-app via SFSafariViewController instead of bouncing the member
+// out to a separate app (the same in-app sheet @capacitor/browser's own
+// "open" call does — its native implementation is this exact class, see
+// node_modules/@capacitor/browser/ios/.../Browser.swift — used directly
+// here rather than importing that plugin's Swift module, since there's no
+// web JS context on the app's own pages to call Browser.open() from in the
+// first place); false allows known in-app hosts immediately.
+//
+// It deliberately does NOT return nil (defer) for in-app hosts, even
+// though that would normally fall through to Capacitor's own built-in
+// containment check in WebViewDelegationHandler.swift. That built-in check
+// is `navURL.absoluteString.starts(with: bridge.config.serverURL.absoluteString)`
+// — a *path* prefix match against the exact configured server.url, not
+// just a host match. Since server.url is
+// "https://clubyuppie.com/member-login" (a sub-path, not the bare origin
+// — see capacitor.config.ts), any in-app navigation whose path doesn't
+// literally start with "/member-login" fails that check and gets bounced
+// out via UIApplication.shared.open — both the offline-recovery retry
+// (www-placeholder/offline.html navigating back to SITE_URL) and, more
+// broadly, ordinary post-login navigation from /member-login to
+// /members/*. Deciding authoritatively here instead keeps our own
+// host-based allowlist (which correctly treats all of clubyuppie.com as
+// in-app regardless of path) in control instead of relying on that
+// path-prefix assumption.
 @objc(ExternalLinkPlugin)
 public class ExternalLinkPlugin: CAPPlugin, CAPBridgedPlugin, SFSafariViewControllerDelegate {
     public let identifier = "ExternalLinkPlugin"
@@ -52,7 +59,10 @@ public class ExternalLinkPlugin: CAPPlugin, CAPBridgedPlugin, SFSafariViewContro
         }
 
         if isInAppHost(url.host) {
-            return nil
+            // false, not nil — see the class-level comment above for why
+            // this must decide outright rather than defer to Capacitor's
+            // own (path-prefix-based) containment check.
+            return false
         }
 
         openExternally(url)
