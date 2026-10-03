@@ -12,6 +12,28 @@ const NAV_ITEMS: { label: string; href: string }[] = [
   { label: "FAQ's", href: "/faq" },
 ];
 
+function NavLinkItem({ label, href }: { label: string; href: string }) {
+  return href.startsWith("/") ? (
+    <li className="shrink-0">
+      <Link
+        href={href}
+        className="text-xs text-foreground/80 transition-colors hover:text-foreground md:text-sm"
+      >
+        {label}
+      </Link>
+    </li>
+  ) : (
+    <li className="shrink-0">
+      <a
+        href={href}
+        className="text-xs text-foreground/80 transition-colors hover:text-foreground md:text-sm"
+      >
+        {label}
+      </a>
+    </li>
+  );
+}
+
 // navigator.userAgent never changes mid-session, so there's nothing to
 // subscribe to — this only exists to give useSyncExternalStore a stable
 // no-op subscription.
@@ -20,12 +42,15 @@ function subscribeToNothing() {
 }
 
 // getServerSnapshot (and therefore the client's first render, before
-// hydration) returns true: the safe side, forcing a hard navigation,
-// since the native app's "YuppieNativeApp" UA marker (see
-// capacitor.config.ts's appendUserAgent) is only knowable once navigator
-// is available. That keeps server and client's first paint identical — no
-// hydration mismatch — with the real value taking over immediately after.
-function useForceHardNavigation(): boolean {
+// hydration) returns true: the safe side, hiding this nav, since the
+// native app's "YuppieNativeApp" UA marker (see capacitor.config.ts's
+// appendUserAgent) is only knowable once navigator is available. That
+// keeps server and client's first paint identical — no hydration
+// mismatch — and the native app's ~3s splash screen (see
+// capacitor.config.ts's SplashScreen plugin) covers the moment the real
+// value takes over right after mount, so there's no visible flash of this
+// nav in practice.
+function useIsNativeApp(): boolean {
   return useSyncExternalStore(
     subscribeToNothing,
     () => isNativeAppUserAgent(navigator.userAgent),
@@ -33,54 +58,19 @@ function useForceHardNavigation(): boolean {
   );
 }
 
-function NavLinkItem({
-  label,
-  href,
-  forceHardNavigation,
-}: {
-  label: string;
-  href: string;
-  forceHardNavigation: boolean;
-}) {
-  const className =
-    "text-xs text-foreground/80 transition-colors hover:text-foreground md:text-sm";
-
-  // A plain <a>, not <Link>, either because href is already external or
-  // because forceHardNavigation says we're in the native app: see the
-  // comment on useForceHardNavigation above for why a native tap needs a
-  // full reload here instead of Next's client-side transition.
-  if (!href.startsWith("/") || forceHardNavigation) {
-    return (
-      <li className="shrink-0">
-        <a href={href} className={className}>
-          {label}
-        </a>
-      </li>
-    );
-  }
-
-  return (
-    <li className="shrink-0">
-      <Link href={href} className={className}>
-        {label}
-      </Link>
-    </li>
-  );
-}
-
 export function SiteNav() {
-  // These links point at the public marketing/signup site and the member
-  // login entry point. In the native app, proxy.ts's
-  // NATIVE_APP_REDIRECT_PATHS check (which keeps the native shell
-  // members-only) only ever sees an actual network request — a <Link>
-  // tap that the client router resolves without one bypasses it
-  // entirely, which is exactly how a logged-in member could reach the
-  // public homepage or signup form from inside the app. Rendering these
-  // as plain <a> tags instead, only inside the native app, forces every
-  // tap into a full document navigation, so that existing redirect
-  // applies exactly as it does on a cold launch. Ordinary web visitors
-  // are unaffected and keep the normal client-side transitions.
-  const forceHardNavigation = useForceHardNavigation();
+  // The native app is members-only end to end (see proxy.ts's
+  // NATIVE_APP_REDIRECT_PATHS and mobile/capacitor.config.ts's
+  // server.url, which points straight at /member-login) — it should
+  // never expose a path to the public marketing/signup site, on any
+  // screen, including pre-login. These links lead only to that public
+  // site, so the fix is to not render this nav at all inside the native
+  // app, rather than trying to make its individual links behave
+  // correctly there.
+  const isNativeApp = useIsNativeApp();
+  if (isNativeApp) {
+    return null;
+  }
 
   return (
     <nav className="absolute left-1/2 top-2 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-b-2xl bg-background md:top-4 md:max-w-none md:rounded-b-3xl">
@@ -89,11 +79,7 @@ export function SiteNav() {
         style={{ scrollbarWidth: "none" }}
       >
         {NAV_ITEMS.map((item) => (
-          <NavLinkItem
-            key={item.label}
-            {...item}
-            forceHardNavigation={forceHardNavigation}
-          />
+          <NavLinkItem key={item.label} {...item} />
         ))}
       </ul>
     </nav>
