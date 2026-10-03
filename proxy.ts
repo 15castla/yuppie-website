@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { updateSession } from "@/lib/supabase/middleware";
+import { isNativeAppUserAgent } from "@/lib/native-app";
 
 const NATIVE_APP_REDIRECT_PATHS = new Set([
   "/",
@@ -12,7 +13,7 @@ const NATIVE_APP_REDIRECT_PATHS = new Set([
 export async function proxy(request: NextRequest) {
   const userAgent = request.headers.get("user-agent") ?? "";
   if (
-    userAgent.includes("YuppieNativeApp") &&
+    isNativeAppUserAgent(userAgent) &&
     NATIVE_APP_REDIRECT_PATHS.has(request.nextUrl.pathname)
   ) {
     return NextResponse.redirect(new URL("/member-login", request.url));
