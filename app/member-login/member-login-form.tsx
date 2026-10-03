@@ -12,8 +12,6 @@ import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
-import { SiteNav } from "@/components/templates/creative-studio/site-nav";
-
 const inputClasses =
   "w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
 
@@ -124,8 +122,6 @@ export function MemberLoginForm() {
       }}
     >
       <section className="relative flex flex-1 flex-col">
-        <SiteNav />
-
         <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-28 pb-20 sm:px-6 sm:pt-32 sm:pb-28 md:pb-32">
           <motion.span
             {...fade(0.15)}

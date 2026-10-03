@@ -5,8 +5,6 @@ import { motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 
-import { SiteNav } from "./site-nav";
-
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export function Hero({
@@ -26,8 +24,6 @@ export function Hero({
 
   return (
     <section className="relative h-dvh w-full bg-background p-4 md:p-6">
-      <SiteNav />
-
       <div className="relative flex h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl bg-background md:h-[calc(100dvh-3rem)] md:rounded-[2rem]">
         {videoSrc ? (
           <video

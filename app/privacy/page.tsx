@@ -3,8 +3,6 @@ import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
-import { SiteNav } from "@/components/templates/creative-studio/site-nav";
-
 type PolicySection = { heading: string; paragraphs: string[] };
 
 const POLICY_SECTIONS: PolicySection[] = [
@@ -95,8 +93,6 @@ export default function PrivacyPage() {
       }}
     >
       <section className="relative flex flex-1 flex-col overflow-hidden">
-        <SiteNav />
-
         <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-28 pb-20 sm:px-6 sm:pt-32 sm:pb-28 md:pb-32">
           <div className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
             <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim">

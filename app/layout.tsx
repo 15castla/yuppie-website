@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteWatermark } from "@/components/SiteWatermark";
+import { SiteNav } from "@/components/templates/creative-studio/site-nav";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -89,8 +90,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             (scroll, reload). Keep this in sync with --background above. */}
         <style>{`html{background:#ffd904}`}</style>
       </head>
-      <body className="min-h-full flex flex-col bg-background text-foreground">
+      <body className="relative min-h-full flex flex-col bg-background text-foreground">
         <SiteWatermark />
+        {/* Rendered here, outside app/template.tsx's animated wrapper, so
+            the nav doesn't remount and replay the page-entrance fade/slide
+            on every client-side navigation (it used to live inside each
+            page's own markup, which that wrapper re-mounts on every route
+            change). */}
+        <SiteNav />
         {children}
       </body>
     </html>

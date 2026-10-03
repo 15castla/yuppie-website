@@ -9,7 +9,6 @@ import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
-import { SiteNav } from "@/components/templates/creative-studio/site-nav";
 import { WordsPullUpMultiStyle } from "@/components/templates/creative-studio/primitives";
 
 // Same curve/pattern as Hero's entrance animation
@@ -124,8 +123,6 @@ export default function FaqPage() {
       }}
     >
       <section className="relative flex flex-1 flex-col overflow-hidden">
-        <SiteNav />
-
         <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-28 pb-20 sm:px-6 sm:pt-32 sm:pb-28 md:pb-32">
           <div className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
             <motion.span

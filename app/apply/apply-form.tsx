@@ -21,7 +21,6 @@ import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
-import { SiteNav } from "@/components/templates/creative-studio/site-nav";
 import { STRIPE_APPEARANCE, getStripeErrorMessage } from "@/lib/stripe-ui";
 import { submitApplication } from "./actions";
 
@@ -543,8 +542,6 @@ export default function ApplyForm({
       }}
     >
       <section className="relative flex flex-1 flex-col overflow-hidden">
-        <SiteNav />
-
         {submitted ? (
           <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-24 text-center sm:px-6">
             <motion.span {...fade(0.15)} className={eyebrow}>
