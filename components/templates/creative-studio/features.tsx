@@ -34,7 +34,7 @@ const INFO_CARDS: InfoCard[] = [
     title: "Access.",
     Icon: Key,
     description:
-      "The doors that aren't open to the public. Skip-the-queue entry at partner venues, access to London's members' clubs, invite-only parties, and first dibs before things sell out.",
+      "The doors that aren't open to the public. Access to London's members' clubs, skip-the-queue entry at partner venues, invite-only parties, and first dibs before things sell out.",
   },
   {
     title: "Concierge.",
