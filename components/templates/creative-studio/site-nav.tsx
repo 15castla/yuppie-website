@@ -33,7 +33,7 @@ function NavLinkItem({ label, href }: { label: string; href: string }) {
 
 export function SiteNav() {
   return (
-    <nav className="absolute left-1/2 top-0 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-b-2xl bg-background md:max-w-none md:rounded-b-3xl">
+    <nav className="absolute left-1/2 top-4 z-20 flex max-w-[calc(100%-1.5rem)] -translate-x-1/2 rounded-b-2xl bg-background md:top-6 md:max-w-none md:rounded-b-3xl">
       <ul
         className="flex items-center gap-5 overflow-x-auto whitespace-nowrap px-5 py-2.5 sm:gap-7 md:gap-9 md:px-9 lg:gap-11 [&::-webkit-scrollbar]:hidden"
         style={{ scrollbarWidth: "none" }}
