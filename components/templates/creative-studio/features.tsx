@@ -40,7 +40,7 @@ const INFO_CARDS: InfoCard[] = [
     title: "Concierge.",
     Icon: MessageCircle,
     description:
-      "We asked one of London's top hotel concierges for his black book, the real one, not a star rating. Then built an AI that only knows what's in it, nothing from the open internet. Food, wine, bars and dessert spots, so you never book a disappointing night again.",
+      "We asked one of London's top hotel concierges for his black book, the real one, not a star rating. Then built an AI Agent that only knows what's in it, nothing from the open internet, and gets to know you the more you use it. Food, wine, bars and dessert spots, so you never book a disappointing night again.",
   },
 ];
 
