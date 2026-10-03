@@ -12,14 +12,20 @@ const config: CapacitorConfig = {
   // server.url below points the WebView at a live server instead of
   // bundling a local web build, so nothing is ever read from this dir.
   webDir: "www-placeholder",
+  // Marks every request the native app's WebView makes so proxy.ts can tell
+  // native traffic apart from ordinary browser visitors and redirect it to
+  // the members area (see the User-Agent check in proxy.ts at the repo
+  // root).
+  appendUserAgent: "YuppieNativeApp",
   server: {
-    // Defaults to production so a plain `npx cap sync && npx cap open ios`
-    // with no env var sends builds to clubyuppie.com. Override with
+    // Defaults to the members area so a plain `npx cap sync && npx cap
+    // open ios` with no env var sends builds straight to the native app's
+    // members-only entry point on clubyuppie.com. Override with
     // CAPACITOR_SERVER_URL to point at localhost (e.g.
     // "http://192.168.1.x:3000", a real LAN IP, since the iOS
     // simulator/device can't reach "localhost" meaning *this* machine) or
     // a Vercel preview URL during development.
-    url: process.env.CAPACITOR_SERVER_URL || "https://clubyuppie.com",
+    url: process.env.CAPACITOR_SERVER_URL || "https://clubyuppie.com/member-login",
     androidScheme: "https",
     // Hosts beyond the primary server.url above that should still load
     // inside the main WebView rather than being treated as "external" (see
