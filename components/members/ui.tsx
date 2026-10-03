@@ -17,7 +17,7 @@ export const CARD_CLASS = "rounded-2xl border border-foreground/10 bg-background
 // flow, so content needs its own clearance to avoid ending up hidden
 // behind it.
 export const MEMBERS_MAIN_CLASS =
-  "relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[150px] sm:px-6 md:pt-28 md:pb-20";
+  "relative z-10 flex flex-1 flex-col px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-[150px] sm:px-6 md:pt-28 md:pb-20";
 
 const STATUS_DOT_COLOR: Record<string, string> = {
   active: "#2F6B3A",
