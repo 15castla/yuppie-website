@@ -28,13 +28,13 @@ const INFO_CARDS: InfoCard[] = [
     title: "Discounts.",
     Icon: Percent,
     description:
-      "On top of the events, real discounts with partners across the city: restaurants and bars, barbers, gyms, sports clubs and more, all offering our members savings you won't get walking in off the street.",
+      "On top of the events, real discounts with partners across the city. Restaurants and bars, barbers, gyms, sports clubs and more, all offering our members savings you won't get walking in off the street.",
   },
   {
     title: "Access.",
     Icon: Key,
     description:
-      "And the doors that aren't open to the public: skip-the-queue entry at partner venues, access to London's members' clubs, invite-only parties, and first dibs before things sell out.",
+      "And the doors that aren't open to the public. Skip-the-queue entry at partner venues, access to London's members' clubs, invite-only parties, and first dibs before things sell out.",
   },
   {
     title: "Concierge.",
