@@ -19,25 +19,25 @@ type InfoCard = {
 
 const INFO_CARDS: InfoCard[] = [
   {
-    title: "Members' Events.",
+    title: "Events.",
     Icon: Calendar,
     description:
       "Dinners, wellness sessions, sport and new experiences, put on regularly across London with members who turned up for the same reason as you. Think supper clubs, Padel & Pints, wellness retreats and nights out you won't find anywhere else.",
   },
   {
-    title: "Members' Discounts.",
+    title: "Discounts.",
     Icon: Percent,
     description:
       "On top of the events, real discounts with partners across the city: restaurants and bars, barbers, gyms, sports clubs and more, all offering our members savings you won't get walking in off the street.",
   },
   {
-    title: "Members' Access.",
+    title: "Access.",
     Icon: Key,
     description:
       "And the doors that aren't open to the public: skip-the-queue entry at partner venues, access to London's members' clubs, invite-only parties, and first dibs before things sell out.",
   },
   {
-    title: "Members' Concierge.",
+    title: "Concierge.",
     Icon: MessageCircle,
     description:
       "We asked one of London's top hotel concierges for his black book, the real one, not a star rating. Then built an AI that only knows what's in it, nothing from the open internet. Food, wine, bars and dessert spots, so you never book a disappointing night again.",
