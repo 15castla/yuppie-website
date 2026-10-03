@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import {
@@ -7,17 +7,26 @@ import {
 } from "@/components/templates/creative-studio/fonts";
 import { MembersNav, MembersBottomBar } from "@/components/members/members-nav";
 import { requireMember } from "./require-member";
+import MembersLoading from "./loading";
 
-export default async function MembersLayout({
+// Isolated in its own Suspense boundary, rather than awaited directly in
+// MembersLayout below, so the shell around it (MembersNav,
+// MembersBottomBar, and on iOS Safari the bottom safe-area tinting strip
+// that lives inside MembersBottomBar) can paint immediately on a cold
+// load instead of blocking on this auth check first. Auth gate only:
+// each page re-fetches the member row it needs via its own
+// requireMember() call, same style as app/admin/(protected)/layout.tsx
+// does with requireAdmin(), so this isn't the only enforcement.
+async function AuthGate({ children }: { children: ReactNode }) {
+  await requireMember();
+  return children;
+}
+
+export default function MembersLayout({
   children,
 }: {
   children: ReactNode;
 }) {
-  // Auth gate only: each page re-fetches the member row it needs via
-  // requireMember(), same style as app/admin/(protected)/layout.tsx does
-  // with requireAdmin().
-  await requireMember();
-
   return (
     <div
       className={cn(
@@ -31,7 +40,9 @@ export default async function MembersLayout({
     >
       <section className="relative flex flex-1 flex-col">
         <MembersNav />
-        {children}
+        <Suspense fallback={<MembersLoading />}>
+          <AuthGate>{children}</AuthGate>
+        </Suspense>
         <MembersBottomBar />
       </section>
     </div>
