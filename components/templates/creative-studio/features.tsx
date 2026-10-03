@@ -28,7 +28,7 @@ const INFO_CARDS: InfoCard[] = [
     title: "Discounts.",
     Icon: Percent,
     description:
-      "On top of the events, real discounts with partners across the city. Restaurants and bars, barbers, gyms, sports clubs and more, all offering our members savings you won't get walking in off the street.",
+      "Real discounts with partners across the city. Restaurants, bars, barbers, gyms, sports clubs and more all offer our members savings you won't get walking in off the street.",
   },
   {
     title: "Access.",
