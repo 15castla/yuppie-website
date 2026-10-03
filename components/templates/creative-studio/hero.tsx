@@ -26,6 +26,8 @@ export function Hero({
 
   return (
     <section className="relative h-dvh w-full bg-background p-4 md:p-6">
+      <SiteNav />
+
       <div className="relative flex h-[calc(100dvh-2rem)] w-full flex-col overflow-hidden rounded-2xl bg-background md:h-[calc(100dvh-3rem)] md:rounded-[2rem]">
         {videoSrc ? (
           <video
@@ -38,8 +40,6 @@ export function Hero({
             playsInline
           />
         ) : null}
-
-        <SiteNav />
 
         <div className="relative z-10 mt-auto p-4 sm:p-6 md:p-8 lg:p-10">
           <div className="grid grid-cols-12 items-end gap-6 md:gap-8">
