@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSyncExternalStore } from "react";
 
-import { isNativeAppUserAgent } from "@/lib/native-app";
+import { isNativeAppCookie } from "@/lib/native-app";
 
 const NAV_ITEMS: { label: string; href: string }[] = [
   { label: "Home", href: "/" },
@@ -34,26 +34,27 @@ function NavLinkItem({ label, href }: { label: string; href: string }) {
   );
 }
 
-// navigator.userAgent never changes mid-session, so there's nothing to
-// subscribe to — this only exists to give useSyncExternalStore a stable
-// no-op subscription.
+// The is-native-app cookie never changes mid-session, so there's nothing
+// to subscribe to — this only exists to give useSyncExternalStore a
+// stable no-op subscription.
 function subscribeToNothing() {
   return () => {};
 }
 
 // getServerSnapshot (and therefore the client's first render, before
-// hydration) returns true: the safe side, hiding this nav, since the
-// native app's "YuppieNativeApp" UA marker (see capacitor.config.ts's
-// appendUserAgent) is only knowable once navigator is available. That
-// keeps server and client's first paint identical — no hydration
-// mismatch — and the native app's ~3s splash screen (see
-// capacitor.config.ts's SplashScreen plugin) covers the moment the real
-// value takes over right after mount, so there's no visible flash of this
-// nav in practice.
+// hydration) returns true: the safe side, hiding this nav, since
+// document.cookie isn't available during SSR. That keeps server and
+// client's first paint identical — no hydration mismatch. The real value
+// — read from the is-native-app cookie proxy.ts sets on every request,
+// not from navigator.userAgent — arrives with the same HTTP response as
+// the document itself, so unlike an earlier version of this check, there
+// is no WKWebView-configuration timing left to race: see
+// lib/native-app.ts for why navigator.userAgent alone wasn't reliable on
+// a cold launch's very first page.
 function useIsNativeApp(): boolean {
   return useSyncExternalStore(
     subscribeToNothing,
-    () => isNativeAppUserAgent(navigator.userAgent),
+    () => isNativeAppCookie(document.cookie),
     () => true,
   );
 }
