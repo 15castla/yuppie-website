@@ -40,7 +40,7 @@ public class ExternalLinkPlugin: CAPPlugin, CAPBridgedPlugin, SFSafariViewContro
 
     private var safariViewController: SFSafariViewController?
 
-    @objc func shouldOverrideLoad(_ navigationAction: WKNavigationAction) -> NSNumber? {
+    @objc override public func shouldOverrideLoad(_ navigationAction: WKNavigationAction) -> NSNumber? {
         guard let url = navigationAction.request.url,
               let scheme = url.scheme?.lowercased(),
               scheme == "http" || scheme == "https" else {
