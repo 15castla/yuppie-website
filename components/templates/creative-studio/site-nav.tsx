@@ -1,9 +1,38 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useSyncExternalStore } from "react";
 
 import { isNativeAppCookie } from "@/lib/native-app";
+
+// Routes with their own top-level nav/chrome (or that should render with
+// no top chrome at all), which this public marketing nav would otherwise
+// render on top of. Prefix-matched so nested routes (e.g. /members/profile,
+// /admin/applications) are covered without listing each one — route groups
+// like app/admin/(protected) don't appear in the URL, so a plain prefix
+// check already reaches everything under them.
+const NAV_EXCLUDED_PREFIXES = [
+  // Has its own MembersNav/MembersBottomBar (app/members/layout.tsx) —
+  // this nav rendering on top of it is exactly the collision reported
+  // against the "Hey, {firstName}." header.
+  "/members",
+  // Per spec, renders with no top menu bar at all — also the native
+  // app's own server.url entry point (mobile/capacitor.config.ts), so it
+  // needs to look chrome-free on the web too, not just in-app.
+  "/member-login",
+  // Internal staff area (login, password reset, and the authenticated
+  // (protected) group) with its own sticky AdminNav header
+  // (app/admin/(protected)/layout.tsx) — never part of the public
+  // marketing/signup surface this nav links to.
+  "/admin",
+];
+
+function isNavExcludedRoute(pathname: string): boolean {
+  return NAV_EXCLUDED_PREFIXES.some(
+    (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
+  );
+}
 
 const NAV_ITEMS: { label: string; href: string }[] = [
   { label: "Home", href: "/" },
@@ -69,7 +98,8 @@ export function SiteNav() {
   // app, rather than trying to make its individual links behave
   // correctly there.
   const isNativeApp = useIsNativeApp();
-  if (isNativeApp) {
+  const pathname = usePathname();
+  if (isNativeApp || isNavExcludedRoute(pathname)) {
     return null;
   }
 
