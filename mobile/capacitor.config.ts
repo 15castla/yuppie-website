@@ -70,10 +70,18 @@ const config: CapacitorConfig = {
       launchAutoHide: true,
       launchFadeOutDuration: 300,
       backgroundColor: "#FFD904",
-      showSpinner: true,
-      spinnerColor: "#1A1A1A",
-      iosSpinnerStyle: "large",
-      androidSpinnerStyle: "large",
+      // The generic system spinner this would otherwise show (a plain
+      // UIActivityIndicatorView on iOS, a ProgressBar on Android's legacy
+      // splash fallback) is replaced by a bespoke comet-ring animation
+      // instead — see ios/App/App/CometSpinnerView.swift (wired up in
+      // SceneDelegate.swift, since a launch screen storyboard can't host
+      // a custom-class view) and, on Android,
+      // android/.../java/com/clubyuppie/app/CometRingView.java (shown via
+      // a separate Dialog window in MainActivity.java, since Capacitor's
+      // own splash mechanism there delays the Activity's normal content
+      // view from drawing at all for the whole splash window — a plain
+      // overlay view would never render during it).
+      showSpinner: false,
     },
   },
 };

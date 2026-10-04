@@ -3,6 +3,7 @@ import Capacitor
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
+    private var cometRingView: CometSpinnerView?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = scene as? UIWindowScene else { return }
@@ -13,6 +14,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.makeKeyAndVisible()
 
         registerExternalLinkPlugin(on: bridgeVC)
+        addCometRing(to: bridgeVC)
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
     }
@@ -52,6 +54,50 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         bridge.registerPluginInstance(ExternalLinkPlugin())
+    }
+
+    // Capacitor's SplashScreen plugin (see
+    // mobile/node_modules/@capacitor/splash-screen's SplashScreenPlugin.swift)
+    // adds its own views — the LaunchScreen storyboard's background image
+    // and, if showSpinner were true, a system UIActivityIndicatorView — as
+    // subviews of this same bridge view controller's .view. This adds the
+    // bespoke comet ring the same way, replacing that generic spinner
+    // (capacitor.config.ts sets showSpinner: false so Capacitor doesn't
+    // also add its own on top).
+    //
+    // This can't live in the storyboard itself: a launch screen storyboard
+    // can't host a custom-class view at all — ibtool rejects it outright
+    // ("Launch screens may not set custom classnames"), a hard platform
+    // restriction on the first native-only frame, not a bug in the XML.
+    // So it's added here in code instead, timed to match Capacitor's own
+    // splash window. An explicit high zPosition keeps it stacked above
+    // whatever Capacitor adds afterward regardless of the exact timing of
+    // its plugin-load lifecycle relative to this method.
+    private func addCometRing(to bridgeVC: CAPBridgeViewController) {
+        let ring = CometSpinnerView()
+        ring.translatesAutoresizingMaskIntoConstraints = false
+        ring.layer.zPosition = 999
+        bridgeVC.view.addSubview(ring)
+        NSLayoutConstraint.activate([
+            ring.centerXAnchor.constraint(equalTo: bridgeVC.view.centerXAnchor),
+            ring.centerYAnchor.constraint(equalTo: bridgeVC.view.centerYAnchor, constant: 115),
+            ring.widthAnchor.constraint(equalToConstant: 64),
+            ring.heightAnchor.constraint(equalTo: ring.widthAnchor)
+        ])
+        cometRingView = ring
+
+        // Matches capacitor.config.ts's SplashScreen plugin config:
+        // launchShowDuration (3000ms) + launchFadeOutDuration (300ms).
+        let showDuration: TimeInterval = 3.0
+        let fadeOutDuration: TimeInterval = 0.3
+        DispatchQueue.main.asyncAfter(deadline: .now() + showDuration) { [weak ring] in
+            guard let ring = ring else { return }
+            UIView.animate(withDuration: fadeOutDuration, delay: 0, options: .curveLinear, animations: {
+                ring.alpha = 0
+            }, completion: { _ in
+                ring.removeFromSuperview()
+            })
+        }
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
