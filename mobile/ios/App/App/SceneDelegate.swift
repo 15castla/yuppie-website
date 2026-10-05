@@ -7,18 +7,26 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     private var cometRingView: CometSpinnerView?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
+        startupLog("SceneDelegate.scene(_:willConnectTo:) entered")
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
+        startupLog("creating CAPBridgeViewController")
         let bridgeVC = CAPBridgeViewController()
+        startupLog("CAPBridgeViewController created")
         window?.rootViewController = bridgeVC
+        startupLog("calling makeKeyAndVisible (triggers loadView/bridge+webview init)")
         window?.makeKeyAndVisible()
+        startupLog("makeKeyAndVisible returned — bridge non-nil: \(bridgeVC.bridge != nil), webView non-nil: \(bridgeVC.webView != nil)")
 
+        observeCapacitorViewDidAppear()
         fixSafeAreaInsetFirstFrame(on: bridgeVC)
         registerExternalLinkPlugin(on: bridgeVC)
         addCometRing(to: bridgeVC)
 
+        startupLog("scene(_:willConnectTo:) about to call SceneDelegateProxy")
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+        startupLog("scene(_:willConnectTo:) returning")
     }
 
     // Works around a real, long-standing WebKit bug (webkit.org/b/191872),
@@ -132,7 +140,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // own sake — so this adds that gap back in explicitly as a fixed
     // buffer on top of the real per-device safe-area reading (not a
     // single hardcoded constant on its own), so it still scales sensibly
-    // across other notch/Dynamic Island sizes.
+    // across other notch/Dynamic Island sizes. Confirmed via real-device
+    // pixel measurement to land within ~2pt of the website — noise-level.
     //
     // Polls every 10ms for up to 1.2s (120 attempts) — generous relative
     // to how fast this value actually resolves in practice (observed
@@ -150,6 +159,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             let safariChromeBuffer: CGFloat = 30
             let targetInset = windowInset + safariChromeBuffer
             let insetPx = Int(targetInset.rounded())
+            startupLog("fixSafeAreaInsetFirstFrame: adjustedContentInset.top = \(topInset) after \(attempt) poll(s); window.safeAreaInsets.top = \(windowInset) + \(safariChromeBuffer)pt buffer = \(targetInset); injecting override stylesheet (padding-top: max(2rem, \(insetPx)px))")
 
             // Removes any native contentOffset contribution .automatic
             // might otherwise apply on its own (see the comment above) —
@@ -173,11 +183,26 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             return
         }
         guard attempt < 120 else {
+            startupLog("fixSafeAreaInsetFirstFrame: gave up after \(attempt) polls, adjustedContentInset.top never became non-zero")
             return
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self, weak bridgeVC] in
             guard let self, let bridgeVC else { return }
             self.fixSafeAreaInsetFirstFrame(on: bridgeVC, attempt: attempt + 1)
+        }
+    }
+
+    // TEMPORARY — see AppDelegate.swift's startupLog definition. Posted
+    // by CAPBridgeViewController.viewDidAppear, so this pins down whether
+    // the view hierarchy itself ever actually appears on screen,
+    // separately from whether the webview's content loads.
+    private func observeCapacitorViewDidAppear() {
+        NotificationCenter.default.addObserver(
+            forName: .capacitorViewDidAppear,
+            object: nil,
+            queue: .main
+        ) { _ in
+            startupLog("notification: capacitorViewDidAppear")
         }
     }
 
@@ -211,11 +236,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // (CAPBridgeViewController.loadView() constructs it synchronously),
     // which window.makeKeyAndVisible() above already triggers.
     private func registerExternalLinkPlugin(on bridgeVC: CAPBridgeViewController) {
+        startupLog("registerExternalLinkPlugin: start")
         guard let bridge = bridgeVC.bridge else {
             CAPLog.print("⚡️ ❌ ExternalLinkPlugin not registered: bridge was nil")
+            startupLog("registerExternalLinkPlugin: bridge was nil")
             return
         }
         bridge.registerPluginInstance(ExternalLinkPlugin())
+        startupLog("registerExternalLinkPlugin: done")
     }
 
     // Capacitor's SplashScreen plugin (see
@@ -255,6 +283,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     //                                 centered in the canvas, and cropping
     //                                 trims both sides equally)
     private func addCometRing(to bridgeVC: CAPBridgeViewController) {
+        startupLog("addCometRing: start")
         let ring = CometSpinnerView()
         ring.translatesAutoresizingMaskIntoConstraints = false
         ring.layer.zPosition = 999
@@ -283,6 +312,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             ring.heightAnchor.constraint(equalTo: ring.widthAnchor)
         ])
         cometRingView = ring
+        startupLog("addCometRing: done")
 
         // Matches capacitor.config.ts's SplashScreen plugin config:
         // launchShowDuration (3000ms) + launchFadeOutDuration (300ms).

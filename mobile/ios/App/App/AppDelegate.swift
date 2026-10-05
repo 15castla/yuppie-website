@@ -1,5 +1,28 @@
 import UIKit
 import Capacitor
+import os
+
+// TEMPORARY — investigating a reported 2-3 minute black screen on cold
+// launch before the splash (wordmark + comet ring) ever appears, with no
+// crash and no console output. appStartUptime is a shared reference point
+// (ProcessInfo.systemUptime is monotonic, fine for elapsed-time deltas)
+// so every startupLog(...) call across AppDelegate.swift and
+// SceneDelegate.swift reports elapsed time on the same timeline, from as
+// close to actual process start as Swift lets us get: a top-level `let`
+// is evaluated the first time this file's code runs, which for a
+// @UIApplicationMain app is effectively immediately. Logged via os.Logger
+// (unified logging), not print() — print()'s stdout is block-buffered
+// when not attached to a real terminal, which silently swallowed output
+// during the Safari-bounce investigation earlier this session. Remove
+// this together with its call sites once the black-screen cause is
+// found and fixed (or confirmed environmental).
+let appStartUptime = ProcessInfo.processInfo.systemUptime
+let startupLogger = Logger(subsystem: "com.clubyuppie.app", category: "startup")
+
+func startupLog(_ message: String) {
+    let elapsed = ProcessInfo.processInfo.systemUptime - appStartUptime
+    startupLogger.fault("⏱️ [+\(String(format: "%.3f", elapsed))s] \(message, privacy: .public)")
+}
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -7,6 +30,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     var window: UIWindow?
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
+        startupLog("AppDelegate.didFinishLaunchingWithOptions")
         // Override point for customization after application launch.
         return true
     }
@@ -36,6 +60,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication,
                      configurationForConnecting connectingSceneSession: UISceneSession,
                      options: UIScene.ConnectionOptions) -> UISceneConfiguration {
+        startupLog("AppDelegate.configurationForConnecting")
         let config = UISceneConfiguration(name: "Default Configuration",
                                           sessionRole: connectingSceneSession.role)
         config.delegateClass = SceneDelegate.self
