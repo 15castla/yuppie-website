@@ -17,6 +17,22 @@ const config: CapacitorConfig = {
   // the members area (see the User-Agent check in proxy.ts at the repo
   // root).
   appendUserAgent: "YuppieNativeApp",
+  ios: {
+    // Capacitor's documented default here is "never" (see
+    // node_modules/@capacitor/cli/dist/declarations.d.ts), which maps
+    // straight to WKWebView.scrollView.contentInsetAdjustmentBehavior =
+    // .never (see CAPBridgeViewController.swift's prepareWebView). With
+    // that, the WebView never reports the Dynamic Island/notch safe area
+    // to the page at all — env(safe-area-inset-top) resolves to 0
+    // instead of ~59pt, so components/members/ui.tsx's
+    // pt-[max(2rem,env(safe-area-inset-top))] silently falls back to its
+    // 2rem floor, squashing the Members Area header up against the
+    // status bar. "automatic" is the standard UIKit behavior and the
+    // documented fix for exactly this: it makes the WebView report real
+    // safe-area insets, so that existing CSS (which assumes it will)
+    // actually works as designed.
+    contentInset: "automatic",
+  },
   server: {
     // Defaults to the members area so a plain `npx cap sync && npx cap
     // open ios` with no env var sends builds straight to the native app's

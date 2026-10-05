@@ -1,4 +1,5 @@
 import UIKit
+import WebKit
 import Capacitor
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
@@ -13,10 +14,171 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window?.rootViewController = bridgeVC
         window?.makeKeyAndVisible()
 
+        fixSafeAreaInsetFirstFrame(on: bridgeVC)
         registerExternalLinkPlugin(on: bridgeVC)
         addCometRing(to: bridgeVC)
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+    }
+
+    // Works around a real, long-standing WebKit bug (webkit.org/b/191872),
+    // not anything specific to this app: a fresh WKWebView's scroll view
+    // gets an initial layout pass with contentInset still 0 (the safe
+    // area isn't known yet), and is *supposed* to get a follow-up update
+    // once UIKit resolves it — but on a freshly-created WKWebView
+    // attached right at app launch, that follow-up update can race with
+    // the page's own load and never fire, permanently leaving
+    // env(safe-area-inset-top) at 0 for that page's lifetime. That's
+    // exactly our symptom: correct after any scroll (which forces
+    // WebKit to recompute), wrong on a cold launch's first paint, and —
+    // per independent testing — correct even at rest on an
+    // already-running instance (i.e. the inset value and CSS math are
+    // both right; only the first-load delivery of that value is lossy).
+    //
+    // mobile/capacitor.config.ts's ios.contentInset: "automatic" makes
+    // UIScrollView.adjustedContentInset resolve to the real safe area at
+    // all (see that key's own comment) — but doesn't control whether
+    // WKWebView successfully *tells the page* about it in time. This
+    // polls adjustedContentInset directly (rather than observing it via
+    // KVO — tried that first; confirmed by direct testing that
+    // WKWebView's internal scroll view does NOT reliably fire KVO change
+    // notifications for this property, so a .new-observing closure can
+    // silently never run at all) until it becomes non-zero (a pure UIKit
+    // geometry property, resolved independently of whatever the page's
+    // own network load is doing, so this typically resolves well before
+    // the page finishes loading).
+    //
+    // What happens once it's non-zero has already gone through two
+    // failed iterations, BOTH confirmed via real-device tests (not
+    // Simulator, which never reproduces this bug at all) to correctly
+    // update adjustedContentInset natively, while the live page's own
+    // getComputedStyle(...).paddingTop stayed stuck at the 2rem floor
+    // regardless, both times:
+    //   1. Cycling contentInsetAdjustmentBehavior off and back to
+    //      .automatic (a workaround reported for this same WebKit bug).
+    //   2. A genuine two-dispatch-cycle scrollView.contentOffset nudge
+    //      (down 1pt, a real run-loop turn later back to zero) — the
+    //      programmatic equivalent of the hand-drag confirmed to fix it.
+    // Neither reaches WebKit's CSS environment variables on this
+    // device/iOS version. The working theory: WebKit's safe-area CSS
+    // recompute may specifically key off the real
+    // UIPanGestureRecognizer-driven touch-scroll path, not any
+    // programmatic contentOffset/contentInset change however it's
+    // triggered or scheduled — simulating an actual touch gesture from
+    // native code is fragile enough to not be worth attempting.
+    //
+    // So this stops trying to coax WebKit's own (apparently broken, on
+    // this build) env(safe-area-inset-top) delivery into working, and
+    // sidesteps it instead: native code already knows the correct inset
+    // value, resolved independently of the page's network load — so it
+    // hands that value to the page directly, overriding the CSS outcome
+    // rather than depending on WebKit to compute it correctly. A
+    // WKUserScript at .atDocumentStart injection time runs before the
+    // page's own CSS/JS on every navigation (including the SPA's own
+    // client-side route changes, not just the first cold-launch load),
+    // appending a <style> tag that hard-sets <main>'s padding-top with
+    // !important — the exact same max(2rem, inset) the page's own CSS
+    // wants, just computed here instead of trusting env() to deliver it.
+    //
+    // The injected value isn't adjustedContentInset.top, though — that
+    // was tried first and, measured pixel-for-pixel against the real
+    // website, overshot by ~16pt: a UIScrollView's adjusted content
+    // inset can accumulate other contributions beyond the pure safe
+    // area (additionalSafeAreaInsets etc.). adjustedContentInset is
+    // still used as the polling signal above (it's proven reliable for
+    // *timing* — resolves non-zero almost immediately, independent of
+    // the page's network load), but the actual injected value comes
+    // from bridgeVC.view.window's own safeAreaInsets.top instead — a
+    // UIWindow's safe area insets are a direct reflection of
+    // hardware/orientation geometry (status bar/Dynamic Island, home
+    // indicator), not a scroll view's accumulated adjustment.
+    //
+    // contentInsetAdjustmentBehavior = .automatic (set in
+    // capacitor.config.ts — necessary for adjustedContentInset and
+    // window.safeAreaInsets to resolve at all) makes UIScrollView apply
+    // its *own* native contentOffset shift to visually reveal the inset,
+    // same as any ordinary scroll view — independent of, and additive
+    // with, this CSS injection; confirmed via a real-device test where
+    // the measured gap swung between a 16pt overshoot and a 32pt
+    // undershoot across two otherwise-identical runs with the exact same
+    // injected CSS value, consistent with that native shift's timing
+    // being non-deterministic. Explicitly pinning
+    // contentInsetAdjustmentBehavior to .never and contentOffset to
+    // .zero here removes that native contribution entirely, leaving
+    // 100% of visible clearance to the CSS injection alone — matching
+    // this WebView's stated architecture (see capacitor.config.ts's
+    // StatusBar comment: edge-to-edge natively, clearance from CSS only,
+    // never a second native layer of it). Safe to do unconditionally:
+    // window.safeAreaInsets.top (what's actually injected) doesn't
+    // depend on contentInsetAdjustmentBehavior at all — only a scroll
+    // view's own adjustedContentInset does.
+    //
+    // forMainFrameOnly: true keeps this from touching Stripe/Supabase
+    // iframe content (see ExternalLinkPlugin.swift's isInAppHost comment
+    // for why those load inline rather than externally).
+    //
+    // The injected value also isn't the raw hardware safe area on its
+    // own: measured twice, consistently, the website in Safari shows
+    // ~92-93pt of clearance on this device while window.safeAreaInsets.top
+    // alone (62pt) produces ~60pt in the app — a stable ~30pt short.
+    // That's structural, not error: Safari reserves extra space of its
+    // own above the page for its retractable tab-bar/toolbar chrome,
+    // which collapses but still factors into what Safari considers
+    // "safe," on top of the real hardware inset; this WebView has no
+    // such chrome at all, so its hardware-accurate safe area reading was
+    // always going to be smaller than Safari's by roughly that chrome's
+    // height. The goal here is pixel parity with the live website people
+    // already see in Safari, not textbook safe-area correctness for its
+    // own sake — so this adds that gap back in explicitly as a fixed
+    // buffer on top of the real per-device safe-area reading (not a
+    // single hardcoded constant on its own), so it still scales sensibly
+    // across other notch/Dynamic Island sizes.
+    //
+    // Polls every 10ms for up to 1.2s (120 attempts) — generous relative
+    // to how fast this value actually resolves in practice (observed
+    // within the first couple of polls, i.e. ~10-20ms), so this is a
+    // ceiling against a genuinely stuck case, not a tuned budget.
+    private func fixSafeAreaInsetFirstFrame(on bridgeVC: CAPBridgeViewController, attempt: Int = 0) {
+        guard let webView = bridgeVC.webView else { return }
+        let topInset = webView.scrollView.adjustedContentInset.top
+        if topInset > 0 {
+            let windowInset = bridgeVC.view.window?.safeAreaInsets.top ?? 0
+            // The stable gap measured between Safari's rendered spacing
+            // and this WebView's hardware-accurate safe area — see the
+            // comment above for why that gap exists structurally rather
+            // than being an error to fix away.
+            let safariChromeBuffer: CGFloat = 30
+            let targetInset = windowInset + safariChromeBuffer
+            let insetPx = Int(targetInset.rounded())
+
+            // Removes any native contentOffset contribution .automatic
+            // might otherwise apply on its own (see the comment above) —
+            // all visible top clearance should come from the CSS
+            // injection below alone.
+            webView.scrollView.contentInsetAdjustmentBehavior = .never
+            webView.scrollView.contentOffset = .zero
+
+            let css = "main { padding-top: max(2rem, \(insetPx)px) !important; }"
+            let cssLiteral = (try? JSONEncoder().encode(css)).flatMap { String(data: $0, encoding: .utf8) } ?? "\"\""
+            let js = """
+            (function() {
+                var style = document.createElement('style');
+                style.setAttribute('data-native-safe-area-fix', 'true');
+                style.textContent = \(cssLiteral);
+                document.documentElement.appendChild(style);
+            })();
+            """
+            let userScript = WKUserScript(source: js, injectionTime: .atDocumentStart, forMainFrameOnly: true)
+            webView.configuration.userContentController.addUserScript(userScript)
+            return
+        }
+        guard attempt < 120 else {
+            return
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.01) { [weak self, weak bridgeVC] in
+            guard let self, let bridgeVC else { return }
+            self.fixSafeAreaInsetFirstFrame(on: bridgeVC, attempt: attempt + 1)
+        }
     }
 
     // ExternalLinkPlugin.swift is compiled directly into this target (not
