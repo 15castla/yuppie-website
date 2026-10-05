@@ -73,15 +73,51 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // splash window. An explicit high zPosition keeps it stacked above
     // whatever Capacitor adds afterward regardless of the exact timing of
     // its plugin-load lifecycle relative to this method.
+    //
+    // Sized and centered to frame the wordmark baked into the Splash
+    // image (Assets.xcassets/Splash.imageset), not just float below it.
+    // The wordmark isn't a live view here — it's part of a static
+    // scaleAspectFill'd image — so its on-screen geometry is derived from
+    // the same fractions .scratch/gen_all_splash.py generated it with
+    // (wordmark_width_frac=0.227, vertical_center_frac=0.434 of the
+    // 2732x2732 square canvas), confirmed against the actual shipped
+    // asset by measuring its non-background bounding box. Because
+    // scaleAspectFill on a square image scales both dimensions by
+    // screenHeight/2732 — height fits the screen exactly, width overflows
+    // and gets cropped evenly off both sides — those canvas fractions
+    // translate directly to screen points as fractions of screen HEIGHT
+    // alone, regardless of device aspect ratio or screen width:
+    //   wordmark width (pt)        = 0.227 * screenHeight
+    //   wordmark center, Y (pt)    = 0.434 * screenHeight
+    //   wordmark center, X         = screen's horizontal center (it's
+    //                                 centered in the canvas, and cropping
+    //                                 trims both sides equally)
     private func addCometRing(to bridgeVC: CAPBridgeViewController) {
         let ring = CometSpinnerView()
         ring.translatesAutoresizingMaskIntoConstraints = false
         ring.layer.zPosition = 999
         bridgeVC.view.addSubview(ring)
+
+        let screenHeight = bridgeVC.view.bounds.height
+        let wordmarkWidthFraction: CGFloat = 0.227
+        let wordmarkVerticalCenterFraction: CGFloat = 0.434
+        let wordmarkWidth = wordmarkWidthFraction * screenHeight
+        // How much larger the ring's diameter is than the wordmark's
+        // width — the wordmark's longer dimension — so the ring reads as
+        // a loose circle framing it with visible breathing room on every
+        // side, matching the reference (Reiss's app splash): the ring
+        // isn't a tight circumscribe, it's a comfortably larger halo.
+        let ringPaddingFactor: CGFloat = 1.4
+        let ringDiameter = wordmarkWidth * ringPaddingFactor
+        // view.centerYAnchor is screen-center (0.5); the wordmark sits
+        // slightly above that, so the ring needs the same upward offset
+        // to share its center point.
+        let verticalOffsetFromCenter = (wordmarkVerticalCenterFraction - 0.5) * screenHeight
+
         NSLayoutConstraint.activate([
             ring.centerXAnchor.constraint(equalTo: bridgeVC.view.centerXAnchor),
-            ring.centerYAnchor.constraint(equalTo: bridgeVC.view.centerYAnchor, constant: 115),
-            ring.widthAnchor.constraint(equalToConstant: 64),
+            ring.centerYAnchor.constraint(equalTo: bridgeVC.view.centerYAnchor, constant: verticalOffsetFromCenter),
+            ring.widthAnchor.constraint(equalToConstant: ringDiameter),
             ring.heightAnchor.constraint(equalTo: ring.widthAnchor)
         ])
         cometRingView = ring

@@ -8,6 +8,7 @@ import android.graphics.Color;
 import android.graphics.drawable.ColorDrawable;
 import android.os.Bundle;
 import android.os.Handler;
+import android.util.DisplayMetrics;
 import android.view.Gravity;
 import android.view.Window;
 import android.view.WindowManager;
@@ -52,15 +53,45 @@ public class MainActivity extends BridgeActivity {
     // (launchShowDuration + launchFadeOutDuration from
     // capacitor.config.ts) so it's never cut off mid-spin or left
     // stranded after the web content appears.
+    // Sized and centered to frame the wordmark baked into the splash
+    // background (res/drawable*/splash.png), not just float below it.
+    // The wordmark isn't a live view here — it's part of a static bitmap
+    // set as android:background — so its on-screen geometry is derived
+    // from the same fractions .scratch/gen_all_splash.py generated it
+    // with for portrait (wordmark_width_frac=0.47,
+    // vertical_center_frac=0.434), confirmed against the actual shipped
+    // asset by measuring its non-background bounding box. Unlike iOS,
+    // each of these drawables is pre-generated at the exact pixel
+    // dimensions of its target density/orientation bucket — no
+    // scaleAspectFill-style cropping happens at runtime — so those
+    // fractions translate directly to the live screen's own width/height,
+    // no square-canvas correction needed.
     private void showCometRing() {
-        float density = getResources().getDisplayMetrics().density;
-        int ringSizePx = Math.round(64 * density);
-        int offsetYPx = Math.round(115 * density);
+        DisplayMetrics metrics = getResources().getDisplayMetrics();
+        float screenWidthPx = metrics.widthPixels;
+        float screenHeightPx = metrics.heightPixels;
+
+        float wordmarkWidthFraction = 0.47f;
+        float wordmarkVerticalCenterFraction = 0.434f;
+        float wordmarkWidthPx = wordmarkWidthFraction * screenWidthPx;
+        // How much larger the ring's diameter is than the wordmark's
+        // width — the wordmark's longer dimension — so the ring reads as
+        // a loose circle framing it with visible breathing room on every
+        // side, matching the reference (Reiss's app splash): the ring
+        // isn't a tight circumscribe, it's a comfortably larger halo.
+        // Matches ios/App/App/SceneDelegate.swift's ringPaddingFactor.
+        float ringPaddingFactor = 1.4f;
+        int ringSizePx = Math.round(wordmarkWidthPx * ringPaddingFactor);
+        // Positions the ring's TOP edge (not its center) so that, once
+        // its own height is accounted for, its center lands exactly on
+        // the wordmark's vertical center — more precise than relying on
+        // FrameLayout's CENTER gravity plus an offsetting margin.
+        int topOffsetPx = Math.round(wordmarkVerticalCenterFraction * screenHeightPx - ringSizePx / 2f);
 
         CometRingView ring = new CometRingView(this);
         FrameLayout.LayoutParams ringParams = new FrameLayout.LayoutParams(ringSizePx, ringSizePx);
-        ringParams.gravity = Gravity.CENTER;
-        ringParams.topMargin = offsetYPx;
+        ringParams.gravity = Gravity.TOP | Gravity.CENTER_HORIZONTAL;
+        ringParams.topMargin = topOffsetPx;
 
         FrameLayout root = new FrameLayout(this);
         root.addView(ring, ringParams);
