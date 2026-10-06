@@ -445,17 +445,24 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // image (Assets.xcassets/Splash.imageset), not just float below it.
     // The wordmark isn't a live view here — it's part of a static
     // scaleAspectFill'd image — so its on-screen geometry is derived from
-    // the same fractions .scratch/gen_all_splash.py generated it with
-    // (wordmark_width_frac=0.227, vertical_center_frac=0.434 of the
+    // the same fractions the wordmark pixels were placed at
+    // (wordmark_width_frac=0.227, vertical_center_frac=0.47 of the
     // 2732x2732 square canvas), confirmed against the actual shipped
-    // asset by measuring its non-background bounding box. Because
-    // scaleAspectFill on a square image scales both dimensions by
-    // screenHeight/2732 — height fits the screen exactly, width overflows
-    // and gets cropped evenly off both sides — those canvas fractions
-    // translate directly to screen points as fractions of screen HEIGHT
-    // alone, regardless of device aspect ratio or screen width:
+    // asset by measuring its non-background bounding box. The original
+    // 0.434 (matching a reference app's splash) read as sitting too high
+    // once seen on a real device; the wordmark pixels were re-baked lower
+    // (see Assets.xcassets/Splash.imageset — cropped out, background
+    // flood-filled since it's flat #FFD904 with no gradient, pasted back
+    // at the new position) and this constant moved to match, so the ring
+    // keeps framing the wordmark rather than the ring alone drifting down
+    // and leaving the two out of sync. Because scaleAspectFill on a
+    // square image scales both dimensions by screenHeight/2732 — height
+    // fits the screen exactly, width overflows and gets cropped evenly
+    // off both sides — those canvas fractions translate directly to
+    // screen points as fractions of screen HEIGHT alone, regardless of
+    // device aspect ratio or screen width:
     //   wordmark width (pt)        = 0.227 * screenHeight
-    //   wordmark center, Y (pt)    = 0.434 * screenHeight
+    //   wordmark center, Y (pt)    = 0.47 * screenHeight
     //   wordmark center, X         = screen's horizontal center (it's
     //                                 centered in the canvas, and cropping
     //                                 trims both sides equally)
@@ -468,7 +475,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         let screenHeight = bridgeVC.view.bounds.height
         let wordmarkWidthFraction: CGFloat = 0.227
-        let wordmarkVerticalCenterFraction: CGFloat = 0.434
+        let wordmarkVerticalCenterFraction: CGFloat = 0.47
         let wordmarkWidth = wordmarkWidthFraction * screenHeight
         // How much larger the ring's diameter is than the wordmark's
         // width — the wordmark's longer dimension — so the ring reads as

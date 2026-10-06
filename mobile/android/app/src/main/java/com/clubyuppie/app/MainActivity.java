@@ -57,11 +57,24 @@ public class MainActivity extends BridgeActivity {
     // background (res/drawable*/splash.png), not just float below it.
     // The wordmark isn't a live view here — it's part of a static bitmap
     // set as android:background — so its on-screen geometry is derived
-    // from the same fractions .scratch/gen_all_splash.py generated it
-    // with for portrait (wordmark_width_frac=0.47,
-    // vertical_center_frac=0.434), confirmed against the actual shipped
-    // asset by measuring its non-background bounding box. Unlike iOS,
-    // each of these drawables is pre-generated at the exact pixel
+    // from the same fractions the wordmark pixels were placed at, for
+    // portrait (wordmark_width_frac=0.47, vertical_center_frac=0.47),
+    // confirmed against the actual shipped assets by measuring each
+    // one's own non-background bounding box. The original 0.434
+    // (matching a reference app's splash) read as sitting too high once
+    // seen on a real device; every drawable*/splash.png variant — both
+    // portrait and landscape, 26 density/orientation buckets in total —
+    // was independently re-measured and re-baked (wordmark cropped out,
+    // background flood-filled since it's flat #FFD904 with no gradient,
+    // pasted back lower) so its own vertical center now lands at 0.47 of
+    // its own height, and this constant moved to match. Re-measuring
+    // also surfaced a pre-existing inconsistency worth recording: the
+    // landscape variants were originally baked around 0.40 of their own
+    // height, not 0.434 like portrait — since this constant is applied
+    // at runtime regardless of orientation, landscape launches were
+    // already slightly out of sync with the ring before this change; the
+    // re-bake fixes that too, not just the portrait complaint. Unlike
+    // iOS, each of these drawables is pre-generated at the exact pixel
     // dimensions of its target density/orientation bucket — no
     // scaleAspectFill-style cropping happens at runtime — so those
     // fractions translate directly to the live screen's own width/height,
@@ -72,7 +85,7 @@ public class MainActivity extends BridgeActivity {
         float screenHeightPx = metrics.heightPixels;
 
         float wordmarkWidthFraction = 0.47f;
-        float wordmarkVerticalCenterFraction = 0.434f;
+        float wordmarkVerticalCenterFraction = 0.47f;
         float wordmarkWidthPx = wordmarkWidthFraction * screenWidthPx;
         // How much larger the ring's diameter is than the wordmark's
         // width — the wordmark's longer dimension — so the ring reads as
