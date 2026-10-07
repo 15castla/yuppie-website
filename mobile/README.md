@@ -7,14 +7,17 @@ external-link handling, an offline screen). It's an independent project
 with its own `package.json`; nothing under it is part of the Next.js app
 in the repo root.
 
-**The appId (`com.clubyuppie.app`) is a placeholder.** It's what
-`capacitor.config.ts` and both native projects are currently generated
-with, but it hasn't been finalized against an Apple/Google developer
-account yet. Changing it later means regenerating both native projects
+**The appId (`com.clubyuppie.app`) is confirmed final** — registered as
+the App ID in the Apple Developer account used for App Store submission,
+and `mobile/ios/App/App.xcodeproj`'s `DEVELOPMENT_TEAM` is set to that
+account's team for both Debug and Release. Do not change the appId:
+doing so later would mean regenerating both native projects
 (`npx cap add ios` / `android` again over a fresh `appId`), not just
 editing the config file, since the bundle ID is baked into project files
-on both platforms. Store submission itself (developer accounts, final
-bundle ID, signing, listings) is out of scope for what's here.
+on both platforms — and a real App Store Connect app record keys off
+this exact value once one exists. The rest of store submission itself
+(the App Store Connect app record, provisioning, listings) is still out
+of scope for what's here.
 
 ## Running it
 

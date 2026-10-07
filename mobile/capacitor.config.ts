@@ -1,10 +1,11 @@
 import type { CapacitorConfig } from "@capacitor/cli";
 
-// appId is a placeholder ("com.clubyuppie.app") until a final bundle ID is
-// chosen ahead of store submission — see mobile/README.md. Changing it
-// later means regenerating the iOS/Android native projects (cap add
-// again), not just editing this file, since the bundle ID is baked into
-// project files on both platforms.
+// appId ("com.clubyuppie.app") is confirmed final — registered as the App
+// ID in the Apple Developer account used for App Store submission. Do not
+// change it: that would mean regenerating the iOS/Android native projects
+// (cap add again), not just editing this file, since the bundle ID is
+// baked into project files on both platforms — and a real App Store
+// Connect app record keys off this exact value once one exists.
 const config: CapacitorConfig = {
   appId: "com.clubyuppie.app",
   appName: "Yuppie",
