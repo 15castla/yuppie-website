@@ -24,71 +24,147 @@
     padding-bottom: calc(24px + env(safe-area-inset-bottom));
     box-sizing: border-box;
   }
-  img {
-    width: 96px;
-    height: 96px;
-    border-radius: 22px;
-    margin-bottom: 24px;
+  /* Real wordmark (public/yuppie_logo_forte_forward.png on the main site,
+     same flat near-black raster PNG used in the site's own hero and header
+     — see components/templates/creative-studio/hero.tsx), not the square
+     app icon this page used before. Sized as a share of the viewport width
+     so it scales across phone sizes the way the site's own hero logo does,
+     capped so it never gets silly-huge on a tablet-size simulator. */
+  .wordmark {
+    width: min(240px, 60vw);
+    height: auto;
+    margin-bottom: 32px;
   }
   h1 {
-    font-size: 22px;
+    font-size: 24px;
     font-weight: 800;
-    margin: 0 0 8px;
+    margin: 0 0 10px;
+    letter-spacing: -0.01em;
   }
   p {
     font-size: 15px;
-    color: rgba(27, 21, 18, 0.7);
+    /* --foreground-muted from app/globals.css, not an ad-hoc opacity, so
+       this reads the same muted tone the rest of the site uses. Static —
+       this copy never changes, including while a retry is in flight or
+       after one fails, so the screen doesn't shift underneath someone
+       who's already read it once. Only the button communicates state. */
+    color: #6B6560;
     max-width: 320px;
     margin: 0 0 28px;
     line-height: 1.5;
   }
+  /* Matches components/Button.tsx's buttonBaseClasses exactly (rounded-full
+     bg-[#1B1512] px-10 py-4 text-base font-bold text-[#FFD904], hover:
+     scale-[1.03] hover:bg-[#2A2420]) so this is visibly the same button as
+     everywhere else in the app, not a lookalike built from scratch.
+     touch-action + the transparent tap-highlight stop WKWebView's
+     tap-vs-scroll/zoom disambiguation delay from making this feel
+     unresponsive — a known WKWebView quirk, not network latency, since
+     the loading state below is applied synchronously on tap. The 0.1s
+     transform transition (vs. 0.2s for color/opacity) keeps the press
+     animation itself feeling immediate rather than laggy. */
   button {
+    position: relative;
     appearance: none;
     border: none;
     background: #1B1512;
     color: #FFD904;
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 700;
-    padding: 14px 32px;
+    padding: 16px 40px;
     border-radius: 999px;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.1s ease-out, background-color 0.2s ease-out, opacity 0.2s ease-out;
+  }
+  button:hover {
+    background: #2A2420;
+    transform: scale(1.03);
   }
   button:active {
-    opacity: 0.8;
+    transform: scale(0.98);
   }
   button:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: default;
+    transform: none;
+  }
+  /* Loading state: the label ("Try again") only goes invisible, it's never
+     removed from layout (visibility, not display) — so it keeps reserving
+     its own footprint and the button's size can't change. The spinner is
+     positioned absolutely, entirely outside that flex flow, and centered
+     over the button with its own transform — so it lands dead-center
+     regardless of how wide the label is, instead of being centered as a
+     flex sibling alongside it (which is what was pushing "Try again" off
+     to one side). button:disabled above already covers "can't be tapped
+     again mid-check". */
+  button.loading .label {
+    visibility: hidden;
+  }
+  .spinner {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 16px;
+    margin: -8px 0 0 -8px;
+    border: 2px solid rgba(255, 217, 4, 0.35);
+    border-top-color: #FFD904;
+    border-radius: 50%;
+    visibility: hidden;
+  }
+  button.loading .spinner {
+    visibility: visible;
+    animation: spin 0.7s linear infinite;
+  }
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    button.loading .spinner {
+      animation: none;
+    }
   }
 </style>
 </head>
 <body>
-  <img src="yuppie_app_icon_1024.png" alt="" />
+  <img class="wordmark" src="yuppie_logo_forte_forward.png" alt="Yuppie" />
   <h1>You&rsquo;re offline</h1>
-  <p id="message">Check your connection and try again &mdash; Yuppie needs the internet to load.</p>
-  <button id="retry" type="button">Try again</button>
+  <p>Yuppie needs an internet connection to load. Check your Wi-Fi or mobile data, then try again.</p>
+  <button id="retry" type="button">
+    <span class="label">Try again</span>
+    <span class="spinner" aria-hidden="true"></span>
+  </button>
 
 <script>
   // This page only ever loads as a native-side fallback, when the initial
   // load of the real site (capacitor.config.ts's server.url) fails because
-  // there's no connectivity at all. See ios/App/App/AppDelegate.swift and
-  // android/app/src/main/java/.../MainActivity.java, which catch that
-  // failed load and swap the WebView to this bundled page instead of
-  // showing the WebView engine's own default error page.
+  // there's no connectivity at all. See capacitor.config.ts's server.errorPath
+  // — Capacitor's own built-in navigation-failure handling on both platforms
+  // loads this bundled page automatically, no custom native code needed.
   //
   // window.Capacitor.Plugins.<Name> is Capacitor's plugin bridge, exposed
   // globally on every page (including this plain, non-bundled one)
   // regardless of the ESM import style the main app uses.
   var retryBtn = document.getElementById("retry");
-  var messageEl = document.getElementById("message");
   var SITE_URL = "https://clubyuppie.com/member-login"; // replaced at build/sync time, see scripts/inject-server-url.cjs
 
   function attemptReturn() {
     retryBtn.disabled = true;
-    retryBtn.textContent = "Checking…";
+    retryBtn.classList.add("loading");
+    retryBtn.setAttribute("aria-busy", "true");
     var Network = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Network;
     var proceed = function () {
       window.location.href = SITE_URL;
+    };
+    var stopLoading = function () {
+      retryBtn.disabled = false;
+      retryBtn.classList.remove("loading");
+      retryBtn.removeAttribute("aria-busy");
     };
     if (!Network) {
       // Network plugin unavailable for some reason: fall back to just
@@ -101,9 +177,9 @@
         if (status && status.connected) {
           proceed();
         } else {
-          retryBtn.disabled = false;
-          retryBtn.textContent = "Try again";
-          messageEl.textContent = "Still no connection. Check Wi-Fi or mobile data and try again.";
+          // Still offline: drop back to the idle "Try again" state. The
+          // message above doesn't change — it already says what's wrong.
+          stopLoading();
         }
       })
       .catch(proceed);

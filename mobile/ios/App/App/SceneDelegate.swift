@@ -42,6 +42,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         startupLog("makeKeyAndVisible returned — bridge non-nil: \(bridgeVC.bridge != nil), webView non-nil: \(bridgeVC.webView != nil)")
 
         observeCapacitorViewDidAppear()
+        disableScrollViewTouchDelay(on: bridgeVC)
         fixSafeAreaInsetFirstFrame(on: bridgeVC)
         hideSplashWhenWebViewReady(on: bridgeVC)
         registerExternalLinkPlugin(on: bridgeVC)
@@ -51,6 +52,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         startupLog("scene(_:willConnectTo:) about to call SceneDelegateProxy")
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
         startupLog("scene(_:willConnectTo:) returning")
+    }
+
+    // UIScrollView defaults to delaysContentTouches = true: before handing
+    // any touch to content — any on-page button included — it holds it for
+    // roughly 150ms first, purely to rule out "is this actually the start
+    // of a scroll" before committing. That's a separate delay from the
+    // double-tap-to-zoom disambiguation touch-action: manipulation (set on
+    // the offline screen's button, and worth having everywhere else too)
+    // already removes in CSS — this one is pure UIKit, underneath WebKit,
+    // and nothing in CSS/JS can reach it. It's the actual remaining cause
+    // of on-page buttons feeling slow to react, confirmed by elimination
+    // once the CSS-level fix alone wasn't enough. false here affects every
+    // page this WebView ever loads, not just the offline screen.
+    private func disableScrollViewTouchDelay(on bridgeVC: CAPBridgeViewController) {
+        bridgeVC.webView?.scrollView.delaysContentTouches = false
     }
 
     // Works around a real, long-standing WebKit bug (webkit.org/b/191872),
