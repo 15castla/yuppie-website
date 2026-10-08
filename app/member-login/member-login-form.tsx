@@ -9,10 +9,26 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/Button";
+import { MessageSlot, StepStack } from "@/components/StableLayout";
 import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
+// Every message each step's form can show, in one place so MessageSlot
+// can reserve room for the longest and the card doesn't resize.
+const SEND_CODE_ERRORS = {
+  required: "Email is required.",
+  notMember:
+    "We don't recognise that email as a Yuppie member. Check for typos, or apply to join below.",
+  rateLimited: "Too many attempts. Please wait a few minutes and try again.",
+  invalidEmail: "That doesn't look like a valid email address.",
+  generic: "Something went wrong sending the login code. Please try again.",
+};
+const VERIFY_CODE_ERRORS = {
+  required: "Enter the 6-digit code from your email.",
+  incorrect: "That code is incorrect or has expired. Please try again.",
+};
+
 const inputClasses =
   "w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
 
@@ -40,7 +56,7 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
     event.preventDefault();
 
     if (!email.trim()) {
-      setError("Email is required.");
+      setError(SEND_CODE_ERRORS.required);
       return;
     }
 
@@ -68,15 +84,13 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
         message.includes("signup") ||
         message.includes("not allowed")
       ) {
-        setError(
-          "We don't recognise that email as a Yuppie member. Check for typos, or apply to join below.",
-        );
+        setError(SEND_CODE_ERRORS.notMember);
       } else if (signInError.status === 429 || message.includes("rate limit")) {
-        setError("Too many attempts. Please wait a few minutes and try again.");
+        setError(SEND_CODE_ERRORS.rateLimited);
       } else if (message.includes("invalid") || message.includes("valid email")) {
-        setError("That doesn't look like a valid email address.");
+        setError(SEND_CODE_ERRORS.invalidEmail);
       } else {
-        setError("Something went wrong sending the login code. Please try again.");
+        setError(SEND_CODE_ERRORS.generic);
       }
       return;
     }
@@ -88,7 +102,7 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
     event.preventDefault();
 
     if (!code.trim()) {
-      setError("Enter the 6-digit code from your email.");
+      setError(VERIFY_CODE_ERRORS.required);
       return;
     }
 
@@ -104,7 +118,7 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
 
     if (verifyError) {
       setSubmitting(false);
-      setError("That code is incorrect or has expired. Please try again.");
+      setError(VERIFY_CODE_ERRORS.incorrect);
       return;
     }
 
@@ -173,68 +187,80 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
             {...fade(0.6)}
             className="mt-6 w-full max-w-sm rounded-2xl border border-foreground/10 bg-background-muted p-8 shadow-[0_24px_48px_-28px_rgba(27,21,18,0.45)]"
           >
-            {step === "email" ? (
-              <form
-                onSubmit={handleSendCode}
-                noValidate
-                className="flex flex-col gap-4"
-              >
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  placeholder="you@example.com"
-                  className={inputClasses}
+            <StepStack
+              active={step}
+              steps={{
+                email: (
+                  <form
+                    onSubmit={handleSendCode}
+                    noValidate
+                    className="flex flex-col gap-4"
+                  >
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                      placeholder="you@example.com"
+                      className={inputClasses}
                 />
 
-                {error && (
-                  <p className="text-sm font-medium text-red-700">{error}</p>
-                )}
+                    <MessageSlot
+                      reserve={Object.values(SEND_CODE_ERRORS)}
+                      className="text-sm font-medium text-red-700"
+                    >
+                      {step === "email" && error && <p>{error}</p>}
+                    </MessageSlot>
 
-                <Button type="submit" disabled={submitting} className="w-full">
-                  {submitting ? "Sending…" : "Send login code"}
-                </Button>
-              </form>
-            ) : (
-              <form
-                onSubmit={handleVerifyCode}
-                noValidate
-                className="flex flex-col gap-4"
-              >
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  value={code}
-                  onChange={(event) =>
-                    setCode(event.target.value.replace(/\D/g, ""))
-                  }
-                  placeholder="123456"
-                  className={cn(inputClasses, "text-center text-lg tracking-[0.5em]")}
+                    <Button type="submit" disabled={submitting} className="w-full">
+                      {submitting ? "Sending…" : "Send login code"}
+                    </Button>
+                  </form>
+                ),
+                code: (
+                  <form
+                    onSubmit={handleVerifyCode}
+                    noValidate
+                    className="flex flex-col gap-4"
+                  >
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      value={code}
+                      onChange={(event) =>
+                        setCode(event.target.value.replace(/\D/g, ""))
+                      }
+                      placeholder="123456"
+                      className={cn(inputClasses, "text-center text-lg tracking-[0.5em]")}
                 />
 
-                {error && (
-                  <p className="text-sm font-medium text-red-700">{error}</p>
-                )}
+                    <MessageSlot
+                      reserve={Object.values(VERIFY_CODE_ERRORS)}
+                      className="text-sm font-medium text-red-700"
+                    >
+                      {step === "code" && error && <p>{error}</p>}
+                    </MessageSlot>
 
-                <Button type="submit" disabled={submitting} className="w-full">
-                  {submitting ? "Verifying…" : "Verify code"}
-                </Button>
+                    <Button type="submit" disabled={submitting} className="w-full">
+                      {submitting ? "Verifying…" : "Verify code"}
+                    </Button>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setStep("email");
-                    setCode("");
-                    setError(null);
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep("email");
+                        setCode("");
+                        setError(null);
                   }}
-                  className="text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
-                >
-                  Use a different email
-                </button>
-              </form>
-            )}
+                      className="text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
+                    >
+                      Use a different email
+                    </button>
+                  </form>
+                ),
+              }}
+            />
           </motion.div>
 
           <p className="mt-6 text-center text-sm text-foreground-muted">
