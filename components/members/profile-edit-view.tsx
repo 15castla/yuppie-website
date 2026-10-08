@@ -100,7 +100,7 @@ export function ProfileEditView({ member }: { member: Member }) {
         </motion.div>
 
         <motion.div {...fade(0.15)} className="flex flex-col gap-2">
-          <span className={EYEBROW_CLASS}>EDIT PROFILE</span>
+          <span className={EYEBROW_CLASS}>YOUR PROFILE</span>
           <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl optical-trim">
             Edit your profile.
           </h1>
