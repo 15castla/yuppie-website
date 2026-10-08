@@ -10,17 +10,19 @@ import { cn } from "@/lib/utils";
 // Renders every step at once, showing only `active`. The others keep
 // their space but are invisible and inert (not focusable, hidden from
 // assistive tech), so switching steps never changes the container's
-// height.
-// align="center" centers a shorter step in the shared height (splitting
-// its spare space above and below) instead of top-aligning it.
+// height. Steps are top-aligned so controls shared between steps (an
+// input, a submit button) sit at the same position in each.
+//
+// Transitions are switched off inside hidden layers: `visibility` is
+// inherited and animatable, so a descendant with `transition-all` (e.g.
+// <Button>) would otherwise keep showing for its whole transition after
+// its step is hidden, overlapping the next step's controls.
 export function StepStack<K extends string>({
   active,
   steps,
-  align = "start",
 }: {
   active: K;
   steps: Record<K, ReactNode>;
-  align?: "start" | "center";
 }) {
   return (
     <div className="grid">
@@ -30,8 +32,7 @@ export function StepStack<K extends string>({
           inert={key !== active}
           className={cn(
             "[grid-area:1/1]",
-            align === "center" && "self-center",
-            key !== active && "invisible",
+            key !== active && "invisible [&_*]:transition-none",
           )}
         >
           {steps[key]}

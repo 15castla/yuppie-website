@@ -39,7 +39,7 @@ const inputClasses =
 // member-login's arrival reads as the same transition as the homepage.
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
+export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
   const router = useRouter();
   const reduce = useReducedMotion();
 
@@ -142,28 +142,46 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
     >
       <section className="relative flex flex-1 flex-col">
         <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(4.5rem+var(--safe-top))] pb-20 sm:px-6 sm:pb-28 md:pb-32">
-          {/* The shipped app icon. The ink keyline isn't decorative: the
-              icon's own background is the same yellow as the page, so
-              without it the icon's edges disappear. Cream was tried and
-              read as a smear (too close to yellow in lightness). Radius is
-              ~22% of the width, the ratio iOS masks icons with. */}
-          <motion.div {...fade(0.1)}>
-            <Image
-              src="/yuppie_app_icon_1024.png"
-              alt="Yuppie"
-              // 3x the 60px display size, so phones get a crisp source.
-              width={180}
-              height={180}
-              priority
-              className="h-[60px] w-[60px] rounded-[22%] border-[3px] border-foreground shadow-[0_8px_16px_rgba(27,21,18,0.28)]"
-            />
+          {/* The app shows its own icon, the website the wordmark. Both sit
+              in the same 60px-tall box so everything below lands at the
+              same position either way.
+
+              The icon's ink keyline isn't decorative: the icon's own
+              background is the same yellow as the page, so without it the
+              icon's edges disappear. Cream was tried and read as a smear
+              (too close to yellow in lightness). Radius is ~22% of the
+              width, the ratio iOS masks icons with. */}
+          <motion.div {...fade(0.1)} className="flex h-[60px] items-center">
+            {isNativeApp ? (
+              <Image
+                src="/yuppie_app_icon_1024.png"
+                alt="Yuppie"
+                // 3x the 60px display size, so phones get a crisp source.
+                width={180}
+                height={180}
+                priority
+                className="h-[60px] w-[60px] rounded-[22%] border-[3px] border-foreground shadow-[0_8px_16px_rgba(27,21,18,0.28)]"
+              />
+            ) : (
+              <Image
+                src="/yuppie_logo_forte_forward.png"
+                alt="Yuppie"
+                // 3x the 150px display width (keeping the file's 1942x641
+                // ratio), so phones get a crisp source without downloading
+                // a 3840px one.
+                width={450}
+                height={149}
+                priority
+                className="h-auto w-[150px]"
+              />
+            )}
           </motion.div>
 
           <motion.span
             {...fade(0.2)}
             className="mt-6 text-[10px] font-bold uppercase tracking-[0.24em] text-foreground optical-trim"
           >
-            {eyebrow}
+            {isNativeApp ? "Members App" : "Members Area"}
           </motion.span>
 
           {/* Static across both steps; only the helper text below and the
@@ -212,7 +230,6 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
           >
             <StepStack
               active={step}
-              align="center"
               steps={{
                 email: (
                   <form
@@ -226,9 +243,9 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
                       onChange={(event) => setEmail(event.target.value)}
                       placeholder="you@example.com"
                       className={inputClasses}
-                />
+                    />
 
-                    <Button type="submit" disabled={submitting} className="w-full">
+                    <Button type="submit" disabled={submitting && step === "email"} className="w-full">
                       {submitting ? "Sending…" : "Send login code"}
                     </Button>
                   </form>
@@ -249,10 +266,16 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
                         setCode(event.target.value.replace(/\D/g, ""))
                       }
                       placeholder="123456"
-                      className={cn(inputClasses, "text-center text-lg tracking-[0.5em]")}
-                />
+                      // leading-6 keeps it the email input's exact height (text-lg's
+                      // own line height is 4px taller), so the button below
+                      // doesn't move between steps.
+                      className={cn(inputClasses, "text-center text-lg leading-6 tracking-[0.5em]")}
+                    />
 
-                    <Button type="submit" disabled={submitting} className="w-full">
+                    {/* Disabled only while its own step submits: both steps share
+                        `submitting`, and a button revealed mid-fade from its
+                        disabled look reads as the button flickering in. */}
+                    <Button type="submit" disabled={submitting && step === "code"} className="w-full">
                       {submitting ? "Verifying…" : "Verify code"}
                     </Button>
 
