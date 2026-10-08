@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "sync": "node scripts/inject-server-url.cjs && cap sync",
-    "assets": "capacitor-assets generate --ios --android --iconBackgroundColor '#FFD904' --iconBackgroundColorDark '#FFD904' --splashBackgroundColor '#FFD904' --splashBackgroundColorDark '#FFD904'"
+    "assets": "node scripts/build-splash.cjs source && capacitor-assets generate --ios --android --iconBackgroundColor '#FFD904' --iconBackgroundColorDark '#FFD904' --splashBackgroundColor '#FFD904' --splashBackgroundColorDark '#FFD904' && node scripts/build-splash.cjs android"
   },
   "keywords": [],
   "author": "",
@@ -24,6 +24,7 @@
   "devDependencies": {
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "^8.5.2",
+    "sharp": "^0.32.6",
     "typescript": "^7.0.2"
   }
 }
