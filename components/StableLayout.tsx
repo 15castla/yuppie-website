@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { cn } from "@/lib/utils";
+
 // Both components stack their layers in a single grid cell, so the cell
 // is always as tall as its tallest layer at the current width (text
 // wrapping included) without measuring anything in JS. Used by the login
@@ -9,12 +11,16 @@ import type { ReactNode } from "react";
 // their space but are invisible and inert (not focusable, hidden from
 // assistive tech), so switching steps never changes the container's
 // height.
+// align="center" centers a shorter step in the shared height (splitting
+// its spare space above and below) instead of top-aligning it.
 export function StepStack<K extends string>({
   active,
   steps,
+  align = "start",
 }: {
   active: K;
   steps: Record<K, ReactNode>;
+  align?: "start" | "center";
 }) {
   return (
     <div className="grid">
@@ -22,7 +28,11 @@ export function StepStack<K extends string>({
         <div
           key={key}
           inert={key !== active}
-          className={key === active ? "[grid-area:1/1]" : "invisible [grid-area:1/1]"}
+          className={cn(
+            "[grid-area:1/1]",
+            align === "center" && "self-center",
+            key !== active && "invisible",
+          )}
         >
           {steps[key]}
         </div>

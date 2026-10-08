@@ -14,8 +14,8 @@ import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
-// Every message each step's form can show, in one place so MessageSlot
-// can reserve room for the longest and the card doesn't resize.
+// Every error the screen can show, in one place so the helper-text
+// MessageSlot above the card can reserve room for the longest.
 const SEND_CODE_ERRORS = {
   required: "Email is required.",
   notMember:
@@ -28,6 +28,8 @@ const VERIFY_CODE_ERRORS = {
   required: "Enter the 6-digit code from your email.",
   incorrect: "That code is incorrect or has expired. Please try again.",
 };
+
+const EMAIL_STEP_HELPER = "Enter your email and we'll send you a one-time code.";
 
 const inputClasses =
   "w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
@@ -125,6 +127,8 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
     router.push("/members");
   }
 
+  const codeStepHelper = `We sent a 6-digit code to ${email}.`;
+
   return (
     <div
       className={cn(
@@ -174,14 +178,33 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
               Let&apos;s see what&apos;s on.
             </em>
           </motion.h1>
-          <motion.p
-            {...fade(0.45)}
-            className="mx-auto mt-4 max-w-[380px] text-center text-sm text-foreground-muted sm:text-base"
-          >
-            {step === "email"
-              ? "Enter your email and we'll send you a one-time code."
-              : `We sent a 6-digit code to ${email}.`}
-          </motion.p>
+          {/* Errors show here, in place of the helper text, rather than
+              inside the card: this line already changes per step, so
+              reserving room for the longest message costs no extra space,
+              and the card itself never resizes. font-medium on the slot
+              (undone on the helper) makes the hidden reserve copies match
+              the error's slightly wider weight, so the reserve can only
+              overestimate a wrap. The code-step helper includes the typed
+              email, so it's only reserved once on that step. */}
+          <motion.div {...fade(0.45)} className="mx-auto mt-4 w-full max-w-[380px]">
+            <MessageSlot
+              reserve={[
+                ...Object.values(SEND_CODE_ERRORS),
+                ...Object.values(VERIFY_CODE_ERRORS),
+                EMAIL_STEP_HELPER,
+                ...(step === "code" ? [codeStepHelper] : []),
+              ]}
+              className="text-center text-sm font-medium sm:text-base"
+            >
+              {error ? (
+                <p className="text-red-700">{error}</p>
+              ) : (
+                <p className="font-normal text-foreground-muted">
+                  {step === "email" ? EMAIL_STEP_HELPER : codeStepHelper}
+                </p>
+              )}
+            </MessageSlot>
+          </motion.div>
 
           <motion.div
             {...fade(0.6)}
@@ -189,6 +212,7 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
           >
             <StepStack
               active={step}
+              align="center"
               steps={{
                 email: (
                   <form
@@ -203,13 +227,6 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
                       placeholder="you@example.com"
                       className={inputClasses}
                 />
-
-                    <MessageSlot
-                      reserve={Object.values(SEND_CODE_ERRORS)}
-                      className="text-sm font-medium text-red-700"
-                    >
-                      {step === "email" && error && <p>{error}</p>}
-                    </MessageSlot>
 
                     <Button type="submit" disabled={submitting} className="w-full">
                       {submitting ? "Sending…" : "Send login code"}
@@ -234,13 +251,6 @@ export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
                       placeholder="123456"
                       className={cn(inputClasses, "text-center text-lg tracking-[0.5em]")}
                 />
-
-                    <MessageSlot
-                      reserve={Object.values(VERIFY_CODE_ERRORS)}
-                      className="text-sm font-medium text-red-700"
-                    >
-                      {step === "code" && error && <p>{error}</p>}
-                    </MessageSlot>
 
                     <Button type="submit" disabled={submitting} className="w-full">
                       {submitting ? "Verifying…" : "Verify code"}
