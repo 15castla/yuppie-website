@@ -21,7 +21,7 @@ const inputClasses =
 // member-login's arrival reads as the same transition as the homepage.
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
-export function MemberLoginForm() {
+export function MemberLoginForm({ eyebrow }: { eyebrow: string }) {
   const router = useRouter();
   const reduce = useReducedMotion();
 
@@ -145,7 +145,7 @@ export function MemberLoginForm() {
             {...fade(0.2)}
             className="mt-6 text-[10px] font-bold uppercase tracking-[0.24em] text-foreground optical-trim"
           >
-            Members Area
+            {eyebrow}
           </motion.span>
 
           {/* Static across both steps; only the helper text below and the
