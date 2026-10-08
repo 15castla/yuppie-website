@@ -1,15 +1,15 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/Button";
-import { MessageSlot, StepStack } from "@/components/StableLayout";
+import { MessageSlot } from "@/components/StableLayout";
 import {
   almarai,
   instrumentSerif,
@@ -38,6 +38,10 @@ const inputClasses =
 // (components/templates/creative-studio/hero.tsx), reused here so
 // member-login's arrival reads as the same transition as the homepage.
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+// The submit button's label crossfade (Send login code -> Sending… ->
+// Verify code).
+const LABEL_FADE_MS = 180;
 
 export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
   const router = useRouter();
@@ -126,6 +130,39 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
 
     router.push("/members");
   }
+
+  // One input and one button serve both steps (only their content
+  // changes), so on a step change focus goes back to that same input,
+  // now asking for the code (or the email again).
+  //
+  // Deferred until the button's label crossfade has finished: iOS Safari
+  // does enough work on focus to block a frame for 100-350ms (measured),
+  // which froze the crossfade mid-way when focus happened in the same
+  // frame as the step change. preventScroll keeps focusing from moving
+  // the page.
+  //
+  // Compared against the previous step (not a first-render flag) so
+  // focus never moves on mount, even when Strict Mode re-runs effects.
+  const inputRef = useRef<HTMLInputElement>(null);
+  const previousStep = useRef(step);
+  useEffect(() => {
+    if (previousStep.current === step) return;
+    previousStep.current = step;
+    const timer = setTimeout(
+      () => inputRef.current?.focus({ preventScroll: true }),
+      LABEL_FADE_MS,
+    );
+    return () => clearTimeout(timer);
+  }, [step]);
+
+  const isEmailStep = step === "email";
+  const buttonLabel = isEmailStep
+    ? submitting
+      ? "Sending…"
+      : "Send login code"
+    : submitting
+      ? "Verifying…"
+      : "Verify code";
 
   const codeStepHelper = `We sent a 6-digit code to ${email}.`;
 
@@ -228,72 +265,76 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
             {...fade(0.6)}
             className="mt-6 w-full max-w-sm rounded-2xl border border-foreground/10 bg-background-muted p-8 shadow-[0_24px_48px_-28px_rgba(27,21,18,0.45)]"
           >
-            <StepStack
-              active={step}
-              steps={{
-                email: (
-                  <form
-                    onSubmit={handleSendCode}
-                    noValidate
-                    className="flex flex-col gap-4"
-                  >
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder="you@example.com"
-                      className={inputClasses}
-                    />
+            {/* A single form, input and button for both steps, so they're
+                literally the same boxes: only their content changes. h-14
+                pins the input at exactly 56px whatever the text styling
+                inside it (the code step's larger, letter-spaced digits). */}
+            <form
+              onSubmit={isEmailStep ? handleSendCode : handleVerifyCode}
+              noValidate
+              className="flex flex-col gap-4"
+            >
+              <input
+                ref={inputRef}
+                type={isEmailStep ? "email" : "text"}
+                inputMode={isEmailStep ? "email" : "numeric"}
+                autoComplete={isEmailStep ? "email" : "one-time-code"}
+                maxLength={isEmailStep ? undefined : 6}
+                aria-label={isEmailStep ? "Email address" : "6-digit code"}
+                value={isEmailStep ? email : code}
+                onChange={(event) =>
+                  isEmailStep
+                    ? setEmail(event.target.value)
+                    : setCode(event.target.value.replace(/\D/g, ""))
+                }
+                placeholder={isEmailStep ? "you@example.com" : "123456"}
+                className={cn(
+                  inputClasses,
+                  "h-14",
+                  !isEmailStep && "text-center text-lg tracking-[0.5em]",
+                )}
+              />
 
-                    <Button type="submit" disabled={submitting && step === "email"} className="w-full">
-                      {submitting ? "Sending…" : "Send login code"}
-                    </Button>
-                  </form>
-                ),
-                code: (
-                  <form
-                    onSubmit={handleVerifyCode}
-                    noValidate
-                    className="flex flex-col gap-4"
-                  >
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      maxLength={6}
-                      value={code}
-                      onChange={(event) =>
-                        setCode(event.target.value.replace(/\D/g, ""))
-                      }
-                      placeholder="123456"
-                      // leading-6 keeps it the email input's exact height (text-lg's
-                      // own line height is 4px taller), so the button below
-                      // doesn't move between steps.
-                      className={cn(inputClasses, "text-center text-lg leading-6 tracking-[0.5em]")}
-                    />
-
-                    {/* Disabled only while its own step submits: both steps share
-                        `submitting`, and a button revealed mid-fade from its
-                        disabled look reads as the button flickering in. */}
-                    <Button type="submit" disabled={submitting && step === "code"} className="w-full">
-                      {submitting ? "Verifying…" : "Verify code"}
-                    </Button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStep("email");
-                        setCode("");
-                        setError(null);
-                  }}
-                      className="text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
+              {/* The label crossfades in place (Send login code -> Sending…
+                  -> Verify code); stacking old and new in one grid cell keeps
+                  the button's size independent of either label. */}
+              <Button type="submit" disabled={submitting} className="w-full">
+                <span className="grid">
+                  <AnimatePresence initial={false}>
+                    <motion.span
+                      key={buttonLabel}
+                      className="[grid-area:1/1]"
+                      initial={reduce ? false : { opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={reduce ? { opacity: 0, transition: { duration: 0 } } : { opacity: 0, y: -6 }}
+                      transition={{ duration: LABEL_FADE_MS / 1000, ease: "easeOut" }}
                     >
-                      Use a different email
-                    </button>
-                  </form>
-                ),
-              }}
-            />
+                      {buttonLabel}
+                    </motion.span>
+                  </AnimatePresence>
+                </span>
+              </Button>
+
+              {/* Always rendered so its row is reserved on the email step
+                  too, and the card's height never changes. Hidden by
+                  opacity (and inert) rather than visibility so it can fade
+                  in alongside the button's label. */}
+              <button
+                type="button"
+                inert={isEmailStep}
+                onClick={() => {
+                  setStep("email");
+                  setCode("");
+                  setError(null);
+                }}
+                className={cn(
+                  "text-sm font-medium text-foreground/50 outline-none transition-[color,opacity] duration-200 hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline motion-reduce:transition-none",
+                  isEmailStep && "opacity-0",
+                )}
+              >
+                Use a different email
+              </button>
+            </form>
           </motion.div>
 
           <p className="mt-6 text-center text-sm text-foreground-muted">
