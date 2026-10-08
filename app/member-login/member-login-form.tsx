@@ -3,6 +3,7 @@
 import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
@@ -122,51 +123,51 @@ export function MemberLoginForm() {
       }}
     >
       <section className="relative flex flex-1 flex-col">
-        <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(7rem+var(--safe-top))] pb-20 sm:px-6 sm:pt-[calc(8rem+var(--safe-top))] sm:pb-28 md:pb-32">
+        <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(4.5rem+var(--safe-top))] pb-20 sm:px-6 sm:pb-28 md:pb-32">
+          {/* The shipped app icon. The ink keyline isn't decorative: the
+              icon's own background is the same yellow as the page, so
+              without it the icon's edges disappear. Cream was tried and
+              read as a smear (too close to yellow in lightness). Radius is
+              ~22% of the width, the ratio iOS masks icons with. */}
+          <motion.div {...fade(0.1)}>
+            <Image
+              src="/yuppie_app_icon_1024.png"
+              alt="Yuppie"
+              // 3x the 60px display size, so phones get a crisp source.
+              width={180}
+              height={180}
+              priority
+              className="h-[60px] w-[60px] rounded-[22%] border-[3px] border-foreground shadow-[0_8px_16px_rgba(27,21,18,0.28)]"
+            />
+          </motion.div>
+
           <motion.span
-            {...fade(0.15)}
-            className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground optical-trim"
+            {...fade(0.2)}
+            className="mt-6 text-[10px] font-bold uppercase tracking-[0.24em] text-foreground optical-trim"
           >
             Members Area
           </motion.span>
 
-          {step === "email" ? (
-            <>
-              <motion.h1
-                {...fade(0.3)}
-                className="mt-6 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
-              >
-                Welcome back.{" "}
-                <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
-                  Let&apos;s see what&apos;s on.
-                </em>
-              </motion.h1>
-              <motion.p
-                {...fade(0.45)}
-                className="mx-auto mt-4 max-w-[380px] text-center text-sm text-foreground-muted sm:text-base"
-              >
-                Enter your email and we&apos;ll send you a one-time code.
-              </motion.p>
-            </>
-          ) : (
-            <>
-              <motion.h1
-                {...fade(0.3)}
-                className="mt-6 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
-              >
-                Check your inbox.{" "}
-                <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
-                  Almost in.
-                </em>
-              </motion.h1>
-              <motion.p
-                {...fade(0.45)}
-                className="mx-auto mt-4 max-w-[380px] text-center text-sm text-foreground-muted sm:text-base"
-              >
-                We sent a 6-digit code to {email}.
-              </motion.p>
-            </>
-          )}
+          {/* Static across both steps; only the helper text below and the
+              card's contents change when a code is sent. */}
+          <motion.h1
+            {...fade(0.3)}
+            className="mt-5 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
+          >
+            Welcome back.
+            <br />
+            <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
+              Let&apos;s see what&apos;s on.
+            </em>
+          </motion.h1>
+          <motion.p
+            {...fade(0.45)}
+            className="mx-auto mt-4 max-w-[380px] text-center text-sm text-foreground-muted sm:text-base"
+          >
+            {step === "email"
+              ? "Enter your email and we'll send you a one-time code."
+              : `We sent a 6-digit code to ${email}.`}
+          </motion.p>
 
           <motion.div
             {...fade(0.6)}
