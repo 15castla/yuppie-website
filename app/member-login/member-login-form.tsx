@@ -122,7 +122,7 @@ export function MemberLoginForm() {
       }}
     >
       <section className="relative flex flex-1 flex-col">
-        <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-28 pb-20 sm:px-6 sm:pt-32 sm:pb-28 md:pb-32">
+        <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(7rem+var(--safe-top))] pb-20 sm:px-6 sm:pt-[calc(8rem+var(--safe-top))] sm:pb-28 md:pb-32">
           <motion.span
             {...fade(0.15)}
             className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground optical-trim"

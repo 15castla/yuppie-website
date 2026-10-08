@@ -208,7 +208,7 @@ export function EventDetailView({
           stretching: it comes from html/body's own explicit background
           (globals.css) and the min-h-dvh wrapper in app/members/layout.tsx,
           both unaffected by this element's height either way. */}
-      <main className="relative z-10 flex flex-1 flex-col px-4 pt-8 pb-[150px] sm:px-6 md:flex-none md:pt-28 md:pb-16">
+      <main className="relative z-10 flex flex-1 flex-col px-4 pt-[calc(2rem+var(--safe-top))] pb-[150px] sm:px-6 md:flex-none md:pt-28 md:pb-16">
         <motion.div
           {...fade(0.1)}
           className="relative w-full overflow-hidden rounded-2xl border border-foreground/10 md:mx-auto md:max-w-3xl md:mt-6"

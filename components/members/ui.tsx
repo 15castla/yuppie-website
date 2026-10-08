@@ -9,7 +9,8 @@ export const EYEBROW_CLASS =
 export const CARD_CLASS = "rounded-2xl border border-foreground/10 bg-background-muted";
 
 // Shared <main> wrapper for every top-level members page. Small top
-// padding below md: since the top nav pill is hidden there (mobile uses
+// padding below md: (2rem below the safe area, see --safe-top in
+// globals.css) since the top nav pill is hidden there (mobile uses
 // the bottom tab bar instead), full pt-28 clearance restored at md: for
 // the floating top pill nav. Large pb-[150px] below md: (matching
 // event-detail-view.tsx's own <main>) since MembersBottomBar
@@ -17,7 +18,7 @@ export const CARD_CLASS = "rounded-2xl border border-foreground/10 bg-background
 // flow, so content needs its own clearance to avoid ending up hidden
 // behind it.
 export const MEMBERS_MAIN_CLASS =
-  "relative z-10 flex flex-1 flex-col px-4 pt-[max(2rem,env(safe-area-inset-top))] pb-[150px] sm:px-6 md:pt-28 md:pb-20";
+  "relative z-10 flex flex-1 flex-col px-4 pt-[calc(2rem+var(--safe-top))] pb-[150px] sm:px-6 md:pt-28 md:pb-20";
 
 const STATUS_DOT_COLOR: Record<string, string> = {
   active: "#2F6B3A",

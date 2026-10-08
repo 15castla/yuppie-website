@@ -124,9 +124,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // WKUserScript at .atDocumentStart injection time runs before the
     // page's own CSS/JS on every navigation (including the SPA's own
     // client-side route changes, not just the first cold-launch load),
-    // appending a <style> tag that hard-sets <main>'s padding-top with
-    // !important — the exact same max(2rem, inset) the page's own CSS
-    // wants, just computed here instead of trusting env() to deliver it.
+    // appending a <style> tag that defines --native-safe-area-inset-top on
+    // :root. app/globals.css's --safe-top prefers that over env(), and
+    // each page adds --safe-top on top of its own top padding — so pages
+    // keep their own spacing (2rem for the members area, 7rem for
+    // member-login) below the inset, exactly as they render below the
+    // status bar in Safari. (This used to hard-set every <main>'s
+    // padding-top to max(2rem, inset + 30pt) with !important, which
+    // matched the members pages but squashed member-login's larger
+    // padding to the same 92pt.)
     //
     // The injected value isn't adjustedContentInset.top, though — that
     // was tried first and, measured pixel-for-pixel against the real
@@ -165,23 +171,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // iframe content (see ExternalLinkPlugin.swift's isInAppHost comment
     // for why those load inline rather than externally).
     //
-    // The injected value also isn't the raw hardware safe area on its
-    // own: measured twice, consistently, the website in Safari shows
-    // ~92-93pt of clearance on this device while window.safeAreaInsets.top
-    // alone (62pt) produces ~60pt in the app — a stable ~30pt short.
-    // That's structural, not error: Safari reserves extra space of its
-    // own above the page for its retractable tab-bar/toolbar chrome,
-    // which collapses but still factors into what Safari considers
-    // "safe," on top of the real hardware inset; this WebView has no
-    // such chrome at all, so its hardware-accurate safe area reading was
-    // always going to be smaller than Safari's by roughly that chrome's
-    // height. The goal here is pixel parity with the live website people
-    // already see in Safari, not textbook safe-area correctness for its
-    // own sake — so this adds that gap back in explicitly as a fixed
-    // buffer on top of the real per-device safe-area reading (not a
-    // single hardcoded constant on its own), so it still scales sensibly
-    // across other notch/Dynamic Island sizes. Confirmed via real-device
-    // pixel measurement to land within ~2pt of the website — noise-level.
+    // The injected value is the raw hardware safe area. An earlier
+    // version added a fixed 30pt "Safari chrome buffer" on top, to match
+    // the ~92pt the members pages show in Safari. That gap was really the
+    // members pages' own 2rem padding, which Safari stacks below the
+    // status bar (measured in Simulator Safari: env(safe-area-inset-top)
+    // is 0 and the page starts below the 62pt status bar). Pages now add
+    // their own padding themselves, so the members area still lands at
+    // 62 + 32 = 94pt.
     //
     // Polls every 10ms for up to 1.2s (120 attempts) — generous relative
     // to how fast this value actually resolves in practice (observed
@@ -192,14 +189,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         let topInset = webView.scrollView.adjustedContentInset.top
         if topInset > 0 {
             let windowInset = bridgeVC.view.window?.safeAreaInsets.top ?? 0
-            // The stable gap measured between Safari's rendered spacing
-            // and this WebView's hardware-accurate safe area — see the
-            // comment above for why that gap exists structurally rather
-            // than being an error to fix away.
-            let safariChromeBuffer: CGFloat = 30
-            let targetInset = windowInset + safariChromeBuffer
-            let insetPx = Int(targetInset.rounded())
-            startupLog("fixSafeAreaInsetFirstFrame: adjustedContentInset.top = \(topInset) after \(attempt) poll(s); window.safeAreaInsets.top = \(windowInset) + \(safariChromeBuffer)pt buffer = \(targetInset); injecting override stylesheet (padding-top: max(2rem, \(insetPx)px))")
+            let insetPx = Int(windowInset.rounded())
+            startupLog("fixSafeAreaInsetFirstFrame: adjustedContentInset.top = \(topInset) after \(attempt) poll(s); window.safeAreaInsets.top = \(windowInset); injecting --native-safe-area-inset-top: \(insetPx)px")
 
             // Removes any native contentOffset contribution .automatic
             // might otherwise apply on its own (see the comment above) —
@@ -208,7 +199,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             webView.scrollView.contentInsetAdjustmentBehavior = .never
             webView.scrollView.contentOffset = .zero
 
-            let css = "main { padding-top: max(2rem, \(insetPx)px) !important; }"
+            let css = ":root { --native-safe-area-inset-top: \(insetPx)px; }"
             let cssLiteral = (try? JSONEncoder().encode(css)).flatMap { String(data: $0, encoding: .utf8) } ?? "\"\""
             let js = """
             (function() {

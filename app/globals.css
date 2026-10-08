@@ -7,6 +7,13 @@
   --foreground-muted: #6b6560;
   --accent: #ffd904;
   --cream: #f5f3e7;
+  /* Top safe-area inset (notch/Dynamic Island) to add on top of a page's
+     own top padding. On the web this is plain env() — 0 in a regular
+     browser tab, where the page already starts below the status bar. The
+     iOS app supplies --native-safe-area-inset-top itself (see
+     mobile/ios/App/App/SceneDelegate.swift) because WebKit's env() isn't
+     reliably delivered to the app's WebView on device. */
+  --safe-top: var(--native-safe-area-inset-top, env(safe-area-inset-top));
 }
 
 @theme inline {

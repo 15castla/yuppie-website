@@ -26,7 +26,7 @@ const config: CapacitorConfig = {
     // that, the WebView never reports the Dynamic Island/notch safe area
     // to the page at all — env(safe-area-inset-top) resolves to 0
     // instead of ~59pt, so components/members/ui.tsx's
-    // pt-[max(2rem,env(safe-area-inset-top))] silently falls back to its
+    // pt-[calc(2rem+var(--safe-top))] silently falls back to its
     // 2rem floor, squashing the Members Area header up against the
     // status bar. "automatic" is the standard UIKit behavior and the
     // documented fix for exactly this: it makes the WebView report real
