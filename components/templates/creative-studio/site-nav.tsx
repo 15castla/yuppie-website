@@ -17,10 +17,10 @@ const NAV_EXCLUDED_PREFIXES = [
   // this nav rendering on top of it is exactly the collision reported
   // against the "Hey, {firstName}." header.
   "/members",
-  // Per spec, renders with no top menu bar at all — also the native
-  // app's own server.url entry point (mobile/capacitor.config.ts), so it
-  // needs to look chrome-free on the web too, not just in-app.
-  "/member-login",
+  // (/member-login is deliberately not listed: on the website it keeps
+  // the public nav so visitors arriving via "Members Area" can get back.
+  // Inside the native app, where it's the entry screen, SiteNav already
+  // renders nothing at all; see useIsNativeApp below.)
   // Internal staff area (login, password reset, and the authenticated
   // (protected) group) with its own sticky AdminNav header
   // (app/admin/(protected)/layout.tsx) — never part of the public
