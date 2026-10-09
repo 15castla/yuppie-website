@@ -3,7 +3,6 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import Image from "next/image";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
@@ -184,44 +183,9 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
     >
       <section className="relative flex flex-1 flex-col">
         <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(4.5rem+var(--safe-top))] pb-20 sm:px-6 sm:pb-28 md:pb-32">
-          {/* The app shows its own icon, the website the wordmark. Both sit
-              in the same 60px-tall box so everything below lands at the
-              same position either way.
-
-              The icon's ink keyline isn't decorative: the icon's own
-              background is the same yellow as the page, so without it the
-              icon's edges disappear. Cream was tried and read as a smear
-              (too close to yellow in lightness). Radius is ~22% of the
-              width, the ratio iOS masks icons with. */}
-          <motion.div {...fade(0.1)} className="flex h-[60px] items-center">
-            {isNativeApp ? (
-              <Image
-                src="/yuppie_app_icon_1024.png"
-                alt="Yuppie"
-                // 3x the 60px display size, so phones get a crisp source.
-                width={180}
-                height={180}
-                priority
-                className="h-[60px] w-[60px] rounded-[22%] border-[3px] border-foreground shadow-[0_8px_16px_rgba(27,21,18,0.28)]"
-              />
-            ) : (
-              <Image
-                src="/yuppie_logo_forte_forward.png"
-                alt="Yuppie"
-                // 3x the 150px display width (keeping the file's 1942x641
-                // ratio), so phones get a crisp source without downloading
-                // a 3840px one.
-                width={450}
-                height={149}
-                priority
-                className="h-auto w-[150px]"
-              />
-            )}
-          </motion.div>
-
           <motion.span
             {...fade(0.2)}
-            className="mt-6 text-[10px] font-bold uppercase tracking-[0.24em] text-foreground optical-trim"
+            className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground optical-trim"
           >
             {isNativeApp ? "Members App" : "Members Area"}
           </motion.span>
