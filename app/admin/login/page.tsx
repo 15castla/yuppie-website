@@ -14,8 +14,7 @@ const linkClasses =
 
 type Step = "password" | "reset-sent" | "enroll" | "code";
 
-// Every message each step can show, in one place so MessageSlot can
-// reserve room for the longest and the card doesn't resize.
+// Every message each step can show, in one place.
 const PASSWORD_STEP_ERRORS = {
   required: "Email and password are required.",
   incorrect: "Incorrect email or password.",
@@ -186,10 +185,11 @@ export default function AdminLoginPage() {
   }
 
   // Steps hidden by StepStack are still rendered, so each slot only shows
-  // the error while its own step is active; otherwise a longer message
-  // from another step would stretch a hidden layer past its reserve.
+  // the error while its own step is active; otherwise a message in a
+  // hidden step would still take space in that layer, and StepStack
+  // sizes the card to its tallest layer.
   const totpError = (
-    <MessageSlot reserve={Object.values(TOTP_ERRORS)} className="text-sm font-medium text-red-700">
+    <MessageSlot parentGap={16} className="text-sm font-medium text-red-700">
       {(step === "code" || step === "enroll") && error && <p>{error}</p>}
     </MessageSlot>
   );
@@ -273,13 +273,9 @@ export default function AdminLoginPage() {
           className={inputClasses}
         />
 
-        <MessageSlot
-          reserve={[...Object.values(PASSWORD_STEP_ERRORS), PASSWORD_SET_NOTICE]}
-          className="text-sm font-medium"
-        >
-          {/* One message at a time, so the slot never needs room for two:
-              an error replaces the "Password set" notice, which is stale
-              once a sign-in has been attempted anyway. */}
+        <MessageSlot parentGap={16} className="text-sm font-medium">
+          {/* One message at a time: an error replaces the "Password set"
+              notice, which is stale once a sign-in has been attempted. */}
           {step === "password" &&
             (error ? (
               <p className="text-red-700">{error}</p>

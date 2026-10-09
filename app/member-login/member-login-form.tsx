@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
@@ -15,8 +15,8 @@ import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
-// Every error the screen can show, in one place so the helper-text
-// MessageSlot above the card can reserve room for the longest.
+// Every error the screen can show. Shown under the input (MessageSlot),
+// growing in when one appears; nothing is reserved for them.
 const SEND_CODE_ERRORS = {
   required: "Email is required.",
   notMember:
@@ -169,6 +169,7 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
       : "Verify code";
 
   const codeStepHelper = `We sent a 6-digit code to ${email}.`;
+  const errorId = useId();
 
   return (
     <div
@@ -237,32 +238,28 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
               Let&apos;s see what&apos;s on.
             </em>
           </motion.h1>
-          {/* Errors show here, in place of the helper text, rather than
-              inside the card: this line already changes per step, so
-              reserving room for the longest message costs no extra space,
-              and the card itself never resizes. font-medium on the slot
-              (undone on the helper) makes the hidden reserve copies match
-              the error's slightly wider weight, so the reserve can only
-              overestimate a wrap. The code-step helper includes the typed
-              email, so it's only reserved once on that step. */}
-          <motion.div {...fade(0.45)} className="mx-auto mt-4 w-full max-w-[380px]">
-            <MessageSlot
-              reserve={[
-                ...Object.values(SEND_CODE_ERRORS),
-                ...Object.values(VERIFY_CODE_ERRORS),
-                EMAIL_STEP_HELPER,
-                ...(step === "code" ? [codeStepHelper] : []),
-              ]}
-              className="text-center text-sm font-medium sm:text-base"
-            >
-              {error ? (
-                <p className="text-red-700">{error}</p>
-              ) : (
-                <p className="font-normal text-foreground-muted">
-                  {step === "email" ? EMAIL_STEP_HELPER : codeStepHelper}
-                </p>
-              )}
-            </MessageSlot>
+          {/* Purely instructional, never an error. Both steps' lines are
+              stacked in one grid cell so swapping them at the step change
+              can't move the card below. The code-step line includes the
+              typed email, so it's only reserved once on that step (typing a
+              long email can't shift the page). Polite live region, so the
+              step change ("We sent a 6-digit code to…") is announced. */}
+          <motion.div
+            {...fade(0.45)}
+            aria-live="polite"
+            className="mx-auto mt-4 grid w-full max-w-[380px] text-center text-sm text-foreground-muted sm:text-base"
+          >
+            <p aria-hidden className="invisible [grid-area:1/1]">
+              {EMAIL_STEP_HELPER}
+            </p>
+            {step === "code" && (
+              <p aria-hidden className="invisible [grid-area:1/1]">
+                {codeStepHelper}
+              </p>
+            )}
+            <p className="[grid-area:1/1]">
+              {step === "email" ? EMAIL_STEP_HELPER : codeStepHelper}
+            </p>
           </motion.div>
 
           <motion.div
@@ -276,7 +273,7 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
             <form
               onSubmit={isEmailStep ? handleSendCode : handleVerifyCode}
               noValidate
-              className="flex flex-col gap-4"
+              className="flex flex-col"
             >
               <input
                 ref={inputRef}
@@ -285,6 +282,8 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
                 autoComplete={isEmailStep ? "email" : "one-time-code"}
                 maxLength={isEmailStep ? undefined : 6}
                 aria-label={isEmailStep ? "Email address" : "6-digit code"}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? errorId : undefined}
                 value={isEmailStep ? email : code}
                 onChange={(event) =>
                   isEmailStep
@@ -296,13 +295,26 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
                   inputClasses,
                   "h-14",
                   !isEmailStep && "text-center text-lg tracking-[0.5em]",
+                  // Important, to win over the base and focus border colors
+                  // (cn is a plain join, not a Tailwind conflict merge).
+                  error && "border-[#B3261E]!",
                 )}
               />
+
+              {/* No reserved space: with no error the button sits the usual
+                  12px below the input. An error mounts under the input and
+                  grows in (see MessageSlot). */}
+              <MessageSlot
+                id={errorId}
+                className="text-center text-[13px] leading-[1.35] text-[#B3261E]"
+              >
+                {error && <p>{error}</p>}
+              </MessageSlot>
 
               {/* The label crossfades in place (Send login code -> Sending…
                   -> Verify code); stacking old and new in one grid cell keeps
                   the button's size independent of either label. */}
-              <Button type="submit" disabled={submitting} className="w-full">
+              <Button type="submit" disabled={submitting} className="mt-3 w-full">
                 <span className="grid">
                   <AnimatePresence initial={false}>
                     <motion.span
@@ -332,7 +344,7 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
                   setError(null);
                 }}
                 className={cn(
-                  "text-sm font-medium text-foreground/50 outline-none transition-[color,opacity] duration-200 hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline motion-reduce:transition-none",
+                  "mt-3 text-sm font-medium text-foreground/50 outline-none transition-[color,opacity] duration-200 hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline motion-reduce:transition-none",
                   isEmailStep && "opacity-0",
                 )}
               >

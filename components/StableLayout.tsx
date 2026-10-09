@@ -1,11 +1,10 @@
-import type { ReactNode } from "react";
+import { Children, type CSSProperties, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 
-// Both components stack their layers in a single grid cell, so the cell
-// is always as tall as its tallest layer at the current width (text
-// wrapping included) without measuring anything in JS. Used by the login
-// cards so they don't resize when an error appears or the step changes.
+// Layout helpers for the login cards. StepStack keeps a card the same
+// height across its steps; MessageSlot shows a form message without a
+// permanently reserved gap.
 
 // Renders every step at once, showing only `active`. The others keep
 // their space but are invisible and inert (not focusable, hidden from
@@ -42,29 +41,50 @@ export function StepStack<K extends string>({
   );
 }
 
-// Reserves room for the longest of `reserve` (every message this slot can
-// show), so a message appearing or disappearing doesn't change the
-// height. `children` is what's currently shown; it's a polite live
-// region, which works now that the slot is always in the DOM.
+// A form message (error or notice) that takes no space until there is
+// one, then grows in (.message-grow-in in globals.css) rather than
+// popping in or sitting in a permanently reserved, empty slot.
+//
+// Screen readers: a live region only reliably announces changes inside a
+// region already in the page, not one that mounts holding its message.
+// So the text is rendered twice: into a visually hidden live region that
+// is always mounted (absolutely positioned, so it takes no space and adds
+// no flex gap), which is what gets announced, and into the visible,
+// animated copy, which is aria-hidden so it isn't read twice. Pass `id`
+// to point an input's aria-describedby at the announced text.
+//
+// `parentGap` (px): inside a flex column with its own `gap`, a message
+// mounting would add that whole gap at once. This animates its margin
+// from -gap (cancelling it) to 8px - gap instead, so it still grows from
+// nothing and ends 8px below whatever is above it.
 export function MessageSlot({
-  reserve,
+  id,
   className,
+  parentGap = 0,
   children,
 }: {
-  reserve: string[];
+  id?: string;
   className?: string;
+  parentGap?: number;
   children?: ReactNode;
 }) {
+  const hasMessage = Children.toArray(children).some((child) => child !== "");
+  const gapStyle = parentGap
+    ? ({
+        "--message-gap-from": `${-parentGap}px`,
+        "--message-gap-to": `${8 - parentGap}px`,
+      } as CSSProperties)
+    : undefined;
   return (
-    <div className={`grid ${className ?? ""}`}>
-      {reserve.map((message) => (
-        <p key={message} aria-hidden className="invisible [grid-area:1/1]">
-          {message}
-        </p>
-      ))}
-      <div aria-live="polite" className="[grid-area:1/1]">
+    <>
+      <div id={id} aria-live="polite" aria-atomic="true" className="sr-only">
         {children}
       </div>
-    </div>
+      {hasMessage && (
+        <div aria-hidden className={cn("message-grow-in", className)} style={gapStyle}>
+          <div>{children}</div>
+        </div>
+      )}
+    </>
   );
 }

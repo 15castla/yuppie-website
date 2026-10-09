@@ -16,9 +16,7 @@ const linkClasses =
 type Stage = "confirm" | "verified" | "invalid";
 
 const INVALID_LINK_ERROR = "This link is invalid, expired, or has already been used.";
-// Every message the set-password form can show, in one place so
-// MessageSlot can reserve room for the longest and the card doesn't
-// resize.
+// Every message the set-password form can show, in one place.
 const SET_PASSWORD_ERRORS = {
   tooShort: "Password must be at least 8 characters.",
   mismatch: "Passwords don't match.",
@@ -155,10 +153,7 @@ export default function ResetConfirmPage() {
           className={inputClasses}
         />
 
-        <MessageSlot
-          reserve={Object.values(SET_PASSWORD_ERRORS)}
-          className="text-sm font-medium text-red-700"
-        >
+        <MessageSlot parentGap={16} className="text-sm font-medium text-red-700">
           {stage === "verified" && error && <p>{error}</p>}
         </MessageSlot>
 

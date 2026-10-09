@@ -57,6 +57,56 @@ body {
   text-box-edge: cap alphabetic;
 }
 
+/* Grow-in for form messages (components/StableLayout.tsx's MessageSlot).
+   The message takes no space until it exists; on mount it grows in.
+   A keyframe animation rather than a transition, since it plays on
+   insertion with no prior state to transition from; `backwards` applies
+   the start state from the first frame.
+
+   Height grows via a one-row grid going 0fr -> 1fr (the child has
+   min-height: 0 and clips), i.e. to the message's real height. A
+   max-height 0 -> 100px animation was measured first and read as a jump:
+   messages here are 18-35px tall, so with ease-out the height finished
+   in the first 2-3 frames (the button dropped 20-38px at once) and only
+   the margin moved after that. This also means no cap to clip or
+   overflow, however long the message.
+
+   The margin comes from --message-gap-from/to so a message inside a flex
+   column with its own gap can cancel that gap (see MessageSlot's
+   parentGap). */
+.message-grow-in {
+  display: grid;
+  grid-template-rows: 1fr;
+  margin-top: var(--message-gap-to, 8px);
+  animation: message-grow-in 220ms ease-out backwards;
+}
+
+.message-grow-in > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+@keyframes message-grow-in {
+  from {
+    grid-template-rows: 0fr;
+    opacity: 0;
+    margin-top: var(--message-gap-from, 0px);
+    transform: translateY(-4px);
+  }
+  to {
+    grid-template-rows: 1fr;
+    opacity: 1;
+    margin-top: var(--message-gap-to, 8px);
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .message-grow-in {
+    animation: none;
+  }
+}
+
 /* react-phone-number-input's country-select button, restyled to read as
    the flush left segment of the same field as the number input next to
    it (app/apply/apply-form.tsx) rather than the library's own look.
