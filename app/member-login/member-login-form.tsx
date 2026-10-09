@@ -9,6 +9,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { MessageSlot } from "@/components/StableLayout";
+import { PAGE_EYEBROW_CLASS, PAGE_TITLE_TOP_PADDING } from "@/components/page-header";
 import { useKeyboardReveal } from "./use-keyboard-reveal";
 import {
   almarai,
@@ -182,10 +183,18 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
       }}
     >
       <section className="relative flex flex-1 flex-col">
-        <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(4.5rem+var(--safe-top))] pb-20 sm:px-6 sm:pb-28 md:pb-32">
+        {/* On the website the title starts where /apply's and /faq's do,
+            below the public SiteNav. The app has no SiteNav, so it keeps a
+            tighter top instead of room for a nav that isn't there. */}
+        <main
+          className={cn(
+            "relative z-10 flex flex-1 flex-col items-center px-4 pb-20 sm:px-6 sm:pb-28 md:pb-32",
+            isNativeApp ? "pt-[calc(4.5rem+var(--safe-top))]" : PAGE_TITLE_TOP_PADDING,
+          )}
+        >
           <motion.span
             {...fade(0.2)}
-            className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground optical-trim"
+            className={PAGE_EYEBROW_CLASS}
           >
             {isNativeApp ? "Members App" : "Members Area"}
           </motion.span>
@@ -194,7 +203,7 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
               card's contents change when a code is sent. */}
           <motion.h1
             {...fade(0.3)}
-            className="mt-5 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
+            className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
           >
             Welcome back.
             <br />

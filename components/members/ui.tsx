@@ -1,9 +1,9 @@
+import { PAGE_EYEBROW_CLASS } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 import type { EventCategory } from "./event-types";
 
-// Page-title eyebrow: identical to the public pages' (/apply, /faq).
-export const EYEBROW_CLASS =
-  "text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim";
+// Page-title eyebrow: the public pages' standard (components/page-header).
+export const EYEBROW_CLASS = PAGE_EYEBROW_CLASS;
 
 export const CARD_CLASS = "rounded-2xl border border-foreground/10 bg-background-muted";
 
