@@ -304,25 +304,28 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
                 </span>
               </Button>
 
-              {/* Always rendered so its row is reserved on the email step
-                  too, and the card's height never changes. Hidden by
-                  opacity (and inert) rather than visibility so it can fade
-                  in alongside the button's label. */}
-              <button
-                type="button"
-                inert={isEmailStep}
-                onClick={() => {
-                  setStep("email");
-                  setCode("");
-                  setError(null);
-                }}
-                className={cn(
-                  "mt-3 text-sm font-medium text-foreground/50 outline-none transition-[color,opacity] duration-200 hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline motion-reduce:transition-none",
-                  isEmailStep && "opacity-0",
-                )}
-              >
-                Use a different email
-              </button>
+              {/* Code step only. It used to stay rendered (transparent and
+                  inert) on the email step to hold its row, which left the
+                  email step's card 32px heavier at the bottom than the top.
+                  Now it mounts on the code step and grows in like a
+                  message (.message-grow-in), 12px below the button. */}
+              {!isEmailStep && (
+                <div className="message-grow-in [--message-gap-to:12px]">
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep("email");
+                        setCode("");
+                        setError(null);
+                      }}
+                      className="block w-full text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
+                    >
+                      Use a different email
+                    </button>
+                  </div>
+                </div>
+              )}
             </form>
           </motion.div>
 
