@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { MessageSlot } from "@/components/StableLayout";
+import { useKeyboardReveal } from "./use-keyboard-reveal";
 import {
   almarai,
   instrumentSerif,
@@ -154,6 +155,9 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
     );
     return () => clearTimeout(timer);
   }, [step]);
+
+  const keyboardSpacerRef = useRef<HTMLDivElement>(null);
+  useKeyboardReveal(inputRef, keyboardSpacerRef, !!reduce);
 
   const isEmailStep = step === "email";
   const buttonLabel = isEmailStep
@@ -347,6 +351,9 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
             </Link>
           </p>
         </main>
+        {/* Extra scroll room while the keyboard covers part of the screen;
+            0px otherwise. Sized by useKeyboardReveal. */}
+        <div ref={keyboardSpacerRef} aria-hidden className="shrink-0" />
       </section>
     </div>
   );
