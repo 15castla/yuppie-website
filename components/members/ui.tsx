@@ -1,24 +1,24 @@
-import Image from "next/image";
-
 import { cn } from "@/lib/utils";
 import type { EventCategory } from "./event-types";
 
+// Page-title eyebrow: identical to the public pages' (/apply, /faq).
 export const EYEBROW_CLASS =
-  "text-[10px] font-bold uppercase tracking-[0.22em] text-foreground optical-trim";
+  "text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim";
 
 export const CARD_CLASS = "rounded-2xl border border-foreground/10 bg-background-muted";
 
-// Shared <main> wrapper for every top-level members page. Small top
-// padding below md: (2rem below the safe area, see --safe-top in
-// globals.css) since the top nav pill is hidden there (mobile uses
-// the bottom tab bar instead), full pt-28 clearance restored at md: for
-// the floating top pill nav. Large pb-[150px] below md: (matching
+// Shared <main> wrapper for every top-level members page. Top padding
+// (below the safe area, see --safe-top in globals.css): below md: there's
+// no top nav (mobile uses the bottom tab bar), so just 2rem, putting the
+// title at the top of the page. From md:, where the floating top pill nav
+// is shown, 8rem: the same height the public pages (/apply, /faq) start
+// their titles below their own nav. Large pb-[150px] below md: (matching
 // event-detail-view.tsx's own <main>) since MembersBottomBar
 // (members-nav.tsx) is position: fixed, not part of normal document
 // flow, so content needs its own clearance to avoid ending up hidden
 // behind it.
 export const MEMBERS_MAIN_CLASS =
-  "relative z-10 flex flex-1 flex-col px-4 pt-[calc(2rem+var(--safe-top))] pb-[150px] sm:px-6 md:pt-28 md:pb-20";
+  "relative z-10 flex flex-1 flex-col px-4 pt-[calc(2rem+var(--safe-top))] pb-[150px] sm:px-6 md:pt-[calc(8rem+var(--safe-top))] md:pb-20";
 
 const STATUS_DOT_COLOR: Record<string, string> = {
   active: "#2F6B3A",
@@ -169,25 +169,11 @@ export function EventThumbnail({
           : { background: "linear-gradient(135deg, #FFD904, #FFF3B0)" }
       }
     >
-      {imageUrl ? (
+      {/* No photo: just the brand gradient. There's deliberately no
+          Yuppie wordmark here; the members area carries no logo. */}
+      {imageUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-      ) : (
-        // Real wordmark (public/yuppie_logo_forte_forward.png), not the old
-        // per-category Lucide icon, faded down to a pale gold watermark
-        // over the gradient rather than recolored (it's a flat near-black
-        // raster PNG, not an SVG, so CSS can't retint it the way the icons
-        // were). Sized as a fraction of the thumbnail's own width so it
-        // scales sensibly across every context EventThumbnail is used in,
-        // rather than each caller needing to hand-tune a fixed pixel size
-        // the way iconClassName used to require.
-        <Image
-          src="/yuppie_logo_forte_forward.png"
-          alt=""
-          width={1942}
-          height={641}
-          className="h-auto w-3/5 opacity-15"
-        />
       )}
       {showCategoryBadge && (
         <span className="absolute left-3 top-3 rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">
