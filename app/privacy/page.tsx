@@ -94,7 +94,7 @@ export default function PrivacyPage() {
     >
       <section className="relative flex flex-1 flex-col overflow-hidden">
         <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(7rem+var(--safe-top))] pb-20 sm:px-6 sm:pt-[calc(8rem+var(--safe-top))] sm:pb-28 md:pb-32">
-          <div className="flex w-full max-w-3xl flex-col items-center gap-6 text-center">
+          <div className="flex w-full max-w-3xl flex-col items-center gap-3 text-center">
             <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim">
               PRIVACY POLICY
             </span>
@@ -107,7 +107,10 @@ export default function PrivacyPage() {
               Last updated: {lastUpdated}
             </p>
 
-            <p className="max-w-2xl text-sm text-foreground-muted sm:text-base">
+            {/* mt-3 on top of the block's 12px gap keeps this intro its
+                existing 24px below the "Last updated" line; only the
+                eyebrow -> heading -> subtext gaps were tightened. */}
+            <p className="mt-3 max-w-2xl text-sm text-foreground-muted sm:text-base">
               This policy explains what personal data Yuppie (&quot;we&quot;,
               &quot;us&quot;) collects through clubyuppie.com and the Yuppie
               app, why, and what rights you have over it. Yuppie is operated

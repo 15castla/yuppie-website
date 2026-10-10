@@ -17,7 +17,7 @@ export default function ContactPage() {
     >
       <section className="relative flex flex-1 flex-col overflow-hidden">
         <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(7rem+var(--safe-top))] pb-20 sm:px-6 sm:pt-[calc(8rem+var(--safe-top))] sm:pb-28 md:pb-32">
-          <div className="flex w-full max-w-md flex-col items-center gap-6 text-center">
+          <div className="flex w-full max-w-md flex-col items-center gap-3 text-center">
             <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim">
               CONTACT
             </span>
