@@ -7,6 +7,7 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import Image from "next/image";
 import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
@@ -187,17 +188,37 @@ export function MemberLoginFormNative() {
       }}
     >
       <section className="relative flex flex-1 flex-col">
-        {/* The app has no SiteNav, so the title keeps a tighter top
-            instead of room for a nav that isn't there. */}
-        <main
-          className={cn(
-            "relative z-10 flex flex-1 flex-col items-center px-4 pb-20 sm:px-6 sm:pb-28 md:pb-32",
-            "pt-[calc(4.5rem+var(--safe-top))]",
-          )}
-        >
+        {/* The whole column (icon down to the apply link) is centered in
+            the space between the status bar and the bottom watermark
+            (SiteWatermark: full width at its image's 1942:641 ratio, so
+            33.01vw tall), keeping at least 24px from each. Centering on
+            the whole screen put the apply link over the watermark on
+            short phones. min-h-dvh, not just flex-1: with the keyboard
+            up, useKeyboardReveal grows the spacer below <main> to make
+            scroll room, and <main> filling only what was left would
+            shrink instead, re-centering the column rather than letting
+            the page scroll. */}
+        <main className="relative z-10 flex min-h-dvh flex-1 flex-col items-center justify-center px-4 pt-[calc(1.5rem+var(--safe-top))] pb-[calc(33.01vw+1.5rem)] sm:px-6">
+          {/* The shipped app icon (the "y" mark; pixel-identical to the
+              iOS AppIcon). The ink keyline isn't decorative: the icon's
+              own background is the same yellow as the page, so without it
+              the icon's edges disappear. Radius is ~22% of the width, the
+              ratio iOS masks icons with. */}
+          <motion.div {...fade(0.1)}>
+            <Image
+              src="/yuppie_app_icon_1024.png"
+              alt="Yuppie"
+              // 3x the 60px display size, so phones get a crisp source.
+              width={180}
+              height={180}
+              priority
+              className="h-[60px] w-[60px] rounded-[22%] border-[3px] border-foreground shadow-[0_8px_16px_rgba(27,21,18,0.28)]"
+            />
+          </motion.div>
+
           <motion.span
             {...fade(0.2)}
-            className={PAGE_EYEBROW_CLASS}
+            className={cn("mt-6", PAGE_EYEBROW_CLASS)}
           >
             Members App
           </motion.span>
@@ -208,10 +229,10 @@ export function MemberLoginFormNative() {
             {...fade(0.3)}
             className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
           >
-            Welcome back.
+            One quick sign-in.
             <br />
             <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
-              Let&apos;s see what&apos;s on.
+              Then let&apos;s see what&apos;s on.
             </em>
           </motion.h1>
           {/* Purely instructional, never an error. Both steps' lines are
