@@ -338,7 +338,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
         transition: { duration: 0.3 },
       }}
       transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
-      className="mt-8 w-full max-w-md rounded-2xl border border-foreground/10 bg-background-muted p-8 sm:p-12"
+      className="mt-12 w-full max-w-md rounded-2xl border border-foreground/10 bg-background-muted p-8 sm:p-12"
     >
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-7">
         <div className="flex flex-col gap-2.5">
@@ -616,7 +616,7 @@ export default function ApplyForm({
                 <ApplicationForm onSubmitted={() => setSubmitted(true)} />
               </Elements>
             ) : (
-              <p className="mt-8 max-w-md text-center text-sm font-medium text-red-700">
+              <p className="mt-12 max-w-md text-center text-sm font-medium text-red-700">
                 {setupError}
               </p>
             )}
