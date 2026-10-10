@@ -1,9 +1,8 @@
 // Builds the launch splash from the full Yuppie wordmark
 // (public/yuppie_logo_forte_forward.png), decoupled from assets/logo.png,
-// which is now the standalone "y" icon mark and drives the app icon only.
-//
-// Runs in two phases around `capacitor-assets generate` (see `npm run
-// assets`):
+// which is now the standalone "y" icon mark and drives the Android app
+// icon only. iOS has its own layered Icon Composer icon,
+// ios/App/App/AppIcon.icon (see scripts/ios-icon-stub.cjs).
 //
 //   source  — writes assets/splash.png + assets/splash-dark.png (2732x2732).
 //             capacitor-assets processes input files sequentially — logo,

@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "sync": "node scripts/inject-server-url.cjs && cap sync",
-    "assets": "node scripts/build-splash.cjs source && capacitor-assets generate --ios --android --iconBackgroundColor '#FFD904' --iconBackgroundColorDark '#FFD904' --splashBackgroundColor '#FFD904' --splashBackgroundColorDark '#FFD904' && node scripts/build-splash.cjs android"
+    "assets": "node scripts/build-splash.cjs source && node scripts/ios-icon-stub.cjs create && capacitor-assets generate --ios --android --iconBackgroundColor '#FFD904' --iconBackgroundColorDark '#FFD904' --splashBackgroundColor '#FFD904' --splashBackgroundColorDark '#FFD904' && node scripts/ios-icon-stub.cjs remove && node scripts/build-splash.cjs android"
   },
   "keywords": [],
   "author": "",
