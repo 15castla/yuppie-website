@@ -199,14 +199,15 @@ export function MemberLoginFormNative() {
             shrink instead, re-centering the column rather than letting
             the page scroll. */}
         <main className="relative z-10 flex min-h-dvh flex-1 flex-col items-center justify-center px-4 pt-[calc(1.5rem+var(--safe-top))] pb-[calc(33.01vw+1.5rem)] sm:px-6">
-          {/* The shipped app icon (the "y" mark; pixel-identical to the
-              iOS AppIcon). The ink keyline isn't decorative: the icon's
-              own background is the same yellow as the page, so without it
-              the icon's edges disappear. Radius is ~22% of the width, the
-              ratio iOS masks icons with. */}
+          {/* The "y" mark, framed here by CSS to read as the app icon. Its
+              own file, not public/yuppie_app_icon_1024.png: that's the
+              real icon now, which already bakes this frame in. The ink
+              keyline isn't decorative: the art's background is the same
+              yellow as the page, so without it its edges disappear.
+              Radius is ~22% of the width, the ratio iOS masks icons with. */}
           <motion.div {...fade(0.1)}>
             <Image
-              src="/yuppie_app_icon_1024.png"
+              src="/yuppie_app_badge_y.png"
               alt="Yuppie"
               // 3x the 60px display size, so phones get a crisp source.
               width={180}

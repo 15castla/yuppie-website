@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     type: "website",
     images: [
       {
-        url: "/yuppie_app_icon_1024.png",
+        url: "/yuppie_app_badge_y.png",
         width: 1024,
         height: 1024,
         alt: "Yuppie",
@@ -37,7 +37,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Yuppie - Your Social Life, Curated",
     description: "Apply to join, we'll handle the planning, you just show up.",
-    images: ["/yuppie_app_icon_1024.png"],
+    images: ["/yuppie_app_badge_y.png"],
   },
   icons: {
     icon: [
@@ -46,7 +46,7 @@ export const metadata: Metadata = {
     ],
     apple: [
       {
-        url: "/yuppie_app_icon_1024.png",
+        url: "/yuppie_app_badge_y.png",
         sizes: "1024x1024",
         type: "image/png",
       },

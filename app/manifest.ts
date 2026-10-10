@@ -16,7 +16,7 @@ export default function manifest(): MetadataRoute.Manifest {
         type: "image/png",
       },
       {
-        src: "/yuppie_app_icon_1024.png",
+        src: "/yuppie_app_badge_y.png",
         sizes: "1024x1024",
         type: "image/png",
       },
