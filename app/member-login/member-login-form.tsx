@@ -220,7 +220,7 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
           <motion.div
             {...fade(0.45)}
             aria-live="polite"
-            className="mx-auto mt-4 grid w-full max-w-[380px] text-center text-sm text-foreground-muted sm:text-base"
+            className="mx-auto mt-3 grid w-full max-w-[380px] text-center text-sm text-foreground-muted sm:text-base"
           >
             <p aria-hidden className="invisible [grid-area:1/1]">
               {EMAIL_STEP_HELPER}
