@@ -203,7 +203,7 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
               card's contents change when a code is sent. */}
           <motion.h1
             {...fade(0.3)}
-            className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
+            className="mt-3 text-center text-xl font-extrabold leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl optical-trim"
           >
             Welcome back.
             <br />
@@ -220,7 +220,7 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
           <motion.div
             {...fade(0.45)}
             aria-live="polite"
-            className="mx-auto mt-3 grid w-full max-w-[380px] text-center text-sm text-foreground-muted sm:text-base"
+            className="mx-auto mt-3 grid w-full max-w-sm text-center text-sm text-foreground-muted sm:text-base"
           >
             <p aria-hidden className="invisible [grid-area:1/1]">
               {EMAIL_STEP_HELPER}
