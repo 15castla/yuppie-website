@@ -203,7 +203,7 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
               card's contents change when a code is sent. */}
           <motion.h1
             {...fade(0.3)}
-            className="mt-3 text-center text-xl font-extrabold leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl optical-trim"
+            className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
           >
             Welcome back.
             <br />

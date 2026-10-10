@@ -99,7 +99,7 @@ export default function PrivacyPage() {
               PRIVACY POLICY
             </span>
 
-            <h1 className="text-xl leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl font-extrabold optical-trim">
+            <h1 className="text-3xl leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl font-extrabold optical-trim">
               Yuppie Privacy Policy
             </h1>
 

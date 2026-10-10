@@ -526,7 +526,7 @@ export default function ApplyForm({
   const [submitted, setSubmitted] = useState(false);
 
   const heading =
-    "text-xl font-extrabold leading-[0.95] text-foreground sm:text-2xl sm:leading-[0.9] md:text-3xl lg:text-4xl optical-trim";
+    "text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim";
   const eyebrow =
     "text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim";
 
