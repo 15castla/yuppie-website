@@ -7,6 +7,7 @@ import {
   NATIVE_APP_COOKIE_NAME,
 } from "@/lib/native-app";
 import { MemberLoginForm } from "./member-login-form";
+import { MemberLoginFormNative } from "./member-login-form-native";
 
 export default async function MemberLoginPage() {
   const member = await getMember();
@@ -15,8 +16,9 @@ export default async function MemberLoginPage() {
     redirect("/members");
   }
 
-  // Decided here on the server so the first paint already has the right
-  // eyebrow label and logo: no hydration flash. The User-Agent marker is
+  // The app and the website each have their own sign-in form, edited
+  // independently. Decided here on the server so the first paint is
+  // already the right one: no hydration flash. The User-Agent marker is
   // checked first because it's on every native request from the very
   // first one, while the is-native-app cookie proxy.ts sets only reaches
   // this request via Next's proxy-cookie merge, and is otherwise absent
@@ -26,5 +28,5 @@ export default async function MemberLoginPage() {
     isNativeAppUserAgent(headerStore.get("user-agent") ?? "") ||
     cookieStore.get(NATIVE_APP_COOKIE_NAME)?.value === "1";
 
-  return <MemberLoginForm isNativeApp={isNativeApp} />;
+  return isNativeApp ? <MemberLoginFormNative /> : <MemberLoginForm />;
 }

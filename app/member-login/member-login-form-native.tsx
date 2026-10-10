@@ -1,8 +1,8 @@
 "use client";
 
-// The website's sign-in form. The native app has its own full copy
-// (member-login-form-native.tsx) so each can change independently;
-// don't re-share code between them beyond site-wide components.
+// The native app's sign-in form: a deliberate full copy of the website's
+// (member-login-form.tsx) so each can change independently; don't
+// re-share code between them beyond site-wide components.
 
 import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
@@ -13,8 +13,8 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/Button";
 import { MessageSlot } from "@/components/StableLayout";
-import { PAGE_EYEBROW_CLASS, PAGE_TITLE_TOP_PADDING } from "@/components/page-header";
-import { useKeyboardReveal } from "./use-keyboard-reveal";
+import { PAGE_EYEBROW_CLASS } from "@/components/page-header";
+import { useKeyboardReveal } from "./use-keyboard-reveal-native";
 import {
   almarai,
   instrumentSerif,
@@ -48,7 +48,7 @@ const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 // Verify code).
 const LABEL_FADE_MS = 180;
 
-export function MemberLoginForm() {
+export function MemberLoginFormNative() {
   const router = useRouter();
   const reduce = useReducedMotion();
 
@@ -187,19 +187,19 @@ export function MemberLoginForm() {
       }}
     >
       <section className="relative flex flex-1 flex-col">
-        {/* The title starts where /apply's and /faq's do, below the
-            public SiteNav. */}
+        {/* The app has no SiteNav, so the title keeps a tighter top
+            instead of room for a nav that isn't there. */}
         <main
           className={cn(
             "relative z-10 flex flex-1 flex-col items-center px-4 pb-20 sm:px-6 sm:pb-28 md:pb-32",
-            PAGE_TITLE_TOP_PADDING,
+            "pt-[calc(4.5rem+var(--safe-top))]",
           )}
         >
           <motion.span
             {...fade(0.2)}
             className={PAGE_EYEBROW_CLASS}
           >
-            Members Area
+            Members App
           </motion.span>
 
           {/* Static across both steps; only the helper text below and the
