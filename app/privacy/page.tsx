@@ -107,10 +107,7 @@ export default function PrivacyPage() {
               Last updated: {lastUpdated}
             </p>
 
-            {/* mt-3 on top of the block's 12px gap keeps this intro its
-                existing 24px below the "Last updated" line; only the
-                eyebrow -> heading -> subtext gaps were tightened. */}
-            <p className="mt-3 max-w-2xl text-sm text-foreground-muted sm:text-base">
+            <p className="max-w-2xl text-sm text-foreground-muted sm:text-base">
               This policy explains what personal data Yuppie (&quot;we&quot;,
               &quot;us&quot;) collects through clubyuppie.com and the Yuppie
               app, why, and what rights you have over it. Yuppie is operated
