@@ -237,7 +237,7 @@ export function MemberLoginForm({ isNativeApp }: { isNativeApp: boolean }) {
 
           <motion.div
             {...fade(0.6)}
-            className="mt-6 w-full max-w-sm rounded-2xl border border-foreground/10 bg-background-muted p-8 shadow-[0_24px_48px_-28px_rgba(27,21,18,0.45)]"
+            className="mt-12 w-full max-w-sm rounded-2xl border border-foreground/10 bg-background-muted p-8 shadow-[0_24px_48px_-28px_rgba(27,21,18,0.45)]"
           >
             {/* A single form, input and button for both steps, so they're
                 literally the same boxes: only their content changes. h-14
