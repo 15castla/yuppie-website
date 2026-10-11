@@ -30,15 +30,19 @@
      app icon this page used before. Sized as a share of the viewport width
      so it scales across phone sizes the way the site's own hero logo does,
      capped so it never gets silly-huge on a tablet-size simulator. */
+  /* Vertical rhythm: 24px wordmark -> heading, 12px heading -> paragraph,
+     24px paragraph -> button. Tight in the middle, generous at the ends,
+     the same pattern as the app's sign-in screen
+     (app/member-login/member-login-form-native.tsx). */
   .wordmark {
     width: min(240px, 60vw);
     height: auto;
-    margin-bottom: 32px;
+    margin-bottom: 24px;
   }
   h1 {
     font-size: 24px;
     font-weight: 800;
-    margin: 0 0 10px;
+    margin: 0 0 12px;
     letter-spacing: -0.01em;
   }
   p {
@@ -50,7 +54,7 @@
        who's already read it once. Only the button communicates state. */
     color: #6B6560;
     max-width: 320px;
-    margin: 0 0 28px;
+    margin: 0 0 24px;
     line-height: 1.5;
   }
   /* Matches components/Button.tsx's buttonBaseClasses exactly (rounded-full
