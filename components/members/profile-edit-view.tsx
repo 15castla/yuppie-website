@@ -11,8 +11,15 @@ import "react-phone-number-input/style.css";
 import { cn } from "@/lib/utils";
 import { PhoneNumberField } from "@/components/PhoneNumberField";
 import type { Member } from "@/app/members/require-member";
-import { updateProfile, updateAvatar, removeAvatar } from "@/app/members/profile/actions";
+import {
+  updateProfile,
+  updateAvatar,
+  removeAvatar,
+  requestEmailChange,
+  verifyEmailChange,
+} from "@/app/members/profile/actions";
 import { CARD_CLASS, MEMBERS_MAIN_CLASS, initialsFor } from "./ui";
+import { EmailChangeVerify } from "./email-change-verify";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
@@ -34,6 +41,16 @@ export function ProfileEditView({ member }: { member: Member }) {
   const [phone, setPhone] = useState<string | undefined>(member.phone ?? undefined);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
+
+  // A changed email isn't saved with the other fields: it starts Supabase
+  // Auth's email-change flow, and the card switches to code entry
+  // (EmailChangeVerify) until the change is confirmed. The field is
+  // controlled because a form action resets uncontrolled inputs once it
+  // finishes, which would wipe a typed new address when it's rejected.
+  const [email, setEmail] = useState(member.email);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [changedEmail, setChangedEmail] = useState<string | null>(null);
 
   const [avatarUrl, setAvatarUrl] = useState(member.avatar_url);
   const [photoError, setPhotoError] = useState<string | null>(null);
@@ -75,6 +92,7 @@ export function ProfileEditView({ member }: { member: Member }) {
 
   function handleSave(formData: FormData) {
     setSaveError(null);
+    setEmailError(null);
     startSaving(async () => {
       formData.set("phone", phone ?? "");
       const result = await updateProfile(formData);
@@ -82,8 +100,67 @@ export function ProfileEditView({ member }: { member: Member }) {
         setSaveError(result.error ?? "Something went wrong.");
         return;
       }
+
+      const newEmail = email.trim().toLowerCase();
+      if (newEmail && newEmail !== member.email.toLowerCase()) {
+        const emailResult = await requestEmailChange(newEmail);
+        if (!emailResult.success) {
+          // The other fields are saved; refresh so the reset form shows
+          // them rather than their old values.
+          router.refresh();
+          setEmailError(
+            `${emailResult.error ?? "Something went wrong."} Your other changes are saved.`,
+          );
+          return;
+        }
+        setPendingEmail(newEmail);
+        return;
+      }
+
       router.push("/members/profile");
     });
+  }
+
+  if (pendingEmail || changedEmail) {
+    return (
+      <main className={MEMBERS_MAIN_CLASS}>
+        <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+          <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl optical-trim">
+            Edit your profile.
+          </h1>
+          <div className={cn(CARD_CLASS, "flex flex-col gap-4 p-5 sm:p-6")}>
+            {changedEmail ? (
+              <>
+                <h2 className="text-base font-bold text-foreground">Email updated</h2>
+                <p className="text-sm text-foreground-muted">
+                  You&apos;ll sign in with {changedEmail} from now on. Your other
+                  changes are saved too.
+                </p>
+                <Link
+                  href="/members/profile"
+                  className="w-fit rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background"
+                >
+                  Back to profile
+                </Link>
+              </>
+            ) : (
+              <EmailChangeVerify
+                currentEmail={member.email}
+                newEmail={pendingEmail!}
+                verify={verifyEmailChange}
+                resend={() => requestEmailChange(pendingEmail!)}
+                onDone={(email) => {
+                  setPendingEmail(null);
+                  setChangedEmail(email);
+                  router.refresh();
+                }}
+                onCancel={() => router.push("/members/profile")}
+              />
+            )}
+          </div>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -108,6 +185,9 @@ export function ProfileEditView({ member }: { member: Member }) {
         <motion.form
           {...fade(0.25)}
           action={handleSave}
+          // Errors show inline (e.g. under the email field), not as the
+          // browser's own validation popups.
+          noValidate
           className={cn(CARD_CLASS, "flex flex-col gap-6 p-5 sm:p-6")}
         >
           <div className="flex items-center gap-4">
@@ -167,6 +247,29 @@ export function ProfileEditView({ member }: { member: Member }) {
               defaultValue={member.full_name ?? ""}
               className={inputClasses}
             />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label htmlFor="email" className={labelClasses}>
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              inputMode="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              aria-invalid={emailError ? true : undefined}
+              aria-describedby={emailError ? "email-error" : undefined}
+              className={cn(inputClasses, emailError && "border-red-700!")}
+            />
+            {emailError && (
+              <p id="email-error" className="text-sm font-medium text-red-700">
+                {emailError}
+              </p>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">

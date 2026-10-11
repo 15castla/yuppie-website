@@ -12,6 +12,7 @@ import { revalidatePath, unstable_cache } from "next/cache";
 import { isValidPhoneNumber } from "libphonenumber-js";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { stripe } from "@/lib/stripe";
 import { uploadMemberMedia } from "@/lib/media-storage";
 import { requireMember } from "../require-member";
@@ -55,6 +56,153 @@ export async function updateProfile(
   revalidatePath("/members/profile");
   revalidatePath("/members");
   return { success: true };
+}
+
+const EMAIL_CHANGE_ERRORS = {
+  invalid: "That doesn't look like a valid email address.",
+  unchanged: "That's already your email address.",
+  inUse: "That email is already used by another account.",
+  rateLimited: "Too many attempts. Please wait a few minutes and try again.",
+  generic: "Something went wrong sending the code. Please try again.",
+  incorrect: "That code is incorrect or has expired. Please try again.",
+  noPending: "There's no email change waiting to be confirmed. Please start again.",
+  syncFailed: "Your email was changed, but we couldn't update your profile. Please contact us.",
+};
+
+// Starts a login-email change through Supabase Auth's own flow rather
+// than writing members.email directly: updateUser({ email }) emails a
+// 6-digit code to the new address (and, when "secure email change" is on
+// in the project's Auth settings, a second code to the current address).
+// Nothing changes until verifyEmailChange below accepts the code(s).
+//
+// The project's "Change Email Address" template must show {{ .Token }},
+// not a {{ .ConfirmationURL }} link: Outlook's Safe Links scanner opens
+// links in emails before the recipient does, which would use up the
+// change (the same problem that moved member login to typed codes).
+export async function requestEmailChange(
+  newEmailInput: string,
+): Promise<{ success: boolean; error?: string }> {
+  const member = await requireMember();
+  const newEmail = newEmailInput.trim().toLowerCase();
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newEmail)) {
+    return { success: false, error: EMAIL_CHANGE_ERRORS.invalid };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return { success: false, error: EMAIL_CHANGE_ERRORS.generic };
+  }
+  if (newEmail === user.email?.toLowerCase()) {
+    return { success: false, error: EMAIL_CHANGE_ERRORS.unchanged };
+  }
+
+  const { error } = await supabase.auth.updateUser({ email: newEmail });
+  if (error) {
+    console.error(`requestEmailChange failed for member ${member.id}:`, error);
+    if (error.code === "email_exists" || error.code === "user_already_exists") {
+      return { success: false, error: EMAIL_CHANGE_ERRORS.inUse };
+    }
+    if (error.code === "email_address_invalid" || error.code === "validation_failed") {
+      return { success: false, error: EMAIL_CHANGE_ERRORS.invalid };
+    }
+    if (
+      error.status === 429 ||
+      error.code === "over_email_send_rate_limit" ||
+      error.code === "over_request_rate_limit"
+    ) {
+      return { success: false, error: EMAIL_CHANGE_ERRORS.rateLimited };
+    }
+    return { success: false, error: EMAIL_CHANGE_ERRORS.generic };
+  }
+
+  return { success: true };
+}
+
+// Checks one code from an email change started by requestEmailChange.
+// `sentTo` says which inbox the code came from: "new" (always required)
+// or "current" (only when secure email change is on). The addresses
+// come from the session's own auth user, not the client.
+//
+// After a valid code, the auth user is re-read to see whether the change
+// has actually taken effect. With secure email change on, the first of
+// the two codes is accepted but changes nothing yet; Supabase returns
+// no user or session for it. So "done" is decided by auth.users.email
+// matching the new address, not by verifyOtp succeeding.
+//
+// members.email has no link to auth.users.email (nothing syncs them), so
+// it's updated here once the change is confirmed. That write uses the
+// service-role client, scoped to this member's id, with the value taken
+// from the auth user Supabase just confirmed, never from the client.
+// members' own RLS policies aren't in this repo's migrations, so this
+// doesn't depend on whether they let a member write their email column.
+export async function verifyEmailChange(
+  sentTo: "new" | "current",
+  codeInput: string,
+): Promise<
+  | { status: "done"; email: string }
+  | { status: "needs_other_code" }
+  | { status: "error"; error: string }
+> {
+  const member = await requireMember();
+  const code = codeInput.replace(/\D/g, "");
+  if (code.length !== 6) {
+    return { status: "error", error: "Enter the 6-digit code from your email." };
+  }
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const pendingEmail = user?.new_email;
+  if (!user?.email || !pendingEmail) {
+    return { status: "error", error: EMAIL_CHANGE_ERRORS.noPending };
+  }
+
+  const { error: verifyError } = await supabase.auth.verifyOtp({
+    email: sentTo === "new" ? pendingEmail : user.email,
+    token: code,
+    type: "email_change",
+  });
+  if (verifyError) {
+    console.error(`verifyEmailChange (${sentTo}) failed for member ${member.id}:`, verifyError);
+    return { status: "error", error: EMAIL_CHANGE_ERRORS.incorrect };
+  }
+
+  const {
+    data: { user: updatedUser },
+  } = await supabase.auth.getUser();
+  if (updatedUser?.email?.toLowerCase() !== pendingEmail.toLowerCase()) {
+    return { status: "needs_other_code" };
+  }
+
+  const { error: syncError } = await createAdminSupabaseClient()
+    .from("members")
+    .update({ email: updatedUser.email })
+    .eq("id", member.id);
+  if (syncError) {
+    console.error(`verifyEmailChange: members.email sync failed for member ${member.id}:`, syncError);
+    return { status: "error", error: EMAIL_CHANGE_ERRORS.syncFailed };
+  }
+
+  // So receipts and failed-payment notices follow the new address.
+  // Best-effort: the login change has already happened, so a Stripe
+  // failure is logged rather than reported as a failed change.
+  if (member.stripe_customer_id) {
+    try {
+      await stripe.customers.update(member.stripe_customer_id, { email: updatedUser.email });
+    } catch (err) {
+      console.error(`verifyEmailChange: Stripe email sync failed for member ${member.id}:`, err);
+    }
+  }
+
+  revalidatePath("/members/profile");
+  revalidatePath("/members/profile/edit");
+  revalidatePath("/members");
+  return { status: "done", email: updatedUser.email };
 }
 
 // Storage write goes through the service-role client (uploadMemberMedia):
