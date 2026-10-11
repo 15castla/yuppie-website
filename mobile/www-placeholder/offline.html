@@ -33,7 +33,10 @@
   /* Vertical rhythm: 24px wordmark -> heading, 12px heading -> paragraph,
      24px paragraph -> button. Tight in the middle, generous at the ends,
      the same pattern as the app's sign-in screen
-     (app/member-login/member-login-form-native.tsx). */
+     (app/member-login/member-login-form-native.tsx). The heading and
+     paragraph are trimmed to cap height and baseline (the CSS behind the
+     site's optical-trim utility, app/globals.css), so these margins are
+     the gaps you see rather than gaps plus line spacing. */
   .wordmark {
     width: min(240px, 60vw);
     height: auto;
@@ -44,6 +47,8 @@
     font-weight: 800;
     margin: 0 0 12px;
     letter-spacing: -0.01em;
+    text-box-trim: trim-both;
+    text-box-edge: cap alphabetic;
   }
   p {
     font-size: 15px;
@@ -56,6 +61,8 @@
     max-width: 320px;
     margin: 0 0 24px;
     line-height: 1.5;
+    text-box-trim: trim-both;
+    text-box-edge: cap alphabetic;
   }
   /* Matches components/Button.tsx's buttonBaseClasses exactly (rounded-full
      bg-[#1B1512] px-10 py-4 text-base font-bold text-[#FFD904], hover:
