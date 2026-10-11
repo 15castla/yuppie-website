@@ -101,10 +101,12 @@ adaptive-icon background layer) and splash screens, writing directly into
   in the config) — Capacitor's own built-in navigation-failure handling
   (already present on both platforms, no custom code needed) loads this
   bundled page automatically whenever the initial load of `server.url`
-  fails outright, no-connectivity being the main case. The page itself
-  uses `@capacitor/network` to check connectivity for its "Try again"
-  button, and auto-retries the instant a `networkStatusChange` event
-  reports the connection is back.
+  fails outright, no-connectivity being the main case. Its "Try again"
+  button makes a real request to `server.url` and reloads the WebView
+  there once the server answers (the spinner stays up for at least
+  ~1.1s, so an instant failure doesn't look like nothing happened). It
+  also auto-retries when `@capacitor/network`'s `networkStatusChange`
+  event reports the connection is back.
 
 - **Android nav bar / status bar color** — `android/app/src/main/res/values/colors.xml`
   didn't exist in the stock `cap add android` template despite

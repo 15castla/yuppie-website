@@ -59,8 +59,8 @@ const config: CapacitorConfig = {
     // / WebViewClient failure handling, on both platforms, no custom code
     // needed) whenever the main-frame load of server.url fails outright —
     // most commonly no connectivity at all. www-placeholder/offline.html's
-    // own retry button re-checks via @capacitor/network and returns to
-    // server.url once a connection is back.
+    // own retry button makes a real request to server.url and returns
+    // there once the server answers.
     errorPath: "offline.html",
   },
   backgroundColor: "#FFD904",

@@ -153,36 +153,56 @@
   var retryBtn = document.getElementById("retry");
   var SITE_URL = "https://clubyuppie.com/member-login"; // replaced at build/sync time, see scripts/inject-server-url.cjs
 
+  // A failure with no connection at all comes back almost instantly; the
+  // spinner stays up at least this long so that doesn't read as a flash
+  // where nothing happened. A slower real attempt isn't padded.
+  var MIN_SPINNER_MS = 1100;
+  // Upper bound on the attempt itself, so a connection that hangs rather
+  // than failing outright still hands the button back.
+  var ATTEMPT_TIMEOUT_MS = 15000;
+  var attempting = false;
+
+  // A real request to the server, rather than Network.getStatus(), which
+  // only reports the OS's cached reachability flag: that can say
+  // "connected" with no route to the server, or "offline" after one has
+  // come back. no-cors since only reachability matters (the response is
+  // opaque); no-store so a cached copy can't answer for the network.
+  function probeServer() {
+    var controller = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = controller && setTimeout(function () { controller.abort(); }, ATTEMPT_TIMEOUT_MS);
+    return fetch(SITE_URL, {
+      method: "HEAD",
+      mode: "no-cors",
+      cache: "no-store",
+      signal: controller ? controller.signal : undefined,
+    }).then(
+      function () { clearTimeout(timer); return true; },
+      function () { clearTimeout(timer); return false; }
+    );
+  }
+
   function attemptReturn() {
+    if (attempting) return;
+    attempting = true;
     retryBtn.disabled = true;
     retryBtn.classList.add("loading");
     retryBtn.setAttribute("aria-busy", "true");
-    var Network = window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.Network;
-    var proceed = function () {
-      window.location.href = SITE_URL;
-    };
-    var stopLoading = function () {
+    var minSpinner = new Promise(function (resolve) { setTimeout(resolve, MIN_SPINNER_MS); });
+    Promise.all([probeServer(), minSpinner]).then(function (results) {
+      if (results[0]) {
+        // Server answered: reload the WebView against it. The spinner
+        // stays up through the navigation. If the load itself still
+        // fails, Capacitor brings this page back (server.errorPath).
+        window.location.href = SITE_URL;
+        return;
+      }
+      // Still unreachable: drop back to the idle "Try again" state. The
+      // message above doesn't change — it already says what's wrong.
+      attempting = false;
       retryBtn.disabled = false;
       retryBtn.classList.remove("loading");
       retryBtn.removeAttribute("aria-busy");
-    };
-    if (!Network) {
-      // Network plugin unavailable for some reason: fall back to just
-      // attempting the navigation directly rather than getting stuck.
-      proceed();
-      return;
-    }
-    Network.getStatus()
-      .then(function (status) {
-        if (status && status.connected) {
-          proceed();
-        } else {
-          // Still offline: drop back to the idle "Try again" state. The
-          // message above doesn't change — it already says what's wrong.
-          stopLoading();
-        }
-      })
-      .catch(proceed);
+    });
   }
 
   retryBtn.addEventListener("click", attemptReturn);
