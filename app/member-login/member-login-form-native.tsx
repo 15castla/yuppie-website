@@ -8,7 +8,6 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
-import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
@@ -25,7 +24,7 @@ import {
 const SEND_CODE_ERRORS = {
   required: "Email is required.",
   notMember:
-    "We don't recognise that email as a Yuppie member. Check for typos, or apply to join below.",
+    "We don't recognise that email as a Yuppie member. Check for typos and try again.",
   rateLimited: "Too many attempts. Please wait a few minutes and try again.",
   invalidEmail: "That doesn't look like a valid email address.",
   generic: "Something went wrong sending the login code. Please try again.",
@@ -188,12 +187,12 @@ export function MemberLoginFormNative() {
       }}
     >
       <section className="relative flex flex-1 flex-col">
-        {/* The whole column (icon down to the apply link) is centered in
-            the space between the status bar and the bottom watermark
+        {/* The whole column (icon down to the card) is centered in the
+            space between the status bar and the bottom watermark
             (SiteWatermark: full width at its image's 1942:641 ratio, so
             33.01vw tall), keeping at least 24px from each. Centering on
-            the whole screen put the apply link over the watermark on
-            short phones. min-h-dvh, not just flex-1: with the keyboard
+            the whole screen put the bottom of the column over the
+            watermark on short phones. min-h-dvh, not just flex-1: with the keyboard
             up, useKeyboardReveal grows the spacer below <main> to make
             scroll room, and <main> filling only what was left would
             shrink instead, re-centering the column rather than letting
@@ -353,16 +352,6 @@ export function MemberLoginFormNative() {
               )}
             </form>
           </motion.div>
-
-          <p className="mt-6 text-center text-sm text-foreground-muted">
-            New to Yuppie?{" "}
-            <Link
-              href="/apply"
-              className="font-bold text-foreground underline underline-offset-2"
-            >
-              Apply for membership
-            </Link>
-          </p>
         </main>
         {/* Extra scroll room while the keyboard covers part of the screen;
             0px otherwise. Sized by useKeyboardReveal. */}
