@@ -63,6 +63,7 @@ const EMAIL_CHANGE_ERRORS = {
   unchanged: "That's already your email address.",
   inUse: "That email is already used by another account.",
   rateLimited: "Too many attempts. Please wait a few minutes and try again.",
+  mfaRequired: "For security, please complete two-factor verification before changing your email.",
   generic: "Something went wrong sending the code. Please try again.",
   incorrect: "That code is incorrect or has expired. Please try again.",
   noPending: "There's no email change waiting to be confirmed. Please start again.",
@@ -115,6 +116,11 @@ export async function requestEmailChange(
       error.code === "over_request_rate_limit"
     ) {
       return { success: false, error: EMAIL_CHANGE_ERRORS.rateLimited };
+    }
+    // Accounts with an MFA factor enrolled (in practice, admins who are
+    // also members) need an AAL2 session to change their email.
+    if (error.code === "insufficient_aal") {
+      return { success: false, error: EMAIL_CHANGE_ERRORS.mfaRequired };
     }
     return { success: false, error: EMAIL_CHANGE_ERRORS.generic };
   }
