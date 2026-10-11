@@ -195,9 +195,6 @@ export function ProfileEditView({ member }: { member: Member }) {
               defaultValue={member.role_title ?? ""}
               className={inputClasses}
             />
-            <p className="text-xs text-foreground-muted">
-              Shown to other members on event guest lists.
-            </p>
           </div>
 
           <div className="flex flex-col gap-2">
