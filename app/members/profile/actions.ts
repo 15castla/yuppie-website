@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath, unstable_cache } from "next/cache";
+import { after } from "next/server";
 // react-phone-number-input's own root export bundles its React PhoneInput
 // component together with its validation utilities in the same module, and
 // importing it here (a server-only "use server" file with no React tree to
@@ -13,6 +14,7 @@ import { isValidPhoneNumber } from "libphonenumber-js";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
+import { sendEmailChangedEmail } from "@/app/admin/send-email-changed-email";
 import { stripe } from "@/lib/stripe";
 import { uploadMemberMedia } from "@/lib/media-storage";
 import { requireMember } from "../require-member";
@@ -184,6 +186,20 @@ export async function verifyEmailChange(
   if (updatedUser?.email?.toLowerCase() !== pendingEmail.toLowerCase()) {
     return { status: "needs_other_code" };
   }
+
+  // Tell the previous address, in case the change wasn't the member's own.
+  // Scheduled before the members.email sync so it still goes out if that
+  // fails (the login change has already happened either way). Best-effort,
+  // after the response, same as the welcome email.
+  const previousEmail = user.email;
+  const confirmedEmail = updatedUser.email;
+  after(async () => {
+    try {
+      await sendEmailChangedEmail({ to: previousEmail, newEmail: confirmedEmail });
+    } catch (err) {
+      console.error(`verifyEmailChange: changed-email notice failed for member ${member.id}:`, err);
+    }
+  });
 
   const { error: syncError } = await createAdminSupabaseClient()
     .from("members")
