@@ -154,6 +154,7 @@ export function renderWelcomeEmailHtml({
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="light" />
     <meta name="supported-color-schemes" content="light" />
+    <meta name="format-detection" content="email=no" />
     <title>${documentTitle}</title>
     <link href="https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap" rel="stylesheet" />
     <style>
