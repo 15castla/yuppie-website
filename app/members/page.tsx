@@ -36,7 +36,6 @@ export default async function MembersHomePage() {
   const upcomingBookings = (bookingsData ?? []) as unknown as UpcomingBooking[];
   const pickedEvents = (pickedEventsData ?? []) as Event[];
   const discountCount = perks.filter((perk) => perk.type === "discount").length;
-  const accessCount = perks.filter((perk) => perk.type === "access").length;
 
   return (
     <HomeView
@@ -44,7 +43,6 @@ export default async function MembersHomePage() {
       upcomingBookings={upcomingBookings}
       pickedEvents={pickedEvents}
       discountCount={discountCount}
-      accessCount={accessCount}
     />
   );
 }

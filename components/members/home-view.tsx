@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { Percent, Zap } from "lucide-react";
+import { Key, Percent } from "lucide-react";
 
 import type { Member } from "@/app/members/require-member";
 import type { Event } from "./event-types";
@@ -36,13 +36,11 @@ export function HomeView({
   upcomingBookings,
   pickedEvents,
   discountCount,
-  accessCount,
 }: {
   member: Member;
   upcomingBookings: UpcomingBooking[];
   pickedEvents: Event[];
   discountCount: number;
-  accessCount: number;
 }) {
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
@@ -192,11 +190,12 @@ export function HomeView({
             href="/members/access"
             className={`${CARD_CLASS} flex flex-col gap-3 p-5 transition-colors hover:border-foreground/25`}
           >
-            <Zap className="h-5 w-5 text-foreground" />
+            {/* Same icon as the bottom nav's Access tab (members-nav.tsx). */}
+            <Key className="h-5 w-5 text-foreground" />
             <div>
-              <p className="text-sm font-bold text-foreground">Skip the queue</p>
+              <p className="text-sm font-bold text-foreground">Access</p>
               <p className="text-xs text-foreground-muted">
-                {accessCount} venues near you
+                Clubs, queue-skips &amp; more
               </p>
             </div>
           </Link>
