@@ -58,9 +58,12 @@ export function formatEventPrice(pricePence: number) {
 
 // Shared sizing so every variant below (Booked / Included / price) renders
 // as the same size pill regardless of label length — fixed min-width,
-// centered text — rather than hugging each label's own width.
+// centered text — rather than hugging each label's own width. `border` is
+// in the shared class (not just the outlined price variant) so all three
+// reserve the same 1px, and come out the same height; the filled variants
+// just make that border transparent instead of omitting it.
 const PRICE_PILL_BASE_CLASS =
-  "inline-flex min-w-[88px] shrink-0 items-center justify-center rounded-full px-3 py-1 text-center text-xs font-bold";
+  "inline-flex min-w-[88px] shrink-0 items-center justify-center rounded-full border px-3 py-1 text-center text-xs font-bold";
 
 // booked: the member already has a confirmed booking, free or paid, so
 // the pill says that instead of the price (same filled style as "Included").
@@ -73,7 +76,9 @@ export function PricePill({
 }) {
   if (booked) {
     return (
-      <span className={cn(PRICE_PILL_BASE_CLASS, "bg-foreground text-background")}>
+      <span
+        className={cn(PRICE_PILL_BASE_CLASS, "border-transparent bg-foreground text-background")}
+      >
         Booked
       </span>
     );
@@ -81,19 +86,16 @@ export function PricePill({
 
   if (!pricePence) {
     return (
-      <span className={cn(PRICE_PILL_BASE_CLASS, "bg-foreground text-background")}>
+      <span
+        className={cn(PRICE_PILL_BASE_CLASS, "border-transparent bg-foreground text-background")}
+      >
         Included
       </span>
     );
   }
 
   return (
-    <span
-      className={cn(
-        PRICE_PILL_BASE_CLASS,
-        "border border-foreground/20 text-foreground",
-      )}
-    >
+    <span className={cn(PRICE_PILL_BASE_CLASS, "border-foreground/20 text-foreground")}>
       {formatEventPrice(pricePence)}
     </span>
   );
