@@ -5,6 +5,10 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { stripe } from "@/lib/stripe";
 import { requireMember } from "../require-member";
+import { getEventCapacity } from "./booking-capacity";
+
+const EVENT_FULL_ERROR = "Sorry, this event is fully booked.";
+const ALREADY_BOOKED_ERROR = "You're already booked in for this event.";
 
 export async function rsvpToEvent(
   formData: FormData,
@@ -16,10 +20,59 @@ export async function rsvpToEvent(
     return { success: false, error: "Missing event." };
   }
 
+  const adminClient = createAdminSupabaseClient();
+  const { data: event } = await adminClient
+    .from("events")
+    .select("price_pence")
+    .eq("id", eventId)
+    .maybeSingle();
+
+  if (!event) {
+    return { success: false, error: "That event couldn't be found." };
+  }
+
+  // The mirror of createEventPaymentIntent's check: the price decides
+  // whether a booking needs payment, not which button was clicked, so a
+  // paid event can't be booked for free by calling this directly.
+  if (event.price_pence) {
+    return { success: false, error: "This event requires payment." };
+  }
+
   const supabase = await createClient();
+  const { data: existingBooking } = await supabase
+    .from("bookings")
+    .select("id")
+    .eq("member_id", member.id)
+    .eq("event_id", eventId)
+    .eq("status", "confirmed")
+    .maybeSingle();
+
+  if (existingBooking) {
+    return { success: false, error: ALREADY_BOOKED_ERROR };
+  }
+
+  try {
+    const capacity = await getEventCapacity(adminClient, eventId);
+    if (capacity?.isFull) {
+      return { success: false, error: EVENT_FULL_ERROR };
+    }
+  } catch (err) {
+    console.error(`rsvpToEvent: capacity check failed for event ${eventId}:`, err);
+    return {
+      success: false,
+      error: "Something went wrong booking your spot. Please try again.",
+    };
+  }
+
   const { error } = await supabase
     .from("bookings")
     .insert({ member_id: member.id, event_id: eventId, status: "confirmed" });
+
+  // 23505: bookings' unique index on (member_id, event_id), hit when two
+  // RSVPs from the same member race past the duplicate check above.
+  if (error?.code === "23505") {
+    return { success: false, error: ALREADY_BOOKED_ERROR };
+  }
 
   if (error) {
     console.error(`rsvpToEvent failed for member ${member.id}, event ${eventId}:`, error);
@@ -92,7 +145,23 @@ export async function createEventPaymentIntent(
     .maybeSingle();
 
   if (existingBooking) {
-    return { success: false, error: "You're already booked in for this event." };
+    return { success: false, error: ALREADY_BOOKED_ERROR };
+  }
+
+  // Checked before a PaymentIntent exists, so a full event never gets as
+  // far as taking payment. The webhook checks again, since the event can
+  // fill up while this member is still on the payment form.
+  try {
+    const capacity = await getEventCapacity(adminClient, eventId);
+    if (capacity?.isFull) {
+      return { success: false, error: EVENT_FULL_ERROR };
+    }
+  } catch (err) {
+    console.error(`createEventPaymentIntent: capacity check failed for event ${eventId}:`, err);
+    return {
+      success: false,
+      error: "Something went wrong starting payment. Please try again.",
+    };
   }
 
   try {

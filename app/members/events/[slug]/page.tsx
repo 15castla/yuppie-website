@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
+import { createClient } from "@/lib/supabase/server";
+import { requireMember } from "@/app/members/require-member";
 import { getCachedEventBySlug } from "@/components/members/events-data";
 import { EventDetailView } from "@/components/members/event-detail-view";
 
@@ -31,17 +33,35 @@ export default async function EventDetailPage({
   // data, so it's read via the service-role client like the event row
   // above, but NOT cached (unlike getCachedEventBySlug), since "spots
   // left" genuinely changes as members book and should stay accurate.
+  //
+  // Whether this member is already booked is their own row, so that one
+  // goes through the member-scoped client (same query as the duplicate
+  // check in app/members/events/actions.ts). It's what lets the button
+  // show "You're in" on any later visit, not just right after booking.
+  const member = await requireMember();
   const adminClient = createAdminSupabaseClient();
-  const { count: bookedCount } = await adminClient
-    .from("bookings")
-    .select("*", { count: "exact", head: true })
-    .eq("event_id", event.id)
-    .eq("status", "confirmed");
+  const supabase = await createClient();
+  const [{ count: bookedCount }, { data: memberBooking }] = await Promise.all([
+    adminClient
+      .from("bookings")
+      .select("*", { count: "exact", head: true })
+      .eq("event_id", event.id)
+      .eq("status", "confirmed"),
+    supabase
+      .from("bookings")
+      .select("id")
+      .eq("member_id", member.id)
+      .eq("event_id", event.id)
+      .eq("status", "confirmed")
+      .limit(1)
+      .maybeSingle(),
+  ]);
 
   return (
     <EventDetailView
       event={event}
       bookedCount={bookedCount ?? 0}
+      initialBooked={Boolean(memberBooking)}
       initialClientSecret={initialClientSecret}
     />
   );

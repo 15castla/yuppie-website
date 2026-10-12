@@ -61,6 +61,11 @@ function isPublicVenueName(location: string) {
   return PUBLIC_VENUE_KEYWORDS.some((keyword) => lower.includes(keyword));
 }
 
+// Every label the book button can show. All of them are rendered in the
+// same grid cell with only the current one visible, so the pill is always
+// as wide as the longest and doesn't resize as the text changes.
+const BOOK_LABELS = ["Book my spot", "Booking…", "You're in", "Fully booked"] as const;
+
 function splitTitleForAccent(title: string) {
   if (title.includes(":")) {
     const [main, ...rest] = title.split(":");
@@ -74,10 +79,12 @@ function splitTitleForAccent(title: string) {
 export function EventDetailView({
   event,
   bookedCount,
+  initialBooked = false,
   initialClientSecret,
 }: {
   event: Event;
   bookedCount: number;
+  initialBooked?: boolean;
   initialClientSecret?: string | null;
 }) {
   const reduce = useReducedMotion();
@@ -89,7 +96,7 @@ export function EventDetailView({
 
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
-  const [booked, setBooked] = useState(false);
+  const [booked, setBooked] = useState(initialBooked);
   const [clientSecret, setClientSecret] = useState<string | null>(initialClientSecret ?? null);
 
   const spotsLeft = Math.max(event.capacity - bookedCount, 0);
@@ -156,6 +163,29 @@ export function EventDetailView({
   const bookButtonClasses =
     "rounded-full bg-foreground px-8 py-3.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 disabled:transition-none";
 
+  // Disabled up front when there's no space, rather than letting a click
+  // through to the server's own capacity check. A member who's already
+  // booked still sees "You're in", even though their booking fills a spot.
+  const isFull = spotsLeft <= 0 && !booked;
+
+  // Same label for free and paid events; only what a click does differs.
+  const bookLabel: (typeof BOOK_LABELS)[number] = booked
+    ? "You're in"
+    : isFull
+      ? "Fully booked"
+      : isPending
+        ? "Booking…"
+        : "Book my spot";
+  const bookButtonLabel = (
+    <span className="grid">
+      {BOOK_LABELS.map((label) => (
+        <span key={label} className={cn("[grid-area:1/1]", label !== bookLabel && "invisible")}>
+          {label}
+        </span>
+      ))}
+    </span>
+  );
+
   const rsvpBarContent = (
     <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 md:max-w-none">
       <div>
@@ -176,18 +206,18 @@ export function EventDetailView({
       {isFree ? (
         <form action={handleRsvp}>
           <input type="hidden" name="event_id" value={event.id} />
-          <button type="submit" disabled={isPending || booked} className={bookButtonClasses}>
-            {booked ? "You're in" : isPending ? "Booking…" : "RSVP"}
+          <button type="submit" disabled={isPending || booked || isFull} className={bookButtonClasses}>
+            {bookButtonLabel}
           </button>
         </form>
       ) : (
         <button
           type="button"
           onClick={handleOpenPayment}
-          disabled={isPending || booked}
+          disabled={isPending || booked || isFull}
           className={bookButtonClasses}
         >
-          {booked ? "You're in" : isPending ? "Loading…" : "Book my spot"}
+          {bookButtonLabel}
         </button>
       )}
     </div>
