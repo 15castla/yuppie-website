@@ -67,7 +67,7 @@ export function formatEventPrice(pricePence: number) {
 // the filled variants just make that border transparent instead of
 // omitting it.
 const PRICE_PILL_BASE_CLASS =
-  "inline-flex min-w-20 shrink-0 items-center justify-center rounded-full border px-3 py-1 text-center text-xs font-bold";
+  "inline-flex min-w-20 shrink-0 items-center justify-center rounded-full border px-3 py-0.5 text-center text-xs font-bold";
 
 // booked: the member already has a confirmed booking, free or paid, so
 // the pill says that instead of the price (same filled style as "Included").
