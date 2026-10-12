@@ -11,6 +11,7 @@ import {
 
 import { Button } from "@/components/Button";
 import { STRIPE_APPEARANCE, getStripeErrorMessage } from "@/lib/stripe-ui";
+import { confirmEventPayment } from "@/app/members/events/actions";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
@@ -25,12 +26,35 @@ const stripePromise = loadStripe(
 
 const FALLBACK_ERROR = "Something went wrong confirming your payment. Please try again.";
 
-function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
+type PaymentFormProps = {
+  eventId: string;
+  onSuccess: () => void;
+  onPending: () => void;
+};
+
+function PaymentForm({ eventId, onSuccess, onPending }: PaymentFormProps) {
   const stripe = useStripe();
   const elements = useElements();
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // What Stripe reports in the browser isn't proof of a booking: the
+  // booking row is only created once the server has seen the payment
+  // succeed (confirmEventPayment, or the webhook). So onSuccess, which
+  // flips the button to "Booked", only fires once the server says the
+  // row exists. A "processing" payment hasn't been charged yet and isn't
+  // treated as booked.
+  async function confirmWithServer(paymentIntentId: string) {
+    const result = await confirmEventPayment(paymentIntentId, eventId);
+    if (result.booked) {
+      onSuccess();
+    } else if (result.pending) {
+      onPending();
+    } else {
+      setError(result.error);
+    }
+  }
 
   // Handles the return trip when confirmPayment ends up redirecting the
   // browser away (Apple Pay, some 3D Secure checks) instead of resolving
@@ -74,7 +98,7 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
         }
 
         if (paymentIntent.status === "succeeded" || paymentIntent.status === "processing") {
-          onSuccess();
+          await confirmWithServer(paymentIntent.id);
           return;
         }
 
@@ -128,7 +152,7 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
       }
 
       if (paymentIntent?.status === "succeeded" || paymentIntent?.status === "processing") {
-        onSuccess();
+        await confirmWithServer(paymentIntent.id);
         return;
       }
 
@@ -170,17 +194,14 @@ function PaymentForm({ onSuccess }: { onSuccess: () => void }) {
 
 export function EventPaymentForm({
   clientSecret,
-  onSuccess,
-}: {
-  clientSecret: string;
-  onSuccess: () => void;
-}) {
+  ...formProps
+}: PaymentFormProps & { clientSecret: string }) {
   return (
     <Elements
       stripe={stripePromise}
       options={{ clientSecret, appearance: STRIPE_APPEARANCE }}
     >
-      <PaymentForm onSuccess={onSuccess} />
+      <PaymentForm {...formProps} />
     </Elements>
   );
 }

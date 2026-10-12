@@ -37,7 +37,7 @@ export default async function EventDetailPage({
   // Whether this member is already booked is their own row, so that one
   // goes through the member-scoped client (same query as the duplicate
   // check in app/members/events/actions.ts). It's what lets the button
-  // show "You're in" on any later visit, not just right after booking.
+  // show "Booked" on any later visit, not just right after booking.
   const member = await requireMember();
   const adminClient = createAdminSupabaseClient();
   const supabase = await createClient();

@@ -64,7 +64,7 @@ function isPublicVenueName(location: string) {
 // Every label the book button can show. All of them are rendered in the
 // same grid cell with only the current one visible, so the pill is always
 // as wide as the longest and doesn't resize as the text changes.
-const BOOK_LABELS = ["Book my spot", "Booking…", "You're in", "Fully booked"] as const;
+const BOOK_LABELS = ["Book my spot", "Booking…", "Booked", "Fully booked"] as const;
 
 function splitTitleForAccent(title: string) {
   if (title.includes(":")) {
@@ -97,6 +97,10 @@ export function EventDetailView({
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
   const [booked, setBooked] = useState(initialBooked);
+  // A payment Stripe is still processing: not booked yet (the webhook
+  // books it once it clears), but the button stays off so it can't be
+  // paid for a second time in the meantime.
+  const [paymentPending, setPaymentPending] = useState(false);
   const [clientSecret, setClientSecret] = useState<string | null>(initialClientSecret ?? null);
 
   const spotsLeft = Math.max(event.capacity - bookedCount, 0);
@@ -165,12 +169,12 @@ export function EventDetailView({
 
   // Disabled up front when there's no space, rather than letting a click
   // through to the server's own capacity check. A member who's already
-  // booked still sees "You're in", even though their booking fills a spot.
+  // booked still sees "Booked", even though their booking fills a spot.
   const isFull = spotsLeft <= 0 && !booked;
 
   // Same label for free and paid events; only what a click does differs.
   const bookLabel: (typeof BOOK_LABELS)[number] = booked
-    ? "You're in"
+    ? "Booked"
     : isFull
       ? "Fully booked"
       : isPending
@@ -206,7 +210,7 @@ export function EventDetailView({
       {isFree ? (
         <form action={handleRsvp}>
           <input type="hidden" name="event_id" value={event.id} />
-          <button type="submit" disabled={isPending || booked || isFull} className={bookButtonClasses}>
+          <button type="submit" disabled={isPending || booked || isFull || paymentPending} className={bookButtonClasses}>
             {bookButtonLabel}
           </button>
         </form>
@@ -214,7 +218,7 @@ export function EventDetailView({
         <button
           type="button"
           onClick={handleOpenPayment}
-          disabled={isPending || booked || isFull}
+          disabled={isPending || booked || isFull || paymentPending}
           className={bookButtonClasses}
         >
           {bookButtonLabel}
@@ -427,9 +431,17 @@ export function EventDetailView({
               <div className="mt-5">
                 <EventPaymentForm
                   clientSecret={clientSecret}
+                  eventId={event.id}
                   onSuccess={() => {
                     setClientSecret(null);
                     setBooked(true);
+                  }}
+                  onPending={() => {
+                    setClientSecret(null);
+                    setPaymentPending(true);
+                    setMessage(
+                      "Payment processing… We'll confirm your booking as soon as it clears.",
+                    );
                   }}
                 />
               </div>

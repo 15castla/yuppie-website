@@ -6,6 +6,7 @@ import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { stripe } from "@/lib/stripe";
 import { requireMember } from "../require-member";
 import { getEventCapacity } from "./booking-capacity";
+import { confirmPaidBooking } from "./confirm-paid-booking";
 
 const EVENT_FULL_ERROR = "Sorry, this event is fully booked.";
 const ALREADY_BOOKED_ERROR = "You're already booked in for this event.";
@@ -190,4 +191,72 @@ export async function createEventPaymentIntent(
       error: "Something went wrong starting payment. Please try again.",
     };
   }
+}
+
+export type ConfirmEventPaymentResult =
+  | { booked: true }
+  | { booked: false; pending: true }
+  | { booked: false; pending?: false; error: string };
+
+// Called by the payment form once Stripe's confirmPayment (or the return
+// from a redirect) resolves on the page, so the button only says "Booked"
+// once a booking row really exists. Asks Stripe for the payment intent's
+// status itself rather than trusting what the browser reports, and only
+// books on "succeeded". "processing" means the charge hasn't completed:
+// nothing is recorded yet, and the webhook books it if and when it does.
+export async function confirmEventPayment(
+  paymentIntentId: string,
+  eventId: string,
+): Promise<ConfirmEventPaymentResult> {
+  const member = await requireMember();
+
+  if (!paymentIntentId || !eventId) {
+    return { booked: false, error: "Missing payment details." };
+  }
+
+  let paymentIntent;
+  try {
+    paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+  } catch (err) {
+    console.error(`confirmEventPayment: couldn't retrieve payment intent ${paymentIntentId}:`, err);
+    return {
+      booked: false,
+      error: "We couldn't check your payment. Please refresh the page, or contact us if you've been charged.",
+    };
+  }
+
+  // The payment intent has to be this member's, for this event, as set
+  // by createEventPaymentIntent.
+  if (
+    paymentIntent.metadata?.member_id !== member.id ||
+    paymentIntent.metadata?.event_id !== eventId
+  ) {
+    console.error(
+      `confirmEventPayment: payment intent ${paymentIntentId} metadata doesn't match member ${member.id}, event ${eventId}`,
+    );
+    return { booked: false, error: "That payment doesn't match this booking." };
+  }
+
+  if (paymentIntent.status === "processing") {
+    return { booked: false, pending: true };
+  }
+
+  if (paymentIntent.status !== "succeeded") {
+    return {
+      booked: false,
+      error: "Your payment didn't go through. Please try again.",
+    };
+  }
+
+  const { booked } = await confirmPaidBooking(paymentIntentId, member.id, eventId);
+  if (!booked) {
+    return {
+      booked: false,
+      error: "Your payment went through, but we couldn't confirm your booking. Please contact us.",
+    };
+  }
+
+  revalidatePath("/members");
+  revalidatePath("/members/profile");
+  return { booked: true };
 }
