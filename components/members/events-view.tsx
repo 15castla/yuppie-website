@@ -43,7 +43,14 @@ function matchesFilter(event: Event, filter: Filter) {
   }
 }
 
-export function EventsView({ events }: { events: Event[] }) {
+export function EventsView({
+  events,
+  bookedEventIds,
+}: {
+  events: Event[];
+  bookedEventIds: string[];
+}) {
+  const bookedEvents = useMemo(() => new Set(bookedEventIds), [bookedEventIds]);
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
     initial: reduce ? false : { y: 20, opacity: 0 },
@@ -114,7 +121,10 @@ export function EventsView({ events }: { events: Event[] }) {
                 <div className="flex flex-col gap-1 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-bold text-foreground">{event.title}</p>
-                    <PricePill pricePence={event.price_pence} />
+                    <PricePill
+                      pricePence={event.price_pence}
+                      booked={bookedEvents.has(event.id)}
+                    />
                   </div>
                   <p className="text-xs text-foreground-muted">
                     {formatEventDayTime(event.start_time)}

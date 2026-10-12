@@ -56,7 +56,23 @@ export function formatEventPrice(pricePence: number) {
   return `£${(pricePence / 100).toFixed(pricePence % 100 === 0 ? 0 : 2)}pp`;
 }
 
-export function PricePill({ pricePence }: { pricePence: number | null }) {
+// booked: the member already has a confirmed booking, free or paid, so
+// the pill says that instead of the price (same filled style as "Included").
+export function PricePill({
+  pricePence,
+  booked = false,
+}: {
+  pricePence: number | null;
+  booked?: boolean;
+}) {
+  if (booked) {
+    return (
+      <span className="shrink-0 rounded-full bg-foreground px-3 py-1 text-xs font-bold text-background">
+        Booked
+      </span>
+    );
+  }
+
   if (!pricePence) {
     return (
       <span className="shrink-0 rounded-full bg-foreground px-3 py-1 text-xs font-bold text-background">
