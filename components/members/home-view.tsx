@@ -35,12 +35,10 @@ export function HomeView({
   member,
   upcomingBookings,
   pickedEvents,
-  discountCount,
 }: {
   member: Member;
   upcomingBookings: UpcomingBooking[];
   pickedEvents: Event[];
-  discountCount: number;
 }) {
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
@@ -180,10 +178,10 @@ export function HomeView({
           >
             <Percent className="h-5 w-5 text-foreground" />
             <div>
-              <p className="text-sm font-bold text-foreground">
-                {discountCount} new discounts
+              <p className="text-sm font-bold text-foreground">Discounts</p>
+              <p className="text-xs text-foreground-muted">
+                Partner offers across London
               </p>
-              <p className="text-xs text-foreground-muted">Across London this week</p>
             </div>
           </Link>
           <Link

@@ -1,7 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { EVENT_COLUMNS, type Event } from "@/components/members/event-types";
-import { getCachedPerks } from "@/components/members/perks-data";
 import { requireMember } from "./require-member";
 import { HomeView, type UpcomingBooking } from "@/components/members/home-view";
 
@@ -10,7 +9,7 @@ export default async function MembersHomePage() {
   const supabase = await createClient();
   const nowIso = new Date().toISOString();
 
-  const [{ data: bookingsData, error }, { data: pickedEventsData }, perks] = await Promise.all([
+  const [{ data: bookingsData, error }, { data: pickedEventsData }] = await Promise.all([
     supabase
       .from("bookings")
       .select("id, status, event:events!inner(id, title, start_time, end_time, location)")
@@ -26,7 +25,6 @@ export default async function MembersHomePage() {
       .gte("start_time", nowIso)
       .order("start_time", { ascending: true })
       .limit(2),
-    getCachedPerks(),
   ]);
 
   if (error) {
@@ -35,14 +33,12 @@ export default async function MembersHomePage() {
 
   const upcomingBookings = (bookingsData ?? []) as unknown as UpcomingBooking[];
   const pickedEvents = (pickedEventsData ?? []) as Event[];
-  const discountCount = perks.filter((perk) => perk.type === "discount").length;
 
   return (
     <HomeView
       member={member}
       upcomingBookings={upcomingBookings}
       pickedEvents={pickedEvents}
-      discountCount={discountCount}
     />
   );
 }
