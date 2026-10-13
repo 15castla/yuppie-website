@@ -64,7 +64,7 @@ function isPublicVenueName(location: string) {
 // Every label the book button can show. All of them are rendered in the
 // same grid cell with only the current one visible, so the pill is always
 // as wide as the longest and doesn't resize as the text changes.
-const BOOK_LABELS = ["Book my spot", "Booking…", "Booked", "Fully booked"] as const;
+const BOOK_LABELS = ["Book my spot", "Booking…", "Booked", "Fully booked", "Past event"] as const;
 
 function splitTitleForAccent(title: string) {
   if (title.includes(":")) {
@@ -80,11 +80,15 @@ export function EventDetailView({
   event,
   bookedCount,
   initialBooked = false,
+  hasStarted = false,
   initialClientSecret,
 }: {
   event: Event;
   bookedCount: number;
   initialBooked?: boolean;
+  // Worked out on the server (the page), not here, so the server render and
+  // the browser can't disagree about the current time.
+  hasStarted?: boolean;
   initialClientSecret?: string | null;
 }) {
   const reduce = useReducedMotion();
@@ -171,15 +175,21 @@ export function EventDetailView({
   // through to the server's own capacity check. A member who's already
   // booked still sees "Booked", even though their booking fills a spot.
   const isFull = spotsLeft <= 0 && !booked;
+  // Reached through an old link or bookmark: the events list no longer
+  // shows it, and the booking actions refuse it, but the button is off
+  // up front too. A member who booked it still sees "Booked".
+  const isPast = hasStarted && !booked;
 
   // Same label for free and paid events; only what a click does differs.
   const bookLabel: (typeof BOOK_LABELS)[number] = booked
     ? "Booked"
-    : isFull
-      ? "Fully booked"
-      : isPending
-        ? "Booking…"
-        : "Book my spot";
+    : isPast
+      ? "Past event"
+      : isFull
+        ? "Fully booked"
+        : isPending
+          ? "Booking…"
+          : "Book my spot";
   const bookButtonLabel = (
     <span className="grid">
       {BOOK_LABELS.map((label) => (
@@ -210,7 +220,7 @@ export function EventDetailView({
       {isFree ? (
         <form action={handleRsvp}>
           <input type="hidden" name="event_id" value={event.id} />
-          <button type="submit" disabled={isPending || booked || isFull || paymentPending} className={bookButtonClasses}>
+          <button type="submit" disabled={isPending || booked || isFull || isPast || paymentPending} className={bookButtonClasses}>
             {bookButtonLabel}
           </button>
         </form>
@@ -218,7 +228,7 @@ export function EventDetailView({
         <button
           type="button"
           onClick={handleOpenPayment}
-          disabled={isPending || booked || isFull || paymentPending}
+          disabled={isPending || booked || isFull || isPast || paymentPending}
           className={bookButtonClasses}
         >
           {bookButtonLabel}

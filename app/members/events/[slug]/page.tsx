@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { createClient } from "@/lib/supabase/server";
 import { requireMember } from "@/app/members/require-member";
-import { getCachedEventBySlug } from "@/components/members/events-data";
+import { getCachedEventBySlug, hasEventStarted } from "@/components/members/events-data";
 import { EventDetailView } from "@/components/members/event-detail-view";
 
 export default async function EventDetailPage({
@@ -62,6 +62,7 @@ export default async function EventDetailPage({
       event={event}
       bookedCount={bookedCount ?? 0}
       initialBooked={Boolean(memberBooking)}
+      hasStarted={hasEventStarted(event)}
       initialClientSecret={initialClientSecret}
     />
   );

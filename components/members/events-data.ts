@@ -18,7 +18,7 @@ import { EVENT_COLUMNS, type Event } from "./event-types";
 //
 // unstable_cache has no effect in `next dev` (Next always renders on-demand
 // there), only visible via `next build && next start` or in production.
-export const getCachedEvents = unstable_cache(
+const getCachedAllEvents = unstable_cache(
   async () => {
     const adminClient = createAdminSupabaseClient();
     const { data, error } = await adminClient
@@ -35,6 +35,24 @@ export const getCachedEvents = unstable_cache(
   ["events-list"],
   { tags: ["events"], revalidate: 60 },
 );
+
+export function hasEventStarted(event: Pick<Event, "start_time">, now = Date.now()) {
+  // start_time is a timestamptz, returned as an ISO string with an offset,
+  // so this is a real instant-to-instant comparison, not a display-time
+  // one (display formatting uses EVENT_TIME_ZONE in ui.tsx).
+  return new Date(event.start_time).getTime() <= now;
+}
+
+// What members see: only events that haven't started yet. Filtered here,
+// after the cache, rather than inside the cached query, so the cut-off is
+// the current moment rather than whenever the cache was last filled (up
+// to 60s earlier). Admin pages query the events table directly and still
+// see past events. getCachedEventBySlug below deliberately doesn't filter:
+// an old link to a past event still opens it, with booking disabled.
+export async function getCachedEvents() {
+  const now = Date.now();
+  return (await getCachedAllEvents()).filter((event) => !hasEventStarted(event, now));
+}
 
 export const getCachedEventBySlug = unstable_cache(
   async (slug: string) => {

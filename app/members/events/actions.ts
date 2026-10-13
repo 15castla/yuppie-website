@@ -7,9 +7,11 @@ import { stripe } from "@/lib/stripe";
 import { requireMember } from "../require-member";
 import { getEventCapacity } from "./booking-capacity";
 import { confirmPaidBooking } from "./confirm-paid-booking";
+import { hasEventStarted } from "@/components/members/events-data";
 
 const EVENT_FULL_ERROR = "Sorry, this event is fully booked.";
 const ALREADY_BOOKED_ERROR = "You're already booked in for this event.";
+const EVENT_STARTED_ERROR = "This event has already started, so it can't be booked.";
 
 export async function rsvpToEvent(
   formData: FormData,
@@ -24,12 +26,18 @@ export async function rsvpToEvent(
   const adminClient = createAdminSupabaseClient();
   const { data: event } = await adminClient
     .from("events")
-    .select("price_pence")
+    .select("price_pence, start_time")
     .eq("id", eventId)
     .maybeSingle();
 
   if (!event) {
     return { success: false, error: "That event couldn't be found." };
+  }
+
+  // The page already disables the button for a past event; this covers
+  // the action being called directly.
+  if (hasEventStarted(event)) {
+    return { success: false, error: EVENT_STARTED_ERROR };
   }
 
   // The mirror of createEventPaymentIntent's check: the price decides
@@ -113,12 +121,19 @@ export async function createEventPaymentIntent(
   const adminClient = createAdminSupabaseClient();
   const { data: event } = await adminClient
     .from("events")
-    .select("title, price_pence")
+    .select("title, price_pence, start_time")
     .eq("id", eventId)
     .maybeSingle();
 
   if (!event) {
     return { success: false, error: "That event couldn't be found." };
+  }
+
+  // Checked before a PaymentIntent exists, so payment for a past event is
+  // never started. The page disables the button too; this covers the
+  // action being called directly.
+  if (hasEventStarted(event)) {
+    return { success: false, error: EVENT_STARTED_ERROR };
   }
 
   // Never trust the client on this: a free event's button should already
@@ -237,6 +252,11 @@ export async function confirmEventPayment(
     return { booked: false, error: "That payment doesn't match this booking." };
   }
 
+  // No "has the event started?" check here, unlike the two actions
+  // above: by now the member has already been charged, so refusing would
+  // only leave a paid member with no booking (and the webhook books it
+  // regardless). The check that stops payment for a past event is in
+  // createEventPaymentIntent, before any charge.
   if (paymentIntent.status === "processing") {
     return { booked: false, pending: true };
   }
