@@ -356,6 +356,9 @@ export async function getNextBillingDate(
 
 export async function signOutMember() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // Local scope only — see app/admin/actions.ts's signOut() for why:
+  // Supabase's default (global) scope would also sign this member out
+  // of any other session on another device signed into the same account.
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/");
 }
