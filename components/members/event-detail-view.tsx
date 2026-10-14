@@ -10,7 +10,9 @@ import type { Event } from "./event-types";
 import {
   CARD_CLASS,
   CATEGORY_LABEL,
+  EVENT_PHOTO_CLASS,
   EventThumbnail,
+  eventFocalPoint,
   formatDayNumber,
   formatEventFullDateTime,
   formatEventPrice,
@@ -260,7 +262,8 @@ export function EventDetailView({
           <EventThumbnail
             category={event.category}
             imageUrl={event.image_url}
-            className="h-[220px] w-full md:h-[320px]"
+            focalPoint={eventFocalPoint(event)}
+            className={EVENT_PHOTO_CLASS}
             showCategoryBadge={false}
           />
 

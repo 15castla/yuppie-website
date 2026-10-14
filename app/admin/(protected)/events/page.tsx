@@ -1,16 +1,11 @@
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { EVENT_COLUMNS, type Event } from "@/components/members/event-types";
 import { updateEventDetails } from "@/app/admin/events-actions";
-import {
-  CARD_CLASS,
-  EventThumbnail,
-  PricePill,
-  formatEventDayTime,
-} from "@/components/members/ui";
 import { cn, isoToDateTimeLocal } from "@/lib/utils";
 import { inputClasses, labelClasses, Select } from "@/app/admin/form-controls";
 import { NewEventForm } from "./NewEventForm";
 import { EventPhotoForm } from "./EventPhotoForm";
+import { EventPreviewCard } from "./EventPreviewCard";
 
 const CATEGORY_LABEL: Record<Event["category"], string> = {
   sport: "Sport",
@@ -69,31 +64,13 @@ export default async function AdminEventsPage() {
                 <span className="text-[10px] font-bold uppercase tracking-wider text-foreground/40">
                   Live preview
                 </span>
-                <div className={cn(CARD_CLASS, "overflow-hidden")}>
-                  <EventThumbnail
-                    category={event.category}
-                    imageUrl={event.image_url}
-                    className="h-32 w-full"
-                  />
-                  <div className="flex flex-col gap-1 p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <p className="text-sm font-bold text-foreground">{event.title}</p>
-                      <PricePill pricePence={event.price_pence} />
-                    </div>
-                    <p className="text-xs text-foreground-muted">
-                      {formatEventDayTime(event.start_time)}
-                      {event.location ? ` · ${event.location}` : ""}
-                    </p>
-                  </div>
-                </div>
-                <p className="text-xs text-foreground/50">
-                  Same photo shows larger (no card) on the event&apos;s own page.
-                </p>
+                <EventPreviewCard event={event} formId={`event-details-${event.id}`} />
 
                 <EventPhotoForm eventId={event.id} hasImage={Boolean(event.image_url)} />
               </div>
 
               <form
+                id={`event-details-${event.id}`}
                 action={updateEventDetailsAction}
                 className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2"
               >

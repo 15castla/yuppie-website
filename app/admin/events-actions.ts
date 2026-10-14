@@ -24,7 +24,28 @@ type ParsedEventFields = {
   end_time: string | null;
   price_pence: number;
   capacity: number;
+  image_focal_x?: number;
+  image_focal_y?: number;
 };
+
+// The photo focal point, as 0-100 percentages. Both forms send it, but
+// it's optional so a submission without it leaves the stored value alone
+// (and a new event falls back to the column default, 50/50).
+function parseFocalPoint(
+  formData: FormData,
+): { error: string } | { image_focal_x?: number; image_focal_y?: number } {
+  const xInput = formData.get("image_focal_x");
+  const yInput = formData.get("image_focal_y");
+  if (xInput === null && yInput === null) return {};
+
+  const x = Number(xInput);
+  const y = Number(yInput);
+  if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 100 || y < 0 || y > 100) {
+    return { error: "The photo focal point is invalid. Please click the photo again." };
+  }
+  // numeric(5, 2) in the database.
+  return { image_focal_x: Math.round(x * 100) / 100, image_focal_y: Math.round(y * 100) / 100 };
+}
 
 // Shared by createEvent and updateEventDetails so the two forms can't drift
 // into accepting different things as valid.
@@ -73,8 +94,12 @@ function parseEventFields(formData: FormData): { error: string } | { fields: Par
     return { error: "Please check the start/end times." };
   }
 
+  const focalPoint = parseFocalPoint(formData);
+  if ("error" in focalPoint) return focalPoint;
+
   return {
     fields: {
+      ...focalPoint,
       title: title.trim(),
       description: typeof description === "string" && description.trim() ? description.trim() : null,
       category: category as EventCategory,
@@ -218,9 +243,11 @@ export async function updateEventImage(
   }
 
   const adminClient = createAdminSupabaseClient();
+  // A new photo starts centred: the old focal point was chosen for the old
+  // photo and won't mean anything for this one.
   const { error } = await adminClient
     .from("events")
-    .update({ image_url: uploaded.url })
+    .update({ image_url: uploaded.url, image_focal_x: 50, image_focal_y: 50 })
     .eq("id", eventId);
 
   if (error) {
@@ -255,7 +282,7 @@ export async function removeEventImage(
   const adminClient = createAdminSupabaseClient();
   const { error } = await adminClient
     .from("events")
-    .update({ image_url: null })
+    .update({ image_url: null, image_focal_x: 50, image_focal_y: 50 })
     .eq("id", eventId);
 
   if (error) {

@@ -8,7 +8,9 @@ import type { Event, EventCategory } from "./event-types";
 import {
   CARD_CLASS,
   CATEGORY_LABEL,
+  EVENT_PHOTO_CLASS,
   EventThumbnail,
+  eventFocalPoint,
   EYEBROW_CLASS,
   MEMBERS_MAIN_CLASS,
   PricePill,
@@ -116,7 +118,8 @@ export function EventsView({
                 <EventThumbnail
                   category={event.category}
                   imageUrl={event.image_url}
-                  className="h-32 w-full"
+                  focalPoint={eventFocalPoint(event)}
+                  className={EVENT_PHOTO_CLASS}
                 />
                 <div className="flex flex-col gap-1 p-4">
                   <div className="flex items-start justify-between gap-3">

@@ -182,14 +182,43 @@ export function DateBadge({ iso }: { iso: string }) {
   );
 }
 
+// Event photo frame: one fixed aspect ratio at every screen width, so
+// object-cover shows the same part of the photo on a phone and on a
+// desktop, just scaled. Fixed pixel heights (what this replaced) kept the
+// height constant while the width followed the screen, so a wider screen
+// cropped more off the top and bottom. 16:9 keeps cards and the event
+// page's hero a sensible height; most photos are taller than that, so
+// some of each is cropped, and the event's focal point (set by clicking
+// the photo at /admin/events) decides which part stays in frame.
+export const EVENT_PHOTO_CLASS = "aspect-[16/9] w-full";
+
+// 0-100 percentages of the photo's width and height. Used as CSS
+// object-position, which lines the photo's x% point up with the frame's
+// x% point, so the focal point always stays inside the frame.
+export type FocalPoint = { x: number; y: number };
+
+export const CENTRE_FOCAL_POINT: FocalPoint = { x: 50, y: 50 };
+
+export function eventFocalPoint(event: {
+  image_focal_x?: number | null;
+  image_focal_y?: number | null;
+}): FocalPoint {
+  return {
+    x: Number(event.image_focal_x ?? 50),
+    y: Number(event.image_focal_y ?? 50),
+  };
+}
+
 export function EventThumbnail({
   category,
   imageUrl,
+  focalPoint = CENTRE_FOCAL_POINT,
   className,
   showCategoryBadge = true,
 }: {
   category: EventCategory;
   imageUrl?: string | null;
+  focalPoint?: FocalPoint;
   className?: string;
   showCategoryBadge?: boolean;
 }) {
@@ -206,7 +235,12 @@ export function EventThumbnail({
           Yuppie wordmark here; the members area carries no logo. */}
       {imageUrl && (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+        <img
+          src={imageUrl}
+          alt=""
+          className="h-full w-full object-cover"
+          style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
+        />
       )}
       {showCategoryBadge && (
         <span className="absolute left-3 top-3 rounded-full bg-cream px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-foreground">

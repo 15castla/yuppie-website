@@ -4,10 +4,19 @@ import { useEffect, useRef, useState, useTransition, type ChangeEvent, type Form
 import { useRouter } from "next/navigation";
 
 import { createEvent } from "@/app/admin/events-actions";
-import { CARD_CLASS, EventThumbnail, PricePill, formatEventDayTime } from "@/components/members/ui";
+import {
+  CARD_CLASS,
+  CENTRE_FOCAL_POINT,
+  EVENT_PHOTO_CLASS,
+  EventThumbnail,
+  PricePill,
+  formatEventDayTime,
+  type FocalPoint,
+} from "@/components/members/ui";
 import type { EventCategory } from "@/components/members/event-types";
 import { cn, dateTimeLocalToISO } from "@/lib/utils";
 import { inputClasses, labelClasses, Select } from "@/app/admin/form-controls";
+import { FocalPointPicker } from "./FocalPointPicker";
 
 // Same zone the rest of /admin/events and components/members/ui.tsx use;
 // see the comment in app/admin/events-actions.ts.
@@ -54,6 +63,7 @@ export function NewEventForm() {
   const [fields, setFields] = useState<FormState>(EMPTY_FORM);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+  const [focalPoint, setFocalPoint] = useState<FocalPoint>(CENTRE_FOCAL_POINT);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
@@ -74,6 +84,7 @@ export function NewEventForm() {
   function handlePhotoChange(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     setPhoto(file);
+    setFocalPoint(CENTRE_FOCAL_POINT);
     setPhotoPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return file ? URL.createObjectURL(file) : null;
@@ -85,6 +96,7 @@ export function NewEventForm() {
   // saved yet, so there's no confirm() and nothing to persist.
   function handleRemovePhoto() {
     setPhoto(null);
+    setFocalPoint(CENTRE_FOCAL_POINT);
     setPhotoPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -95,6 +107,7 @@ export function NewEventForm() {
   function resetForm() {
     setFields(EMPTY_FORM);
     setPhoto(null);
+    setFocalPoint(CENTRE_FOCAL_POINT);
     setPhotoPreviewUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return null;
@@ -116,7 +129,11 @@ export function NewEventForm() {
     formData.set("price_pounds", fields.price_pounds);
     formData.set("capacity", fields.capacity);
     formData.set("description", fields.description);
-    if (photo) formData.set("photo", photo);
+    if (photo) {
+      formData.set("photo", photo);
+      formData.set("image_focal_x", String(focalPoint.x));
+      formData.set("image_focal_y", String(focalPoint.y));
+    }
 
     startSaving(async () => {
       const result = await createEvent(formData);
@@ -270,6 +287,13 @@ export function NewEventForm() {
               Leave this blank to start with the branded placeholder shown in
               the preview. A photo can always be added or replaced later.
             </p>
+            {photoPreviewUrl && (
+              <FocalPointPicker
+                imageUrl={photoPreviewUrl}
+                value={focalPoint}
+                onChange={setFocalPoint}
+              />
+            )}
           </div>
 
           {error && <p className="text-sm font-medium text-red-700 sm:col-span-2">{error}</p>}
@@ -294,7 +318,8 @@ export function NewEventForm() {
             <EventThumbnail
               category={previewCategory}
               imageUrl={photoPreviewUrl}
-              className="h-32 w-full"
+              focalPoint={focalPoint}
+              className={EVENT_PHOTO_CLASS}
             />
             <div className="flex flex-col gap-1 p-4">
               <div className="flex items-start justify-between gap-3">
