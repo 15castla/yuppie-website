@@ -7,8 +7,6 @@ import { createEvent } from "@/app/admin/events-actions";
 import {
   CARD_CLASS,
   CENTRE_FOCAL_POINT,
-  EVENT_PHOTO_CLASS,
-  EventThumbnail,
   PricePill,
   formatEventDayTime,
   type FocalPoint,
@@ -16,7 +14,7 @@ import {
 import type { EventCategory } from "@/components/members/event-types";
 import { cn, dateTimeLocalToISO } from "@/lib/utils";
 import { inputClasses, labelClasses, Select } from "@/app/admin/form-controls";
-import { FocalPointPicker } from "./FocalPointPicker";
+import { FocalPointOverlay } from "./FocalPointOverlay";
 
 // Same zone the rest of /admin/events and components/members/ui.tsx use;
 // see the comment in app/admin/events-actions.ts.
@@ -287,13 +285,6 @@ export function NewEventForm() {
               Leave this blank to start with the branded placeholder shown in
               the preview. A photo can always be added or replaced later.
             </p>
-            {photoPreviewUrl && (
-              <FocalPointPicker
-                imageUrl={photoPreviewUrl}
-                value={focalPoint}
-                onChange={setFocalPoint}
-              />
-            )}
           </div>
 
           {error && <p className="text-sm font-medium text-red-700 sm:col-span-2">{error}</p>}
@@ -315,11 +306,11 @@ export function NewEventForm() {
             Live preview
           </span>
           <div className={cn(CARD_CLASS, "overflow-hidden")}>
-            <EventThumbnail
+            <FocalPointOverlay
               category={previewCategory}
               imageUrl={photoPreviewUrl}
-              focalPoint={focalPoint}
-              className={EVENT_PHOTO_CLASS}
+              value={focalPoint}
+              onChange={setFocalPoint}
             />
             <div className="flex flex-col gap-1 p-4">
               <div className="flex items-start justify-between gap-3">
@@ -337,6 +328,8 @@ export function NewEventForm() {
           <p className="text-xs text-foreground/50">
             Exactly what this event will look like in the members&apos; events
             list once added.
+            {photoPreviewUrl &&
+              " Use the arrows on the photo to choose which part of it stays in frame."}
           </p>
         </div>
       </div>
