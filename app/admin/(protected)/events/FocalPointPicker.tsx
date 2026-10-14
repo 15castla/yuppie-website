@@ -1,8 +1,10 @@
 "use client";
 
 import { useRef, type KeyboardEvent, type PointerEvent } from "react";
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, type LucideIcon } from "lucide-react";
 
 import type { FocalPoint } from "@/components/members/ui";
+import { cn } from "@/lib/utils";
 
 // Shows the whole photo, uncropped, and lets an admin click, tap or drag
 // to choose its focal point: the part that stays in frame when members see
@@ -10,10 +12,30 @@ import type { FocalPoint } from "@/components/members/ui";
 // cropped frame, because anything already cropped out of the frame
 // couldn't be clicked on. The live preview card next to this shows the
 // cropped result as the point moves. Pointer events cover mouse, touch and
-// pen; arrow keys nudge it for keyboard users.
+// pen; arrow keys nudge it for keyboard users, and the arrow buttons below
+// the photo nudge it for anyone who wants to fine-tune by clicking.
 
 const clamp = (value: number) => Math.min(100, Math.max(0, value));
 const round = (value: number) => Math.round(value * 10) / 10;
+
+// The arrow buttons' step. Bigger than the frame's own arrow-key step
+// (2%) since each move is a separate click: 5% moves the marker visibly,
+// and crosses the photo in 20 clicks rather than 50.
+const BUTTON_STEP = 5;
+
+// Arrow buttons around a blank centre, in a 3x3 grid.
+const NUDGE_BUTTONS: {
+  label: string;
+  Icon: LucideIcon;
+  dx: number;
+  dy: number;
+  cell: string;
+}[] = [
+  { label: "Move focal point up", Icon: ChevronUp, dx: 0, dy: -1, cell: "col-start-2 row-start-1" },
+  { label: "Move focal point left", Icon: ChevronLeft, dx: -1, dy: 0, cell: "col-start-1 row-start-2" },
+  { label: "Move focal point right", Icon: ChevronRight, dx: 1, dy: 0, cell: "col-start-3 row-start-2" },
+  { label: "Move focal point down", Icon: ChevronDown, dx: 0, dy: 1, cell: "col-start-2 row-start-3" },
+];
 
 export function FocalPointPicker({
   imageUrl,
@@ -45,6 +67,21 @@ export function FocalPointPicker({
     if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
     const point = pointFromEvent(event);
     if (point) onChange(point);
+  }
+
+  // Already at the edge in this direction: the button is greyed out and
+  // does nothing.
+  function atEdge(dx: number, dy: number) {
+    return (dx < 0 && value.x <= 0) || (dx > 0 && value.x >= 100) ||
+      (dy < 0 && value.y <= 0) || (dy > 0 && value.y >= 100);
+  }
+
+  function nudge(dx: number, dy: number) {
+    if (atEdge(dx, dy)) return;
+    onChange({
+      x: round(clamp(value.x + dx * BUTTON_STEP)),
+      y: round(clamp(value.y + dy * BUTTON_STEP)),
+    });
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
@@ -85,10 +122,39 @@ export function FocalPointPicker({
           style={{ left: `${value.x}%`, top: `${value.y}%` }}
         />
       </div>
-      <p className="text-xs text-foreground/50">
-        Click or tap the part of the photo that should always stay in frame
-        (drag to fine-tune). The preview shows how members will see it.
-      </p>
+      <div className="flex items-start gap-3">
+        <p className="flex-1 text-xs text-foreground/50">
+          Click or tap the part of the photo that should always stay in frame
+          (drag to fine-tune). The preview shows how members will see it.
+        </p>
+        {/* aria-disabled rather than disabled, so a button keeps keyboard
+            focus when the point reaches the edge mid-way through repeated
+            presses; nudge() ignores it there. type="button" since this sits
+            inside NewEventForm's <form>. */}
+        <div className="grid shrink-0 grid-cols-3 grid-rows-3 gap-0.5">
+          {NUDGE_BUTTONS.map(({ label, Icon, dx, dy, cell }) => {
+            const disabled = atEdge(dx, dy);
+            return (
+              <button
+                key={label}
+                type="button"
+                aria-label={label}
+                aria-disabled={disabled || undefined}
+                onClick={() => nudge(dx, dy)}
+                className={cn(
+                  cell,
+                  "flex h-7 w-7 items-center justify-center rounded-full border border-foreground/15 bg-cream text-foreground/70 outline-none transition-colors focus-visible:ring-2 focus-visible:ring-foreground/40",
+                  disabled
+                    ? "cursor-not-allowed opacity-30"
+                    : "hover:border-foreground hover:bg-foreground hover:text-background",
+                )}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
