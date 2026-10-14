@@ -14,6 +14,7 @@ import {
 import type { EventCategory } from "@/components/members/event-types";
 import { cn, dateTimeLocalToISO } from "@/lib/utils";
 import { inputClasses, labelClasses, Select } from "@/app/admin/form-controls";
+import { ActionButton } from "../ActionForm";
 import { FocalPointOverlay } from "./FocalPointOverlay";
 
 // Same zone the rest of /admin/events and components/members/ui.tsx use;
@@ -291,13 +292,13 @@ export function NewEventForm() {
           {notice && <p className="text-sm font-medium text-amber-700 sm:col-span-2">{notice}</p>}
 
           <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background disabled:opacity-60"
+            <ActionButton
+              pending={isSaving}
+              pendingLabel="Adding…"
+              className="rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSaving ? "Adding…" : "Add event"}
-            </button>
+              Add event
+            </ActionButton>
           </div>
         </form>
 

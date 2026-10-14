@@ -3,6 +3,8 @@
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
+import { ActionButton } from "../ActionForm";
+
 import { updateEventImage, removeEventImage } from "@/app/admin/events-actions";
 
 // Was a plain <form action={updateEventImage}> with a required file input,
@@ -22,6 +24,7 @@ export function EventPhotoForm({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [pendingLabel, setPendingLabel] = useState("Uploading…");
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -31,6 +34,7 @@ export function EventPhotoForm({
     const file = fileInputRef.current?.files?.[0];
 
     if (file) {
+      setPendingLabel("Uploading…");
       const formData = new FormData();
       formData.set("event_id", eventId);
       formData.set("photo", file);
@@ -56,6 +60,7 @@ export function EventPhotoForm({
     );
     if (!confirmed) return;
 
+    setPendingLabel("Removing…");
     startTransition(async () => {
       const result = await removeEventImage(eventId);
       if (!result.success) {
@@ -75,13 +80,13 @@ export function EventPhotoForm({
         accept="image/png,image/jpeg,image/webp,image/gif"
         className="text-[10px] text-foreground/70 file:mr-2 file:rounded-full file:border-0 file:bg-foreground file:px-3 file:py-1.5 file:text-[10px] file:font-bold file:text-background"
       />
-      <button
-        type="submit"
-        disabled={isPending}
+      <ActionButton
+        pending={isPending}
+        pendingLabel={pendingLabel}
         className="rounded-full bg-foreground px-4 py-2 text-xs font-bold text-background disabled:cursor-not-allowed disabled:opacity-60"
       >
         {hasImage ? "Replace photo" : "Upload photo"}
-      </button>
+      </ActionButton>
       {error && <p className="text-xs text-red-700">{error}</p>}
     </form>
   );

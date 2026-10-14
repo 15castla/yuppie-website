@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { updatePerk } from "@/app/admin/discounts-actions";
 import { PerkPreview, inputClasses, labelClasses } from "@/app/admin/perk-shared";
 import { Select } from "@/app/admin/form-controls";
+import { ActionButton, useSavedFlash } from "../ActionForm";
 import type { PartnerPerk } from "@/components/members/mock-perks";
 import { PerkLogoForm } from "./PerkLogoForm";
 
@@ -42,6 +43,7 @@ export function EditPerkForm({ perk, categories }: { perk: PartnerPerk; categori
   });
   const [addingCategory, setAddingCategory] = useState(false);
   const [isSaving, startSaving] = useTransition();
+  const [saved, flashSaved] = useSavedFlash();
   const [error, setError] = useState<string | null>(null);
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
@@ -81,6 +83,7 @@ export function EditPerkForm({ perk, categories }: { perk: PartnerPerk; categori
         setError(result.error ?? "Something went wrong.");
         return;
       }
+      flashSaved();
       router.refresh();
     });
   }
@@ -176,13 +179,14 @@ export function EditPerkForm({ perk, categories }: { perk: PartnerPerk; categori
           />
         </div>
         <div className="flex items-center gap-4 sm:col-span-2">
-          <button
-            type="submit"
-            disabled={isSaving}
+          <ActionButton
+            pending={isSaving}
+            saved={saved}
+            pendingLabel="Saving…"
             className="rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {isSaving ? "Saving…" : "Save changes"}
-          </button>
+            Save changes
+          </ActionButton>
           {error && <p className="text-xs text-red-700">{error}</p>}
         </div>
       </form>

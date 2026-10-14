@@ -45,19 +45,6 @@ export default async function AdminAccessPage() {
   const events = (eventsData ?? []) as EventOption[];
   const featureCard = (featureCardData ?? null) as FeatureCardRow | null;
 
-  // <form action> requires (formData) => void | Promise<void>, and these
-  // actions return { success, error } for other callers, so each is
-  // wrapped here rather than changing its return type.
-  async function updatePerkAction(formData: FormData) {
-    "use server";
-    await updatePerk(formData);
-  }
-
-  async function deletePerkAction(formData: FormData) {
-    "use server";
-    await deletePerk(formData);
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -97,7 +84,7 @@ export default async function AdminAccessPage() {
           No access perks yet.
         </p>
       ) : (
-        <AccessList perks={perks} updatePerkAction={updatePerkAction} deletePerkAction={deletePerkAction} />
+        <AccessList perks={perks} updatePerkAction={updatePerk} deletePerkAction={deletePerk} />
       )}
     </div>
   );

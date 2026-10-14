@@ -7,6 +7,7 @@ import { setFeatureCard } from "@/app/admin/feature-card-actions";
 import { DEFAULT_FEATURE_LABEL, type FeatureCard } from "@/components/members/feature-card-data";
 import { cn } from "@/lib/utils";
 import { inputClasses, Select } from "@/app/admin/form-controls";
+import { ActionButton, useSavedFlash } from "../ActionForm";
 
 type Option = { id: string; label: string };
 
@@ -33,6 +34,7 @@ export function FeatureCardForm({
   const [label, setLabel] = useState(current?.label ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isSaving, startSaving] = useTransition();
+  const [saved, flashSaved] = useSavedFlash();
 
   const selectedType = selected.split(":")[0] as FeatureCard["content_type"] | "";
   const labelPlaceholder = selectedType ? DEFAULT_FEATURE_LABEL[selectedType] : "";
@@ -54,6 +56,7 @@ export function FeatureCardForm({
         setError(result.error ?? "Something went wrong.");
         return;
       }
+      flashSaved();
       router.refresh();
     });
   }
@@ -99,13 +102,14 @@ export function FeatureCardForm({
           placeholder={labelPlaceholder}
           className={cn(inputClasses, "disabled:cursor-not-allowed disabled:opacity-60")}
         />
-        <button
-          type="submit"
-          disabled={isSaving}
+        <ActionButton
+          pending={isSaving}
+          saved={saved}
+          pendingLabel="Saving…"
           className="shrink-0 rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background disabled:cursor-not-allowed disabled:opacity-60"
         >
-          {isSaving ? "Saving…" : "Save"}
-        </button>
+          Save
+        </ActionButton>
       </div>
       <p className="text-xs text-foreground/50">
         Card label (optional): leave blank to use the default label shown

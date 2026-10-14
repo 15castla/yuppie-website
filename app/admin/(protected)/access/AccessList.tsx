@@ -6,7 +6,7 @@ import { GripVertical } from "lucide-react";
 
 import { reorderPerks } from "@/app/admin/discounts-actions";
 import type { PartnerPerk } from "@/components/members/mock-perks";
-import { AccessPerkRow } from "./AccessPerkRow";
+import { AccessPerkRow, type PerkAction } from "./AccessPerkRow";
 
 // Mirrors app/admin/(protected)/discounts/DiscountsList.tsx exactly, just
 // for type: "access" perks. See that file for the reasoning behind the
@@ -17,8 +17,8 @@ export function AccessList({
   deletePerkAction,
 }: {
   perks: PartnerPerk[];
-  updatePerkAction: (formData: FormData) => void;
-  deletePerkAction: (formData: FormData) => void;
+  updatePerkAction: PerkAction;
+  deletePerkAction: PerkAction;
 }) {
   const [items, setItems] = useState(perks);
   const perksRef = useRef(perks);
@@ -57,8 +57,8 @@ function PerkRow({
   onDragEnd,
 }: {
   perk: PartnerPerk;
-  updatePerkAction: (formData: FormData) => void;
-  deletePerkAction: (formData: FormData) => void;
+  updatePerkAction: PerkAction;
+  deletePerkAction: PerkAction;
   onDragEnd: () => void;
 }) {
   const controls = useDragControls();

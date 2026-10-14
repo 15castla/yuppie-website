@@ -5,6 +5,7 @@ import { CircleUserRound } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { signOut } from "@/app/admin/actions";
+import { ActionButton } from "./ActionForm";
 
 // Was an always-visible initials avatar (title={email}, so the address
 // only ever showed on a mouse hover, nothing on touch) sitting next to a
@@ -73,13 +74,13 @@ export function AdminUserMenu({ email }: { email: string }) {
           <p className="truncate px-2 py-1.5 text-xs text-foreground/60">{email}</p>
           <div className="my-1 h-px bg-foreground/10" />
           <form action={signOut}>
-            <button
-              type="submit"
+            <ActionButton
               role="menuitem"
-              className="block w-full rounded-lg px-2 py-1.5 text-left text-sm font-medium text-foreground/80 outline-none transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:bg-foreground/5 focus-visible:text-foreground"
+              pendingLabel="Signing out…"
+              className="block w-full rounded-lg px-2 py-1.5 text-left text-sm font-medium text-foreground/80 outline-none transition-colors hover:bg-foreground/5 hover:text-foreground focus-visible:bg-foreground/5 focus-visible:text-foreground disabled:cursor-not-allowed disabled:opacity-60"
             >
               Sign out
-            </button>
+            </ActionButton>
           </form>
         </div>
       )}

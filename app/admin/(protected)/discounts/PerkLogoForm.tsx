@@ -3,6 +3,8 @@
 import { useRef, useState, useTransition, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
+import { ActionButton } from "../ActionForm";
+
 import { uploadPerkLogo, removePerkLogo } from "@/app/admin/discounts-actions";
 
 // Same pattern as app/admin/(protected)/events/EventPhotoForm.tsx: was a
@@ -22,6 +24,7 @@ export function PerkLogoForm({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [pendingLabel, setPendingLabel] = useState("Uploading…");
   const [error, setError] = useState<string | null>(null);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -31,6 +34,7 @@ export function PerkLogoForm({
     const file = fileInputRef.current?.files?.[0];
 
     if (file) {
+      setPendingLabel("Uploading…");
       const formData = new FormData();
       formData.set("id", perkId);
       formData.set("logo", file);
@@ -56,6 +60,7 @@ export function PerkLogoForm({
     );
     if (!confirmed) return;
 
+    setPendingLabel("Removing…");
     startTransition(async () => {
       const result = await removePerkLogo(perkId);
       if (!result.success) {
@@ -75,13 +80,13 @@ export function PerkLogoForm({
         accept="image/png,image/jpeg,image/webp,image/gif"
         className="w-full text-[10px] text-foreground/70 file:mr-1 file:rounded-full file:border-0 file:bg-foreground file:px-2 file:py-1 file:text-[10px] file:font-bold file:text-background"
       />
-      <button
-        type="submit"
-        disabled={isPending}
+      <ActionButton
+        pending={isPending}
+        pendingLabel={pendingLabel}
         className="mt-1.5 w-full rounded-full bg-foreground px-3 py-1.5 text-[11px] font-bold text-background disabled:cursor-not-allowed disabled:opacity-60"
       >
         {hasLogo ? "Replace logo" : "Upload logo"}
-      </button>
+      </ActionButton>
       {error && <p className="mt-1 text-[10px] text-red-700">{error}</p>}
     </form>
   );

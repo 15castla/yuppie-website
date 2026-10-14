@@ -30,14 +30,6 @@ export default async function AdminDiscountsPage() {
     ]),
   ).sort((a, b) => a.localeCompare(b));
 
-  // <form action> requires (formData) => void | Promise<void>, and this
-  // action returns { success, error } for other callers, so it's wrapped
-  // here rather than changing its return type.
-  async function deletePerkAction(formData: FormData) {
-    "use server";
-    await deletePerk(formData);
-  }
-
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -57,7 +49,7 @@ export default async function AdminDiscountsPage() {
           No discounts yet.
         </p>
       ) : (
-        <DiscountsList perks={perks} categories={categories} deletePerkAction={deletePerkAction} />
+        <DiscountsList perks={perks} categories={categories} deletePerkAction={deletePerk} />
       )}
     </div>
   );

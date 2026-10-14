@@ -7,6 +7,8 @@ import { GripVertical } from "lucide-react";
 import { reorderPerks } from "@/app/admin/discounts-actions";
 import type { PartnerPerk } from "@/components/members/mock-perks";
 import { EditPerkForm } from "./EditPerkForm";
+import { ActionButton, ActionFormError, AdminActionForm } from "../ActionForm";
+import type { PerkAction } from "../access/AccessPerkRow";
 
 // Local optimistic order, seeded from the server-fetched perks and kept in
 // sync with them (see the effect below). reorderPerks is only called once
@@ -19,7 +21,7 @@ export function DiscountsList({
 }: {
   perks: PartnerPerk[];
   categories: string[];
-  deletePerkAction: (formData: FormData) => void;
+  deletePerkAction: PerkAction;
 }) {
   const [items, setItems] = useState(perks);
   const perksRef = useRef(perks);
@@ -59,7 +61,7 @@ function PerkRow({
 }: {
   perk: PartnerPerk;
   categories: string[];
-  deletePerkAction: (formData: FormData) => void;
+  deletePerkAction: PerkAction;
   onDragEnd: () => void;
 }) {
   const controls = useDragControls();
@@ -83,15 +85,17 @@ function PerkRow({
 
       <EditPerkForm perk={perk} categories={categories} />
 
-      <form action={deletePerkAction} className="shrink-0 self-start">
+      <AdminActionForm action={deletePerkAction} className="flex shrink-0 flex-col items-start gap-1 self-start">
         <input type="hidden" name="id" value={perk.id} />
-        <button
-          type="submit"
-          className="text-xs font-medium text-foreground/40 underline underline-offset-2 hover:text-red-700"
+        <ActionButton
+          pendingLabel="Deleting…"
+          savedLabel="Deleted"
+          className="text-xs font-medium text-foreground/40 underline underline-offset-2 hover:text-red-700 disabled:cursor-not-allowed disabled:no-underline"
         >
           Delete
-        </button>
-      </form>
+        </ActionButton>
+        <ActionFormError className="max-w-[10rem] text-xs text-red-700" />
+      </AdminActionForm>
     </Reorder.Item>
   );
 }

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createPerk } from "@/app/admin/discounts-actions";
 import { PerkPreview, inputClasses, labelClasses } from "@/app/admin/perk-shared";
 import { Select } from "@/app/admin/form-controls";
+import { ActionButton } from "../ActionForm";
 import type { PartnerPerk } from "@/components/members/mock-perks";
 
 type FormState = {
@@ -256,13 +257,13 @@ export function NewPerkForm({ categories }: { categories: string[] }) {
           {notice && <p className="text-sm font-medium text-amber-700 sm:col-span-2">{notice}</p>}
 
           <div className="sm:col-span-2">
-            <button
-              type="submit"
-              disabled={isSaving}
-              className="rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background disabled:opacity-60"
+            <ActionButton
+              pending={isSaving}
+              pendingLabel="Adding…"
+              className="rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSaving ? "Adding…" : "Add discount"}
-            </button>
+              Add discount
+            </ActionButton>
           </div>
         </form>
 

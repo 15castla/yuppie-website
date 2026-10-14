@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 import { deleteMember } from "@/app/admin/members-actions";
+import { ActionButton } from "../../ActionForm";
 
 // window.prompt() rather than a custom modal, since this admin panel has no
 // modal UI to match elsewhere, and a real delete needs more than an
@@ -52,14 +53,15 @@ export function DeleteMemberButton({
 
   return (
     <div className="flex flex-col items-start gap-1.5">
-      <button
+      <ActionButton
         type="button"
         onClick={handleClick}
-        disabled={isPending}
+        pending={isPending}
+        pendingLabel="Deleting…"
         className="rounded-full border border-red-700/30 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-700/10 disabled:cursor-not-allowed disabled:opacity-50"
       >
-        {isPending ? "Deleting…" : "Delete member"}
-      </button>
+        Delete member
+      </ActionButton>
       {error && <p className="text-xs text-red-700">{error}</p>}
     </div>
   );

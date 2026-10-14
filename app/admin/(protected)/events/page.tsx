@@ -6,6 +6,7 @@ import { inputClasses, labelClasses, Select } from "@/app/admin/form-controls";
 import { NewEventForm } from "./NewEventForm";
 import { EventPhotoForm } from "./EventPhotoForm";
 import { EventPreviewCard } from "./EventPreviewCard";
+import { ActionButton, ActionFormError, AdminActionForm } from "../ActionForm";
 
 const CATEGORY_LABEL: Record<Event["category"], string> = {
   sport: "Sport",
@@ -24,14 +25,6 @@ export default async function AdminEventsPage() {
     .order("id", { ascending: true });
 
   const events = (data ?? []) as Event[];
-
-  // <form action> requires (formData) => void | Promise<void>, and this
-  // action returns { success, error } for other callers, so it's wrapped
-  // here rather than changing its return type.
-  async function updateEventDetailsAction(formData: FormData) {
-    "use server";
-    await updateEventDetails(formData);
-  }
 
   return (
     <div className="flex flex-col gap-6">
@@ -69,9 +62,9 @@ export default async function AdminEventsPage() {
                 <EventPhotoForm eventId={event.id} hasImage={Boolean(event.image_url)} />
               </div>
 
-              <form
+              <AdminActionForm
                 id={`event-details-${event.id}`}
-                action={updateEventDetailsAction}
+                action={updateEventDetails}
                 className="grid min-w-0 flex-1 grid-cols-1 gap-4 sm:grid-cols-2"
               >
                 <input type="hidden" name="event_id" value={event.id} />
@@ -166,15 +159,16 @@ export default async function AdminEventsPage() {
                   />
                 </div>
 
-                <div className="sm:col-span-2">
-                  <button
-                    type="submit"
-                    className="rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background"
+                <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
+                  <ActionButton
+                    pendingLabel="Saving…"
+                    className="rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     Save changes
-                  </button>
+                  </ActionButton>
+                  <ActionFormError />
                 </div>
-              </form>
+              </AdminActionForm>
             </li>
           ))}
         </ul>

@@ -1,6 +1,9 @@
 import { ACCESS_KIND_LABEL, PerkPreview, inputClasses, labelClasses } from "@/app/admin/perk-shared";
 import { Select } from "@/app/admin/form-controls";
 import type { PartnerPerk } from "@/components/members/mock-perks";
+import { ActionButton, ActionFormError, AdminActionForm } from "../ActionForm";
+
+export type PerkAction = (formData: FormData) => Promise<{ success: boolean; error?: string }>;
 
 // Extracted from what used to be inline <li> markup in page.tsx so
 // AccessList.tsx can wrap each row in a Reorder.Item. The row content
@@ -12,8 +15,8 @@ export function AccessPerkRow({
   deletePerkAction,
 }: {
   perk: PartnerPerk;
-  updatePerkAction: (formData: FormData) => void;
-  deletePerkAction: (formData: FormData) => void;
+  updatePerkAction: PerkAction;
+  deletePerkAction: PerkAction;
 }) {
   return (
     <>
@@ -24,7 +27,7 @@ export function AccessPerkRow({
         <PerkPreview perk={perk} />
       </div>
 
-      <form action={updatePerkAction} className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
+      <AdminActionForm action={updatePerkAction} className="grid flex-1 grid-cols-1 gap-4 sm:grid-cols-2">
         <input type="hidden" name="id" value={perk.id} />
         <input type="hidden" name="type" value="access" />
         <div className="flex min-w-0 flex-col gap-1.5">
@@ -55,25 +58,28 @@ export function AccessPerkRow({
             className={inputClasses}
           />
         </div>
-        <div className="flex items-center gap-4 sm:col-span-2">
-          <button
-            type="submit"
-            className="rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background"
+        <div className="flex flex-wrap items-center gap-4 sm:col-span-2">
+          <ActionButton
+            pendingLabel="Saving…"
+            className="rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background disabled:cursor-not-allowed disabled:opacity-60"
           >
             Save changes
-          </button>
+          </ActionButton>
+          <ActionFormError className="text-xs text-red-700" />
         </div>
-      </form>
+      </AdminActionForm>
 
-      <form action={deletePerkAction} className="shrink-0 self-start">
+      <AdminActionForm action={deletePerkAction} className="flex shrink-0 flex-col items-start gap-1 self-start">
         <input type="hidden" name="id" value={perk.id} />
-        <button
-          type="submit"
-          className="text-xs font-medium text-foreground/40 underline underline-offset-2 hover:text-red-700"
+        <ActionButton
+          pendingLabel="Deleting…"
+          savedLabel="Deleted"
+          className="text-xs font-medium text-foreground/40 underline underline-offset-2 hover:text-red-700 disabled:cursor-not-allowed disabled:no-underline"
         >
           Delete
-        </button>
-      </form>
+        </ActionButton>
+        <ActionFormError className="max-w-[10rem] text-xs text-red-700" />
+      </AdminActionForm>
     </>
   );
 }
