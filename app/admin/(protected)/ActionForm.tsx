@@ -16,6 +16,8 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Check } from "lucide-react";
 
+import { cn } from "@/lib/utils";
+
 // Shared feedback for every admin button that runs a server action, so
 // each one shows it's working, can't be double-submitted, and confirms
 // when it's done, the same way everywhere:
@@ -136,6 +138,16 @@ export function ActionButton({
   const pending = pendingProp ?? formState?.pending ?? formStatusPending;
   const saved = !pending && (savedProp ?? formState?.saved ?? false);
 
+  // All three states are always rendered, stacked in one grid cell with
+  // only the current one visible, so the button is always as wide as its
+  // widest state and doesn't resize as the label changes. Same technique
+  // as BOOK_LABELS (components/members/event-detail-view.tsx) and
+  // StepStack (components/StableLayout.tsx). `invisible` (visibility:
+  // hidden), not display: none, so the hidden states still take up space;
+  // it also keeps them out of the button's accessible name and the
+  // aria-live announcement.
+  const cell = (active: boolean) => cn("[grid-area:1/1]", !active && "invisible");
+
   return (
     <button
       type={type}
@@ -145,23 +157,26 @@ export function ActionButton({
     >
       {/* aria-live (not role="status", which would replace the button's
           accessible name) so screen readers hear "Saving…" / "Saved". */}
-      <span aria-live="polite" className="contents">
-        {pending ? (
+      <span aria-live="polite" className="inline-grid whitespace-nowrap">
+        <span className={cell(!pending && !saved)}>{children}</span>
+        <span className={cell(pending)}>
           <span className="inline-flex items-center justify-center gap-2">
             <span
               aria-hidden
-              className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current/30 border-t-current"
+              className={cn(
+                "h-3.5 w-3.5 rounded-full border-2 border-current/30 border-t-current",
+                pending && "animate-spin",
+              )}
             />
             {pendingLabel}
           </span>
-        ) : saved ? (
+        </span>
+        <span className={cell(saved)}>
           <span className="inline-flex items-center justify-center gap-1.5">
             <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={3} />
             {savedLabel}
           </span>
-        ) : (
-          children
-        )}
+        </span>
       </span>
     </button>
   );
