@@ -3,7 +3,6 @@
 import { useState, useTransition, type ChangeEvent } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, useReducedMotion } from "framer-motion";
 import { ChevronLeft } from "lucide-react";
 import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
@@ -18,7 +17,7 @@ import {
   requestEmailChange,
   verifyEmailChange,
 } from "@/app/members/profile/actions";
-import { CARD_CLASS, MEMBERS_MAIN_CLASS, initialsFor, fadeIn } from "./ui";
+import { CARD_CLASS, MEMBERS_MAIN_CLASS, initialsFor } from "./ui";
 import { EmailChangeVerify } from "./email-change-verify";
 
 const inputClasses =
@@ -28,9 +27,7 @@ const labelClasses =
   "text-left text-xs font-semibold uppercase tracking-wider text-foreground/60";
 
 export function ProfileEditView({ member }: { member: Member }) {
-  const reduce = useReducedMotion();
   const router = useRouter();
-  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const [phone, setPhone] = useState<string | undefined>(member.phone ?? undefined);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -160,7 +157,7 @@ export function ProfileEditView({ member }: { member: Member }) {
   return (
     <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-        <motion.div {...fade(0.1)}>
+        <div>
           <Link
             href="/members/profile"
             className="flex w-fit items-center gap-1 text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline"
@@ -168,16 +165,15 @@ export function ProfileEditView({ member }: { member: Member }) {
             <ChevronLeft className="h-4 w-4" />
             Back to profile
           </Link>
-        </motion.div>
+        </div>
 
-        <motion.div {...fade(0.15)}>
+        <div>
           <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl optical-trim">
             Edit your profile.
           </h1>
-        </motion.div>
+        </div>
 
-        <motion.form
-          {...fade(0.25)}
+        <form
           action={handleSave}
           // Errors show inline (e.g. under the email field), not as the
           // browser's own validation popups.
@@ -328,7 +324,7 @@ export function ProfileEditView({ member }: { member: Member }) {
               Cancel
             </Link>
           </div>
-        </motion.form>
+        </form>
       </div>
     </main>
   );

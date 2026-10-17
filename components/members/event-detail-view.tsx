@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { Calendar, ChevronLeft, MapPin, Users, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -17,7 +17,6 @@ import {
   formatEventFullDateTime,
   formatEventPrice,
   formatMonthAbbrev,
-  fadeIn,
 } from "./ui";
 import { rsvpToEvent, createEventPaymentIntent } from "@/app/members/events/actions";
 import { EventPaymentForm } from "./event-payment-form";
@@ -95,8 +94,6 @@ export function EventDetailView({
   hasStarted?: boolean;
   initialClientSecret?: string | null;
 }) {
-  const reduce = useReducedMotion();
-  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -262,8 +259,7 @@ export function EventDetailView({
             inset, rounded hero as before, since a full-width 16:9 photo
             would be ~720px tall on a desktop screen. With no photo,
             EventThumbnail's brand gradient fills the same hero. */}
-        <motion.div
-          {...fadeIn(reduce, 0.1, { slide: false })}
+        <div
           className="relative -mx-4 -mt-[calc(2rem+var(--safe-top))] overflow-hidden sm:-mx-6 md:mx-auto md:mt-6 md:w-full md:max-w-3xl md:rounded-2xl md:border md:border-foreground/10"
         >
           <EventThumbnail
@@ -291,14 +287,14 @@ export function EventDetailView({
           >
             <ChevronLeft className="h-5 w-5" />
           </Link>
-        </motion.div>
+        </div>
 
         {/* The sheet sliding up over the hero, below md only. Its own
             wrapper (rather than classes on the column) so it can run edge
             to edge while the column inside keeps its max width. */}
         <div className="relative z-10 -mx-4 -mt-7 rounded-t-[28px] bg-background px-4 pt-6 sm:-mx-6 sm:px-6 md:mx-0 md:mt-6 md:rounded-none md:bg-transparent md:px-0 md:pt-0">
           <div className="relative mx-auto flex w-full max-w-2xl flex-col gap-6 md:max-w-3xl">
-            <motion.div {...fade(0.15)} className="flex items-start justify-between gap-4">
+            <div className="flex items-start justify-between gap-4">
               <div className="flex min-w-0 flex-col gap-3">
                 <span className="w-fit rounded-full bg-cream px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.35)]">
                   {CATEGORY_LABEL[event.category]}
@@ -319,9 +315,9 @@ export function EventDetailView({
                   {formatDayNumber(event.start_time)}
                 </span>
               </div>
-            </motion.div>
+            </div>
 
-            <motion.div {...fade(0.3)} className={cn(CARD_CLASS, "overflow-hidden")}>
+            <div className={cn(CARD_CLASS, "overflow-hidden")}>
               <div className="flex items-center gap-3 px-4 py-3.5">
                 <Calendar aria-hidden className="h-5 w-5 shrink-0 text-foreground/75" />
                 <p className="text-sm text-foreground">
@@ -350,20 +346,20 @@ export function EventDetailView({
                   {spotsLeft} of {event.capacity} spots left
                 </p>
               </div>
-            </motion.div>
+            </div>
 
             {event.description && (
-              <motion.p {...fade(0.4)} className="text-sm leading-relaxed text-foreground-muted">
+              <p className="text-sm leading-relaxed text-foreground-muted">
                 {event.description}
-              </motion.p>
+              </p>
             )}
 
-            <motion.div {...fade(0.5)} className={cn(CARD_CLASS, "p-5")}>
+            <div className={cn(CARD_CLASS, "p-5")}>
               <h2 className="text-sm font-bold text-foreground">What&apos;s included</h2>
               <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
                 {whatsIncluded}
               </p>
-            </motion.div>
+            </div>
 
             {message && (
               <p className="text-sm font-medium text-foreground/70">{message}</p>
@@ -377,14 +373,11 @@ export function EventDetailView({
                 leftover space on a tall screen above the bar instead of below
                 it. Hidden below md (the mobile fixed bar further down covers
                 that). */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.15 }}
+            <div
               className="hidden md:block md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:p-2"
             >
               {rsvpBarContent}
-            </motion.div>
+            </div>
           </div>
         </div>
       </main>
@@ -420,14 +413,11 @@ export function EventDetailView({
           aria-hidden
           className="fixed inset-x-0 bottom-0 h-[max(1rem,env(safe-area-inset-bottom))] bg-background"
         />
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.15 }}
+        <div
           className="pointer-events-auto absolute left-3.5 right-3.5 bottom-[max(0.875rem,env(safe-area-inset-bottom))] rounded-[26px] bg-cream p-2 shadow-[0_10px_20px_-12px_rgba(27,21,18,0.18)]"
         >
           {rsvpBarContent}
-        </motion.div>
+        </div>
       </div>
 
       <AnimatePresence>

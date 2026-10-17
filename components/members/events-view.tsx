@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
 
 import type { Event, EventCategory } from "./event-types";
 import { EventRowList } from "./event-row";
@@ -11,7 +10,6 @@ import {
   eventMonthGroup,
   EYEBROW_CLASS,
   MEMBERS_MAIN_CLASS,
-  fadeIn,
 } from "./ui";
 import { cn } from "@/lib/utils";
 
@@ -63,8 +61,6 @@ export function EventsView({
   bookedEventIds: string[];
 }) {
   const bookedEvents = useMemo(() => new Set(bookedEventIds), [bookedEventIds]);
-  const reduce = useReducedMotion();
-  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const [filter, setFilter] = useState<Filter>("All");
   const filteredEvents = useMemo(
@@ -76,15 +72,14 @@ export function EventsView({
   return (
     <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <motion.div {...fade(0.1)} className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3">
           <span className={EYEBROW_CLASS}>WHAT&apos;S ON</span>
           <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl optical-trim">
             Events.
           </h1>
-        </motion.div>
+        </div>
 
-        <motion.div
-          {...fade(0.2)}
+        <div
           className="-mx-4 flex gap-2 overflow-x-auto px-4 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: "none" }}
         >
@@ -103,9 +98,9 @@ export function EventsView({
               {filterLabel(item)}
             </button>
           ))}
-        </motion.div>
+        </div>
 
-        <motion.div {...fade(0.3)} className="flex flex-col gap-6">
+        <div className="flex flex-col gap-6">
           {filteredEvents.length === 0 ? (
             <div className={`${CARD_CLASS} p-8 text-center`}>
               <p className="text-sm text-foreground-muted">
@@ -134,7 +129,7 @@ export function EventsView({
               </section>
             ))
           )}
-        </motion.div>
+        </div>
       </div>
     </main>
   );

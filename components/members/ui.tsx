@@ -7,25 +7,6 @@ import type { EventCategory } from "./event-types";
 // Page-title eyebrow: the public pages' standard (components/page-header).
 export const EYEBROW_CLASS = PAGE_EYEBROW_CLASS;
 
-// Shared entrance animation for every members view: a 0.8s fade with a
-// 20px rise, sections staggered by each view (delays from 0.1s to 0.5s).
-// Briefly shortened to 0.35s with a ~0.12s stagger to feel faster, but
-// that read as pages snapping in, so it's back to the original glide.
-// A plain function (not a hook) because this
-// file is also imported by server components; each view passes in its own
-// framer-motion useReducedMotion() result, and reduced motion means no
-// entrance animation at all. slide: false fades without moving (the event
-// page's hero, which would otherwise show a strip of background above it).
-export const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
-
-export function fadeIn(reduce: boolean | null, delay = 0, { slide = true } = {}) {
-  return {
-    initial: reduce ? false : slide ? { y: 20, opacity: 0 } : { opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
-  };
-}
-
 export const CARD_CLASS = "rounded-2xl border border-foreground/10 bg-background-muted";
 
 // Shared <main> wrapper for every top-level members page. Top padding

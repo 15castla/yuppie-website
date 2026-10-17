@@ -1,10 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
 
 import type { PartnerPerk } from "@/components/members/mock-perks";
-import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS, fadeIn } from "@/components/members/ui";
+import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS } from "@/components/members/ui";
 import { RedeemCard } from "@/components/members/RedeemCard";
 import { cn } from "@/lib/utils";
 
@@ -12,8 +11,6 @@ type Filter = "All" | PartnerPerk["category"];
 const FILTERS: Filter[] = ["All", "Food & Drink", "Fitness", "Grooming", "Wellness"];
 
 export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
-  const reduce = useReducedMotion();
-  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const [filter, setFilter] = useState<Filter>("All");
   const filtered = useMemo(
@@ -28,7 +25,7 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
     <>
       <main className={MEMBERS_MAIN_CLASS}>
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-          <motion.div {...fade(0.1)} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             <span className={EYEBROW_CLASS}>MEMBERS&apos; DISCOUNTS</span>
             <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl optical-trim">
               Discounts.
@@ -36,10 +33,9 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
             <p className="text-sm text-foreground-muted">
               Real savings with partners across London. Just mention Yuppie.
             </p>
-          </motion.div>
+          </div>
 
-          <motion.div
-            {...fade(0.2)}
+          <div
             className="-mx-4 flex gap-2 overflow-x-auto px-4 [&::-webkit-scrollbar]:hidden"
             style={{ scrollbarWidth: "none" }}
           >
@@ -58,9 +54,9 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
                 {item}
               </button>
             ))}
-          </motion.div>
+          </div>
 
-          <motion.div {...fade(0.3)} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             {filtered.map((perk) => (
               <button
                 key={perk.id}
@@ -96,7 +92,7 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
                 )}
               </button>
             ))}
-          </motion.div>
+          </div>
         </div>
       </main>
 

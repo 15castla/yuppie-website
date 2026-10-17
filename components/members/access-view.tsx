@@ -2,11 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
 import { Zap, Building2, Sparkles, Lock, type LucideIcon } from "lucide-react";
 
 import type { PartnerPerk } from "@/components/members/mock-perks";
-import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS, fadeIn } from "@/components/members/ui";
+import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS } from "@/components/members/ui";
 import { RedeemCard } from "@/components/members/RedeemCard";
 import { cn } from "@/lib/utils";
 
@@ -44,8 +43,6 @@ export function AccessView({
   perks: PartnerPerk[];
   featureCard: ResolvedFeatureCard | null;
 }) {
-  const reduce = useReducedMotion();
-  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const [selectedPerkId, setSelectedPerkId] = useState<string | null>(null);
   const selectedPerk = perks.find((perk) => perk.id === selectedPerkId) ?? null;
@@ -63,7 +60,7 @@ export function AccessView({
     <>
       <main className={MEMBERS_MAIN_CLASS}>
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-          <motion.div {...fade(0.1)} className="flex flex-col gap-3">
+          <div className="flex flex-col gap-3">
             <span className={EYEBROW_CLASS}>MEMBERS&apos; ACCESS</span>
             <h1 className="text-2xl font-extrabold leading-[1.1] text-foreground sm:text-3xl optical-trim">
               The doors that
@@ -72,10 +69,10 @@ export function AccessView({
                 aren&apos;t open to the public.
               </em>
             </h1>
-          </motion.div>
+          </div>
 
           {featureCard && featureCard.kind === "event" && (
-            <motion.div {...fade(0.2)}>
+            <div>
               <Link href={`/members/events/${featureCard.slug}`} className={FEATURE_CARD_CLASSES}>
                 <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
                   {featureCard.label}
@@ -87,11 +84,11 @@ export function AccessView({
                   {featureCard.subtitle}
                 </p>
               </Link>
-            </motion.div>
+            </div>
           )}
 
           {featureCard && featureCard.kind === "perk" && (
-            <motion.div {...fade(0.2)}>
+            <div>
               <button
                 type="button"
                 onClick={() => setFeatureCardOpen(true)}
@@ -107,17 +104,16 @@ export function AccessView({
                   {featureCard.perk.headline}
                 </p>
               </button>
-            </motion.div>
+            </div>
           )}
 
-          {SECTIONS.map((section, index) => {
+          {SECTIONS.map((section) => {
             const sectionPerks = perks.filter((perk) => perk.access_kind === section.kind);
             if (sectionPerks.length === 0) return null;
 
             return (
-              <motion.section
+              <section
                 key={section.kind}
-                {...fade(0.3 + index * 0.1)}
                 className="flex flex-col gap-3"
               >
                 <span className="text-xs font-bold uppercase tracking-wider text-foreground-muted">
@@ -145,7 +141,7 @@ export function AccessView({
                     </button>
                   ))}
                 </div>
-              </motion.section>
+              </section>
             );
           })}
         </div>

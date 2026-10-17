@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion, useReducedMotion } from "framer-motion";
 import { Pencil } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -15,7 +14,6 @@ import {
   MEMBERS_MAIN_CLASS,
   StatusDot,
   initialsFor,
-  fadeIn,
 } from "./ui";
 
 export type BookingHistoryRow = {
@@ -113,9 +111,7 @@ export function ProfileView({
   bookingHistory: BookingHistoryRow[];
   nextBillingDate: string | null;
 }) {
-  const reduce = useReducedMotion();
   const router = useRouter();
-  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelResult, setCancelResult] = useState<string | null>(null);
@@ -138,7 +134,7 @@ export function ProfileView({
   return (
     <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
-        <motion.div {...fade(0.1)} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           <span className={EYEBROW_CLASS}>YOUR PROFILE</span>
 
           <div className="flex items-center justify-between gap-4">
@@ -171,9 +167,9 @@ export function ProfileView({
               <Pencil className="h-4 w-4" />
             </Link>
           </div>
-        </motion.div>
+        </div>
 
-        <motion.section {...fade(0.2)} className="flex flex-col gap-4">
+        <section className="flex flex-col gap-4">
           <h2 className="text-base font-bold text-foreground">Membership</h2>
           <div className={cn(CARD_CLASS, "flex flex-col divide-y divide-foreground/10")}>
             <div className="flex items-center justify-between p-4">
@@ -209,9 +205,9 @@ export function ProfileView({
               Cancel membership
             </button>
           </div>
-        </motion.section>
+        </section>
 
-        <motion.section {...fade(0.3)} className="flex flex-col gap-4">
+        <section className="flex flex-col gap-4">
           <h2 className="text-base font-bold text-foreground">Your details</h2>
           <div className={cn(CARD_CLASS, "flex flex-col divide-y divide-foreground/10")}>
             <div className="flex items-center justify-between p-4">
@@ -239,9 +235,9 @@ export function ProfileView({
               <span className="text-sm text-foreground">{member.phone || "—"}</span>
             </div>
           </div>
-        </motion.section>
+        </section>
 
-        <motion.section {...fade(0.4)} className="flex flex-col gap-4">
+        <section className="flex flex-col gap-4">
           <h2 className="text-base font-bold text-foreground">Booking history</h2>
           {bookingHistory.length === 0 ? (
             <div className={cn(CARD_CLASS, "p-5 text-center")}>
@@ -273,9 +269,9 @@ export function ProfileView({
               )}
             </div>
           )}
-        </motion.section>
+        </section>
 
-        <motion.div {...fade(0.5)} className="mt-2">
+        <div className="mt-2">
           <button
             type="button"
             onClick={() => setSignOutDialogOpen(true)}
@@ -283,7 +279,7 @@ export function ProfileView({
           >
             Sign out
           </button>
-        </motion.div>
+        </div>
       </div>
 
       {signOutDialogOpen && (

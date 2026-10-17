@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
 import { Key, Percent } from "lucide-react";
 
 import type { Member } from "@/app/members/require-member";
@@ -13,7 +12,6 @@ import {
   MEMBERS_MAIN_CLASS,
   StatusDot,
   initialsFor,
-  fadeIn,
 } from "./ui";
 
 export type UpcomingBooking = {
@@ -33,8 +31,6 @@ export function HomeView({
   pickedEvents: Event[];
   hasUpcomingEvents: boolean;
 }) {
-  const reduce = useReducedMotion();
-  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const firstName = member.full_name?.trim().split(" ")[0] || "there";
 
@@ -45,7 +41,7 @@ export function HomeView({
   return (
     <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
-        <motion.div {...fade(0.1)} className="flex items-start justify-between gap-4">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-3">
             <span className={EYEBROW_CLASS}>MEMBERS AREA</span>
             <h1 className="text-2xl font-extrabold leading-[1.05] text-foreground sm:text-3xl optical-trim">
@@ -63,16 +59,15 @@ export function HomeView({
           >
             {initialsFor(member.full_name)}
           </Link>
-        </motion.div>
+        </div>
 
-        <motion.div
-          {...fade(0.2)}
+        <div
           className={`${CARD_CLASS} flex items-center p-3.5 px-4`}
         >
           <StatusDot status={member.membership_status} />
-        </motion.div>
+        </div>
 
-        <motion.section {...fade(0.3)} className="flex flex-col gap-4">
+        <section className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-foreground">Your upcoming plans</h2>
             <Link
@@ -102,9 +97,9 @@ export function HomeView({
               showThumbnails={false}
             />
           )}
-        </motion.section>
+        </section>
 
-        <motion.section {...fade(0.4)} className="flex flex-col gap-4">
+        <section className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-foreground">Picked for you</h2>
             <Link
@@ -128,9 +123,9 @@ export function HomeView({
             // app/members/page.tsx), so no row here is "Booked".
             <EventRowList events={pickedEvents} bookedEventIds={new Set()} showThumbnails={false} />
           )}
-        </motion.section>
+        </section>
 
-        <motion.div {...fade(0.5)} className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Link
             href="/members/discounts"
             className={`${CARD_CLASS} flex flex-col gap-3 p-5 transition-colors hover:border-foreground/25`}
@@ -156,7 +151,7 @@ export function HomeView({
               </p>
             </div>
           </Link>
-        </motion.div>
+        </div>
       </div>
     </main>
   );
