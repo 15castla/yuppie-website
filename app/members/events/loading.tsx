@@ -34,7 +34,7 @@ export default function EventsLoading() {
       {/* Shaped like the events list: header, filter pills and two month
           groups of rows. animate-pulse rather than animate-spin; see
           app/members/loading.tsx. */}
-      <main className={MEMBERS_MAIN_CLASS} aria-busy="true">
+      <main className={cn(MEMBERS_MAIN_CLASS, "loading-reveal")} aria-busy="true">
         <span className="sr-only">Loading</span>
         <div className="mx-auto flex w-full max-w-3xl animate-pulse flex-col gap-6" aria-hidden>
           <div className="flex flex-col gap-3">

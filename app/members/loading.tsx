@@ -12,7 +12,7 @@ export default function MembersLoading() {
           SceneDelegate.swift) waits for no "animate-spin" element before
           hiding, so it now hides onto this skeleton instead of waiting for
           the page itself. */}
-      <main className={MEMBERS_MAIN_CLASS} aria-busy="true">
+      <main className={cn(MEMBERS_MAIN_CLASS, "loading-reveal")} aria-busy="true">
         <span className="sr-only">Loading</span>
         <div className="mx-auto flex w-full max-w-3xl animate-pulse flex-col gap-8" aria-hidden>
           <div className="flex flex-col gap-3">

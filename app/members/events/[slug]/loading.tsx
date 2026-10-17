@@ -10,7 +10,7 @@ export default function EventDetailLoading() {
           and the details card. animate-pulse rather than animate-spin; see
           app/members/loading.tsx. */}
       <main
-        className="relative z-10 flex flex-1 flex-col px-4 pt-[calc(2rem+var(--safe-top))] pb-[150px] sm:px-6 md:flex-none md:pt-28 md:pb-16"
+        className="relative z-10 flex flex-1 flex-col px-4 pt-[calc(2rem+var(--safe-top))] pb-[150px] sm:px-6 md:flex-none md:pt-28 md:pb-16 loading-reveal"
         aria-busy="true"
       >
         <span className="sr-only">Loading</span>

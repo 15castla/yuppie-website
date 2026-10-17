@@ -57,6 +57,36 @@ body {
   text-box-edge: cap alphabetic;
 }
 
+/* Loading placeholders (app/members/loading.tsx, app/members/events/
+   loading.tsx, app/members/events/[slug]/loading.tsx): invisible for the
+   first 400ms, then a quick fade in. Most members pages now arrive well
+   inside that window, so a fast load shows only the plain background and
+   goes straight to the page, rather than flashing the placeholder for a
+   split second. Only a genuinely slow load shows it. On <main>, not the
+   animate-pulse element inside, since both are opacity animations and
+   would override each other on one element. The Safari safe-area strip
+   in each file is a sibling of <main>, so it still paints immediately.
+   `both` holds opacity 0 through the delay. */
+.loading-reveal {
+  animation: loading-reveal 200ms ease-out 400ms both;
+}
+
+@keyframes loading-reveal {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Same delay, no fade. */
+  .loading-reveal {
+    animation-duration: 1ms;
+  }
+}
+
 /* Grow-in for form messages (components/StableLayout.tsx's MessageSlot).
    The message takes no space until it exists; on mount it grows in.
    A keyframe animation rather than a transition, since it plays on
