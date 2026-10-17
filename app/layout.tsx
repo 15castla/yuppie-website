@@ -24,20 +24,14 @@ export const metadata: Metadata = {
     url: "https://clubyuppie.com",
     siteName: "Yuppie",
     type: "website",
-    images: [
-      {
-        url: "/yuppie_app_badge_y.png",
-        width: 1024,
-        height: 1024,
-        alt: "Yuppie",
-      },
-    ],
+    // Share image: app/opengraph-image.png (+ .alt.txt), Next's file-based
+    // metadata, which also sets its width/height/type. /apply has its own.
   },
   twitter: {
     card: "summary_large_image",
     title: "Yuppie - Your Social Life, Curated",
     description: "Apply to join, we'll handle the planning, you just show up.",
-    images: ["/yuppie_app_badge_y.png"],
+    // Share image: app/twitter-image.png (+ .alt.txt).
   },
   icons: {
     icon: [
