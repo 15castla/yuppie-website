@@ -215,13 +215,25 @@ export function EventThumbnail({
   focalPoint = CENTRE_FOCAL_POINT,
   className,
   showCategoryBadge = true,
+  onImageLoad,
 }: {
   category: EventCategory;
   imageUrl?: string | null;
   focalPoint?: FocalPoint;
   className?: string;
   showCategoryBadge?: boolean;
+  // The photo's natural size once it's loaded. Only the admin focal point
+  // overlay uses it (to work out how far the crop can move), and only
+  // client components can pass it, so the handlers below are attached
+  // only when it's given.
+  onImageLoad?: (size: { width: number; height: number }) => void;
 }) {
+  const reportSize = (img: HTMLImageElement | null) => {
+    if (img?.complete && img.naturalWidth) {
+      onImageLoad?.({ width: img.naturalWidth, height: img.naturalHeight });
+    }
+  };
+
   return (
     <div
       className={cn("relative flex items-center justify-center overflow-hidden", className)}
@@ -240,6 +252,10 @@ export function EventThumbnail({
           alt=""
           className="h-full w-full object-cover"
           style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
+          // The ref catches a photo that finished loading before React
+          // attached onLoad (e.g. already cached when the page hydrated).
+          ref={onImageLoad ? reportSize : undefined}
+          onLoad={onImageLoad ? (event) => reportSize(event.currentTarget) : undefined}
         />
       )}
       {showCategoryBadge && (
