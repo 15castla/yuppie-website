@@ -174,8 +174,10 @@ export function EventDetailView({
   // Shared between the mobile fixed bar and the desktop static card below,
   // with the same content either way, just two different wrappers (see the
   // fixed-position restructuring note further down).
+  // shrink-0 + whitespace-nowrap: the button never squeezes or wraps; the
+  // text on the left of the bar wraps instead (it has min-w-0).
   const bookButtonClasses =
-    "rounded-full bg-foreground px-8 py-3.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 disabled:transition-none";
+    "shrink-0 whitespace-nowrap rounded-full bg-foreground px-8 py-3.5 text-sm font-bold text-background transition-all duration-200 ease-out hover:scale-[1.03] disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100 disabled:transition-none";
 
   // Disabled up front when there's no space, rather than letting a click
   // through to the server's own capacity check. A member who's already
@@ -208,9 +210,9 @@ export function EventDetailView({
 
   const rsvpBarContent = (
     <div className="mx-auto flex w-full max-w-2xl items-center justify-between gap-4 md:max-w-none">
-      <div>
+      <div className="min-w-0">
         {isFree ? (
-          <p className="text-sm font-bold text-foreground">
+          <p className="text-sm font-bold leading-tight text-foreground">
             Included in your membership
           </p>
         ) : (
@@ -338,7 +340,7 @@ export function EventDetailView({
               <div className="flex items-center gap-3 px-4 py-3.5">
                 <Calendar aria-hidden className="h-5 w-5 shrink-0 text-foreground/75" />
                 <p className="text-sm text-foreground">
-                  {formatEventFullDateTime(event.start_time, event.end_time ?? event.start_time)}
+                  {formatEventFullDateTime(event.start_time, event.end_time)}
                 </p>
               </div>
               {/* Dividers inset to start after the icon (16px + 20px + 12px). */}

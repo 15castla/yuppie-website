@@ -179,9 +179,11 @@ export function formatEventDayTime(iso: string) {
   });
 }
 
-export function formatEventFullDateTime(startIso: string, endIso: string) {
+// "Saturday 31 October, 10:00 – 12:00", or just "Saturday 31 October,
+// 10:00" when there's no end time (or it's the same as the start), rather
+// than a range from the start time to itself.
+export function formatEventFullDateTime(startIso: string, endIso?: string | null) {
   const start = new Date(startIso);
-  const end = new Date(endIso);
   const datePart = start.toLocaleDateString("en-GB", {
     weekday: "long",
     day: "numeric",
@@ -193,6 +195,11 @@ export function formatEventFullDateTime(startIso: string, endIso: string) {
     minute: "2-digit",
     timeZone: EVENT_TIME_ZONE,
   });
+  // Compared as instants: the same time can arrive as "...Z" or "...+00:00".
+  const end = endIso ? new Date(endIso) : null;
+  if (!end || end.getTime() === start.getTime()) {
+    return `${datePart}, ${startTime}`;
+  }
   const endTime = end.toLocaleTimeString("en-GB", {
     hour: "numeric",
     minute: "2-digit",
