@@ -1,28 +1,17 @@
 import { MEMBERS_MAIN_CLASS } from "@/components/members/ui";
-import { cn } from "@/lib/utils";
-
-const BLOCK = "rounded-lg bg-foreground/[0.06]";
 
 export default function MembersLoading() {
   return (
     <>
-      {/* A neutral, page-shaped skeleton (eyebrow, title, a few cards)
-          rather than a spinner, laid out like the real pages. animate-pulse,
-          not animate-spin: the iOS app's splash (mobile/ios/App/App/
-          SceneDelegate.swift) waits for no "animate-spin" element before
-          hiding, so it now hides onto this skeleton instead of waiting for
-          the page itself. */}
-      <main className={cn(MEMBERS_MAIN_CLASS, "loading-reveal")} aria-busy="true">
+      {/* Plain-background loading state: an empty <main>, so a tab that
+          isn't ready yet shows just the yellow page background (and the tab
+          bar) until the real page arrives, rather than a layout outline or
+          a spinner. aria-busy and the sr-only text tell screen readers. The
+          iOS app's splash (mobile/ios/App/App/SceneDelegate.swift) hides
+          once a <main> exists and no "animate-spin" element is present, so
+          it hides onto this plain yellow, the same colour as the splash. */}
+      <main className={MEMBERS_MAIN_CLASS} aria-busy="true">
         <span className="sr-only">Loading</span>
-        <div className="mx-auto flex w-full max-w-3xl animate-pulse flex-col gap-8" aria-hidden>
-          <div className="flex flex-col gap-3">
-            <div className={cn(BLOCK, "h-2.5 w-28")} />
-            <div className={cn(BLOCK, "h-8 w-52")} />
-          </div>
-          <div className={cn(BLOCK, "h-12 rounded-2xl")} />
-          <div className={cn(BLOCK, "h-36 rounded-2xl")} />
-          <div className={cn(BLOCK, "h-36 rounded-2xl")} />
-        </div>
       </main>
 
       {/* Covers the cold-navigation window into the members area, before
