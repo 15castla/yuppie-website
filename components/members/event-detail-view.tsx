@@ -23,6 +23,9 @@ import { EventPaymentForm } from "./event-payment-form";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
+const BACK_BUTTON_CLASS =
+  "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cream text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.5)] transition-transform hover:scale-105";
+
 // Keyed by title rather than id (the real events table's ids are opaque
 // UUIDs). Falls back to a generic line for any event not in this list.
 const WHATS_INCLUDED: Record<string, string> = {
@@ -115,6 +118,7 @@ export function EventDetailView({
     WHATS_INCLUDED[event.title] ??
     "The full experience, organised and hosted by Yuppie from start to finish.";
   const isFree = !event.price_pence;
+  const hasPhoto = Boolean(event.image_url);
 
   useEffect(() => {
     if (!clientSecret) return;
@@ -255,114 +259,146 @@ export function EventDetailView({
           (globals.css) and the min-h-dvh wrapper in app/members/layout.tsx,
           both unaffected by this element's height either way. */}
       <main className="relative z-10 flex flex-1 flex-col px-4 pt-[calc(2rem+var(--safe-top))] pb-[150px] sm:px-6 md:flex-none md:pt-28 md:pb-16">
-        <motion.div
-          {...fade(0.1)}
-          className="relative w-full overflow-hidden rounded-2xl border border-foreground/10 md:mx-auto md:max-w-3xl md:mt-6"
-        >
-          <EventThumbnail
-            category={event.category}
-            imageUrl={event.image_url}
-            focalPoint={eventFocalPoint(event)}
-            className={EVENT_PHOTO_CLASS}
-            showCategoryBadge={false}
-          />
-
-          <Link
-            href="/members/events"
-            className="absolute left-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-cream text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.5)] transition-transform hover:scale-105"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </Link>
-
-          <div className="absolute right-4 top-4 flex h-[52px] w-[52px] flex-col items-center justify-center rounded-2xl bg-cream shadow-[0_8px_20px_-8px_rgba(27,21,18,0.5)]">
-            <span className="text-[9px] font-bold uppercase tracking-wider text-foreground-muted">
-              {formatMonthAbbrev(event.start_time)}
-            </span>
-            <span className="text-lg font-extrabold leading-none text-foreground">
-              {formatDayNumber(event.start_time)}
-            </span>
-          </div>
-        </motion.div>
-
-        <div className="relative mx-auto -mt-4 flex w-full max-w-2xl flex-col gap-6 md:max-w-3xl">
-          <motion.span
-            {...fade(0.15)}
-            className="w-fit rounded-full bg-cream px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.35)]"
-          >
-            {CATEGORY_LABEL[event.category]}
-          </motion.span>
-
-          <motion.h1
-            {...fade(0.2)}
-            className="text-[23px] font-extrabold leading-[1.1] text-foreground optical-trim"
-          >
-            {normal}
-            <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
-              {accent}
-            </em>
-          </motion.h1>
-
-          <motion.div {...fade(0.3)} className="flex flex-col gap-4">
-            <div className="flex items-start gap-3">
-              <Calendar className="mt-0.5 h-5 w-5 shrink-0 text-foreground/70" />
-              <p className="text-sm text-foreground">
-                {formatEventFullDateTime(event.start_time, event.end_time ?? event.start_time)}
-              </p>
-            </div>
-            <div className="flex items-start gap-3">
-              <MapPin className="mt-0.5 h-5 w-5 shrink-0 text-foreground/70" />
-              <div>
-                <p className="text-sm text-foreground">
-                  {event.location || "Location TBC"}
-                </p>
-                {event.location && !isPublicVenueName(event.location) && (
-                  <p className="text-xs text-foreground-muted">
-                    Exact address sent after booking
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-start gap-3">
-              <Users className="mt-0.5 h-5 w-5 shrink-0 text-foreground/70" />
-              <p className="text-sm text-foreground">
-                {spotsLeft} of {event.capacity} spots left
-              </p>
-            </div>
-          </motion.div>
-
-          {event.description && (
-            <motion.p {...fade(0.4)} className="text-sm leading-relaxed text-foreground-muted">
-              {event.description}
-            </motion.p>
-          )}
-
-          <motion.div {...fade(0.5)} className={cn(CARD_CLASS, "p-5")}>
-            <h2 className="text-sm font-bold text-foreground">What&apos;s included</h2>
-            <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
-              {whatsIncluded}
-            </p>
-          </motion.div>
-
-          {message && (
-            <p className="text-sm font-medium text-foreground/70">{message}</p>
-          )}
-
-          {/* Desktop: normal-flow, part of the same gap-6 rhythm as every
-              other section above (category pill, title, details, "What's
-              included"), rather than pinned to the viewport bottom. A
-              fixed/sticky-to-viewport version was tried and reverted: it
-              read as disconnected from the content it belongs to, and left
-              leftover space on a tall screen above the bar instead of below
-              it. Hidden below md (the mobile fixed bar further down covers
-              that). */}
+        {hasPhoto && (
+          // Below md: edge to edge from the very top of the screen (under
+          // the status bar), cancelling <main>'s side and top padding, with
+          // the content sliding up over it as a sheet (below). From md:
+          // the inset, rounded hero as before, since a full-width 16:9
+          // photo would be ~720px tall on a desktop screen.
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.15 }}
-            className="hidden md:block md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:p-2"
+            {...fade(0.1)}
+            className="relative -mx-4 -mt-[calc(2rem+var(--safe-top))] overflow-hidden sm:-mx-6 md:mx-auto md:mt-6 md:w-full md:max-w-3xl md:rounded-2xl md:border md:border-foreground/10"
           >
-            {rsvpBarContent}
+            <EventThumbnail
+              category={event.category}
+              imageUrl={event.image_url}
+              focalPoint={eventFocalPoint(event)}
+              className={EVENT_PHOTO_CLASS}
+              showCategoryBadge={false}
+            />
+            {/* So the back button reads on a bright photo. */}
+            <div
+              aria-hidden
+              className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[linear-gradient(to_bottom,color-mix(in_oklab,var(--foreground)_35%,transparent),transparent)] md:hidden"
+            />
+            <Link
+              href="/members/events"
+              aria-label="Back to events"
+              className={cn(BACK_BUTTON_CLASS, "absolute left-4 top-[calc(var(--safe-top)+0.75rem)] md:top-4")}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </Link>
           </motion.div>
+        )}
+
+        {/* The sheet: only when there's a photo for it to slide up over,
+            and only below md. Its own wrapper (rather than classes on the
+            column) so it can run edge to edge while the column inside
+            keeps its max width. */}
+        <div
+          className={
+            hasPhoto
+              ? "relative z-10 -mx-4 -mt-7 rounded-t-[28px] bg-background px-4 pt-6 sm:-mx-6 sm:px-6 md:mx-0 md:mt-6 md:rounded-none md:bg-transparent md:px-0 md:pt-0"
+              : undefined
+          }
+        >
+          <div className="relative mx-auto flex w-full max-w-2xl flex-col gap-6 md:max-w-3xl">
+            {!hasPhoto && (
+              // No photo: no hero at all (no yellow gradient block), just the
+              // back button at the top of the column.
+              <Link href="/members/events" aria-label="Back to events" className={BACK_BUTTON_CLASS}>
+                <ChevronLeft className="h-5 w-5" />
+              </Link>
+            )}
+
+            <motion.div {...fade(0.15)} className="flex items-start justify-between gap-4">
+              <div className="flex min-w-0 flex-col gap-3">
+                <span className="w-fit rounded-full bg-cream px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.35)]">
+                  {CATEGORY_LABEL[event.category]}
+                </span>
+                <h1 className="text-[30px] font-extrabold leading-[1.05] text-foreground optical-trim">
+                  {normal}
+                  {/* A touch larger so the serif optically matches the sans. */}
+                  <em className="text-[34px] italic [font-family:var(--font-instrument-serif)] font-normal">
+                    {accent}
+                  </em>
+                </h1>
+              </div>
+              <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center gap-1 rounded-2xl bg-foreground text-background">
+                <span className="text-[9px] font-bold uppercase tracking-[0.14em]">
+                  {formatMonthAbbrev(event.start_time)}
+                </span>
+                <span className="text-xl font-extrabold leading-none">
+                  {formatDayNumber(event.start_time)}
+                </span>
+              </div>
+            </motion.div>
+
+            <motion.div {...fade(0.3)} className={cn(CARD_CLASS, "overflow-hidden")}>
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <Calendar aria-hidden className="h-5 w-5 shrink-0 text-foreground/75" />
+                <p className="text-sm text-foreground">
+                  {formatEventFullDateTime(event.start_time, event.end_time ?? event.start_time)}
+                </p>
+              </div>
+              {/* Dividers inset to start after the icon (16px + 20px + 12px). */}
+              <div aria-hidden className="ml-12 h-px bg-foreground/[0.08]" />
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <MapPin aria-hidden className="h-5 w-5 shrink-0 text-foreground/75" />
+                <div>
+                  <p className="text-sm text-foreground">
+                    {event.location || "Location TBC"}
+                  </p>
+                  {event.location && !isPublicVenueName(event.location) && (
+                    <p className="text-xs text-foreground-muted">
+                      Exact address sent after booking
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div aria-hidden className="ml-12 h-px bg-foreground/[0.08]" />
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <Users aria-hidden className="h-5 w-5 shrink-0 text-foreground/75" />
+                <p className="text-sm text-foreground">
+                  {spotsLeft} of {event.capacity} spots left
+                </p>
+              </div>
+            </motion.div>
+
+            {event.description && (
+              <motion.p {...fade(0.4)} className="text-sm leading-relaxed text-foreground-muted">
+                {event.description}
+              </motion.p>
+            )}
+
+            <motion.div {...fade(0.5)} className={cn(CARD_CLASS, "p-5")}>
+              <h2 className="text-sm font-bold text-foreground">What&apos;s included</h2>
+              <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
+                {whatsIncluded}
+              </p>
+            </motion.div>
+
+            {message && (
+              <p className="text-sm font-medium text-foreground/70">{message}</p>
+            )}
+
+            {/* Desktop: normal-flow, part of the same gap-6 rhythm as every
+                other section above (category pill, title, details, "What's
+                included"), rather than pinned to the viewport bottom. A
+                fixed/sticky-to-viewport version was tried and reverted: it
+                read as disconnected from the content it belongs to, and left
+                leftover space on a tall screen above the bar instead of below
+                it. Hidden below md (the mobile fixed bar further down covers
+                that). */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.15 }}
+              className="hidden md:block md:rounded-2xl md:border md:border-foreground/10 md:bg-background-muted md:p-2"
+            >
+              {rsvpBarContent}
+            </motion.div>
+          </div>
         </div>
       </main>
 

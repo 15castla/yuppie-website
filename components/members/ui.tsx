@@ -136,6 +136,38 @@ export function formatDayNumber(iso: string) {
   );
 }
 
+export function formatWeekdayShort(iso: string) {
+  return new Date(iso)
+    .toLocaleDateString("en-GB", { weekday: "short", timeZone: EVENT_TIME_ZONE })
+    .toUpperCase();
+}
+
+export function formatEventTime(iso: string) {
+  return new Date(iso).toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: EVENT_TIME_ZONE,
+  });
+}
+
+// For grouping events by calendar month in London time: a sortable key
+// ("2026-11") and a heading ("November", or "January 2027" when it isn't
+// the current year).
+export function eventMonthGroup(iso: string, now = new Date()) {
+  const parts = (date: Date) =>
+    Object.fromEntries(
+      new Intl.DateTimeFormat("en-GB", { year: "numeric", month: "2-digit", timeZone: EVENT_TIME_ZONE })
+        .formatToParts(date)
+        .map((part) => [part.type, part.value]),
+    );
+  const { year, month } = parts(new Date(iso));
+  const monthName = new Date(iso).toLocaleDateString("en-GB", { month: "long", timeZone: EVENT_TIME_ZONE });
+  return {
+    key: `${year}-${month}`,
+    label: year === parts(now).year ? monthName : `${monthName} ${year}`,
+  };
+}
+
 export function formatEventDayTime(iso: string) {
   return new Date(iso).toLocaleDateString("en-GB", {
     weekday: "short",
