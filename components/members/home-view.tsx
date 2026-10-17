@@ -45,7 +45,7 @@ export function HomeView({
   return (
     <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-8">
-        <motion.div {...fade(0)} className="flex items-start justify-between gap-4">
+        <motion.div {...fade(0.1)} className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-3">
             <span className={EYEBROW_CLASS}>MEMBERS AREA</span>
             <h1 className="text-2xl font-extrabold leading-[1.05] text-foreground sm:text-3xl optical-trim">
@@ -66,13 +66,13 @@ export function HomeView({
         </motion.div>
 
         <motion.div
-          {...fade(0.03)}
+          {...fade(0.2)}
           className={`${CARD_CLASS} flex items-center p-3.5 px-4`}
         >
           <StatusDot status={member.membership_status} />
         </motion.div>
 
-        <motion.section {...fade(0.06)} className="flex flex-col gap-4">
+        <motion.section {...fade(0.3)} className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-foreground">Your upcoming plans</h2>
             <Link
@@ -104,7 +104,7 @@ export function HomeView({
           )}
         </motion.section>
 
-        <motion.section {...fade(0.09)} className="flex flex-col gap-4">
+        <motion.section {...fade(0.4)} className="flex flex-col gap-4">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-foreground">Picked for you</h2>
             <Link
@@ -130,7 +130,7 @@ export function HomeView({
           )}
         </motion.section>
 
-        <motion.div {...fade(0.12)} className="grid grid-cols-2 gap-3">
+        <motion.div {...fade(0.5)} className="grid grid-cols-2 gap-3">
           <Link
             href="/members/discounts"
             className={`${CARD_CLASS} flex flex-col gap-3 p-5 transition-colors hover:border-foreground/25`}

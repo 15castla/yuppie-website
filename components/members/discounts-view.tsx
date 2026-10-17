@@ -28,7 +28,7 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
     <>
       <main className={MEMBERS_MAIN_CLASS}>
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-          <motion.div {...fade(0)} className="flex flex-col gap-3">
+          <motion.div {...fade(0.1)} className="flex flex-col gap-3">
             <span className={EYEBROW_CLASS}>MEMBERS&apos; DISCOUNTS</span>
             <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl optical-trim">
               Discounts.
@@ -39,7 +39,7 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
           </motion.div>
 
           <motion.div
-            {...fade(0.03)}
+            {...fade(0.2)}
             className="-mx-4 flex gap-2 overflow-x-auto px-4 [&::-webkit-scrollbar]:hidden"
             style={{ scrollbarWidth: "none" }}
           >
@@ -60,7 +60,7 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
             ))}
           </motion.div>
 
-          <motion.div {...fade(0.06)} className="flex flex-col gap-3">
+          <motion.div {...fade(0.3)} className="flex flex-col gap-3">
             {filtered.map((perk) => (
               <button
                 key={perk.id}

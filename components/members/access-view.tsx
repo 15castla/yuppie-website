@@ -63,7 +63,7 @@ export function AccessView({
     <>
       <main className={MEMBERS_MAIN_CLASS}>
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-          <motion.div {...fade(0)} className="flex flex-col gap-3">
+          <motion.div {...fade(0.1)} className="flex flex-col gap-3">
             <span className={EYEBROW_CLASS}>MEMBERS&apos; ACCESS</span>
             <h1 className="text-2xl font-extrabold leading-[1.1] text-foreground sm:text-3xl optical-trim">
               The doors that
@@ -75,7 +75,7 @@ export function AccessView({
           </motion.div>
 
           {featureCard && featureCard.kind === "event" && (
-            <motion.div {...fade(0.03)}>
+            <motion.div {...fade(0.2)}>
               <Link href={`/members/events/${featureCard.slug}`} className={FEATURE_CARD_CLASSES}>
                 <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
                   {featureCard.label}
@@ -91,7 +91,7 @@ export function AccessView({
           )}
 
           {featureCard && featureCard.kind === "perk" && (
-            <motion.div {...fade(0.03)}>
+            <motion.div {...fade(0.2)}>
               <button
                 type="button"
                 onClick={() => setFeatureCardOpen(true)}

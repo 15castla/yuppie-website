@@ -138,7 +138,7 @@ export function ProfileView({
   return (
     <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-8">
-        <motion.div {...fade(0)} className="flex flex-col gap-4">
+        <motion.div {...fade(0.1)} className="flex flex-col gap-4">
           <span className={EYEBROW_CLASS}>YOUR PROFILE</span>
 
           <div className="flex items-center justify-between gap-4">
@@ -173,7 +173,7 @@ export function ProfileView({
           </div>
         </motion.div>
 
-        <motion.section {...fade(0.03)} className="flex flex-col gap-4">
+        <motion.section {...fade(0.2)} className="flex flex-col gap-4">
           <h2 className="text-base font-bold text-foreground">Membership</h2>
           <div className={cn(CARD_CLASS, "flex flex-col divide-y divide-foreground/10")}>
             <div className="flex items-center justify-between p-4">
@@ -211,7 +211,7 @@ export function ProfileView({
           </div>
         </motion.section>
 
-        <motion.section {...fade(0.06)} className="flex flex-col gap-4">
+        <motion.section {...fade(0.3)} className="flex flex-col gap-4">
           <h2 className="text-base font-bold text-foreground">Your details</h2>
           <div className={cn(CARD_CLASS, "flex flex-col divide-y divide-foreground/10")}>
             <div className="flex items-center justify-between p-4">
@@ -241,7 +241,7 @@ export function ProfileView({
           </div>
         </motion.section>
 
-        <motion.section {...fade(0.09)} className="flex flex-col gap-4">
+        <motion.section {...fade(0.4)} className="flex flex-col gap-4">
           <h2 className="text-base font-bold text-foreground">Booking history</h2>
           {bookingHistory.length === 0 ? (
             <div className={cn(CARD_CLASS, "p-5 text-center")}>
@@ -275,7 +275,7 @@ export function ProfileView({
           )}
         </motion.section>
 
-        <motion.div {...fade(0.12)} className="mt-2">
+        <motion.div {...fade(0.5)} className="mt-2">
           <button
             type="button"
             onClick={() => setSignOutDialogOpen(true)}

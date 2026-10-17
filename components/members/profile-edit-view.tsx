@@ -160,7 +160,7 @@ export function ProfileEditView({ member }: { member: Member }) {
   return (
     <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-        <motion.div {...fade(0)}>
+        <motion.div {...fade(0.1)}>
           <Link
             href="/members/profile"
             className="flex w-fit items-center gap-1 text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline"
@@ -170,14 +170,14 @@ export function ProfileEditView({ member }: { member: Member }) {
           </Link>
         </motion.div>
 
-        <motion.div {...fade(0.015)}>
+        <motion.div {...fade(0.15)}>
           <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl optical-trim">
             Edit your profile.
           </h1>
         </motion.div>
 
         <motion.form
-          {...fade(0.045)}
+          {...fade(0.25)}
           action={handleSave}
           // Errors show inline (e.g. under the email field), not as the
           // browser's own validation popups.
