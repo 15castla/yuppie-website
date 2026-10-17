@@ -1,23 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
-import { Sparkles, Sun, Trophy, type LucideIcon } from "lucide-react";
 
 import type { Event, EventCategory } from "./event-types";
+import { EventRowList } from "./event-row";
 import {
   CARD_CLASS,
   CATEGORY_LABEL,
-  EventThumbnail,
-  eventFocalPoint,
   eventMonthGroup,
   EYEBROW_CLASS,
   MEMBERS_MAIN_CLASS,
-  PricePill,
-  formatDayNumber,
-  formatEventTime,
-  formatWeekdayShort,
 } from "./ui";
 import { cn } from "@/lib/utils";
 
@@ -46,38 +39,6 @@ function matchesFilter(event: Event, filter: Filter) {
     default:
       return event.category === filter;
   }
-}
-
-// Shown in place of a photo in a row's thumbnail.
-const CATEGORY_ICON: Record<EventCategory, LucideIcon> = {
-  sport: Trophy,
-  entertainment: Sparkles,
-  personal_progression: Sun,
-};
-
-// A row's small thumbnail. Still a 16:9 crop (88x50), so the focal point
-// set at /admin/events carries over. With no photo, a plain cream tile
-// with the category's icon rather than EventThumbnail's yellow gradient
-// (which admin and the event page still use).
-function EventRowThumbnail({ event }: { event: Event }) {
-  const Icon = CATEGORY_ICON[event.category];
-  return (
-    <div className="h-[50px] w-[88px] shrink-0 overflow-hidden rounded-[10px]">
-      {event.image_url ? (
-        <EventThumbnail
-          category={event.category}
-          imageUrl={event.image_url}
-          focalPoint={eventFocalPoint(event)}
-          showCategoryBadge={false}
-          className="h-full w-full"
-        />
-      ) : (
-        <div className="flex h-full w-full items-center justify-center bg-cream">
-          <Icon aria-hidden className="h-5 w-5 text-foreground/55" strokeWidth={1.8} />
-        </div>
-      )}
-    </div>
-  );
 }
 
 // Events in date order, grouped by calendar month (London time).
@@ -170,45 +131,11 @@ export function EventsView({
                   </span>
                 </div>
 
-                <div className={cn(CARD_CLASS, "overflow-hidden")}>
-                  {group.events.map((event, index) => (
-                    <div key={event.id}>
-                      {/* Inset divider, starting after the date column. */}
-                      {index > 0 && <div aria-hidden className="ml-[66px] h-px bg-foreground/[0.08]" />}
-                      <Link
-                        href={`/members/events/${event.slug}`}
-                        className="flex items-center gap-3.5 py-3.5 pl-3 pr-3.5 transition-colors hover:bg-foreground/[0.03]"
-                      >
-                        <div className="flex w-10 shrink-0 flex-col items-center gap-[3px]">
-                          <span className="text-[10px] font-bold uppercase tracking-[0.08em] text-foreground-muted">
-                            {formatWeekdayShort(event.start_time)}
-                          </span>
-                          <span className="text-[22px] font-extrabold leading-none text-foreground">
-                            {formatDayNumber(event.start_time)}
-                          </span>
-                        </div>
-
-                        <div className="flex min-w-0 flex-1 flex-col gap-[5px]">
-                          <p className="text-[15px] font-bold leading-tight text-foreground">
-                            {event.title}
-                          </p>
-                          <p className="truncate text-xs text-foreground-muted">
-                            {formatEventTime(event.start_time)}
-                            {event.location ? ` · ${event.location}` : ""}
-                          </p>
-                          <div className="mt-1 self-start">
-                            <PricePill
-                              pricePence={event.price_pence}
-                              booked={bookedEvents.has(event.id)}
-                            />
-                          </div>
-                        </div>
-
-                        <EventRowThumbnail event={event} />
-                      </Link>
-                    </div>
-                  ))}
-                </div>
+                <EventRowList
+                  events={group.events}
+                  bookedEventIds={bookedEvents}
+                  showThumbnails
+                />
               </section>
             ))
           )}

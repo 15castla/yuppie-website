@@ -261,58 +261,45 @@ export function EventDetailView({
           (globals.css) and the min-h-dvh wrapper in app/members/layout.tsx,
           both unaffected by this element's height either way. */}
       <main className="relative z-10 flex flex-1 flex-col px-4 pt-[calc(2rem+var(--safe-top))] pb-[150px] sm:px-6 md:flex-none md:pt-28 md:pb-16">
-        {hasPhoto && (
-          // Below md: edge to edge from the very top of the screen (under
-          // the status bar), cancelling <main>'s side and top padding, with
-          // the content sliding up over it as a sheet (below). From md:
-          // the inset, rounded hero as before, since a full-width 16:9
-          // photo would be ~720px tall on a desktop screen.
-          <motion.div
-            {...fade(0.1)}
-            className="relative -mx-4 -mt-[calc(2rem+var(--safe-top))] overflow-hidden sm:-mx-6 md:mx-auto md:mt-6 md:w-full md:max-w-3xl md:rounded-2xl md:border md:border-foreground/10"
-          >
-            <EventThumbnail
-              category={event.category}
-              imageUrl={event.image_url}
-              focalPoint={eventFocalPoint(event)}
-              className={EVENT_PHOTO_CLASS}
-              showCategoryBadge={false}
-            />
-            {/* So the back button reads on a bright photo. */}
+        {/* Below md: edge to edge from the very top of the screen (under
+            the status bar), cancelling <main>'s side and top padding, with
+            the content sliding up over it as a sheet (below). From md: the
+            inset, rounded hero as before, since a full-width 16:9 photo
+            would be ~720px tall on a desktop screen. With no photo,
+            EventThumbnail's brand gradient fills the same hero. */}
+        <motion.div
+          {...fade(0.1)}
+          className="relative -mx-4 -mt-[calc(2rem+var(--safe-top))] overflow-hidden sm:-mx-6 md:mx-auto md:mt-6 md:w-full md:max-w-3xl md:rounded-2xl md:border md:border-foreground/10"
+        >
+          <EventThumbnail
+            category={event.category}
+            imageUrl={event.image_url}
+            focalPoint={eventFocalPoint(event)}
+            className={EVENT_PHOTO_CLASS}
+            showCategoryBadge={false}
+          />
+          {/* So the back button reads on a bright photo. Not on the
+              gradient, where it would only muddy the yellow. */}
+          {hasPhoto && (
             <div
               aria-hidden
               className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-[linear-gradient(to_bottom,color-mix(in_oklab,var(--foreground)_35%,transparent),transparent)] md:hidden"
             />
-            <Link
-              href="/members/events"
-              aria-label="Back to events"
-              className={cn(BACK_BUTTON_CLASS, "absolute left-4 top-[calc(var(--safe-top)+0.75rem)] md:top-4")}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </Link>
-          </motion.div>
-        )}
+          )}
+          <Link
+            href="/members/events"
+            aria-label="Back to events"
+            className={cn(BACK_BUTTON_CLASS, "absolute left-4 top-[calc(var(--safe-top)+0.75rem)] md:top-4")}
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </Link>
+        </motion.div>
 
-        {/* The sheet: only when there's a photo for it to slide up over,
-            and only below md. Its own wrapper (rather than classes on the
-            column) so it can run edge to edge while the column inside
-            keeps its max width. */}
-        <div
-          className={
-            hasPhoto
-              ? "relative z-10 -mx-4 -mt-7 rounded-t-[28px] bg-background px-4 pt-6 sm:-mx-6 sm:px-6 md:mx-0 md:mt-6 md:rounded-none md:bg-transparent md:px-0 md:pt-0"
-              : undefined
-          }
-        >
+        {/* The sheet sliding up over the hero, below md only. Its own
+            wrapper (rather than classes on the column) so it can run edge
+            to edge while the column inside keeps its max width. */}
+        <div className="relative z-10 -mx-4 -mt-7 rounded-t-[28px] bg-background px-4 pt-6 sm:-mx-6 sm:px-6 md:mx-0 md:mt-6 md:rounded-none md:bg-transparent md:px-0 md:pt-0">
           <div className="relative mx-auto flex w-full max-w-2xl flex-col gap-6 md:max-w-3xl">
-            {!hasPhoto && (
-              // No photo: no hero at all (no yellow gradient block), just the
-              // back button at the top of the column.
-              <Link href="/members/events" aria-label="Back to events" className={BACK_BUTTON_CLASS}>
-                <ChevronLeft className="h-5 w-5" />
-              </Link>
-            )}
-
             <motion.div {...fade(0.15)} className="flex items-start justify-between gap-4">
               <div className="flex min-w-0 flex-col gap-3">
                 <span className="w-fit rounded-full bg-cream px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.35)]">

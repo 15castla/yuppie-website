@@ -6,39 +6,27 @@ import { Key, Percent } from "lucide-react";
 
 import type { Member } from "@/app/members/require-member";
 import type { Event } from "./event-types";
-import {
-  CARD_CLASS,
-  DateBadge,
-  EYEBROW_CLASS,
-  MEMBERS_MAIN_CLASS,
-  PricePill,
-  StatusDot,
-  formatEventDayTime,
-  initialsFor,
-} from "./ui";
+import { EventRowList } from "./event-row";
+import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS, StatusDot, initialsFor } from "./ui";
 
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 export type UpcomingBooking = {
   id: string;
   status: string;
-  event: {
-    id: string;
-    title: string;
-    start_time: string;
-    end_time: string;
-    location: string;
-  } | null;
+  event: Event | null;
 };
 
 export function HomeView({
   member,
   upcomingBookings,
   pickedEvents,
+  hasUpcomingEvents,
 }: {
   member: Member;
   upcomingBookings: UpcomingBooking[];
   pickedEvents: Event[];
+  hasUpcomingEvents: boolean;
 }) {
   const reduce = useReducedMotion();
   const fade = (delay: number) => ({
@@ -48,6 +36,10 @@ export function HomeView({
   });
 
   const firstName = member.full_name?.trim().split(" ")[0] || "there";
+
+  // Every row in "Your upcoming plans" is a confirmed booking.
+  const upcomingEvents = upcomingBookings.flatMap((booking) => (booking.event ? [booking.event] : []));
+  const upcomingEventIds = new Set(upcomingEvents.map((event) => event.id));
 
   return (
     <main className={MEMBERS_MAIN_CLASS}>
@@ -84,13 +76,13 @@ export function HomeView({
             <h2 className="text-base font-bold text-foreground">Your upcoming plans</h2>
             <Link
               href="/members/profile"
-              className="text-xs font-bold text-foreground/60 underline underline-offset-2 hover:text-foreground"
+              className="text-xs font-bold text-foreground/70 underline underline-offset-2 hover:text-foreground"
             >
               See all
             </Link>
           </div>
 
-          {upcomingBookings.length === 0 ? (
+          {upcomingEvents.length === 0 ? (
             <div className={`${CARD_CLASS} p-5 text-center`}>
               <p className="text-sm text-foreground-muted">
                 Nothing booked yet.{" "}
@@ -103,30 +95,11 @@ export function HomeView({
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
-              {upcomingBookings.map((booking) =>
-                booking.event ? (
-                  <div
-                    key={booking.id}
-                    className={`${CARD_CLASS} flex items-center gap-4 p-4`}
-                  >
-                    <DateBadge iso={booking.event.start_time} />
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-bold text-foreground">
-                        {booking.event.title}
-                      </p>
-                      <p className="truncate text-xs text-foreground-muted">
-                        {formatEventDayTime(booking.event.start_time)} ·{" "}
-                        {booking.event.location}
-                      </p>
-                    </div>
-                    <span className="shrink-0 rounded-full bg-foreground px-3 py-1 text-xs font-bold text-background">
-                      Booked
-                    </span>
-                  </div>
-                ) : null,
-              )}
-            </div>
+            <EventRowList
+              events={upcomingEvents}
+              bookedEventIds={upcomingEventIds}
+              showThumbnails={false}
+            />
           )}
         </motion.section>
 
@@ -135,39 +108,24 @@ export function HomeView({
             <h2 className="text-base font-bold text-foreground">Picked for you</h2>
             <Link
               href="/members/events"
-              className="text-xs font-bold text-foreground/60 underline underline-offset-2 hover:text-foreground"
+              className="text-xs font-bold text-foreground/70 underline underline-offset-2 hover:text-foreground"
             >
-              Events
+              All events
             </Link>
           </div>
 
           {pickedEvents.length === 0 ? (
             <div className={`${CARD_CLASS} p-5 text-center`}>
               <p className="text-sm text-foreground-muted">
-                No events lined up yet. Check back soon.
+                {hasUpcomingEvents
+                  ? "You're booked on everything coming up."
+                  : "No events lined up yet. Check back soon."}
               </p>
             </div>
           ) : (
-            <div className="flex flex-col gap-3">
-              {pickedEvents.map((event) => (
-                <Link
-                  key={event.id}
-                  href={`/members/events/${event.slug}`}
-                  className={`${CARD_CLASS} flex items-center justify-between gap-4 p-4 transition-colors hover:border-foreground/25`}
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-bold text-foreground">
-                      {event.title}
-                    </p>
-                    <p className="truncate text-xs text-foreground-muted">
-                      {formatEventDayTime(event.start_time)}
-                      {event.location ? ` · ${event.location}` : ""}
-                    </p>
-                  </div>
-                  <PricePill pricePence={event.price_pence} />
-                </Link>
-              ))}
-            </div>
+            // Never includes an event the member has booked (see
+            // app/members/page.tsx), so no row here is "Booked".
+            <EventRowList events={pickedEvents} bookedEventIds={new Set()} showThumbnails={false} />
           )}
         </motion.section>
 
