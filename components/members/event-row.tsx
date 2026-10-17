@@ -31,6 +31,7 @@ function EventRowThumbnail({ event }: { event: Event }) {
         imageUrl={event.image_url}
         focalPoint={eventFocalPoint(event)}
         showCategoryBadge={false}
+        sizes="88px"
         className="h-full w-full"
       />
       <span

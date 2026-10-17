@@ -25,9 +25,14 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  // Refresh the session if expired. Required for Server Components,
-  // which cannot write cookies themselves.
-  await supabase.auth.getUser();
+  // Refresh the session if expired (getClaims goes through getSession,
+  // which refreshes a near-expiry token and writes the new cookies via
+  // setAll above). Required for Server Components, which cannot write
+  // cookies themselves. getClaims rather than getUser: with asymmetric JWT
+  // signing keys it verifies the token locally against the cached JWKS
+  // instead of calling Supabase Auth on every request. With the legacy
+  // shared secret it falls back to a getUser-style network call.
+  await supabase.auth.getClaims();
 
   return supabaseResponse;
 }

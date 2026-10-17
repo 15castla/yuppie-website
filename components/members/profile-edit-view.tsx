@@ -18,10 +18,8 @@ import {
   requestEmailChange,
   verifyEmailChange,
 } from "@/app/members/profile/actions";
-import { CARD_CLASS, MEMBERS_MAIN_CLASS, initialsFor } from "./ui";
+import { CARD_CLASS, MEMBERS_MAIN_CLASS, initialsFor, fadeIn } from "./ui";
 import { EmailChangeVerify } from "./email-change-verify";
-
-const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 const inputClasses =
   "w-full rounded-xl border-2 border-foreground/20 bg-cream px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
@@ -32,11 +30,7 @@ const labelClasses =
 export function ProfileEditView({ member }: { member: Member }) {
   const reduce = useReducedMotion();
   const router = useRouter();
-  const fade = (delay: number) => ({
-    initial: reduce ? false : { y: 20, opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
-  });
+  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const [phone, setPhone] = useState<string | undefined>(member.phone ?? undefined);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -166,7 +160,7 @@ export function ProfileEditView({ member }: { member: Member }) {
   return (
     <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
-        <motion.div {...fade(0.1)}>
+        <motion.div {...fade(0)}>
           <Link
             href="/members/profile"
             className="flex w-fit items-center gap-1 text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline"
@@ -176,14 +170,14 @@ export function ProfileEditView({ member }: { member: Member }) {
           </Link>
         </motion.div>
 
-        <motion.div {...fade(0.15)}>
+        <motion.div {...fade(0.015)}>
           <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl optical-trim">
             Edit your profile.
           </h1>
         </motion.div>
 
         <motion.form
-          {...fade(0.25)}
+          {...fade(0.045)}
           action={handleSave}
           // Errors show inline (e.g. under the email field), not as the
           // browser's own validation popups.

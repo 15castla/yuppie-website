@@ -132,6 +132,8 @@ export function FocalPointOverlay({
         imageUrl={imageUrl}
         focalPoint={value}
         className={EVENT_PHOTO_CLASS}
+        // The admin preview cards are 280px wide.
+        sizes="280px"
         onImageLoad={handleImageLoad}
       />
       {/* aria-disabled rather than disabled, so a button keeps keyboard

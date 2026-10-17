@@ -11,10 +11,9 @@ import {
   eventMonthGroup,
   EYEBROW_CLASS,
   MEMBERS_MAIN_CLASS,
+  fadeIn,
 } from "./ui";
 import { cn } from "@/lib/utils";
-
-const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 type Filter = "All" | "This week" | "Included" | EventCategory;
 const CATEGORY_FILTERS: EventCategory[] = ["sport", "entertainment", "personal_progression"];
@@ -65,11 +64,7 @@ export function EventsView({
 }) {
   const bookedEvents = useMemo(() => new Set(bookedEventIds), [bookedEventIds]);
   const reduce = useReducedMotion();
-  const fade = (delay: number) => ({
-    initial: reduce ? false : { y: 20, opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
-  });
+  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const [filter, setFilter] = useState<Filter>("All");
   const filteredEvents = useMemo(
@@ -81,7 +76,7 @@ export function EventsView({
   return (
     <main className={MEMBERS_MAIN_CLASS}>
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-        <motion.div {...fade(0.1)} className="flex flex-col gap-3">
+        <motion.div {...fade(0)} className="flex flex-col gap-3">
           <span className={EYEBROW_CLASS}>WHAT&apos;S ON</span>
           <h1 className="text-2xl font-extrabold text-foreground sm:text-3xl optical-trim">
             Events.
@@ -89,7 +84,7 @@ export function EventsView({
         </motion.div>
 
         <motion.div
-          {...fade(0.2)}
+          {...fade(0.03)}
           className="-mx-4 flex gap-2 overflow-x-auto px-4 [&::-webkit-scrollbar]:hidden"
           style={{ scrollbarWidth: "none" }}
         >
@@ -110,7 +105,7 @@ export function EventsView({
           ))}
         </motion.div>
 
-        <motion.div {...fade(0.3)} className="flex flex-col gap-6">
+        <motion.div {...fade(0.06)} className="flex flex-col gap-6">
           {filteredEvents.length === 0 ? (
             <div className={`${CARD_CLASS} p-8 text-center`}>
               <p className="text-sm text-foreground-muted">

@@ -17,11 +17,10 @@ import {
   formatEventFullDateTime,
   formatEventPrice,
   formatMonthAbbrev,
+  fadeIn,
 } from "./ui";
 import { rsvpToEvent, createEventPaymentIntent } from "@/app/members/events/actions";
 import { EventPaymentForm } from "./event-payment-form";
-
-const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 const BACK_BUTTON_CLASS =
   "flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-cream text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.5)] transition-transform hover:scale-105";
@@ -97,11 +96,7 @@ export function EventDetailView({
   initialClientSecret?: string | null;
 }) {
   const reduce = useReducedMotion();
-  const fade = (delay: number) => ({
-    initial: reduce ? false : { y: 20, opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
-  });
+  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<string | null>(null);
@@ -268,7 +263,7 @@ export function EventDetailView({
             would be ~720px tall on a desktop screen. With no photo,
             EventThumbnail's brand gradient fills the same hero. */}
         <motion.div
-          {...fade(0.1)}
+          {...fadeIn(reduce, 0, { slide: false })}
           className="relative -mx-4 -mt-[calc(2rem+var(--safe-top))] overflow-hidden sm:-mx-6 md:mx-auto md:mt-6 md:w-full md:max-w-3xl md:rounded-2xl md:border md:border-foreground/10"
         >
           <EventThumbnail
@@ -277,6 +272,9 @@ export function EventDetailView({
             focalPoint={eventFocalPoint(event)}
             className={EVENT_PHOTO_CLASS}
             showCategoryBadge={false}
+            // Edge to edge on phones; the inset hero is at most 768px wide
+            // from md: up.
+            sizes="(min-width: 768px) 768px, 100vw"
           />
           {/* So the back button reads on a bright photo. Not on the
               gradient, where it would only muddy the yellow. */}
@@ -300,7 +298,7 @@ export function EventDetailView({
             to edge while the column inside keeps its max width. */}
         <div className="relative z-10 -mx-4 -mt-7 rounded-t-[28px] bg-background px-4 pt-6 sm:-mx-6 sm:px-6 md:mx-0 md:mt-6 md:rounded-none md:bg-transparent md:px-0 md:pt-0">
           <div className="relative mx-auto flex w-full max-w-2xl flex-col gap-6 md:max-w-3xl">
-            <motion.div {...fade(0.15)} className="flex items-start justify-between gap-4">
+            <motion.div {...fade(0.015)} className="flex items-start justify-between gap-4">
               <div className="flex min-w-0 flex-col gap-3">
                 <span className="w-fit rounded-full bg-cream px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-foreground shadow-[0_8px_20px_-8px_rgba(27,21,18,0.35)]">
                   {CATEGORY_LABEL[event.category]}
@@ -323,7 +321,7 @@ export function EventDetailView({
               </div>
             </motion.div>
 
-            <motion.div {...fade(0.3)} className={cn(CARD_CLASS, "overflow-hidden")}>
+            <motion.div {...fade(0.06)} className={cn(CARD_CLASS, "overflow-hidden")}>
               <div className="flex items-center gap-3 px-4 py-3.5">
                 <Calendar aria-hidden className="h-5 w-5 shrink-0 text-foreground/75" />
                 <p className="text-sm text-foreground">
@@ -355,12 +353,12 @@ export function EventDetailView({
             </motion.div>
 
             {event.description && (
-              <motion.p {...fade(0.4)} className="text-sm leading-relaxed text-foreground-muted">
+              <motion.p {...fade(0.09)} className="text-sm leading-relaxed text-foreground-muted">
                 {event.description}
               </motion.p>
             )}
 
-            <motion.div {...fade(0.5)} className={cn(CARD_CLASS, "p-5")}>
+            <motion.div {...fade(0.12)} className={cn(CARD_CLASS, "p-5")}>
               <h2 className="text-sm font-bold text-foreground">What&apos;s included</h2>
               <p className="mt-2 text-sm leading-relaxed text-foreground-muted">
                 {whatsIncluded}

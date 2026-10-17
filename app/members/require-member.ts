@@ -25,20 +25,26 @@ const MEMBER_COLUMNS =
 // app/member-login/page.tsx, which needs to redirect *away* to /members
 // when a session already exists, and otherwise just render the login
 // form rather than bouncing to itself).
+//
+// The user id comes from getClaims() (the verified JWT's `sub`) rather
+// than getUser(): with asymmetric signing keys that's a local check, not a
+// round trip to Supabase Auth (see lib/supabase/middleware.ts). The
+// members row is still read through the RLS-scoped client, so a forged id
+// couldn't read anyone else's row anyway. app/admin/require-admin.ts
+// deliberately stays on getUser().
 export const getMember = cache(async (): Promise<Member | null> => {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data, error } = await supabase.auth.getClaims();
+  const userId = data?.claims?.sub;
 
-  if (!user) {
+  if (error || !userId) {
     return null;
   }
 
   const { data: member } = await supabase
     .from("members")
     .select(MEMBER_COLUMNS)
-    .eq("id", user.id)
+    .eq("id", userId)
     .maybeSingle();
 
   return (member as Member | null) ?? null;

@@ -91,8 +91,9 @@ export async function rsvpToEvent(
     };
   }
 
-  revalidatePath("/members");
-  revalidatePath("/members/profile");
+  // Every /members page, so nothing in the client router cache
+  // (next.config.ts staleTimes) shows stale personal state.
+  revalidatePath("/members", "layout");
   return { success: true };
 }
 
@@ -276,7 +277,6 @@ export async function confirmEventPayment(
     };
   }
 
-  revalidatePath("/members");
-  revalidatePath("/members/profile");
+  revalidatePath("/members", "layout");
   return { booked: true };
 }

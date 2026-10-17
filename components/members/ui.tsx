@@ -1,9 +1,28 @@
+import Image from "next/image";
+
 import { PAGE_EYEBROW_CLASS } from "@/components/page-header";
 import { cn } from "@/lib/utils";
 import type { EventCategory } from "./event-types";
 
 // Page-title eyebrow: the public pages' standard (components/page-header).
 export const EYEBROW_CLASS = PAGE_EYEBROW_CLASS;
+
+// Shared entrance animation for every members view: a quick fade with a
+// 20px rise, sections staggered a few hundredths of a second apart so the
+// last one starts by ~0.15s. A plain function (not a hook) because this
+// file is also imported by server components; each view passes in its own
+// framer-motion useReducedMotion() result, and reduced motion means no
+// entrance animation at all. slide: false fades without moving (the event
+// page's hero, which would otherwise show a strip of background above it).
+export const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+
+export function fadeIn(reduce: boolean | null, delay = 0, { slide = true } = {}) {
+  return {
+    initial: reduce ? false : slide ? { y: 20, opacity: 0 } : { opacity: 0 },
+    animate: { y: 0, opacity: 1 },
+    transition: { duration: 0.35, delay, ease: EASE_OUT_EXPO },
+  };
+}
 
 export const CARD_CLASS = "rounded-2xl border border-foreground/10 bg-background-muted";
 
@@ -248,12 +267,19 @@ export function eventFocalPoint(event: {
   };
 }
 
+// Event photos uploaded at /admin/events live here (allowed in
+// next.config.ts images.remotePatterns). Anything else, like admin's blob:
+// preview of a just-chosen file, can't go through the image optimiser.
+const OPTIMISABLE_IMAGE_PREFIX =
+  "https://tbcpzmzfxtbaumlcnmdf.supabase.co/storage/v1/object/public/";
+
 export function EventThumbnail({
   category,
   imageUrl,
   focalPoint = CENTRE_FOCAL_POINT,
   className,
   showCategoryBadge = true,
+  sizes = "100vw",
   onImageLoad,
 }: {
   category: EventCategory;
@@ -261,6 +287,9 @@ export function EventThumbnail({
   focalPoint?: FocalPoint;
   className?: string;
   showCategoryBadge?: boolean;
+  // How wide the photo is drawn, so next/image picks a right-sized file
+  // rather than the full upload (e.g. "88px" for a list thumbnail).
+  sizes?: string;
   // The photo's natural size once it's loaded. Only the admin focal point
   // overlay uses it (to work out how far the crop can move), and only
   // client components can pass it, so the handlers below are attached
@@ -285,14 +314,19 @@ export function EventThumbnail({
       {/* No photo: just the brand gradient. There's deliberately no
           Yuppie wordmark here; the members area carries no logo. */}
       {imageUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
+        <Image
           src={imageUrl}
           alt=""
-          className="h-full w-full object-cover"
+          fill
+          sizes={sizes}
+          unoptimized={!imageUrl.startsWith(OPTIMISABLE_IMAGE_PREFIX)}
+          className="object-cover"
           style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
           // The ref catches a photo that finished loading before React
           // attached onLoad (e.g. already cached when the page hydrated).
+          // With a srcset, naturalWidth/Height are scaled by the chosen
+          // file's density rather than its pixel size, but the aspect ratio
+          // (all FocalPointOverlay needs) is still the original photo's.
           ref={onImageLoad ? reportSize : undefined}
           onLoad={onImageLoad ? (event) => reportSize(event.currentTarget) : undefined}
         />

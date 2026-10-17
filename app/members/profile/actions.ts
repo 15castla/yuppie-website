@@ -55,8 +55,9 @@ export async function updateProfile(
     return { success: false, error: "Something went wrong saving your details." };
   }
 
-  revalidatePath("/members/profile");
-  revalidatePath("/members");
+  // Every /members page, so nothing in the client router cache
+  // (next.config.ts staleTimes) shows stale personal state.
+  revalidatePath("/members", "layout");
   return { success: true };
 }
 
@@ -221,9 +222,7 @@ export async function verifyEmailChange(
     }
   }
 
-  revalidatePath("/members/profile");
-  revalidatePath("/members/profile/edit");
-  revalidatePath("/members");
+  revalidatePath("/members", "layout");
   return { status: "done", email: updatedUser.email };
 }
 
@@ -259,9 +258,7 @@ export async function updateAvatar(
     return { success: false, error: "Uploaded, but saving your photo failed." };
   }
 
-  revalidatePath("/members/profile");
-  revalidatePath("/members/profile/edit");
-  revalidatePath("/members");
+  revalidatePath("/members", "layout");
   return { success: true, url: uploaded.url };
 }
 
@@ -285,9 +282,7 @@ export async function removeAvatar(): Promise<{ success: boolean; error?: string
     return { success: false, error: "Something went wrong removing your photo." };
   }
 
-  revalidatePath("/members/profile");
-  revalidatePath("/members/profile/edit");
-  revalidatePath("/members");
+  revalidatePath("/members", "layout");
   return { success: true };
 }
 
@@ -317,7 +312,7 @@ export async function cancelMembership(): Promise<{ success: boolean; error?: st
     };
   }
 
-  revalidatePath("/members/profile");
+  revalidatePath("/members", "layout");
   return { success: true };
 }
 

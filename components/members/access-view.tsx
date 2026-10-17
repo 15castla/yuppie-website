@@ -6,11 +6,9 @@ import { motion, useReducedMotion } from "framer-motion";
 import { Zap, Building2, Sparkles, Lock, type LucideIcon } from "lucide-react";
 
 import type { PartnerPerk } from "@/components/members/mock-perks";
-import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS } from "@/components/members/ui";
+import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS, fadeIn } from "@/components/members/ui";
 import { RedeemCard } from "@/components/members/RedeemCard";
 import { cn } from "@/lib/utils";
-
-const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 // Every access_kind the database allows (see the partner_perks check
 // constraint) needs a section here. "invite_only" was previously missing,
@@ -47,11 +45,7 @@ export function AccessView({
   featureCard: ResolvedFeatureCard | null;
 }) {
   const reduce = useReducedMotion();
-  const fade = (delay: number) => ({
-    initial: reduce ? false : { y: 20, opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
-  });
+  const fade = (delay: number) => fadeIn(reduce, delay);
 
   const [selectedPerkId, setSelectedPerkId] = useState<string | null>(null);
   const selectedPerk = perks.find((perk) => perk.id === selectedPerkId) ?? null;
@@ -69,7 +63,7 @@ export function AccessView({
     <>
       <main className={MEMBERS_MAIN_CLASS}>
         <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-          <motion.div {...fade(0.1)} className="flex flex-col gap-3">
+          <motion.div {...fade(0)} className="flex flex-col gap-3">
             <span className={EYEBROW_CLASS}>MEMBERS&apos; ACCESS</span>
             <h1 className="text-2xl font-extrabold leading-[1.1] text-foreground sm:text-3xl optical-trim">
               The doors that
@@ -81,7 +75,7 @@ export function AccessView({
           </motion.div>
 
           {featureCard && featureCard.kind === "event" && (
-            <motion.div {...fade(0.2)}>
+            <motion.div {...fade(0.03)}>
               <Link href={`/members/events/${featureCard.slug}`} className={FEATURE_CARD_CLASSES}>
                 <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
                   {featureCard.label}
@@ -97,7 +91,7 @@ export function AccessView({
           )}
 
           {featureCard && featureCard.kind === "perk" && (
-            <motion.div {...fade(0.2)}>
+            <motion.div {...fade(0.03)}>
               <button
                 type="button"
                 onClick={() => setFeatureCardOpen(true)}
