@@ -28,7 +28,7 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function isEventDetailPath(pathname: string) {
+export function isEventDetailPath(pathname: string) {
   // Event detail pages (e.g. /members/events/padel-and-pints) render their
   // own price + RSVP bar in the same slot the standard tab bar normally
   // occupies (see the fixed bar in event-detail-view.tsx). This matches

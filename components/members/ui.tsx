@@ -250,6 +250,8 @@ export function eventFocalPoint(event: {
   };
 }
 
+const BRAND_GRADIENT = "linear-gradient(135deg, #FFD904, #FFF3B0)";
+
 // Event photos uploaded at /admin/events live here (allowed in
 // next.config.ts images.remotePatterns). Anything else, like admin's blob:
 // preview of a just-chosen file, can't go through the image optimiser.
@@ -288,14 +290,10 @@ export function EventThumbnail({
   return (
     <div
       className={cn("relative flex items-center justify-center overflow-hidden", className)}
-      style={
-        imageUrl
-          ? undefined
-          : { background: "linear-gradient(135deg, #FFD904, #FFF3B0)" }
-      }
+      // No photo: just the brand gradient. There's deliberately no Yuppie
+      // wordmark here; the members area carries no logo.
+      style={imageUrl ? undefined : { background: BRAND_GRADIENT }}
     >
-      {/* No photo: just the brand gradient. There's deliberately no
-          Yuppie wordmark here; the members area carries no logo. */}
       {imageUrl && (
         <Image
           src={imageUrl}
@@ -304,7 +302,16 @@ export function EventThumbnail({
           sizes={sizes}
           unoptimized={!imageUrl.startsWith(OPTIMISABLE_IMAGE_PREFIX)}
           className="object-cover"
-          style={{ objectPosition: `${focalPoint.x}% ${focalPoint.y}%` }}
+          // The gradient also sits behind the photo, as the <img>'s own
+          // background: it shows while the photo downloads on a slow
+          // connection (never an empty hole), and the photo paints over it
+          // once loaded. On the <img> rather than the wrapper so both are
+          // one layer: rounded corners then clip them together, with no
+          // fringe of gradient showing at the antialiased edge.
+          style={{
+            objectPosition: `${focalPoint.x}% ${focalPoint.y}%`,
+            background: BRAND_GRADIENT,
+          }}
           // The ref catches a photo that finished loading before React
           // attached onLoad (e.g. already cached when the page hydrated).
           // With a srcset, naturalWidth/Height are scaled by the chosen
