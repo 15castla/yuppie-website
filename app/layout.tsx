@@ -17,10 +17,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL("https://clubyuppie.com"),
   title: "Yuppie - Your Social Life, Curated",
-  description: "Apply to join, we'll handle the planning, you just show up.",
+  description: "Curated events, partner discounts and access across London. Apply to join Yuppie, we’ll handle the planning, you just show up.",
   openGraph: {
     title: "Yuppie - Your Social Life, Curated",
-    description: "Apply to join, we'll handle the planning, you just show up.",
+    description: "Curated events, partner discounts and access across London. Apply to join Yuppie, we’ll handle the planning, you just show up.",
     url: "https://clubyuppie.com",
     siteName: "Yuppie",
     type: "website",
@@ -30,14 +30,18 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Yuppie - Your Social Life, Curated",
-    description: "Apply to join, we'll handle the planning, you just show up.",
+    description: "Curated events, partner discounts and access across London. Apply to join Yuppie, we’ll handle the planning, you just show up.",
     // Share image: app/twitter-image.png (+ .alt.txt).
   },
+  // Browser and search-engine icons are the files app/favicon.ico (16, 32
+  // and 48px; Next adds its <link> automatically) and app/icon.png (512px):
+  // Google needs a square icon of at least 48px. icon.png is still listed
+  // here because in this Next version (16.3.1) file-based icon/apple-icon
+  // files are only added to <head> when there's no `icons` object at all
+  // (lib/metadata/resolve-metadata.js), and this one is needed for the
+  // apple touch icon below.
   icons: {
-    icon: [
-      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
-      { url: "/yuppie_app_icon_32.png", sizes: "32x32", type: "image/png" },
-    ],
+    icon: [{ url: "/icon.png", sizes: "512x512", type: "image/png" }],
     apple: [
       {
         url: "/yuppie_app_badge_y.png",

@@ -4,7 +4,7 @@ import ApplyForm from "./apply-form";
 import { createCardSetupIntent } from "./actions";
 
 const TITLE = "Apply to Yuppie";
-const DESCRIPTION = "Apply to join. We'll handle the planning, you just show up.";
+const DESCRIPTION = "Apply to join. We’ll handle the planning, you just show up.";
 
 // Nested openGraph/twitter objects replace the root layout's rather than
 // merging with them, so every field a link preview shows is spelled out
