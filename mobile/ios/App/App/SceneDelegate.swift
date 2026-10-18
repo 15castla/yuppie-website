@@ -6,9 +6,6 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private var cometRingView: CometSpinnerView?
     private var splashImageView: UIImageView?
-    // Retaining this token is required or observation stops immediately.
-    // See hideSplashWhenWebViewReady(on:) for what it does.
-    private var webViewLoadingObservation: NSKeyValueObservation?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         startupLog("SceneDelegate.scene(_:willConnectTo:) entered")
@@ -224,18 +221,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     // capacitor.config.ts's SplashScreen.launchAutoHide: true +
-    // launchShowDuration: 3000 hides the native splash (and, independently,
-    // addCometRing below used to fade out the comet ring) on a flat 3s
-    // timer — regardless of whether the page has actually finished
-    // loading. On a fast connection that's a few seconds of looking at
-    // the splash after content is already ready for no reason; on a slow
-    // one, exactly the scenario Capacitor's own SplashScreen.swift source
-    // warns about in its hideSplash log message — the splash disappears
-    // out from under a still-loading page, dropping straight to a bare
-    // yellow background (the WebView's own backgroundColor) until the
-    // page finally paints. This replaces the timer with the real signal:
-    // hide once the WebView has actually finished loading, however long
-    // that takes.
+    // launchShowDuration: 3000 would hide the native splash on a flat 3s
+    // timer, whether or not the page is on screen yet. This replaces that
+    // timer with the real signal: hide the splash (and the comet ring) as
+    // soon as the server-rendered page has painted.
     //
     // Deliberately does NOT touch capacitor.config.ts's launchAutoHide/
     // launchShowDuration to do this — that config is shared with Android,
@@ -244,71 +233,71 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // launchAutoHide to decide whether to ever unblock its content view
     // at all; flipping it off globally would leave Android's content
     // permanently hidden unless its native code were also changed to
-    // match, which isn't verifiable in this environment (no Android
-    // SDK). Instead this calls SplashScreen.hide() explicitly, early,
+    // match. Instead this calls SplashScreen.hide() explicitly, early,
     // via the same public JS API a Capacitor-aware website would call
     // itself — confirmed safe by reading SplashScreen.swift directly:
     // hideSplash() checks `if !isVisible { return }` before doing
     // anything, so the original timer (which can't be cancelled — it's
     // a bare asyncAfter closure, not a cancellable DispatchWorkItem) is
-    // reduced to a harmless no-op once this has already fired, with no
-    // spurious "automatically hidden after default timeout" log either
-    // (that warning is also gated on isVisible, which hide() has by
-    // then already set to false).
+    // reduced to a harmless no-op once this has already fired.
     //
-    // isLoading flipping to false means the network load for the initial
-    // HTML/JS finished, not that real content is on screen — this app's
-    // Next.js App Router routes (app/members/loading.tsx,
-    // app/members/events/[slug]/loading.tsx) each mount their own <main>
-    // containing nothing but a small route-level loading spinner
-    // (h-8 w-8 animate-spin...) via a Suspense fallback, while the real
-    // page's server component (requireMember() + data fetching) is still
-    // resolving — confirmed directly by reading those files. A first
-    // version of this check only waited for document.querySelector('main')
-    // to exist, which that loading skeleton's own <main> satisfies
-    // immediately: in testing, that hid the splash the instant the
-    // skeleton mounted, revealing its small spinner alongside (then
-    // alone after) the comet ring's fade-out — the "second, smaller
-    // spinning circle" symptom. Waiting for <main> to exist AND for no
-    // [class*="animate-spin"] element to be present anywhere in the
-    // document (not scoped to <main> — confirmed via grep that no other
-    // part of the members shell, e.g. MembersNav/MembersBottomBar, uses
-    // this marker outside of an explicit user-initiated action like
-    // RedeemCard's own redeem-in-progress spinner, which can't be
-    // mounted yet this early) is a route-agnostic proxy for "the
-    // Suspense boundary has resolved to real content," without hardcoding
-    // selectors specific to any one page — same reasoning as
-    // checkLiveSafeAreaCSS used during the safe-area investigation.
+    // Polling starts straight away, as the WebView begins its first
+    // navigation, rather than waiting for WKWebView.isLoading to go false
+    // as it used to. isLoading only goes false once the whole streamed
+    // page and every subresource (~1MB of JS, CSS and images) has
+    // finished, which measured as most of the splash time (3-4s on a cold
+    // Simulator launch, 1.3s warm) while the page itself was already
+    // painted. Showing the server-rendered page as soon as it's there is
+    // the point. The trade-off: for a moment after the splash fades, the
+    // page may still be starting its JavaScript, so a very fast tap may
+    // do nothing.
     //
-    // Capped at 8s (80 polls) rather than the original 2s: this is
-    // waiting on a real server round-trip (requireMember() plus parallel
-    // Supabase queries on app/members/page.tsx, for example), not just
-    // DOM/JS readiness, so it needs meaningfully more headroom. If that
-    // never resolves, it hides anyway once the cap is hit — at that
-    // point the route's own loading.tsx spinner is a more honest state
-    // to show the user than our branded splash stuck on screen
-    // indefinitely.
+    // "Painted" is checked as: a <main> exists that isn't the members
+    // area's loading screen (app/members/loading.tsx and the events ones
+    // render an empty <main aria-busy="true">; hiding onto those would
+    // only swap the splash for plain yellow), isn't still inside the
+    // <div hidden> React streams finished content into just before
+    // swapping it in, and no [class*="animate-spin"] element is on the
+    // page (anywhere in the document: nothing in the members shell uses
+    // that marker outside explicit user actions, which can't have
+    // happened yet). That covers the member pages, the sign-in screen
+    // and the members error screen without naming any of them. A
+    // signed-out launch opens /members, gets redirected to
+    // /member-login, and so hides on the sign-in screen, not on the
+    // redirecting page's loading state.
+    //
+    // Capped at 10s from the start of polling: if the page never gets
+    // there, the splash hides anyway rather than staying up indefinitely.
+    // www-placeholder/offline.html has no <main>, so the offline screen
+    // currently only appears once that cap is reached.
+    private static let readinessCheckJS = """
+        (function () {
+          var main = document.querySelector('main:not([aria-busy="true"])');
+          return main != null && !main.closest('[hidden]') &&
+            document.querySelector('[class*="animate-spin"]') == null;
+        })()
+        """
+
     private func hideSplashWhenWebViewReady(on bridgeVC: CAPBridgeViewController) {
         guard let webView = bridgeVC.webView else { return }
-        webViewLoadingObservation = webView.observe(\.isLoading, options: [.new]) { [weak self, weak webView] _, change in
-            guard change.newValue == false, let self, let webView else { return }
-            // Only needs to happen once.
-            self.webViewLoadingObservation = nil
-            startupLog("hideSplashWhenWebViewReady: webView finished loading, waiting for real content before hiding")
-            self.waitForContentThenHideSplash(on: webView)
-        }
+        // TEMPORARY — part of the startupLog timing set.
+        startupLog("hideSplashWhenWebViewReady: readiness polling started")
+        waitForContentThenHideSplash(on: webView, deadline: Date().addingTimeInterval(10))
     }
 
-    private func waitForContentThenHideSplash(on webView: WKWebView, attempt: Int = 0) {
-        let js = "document.querySelector('main') != null && document.querySelector('[class*=\"animate-spin\"]') == null"
-        webView.evaluateJavaScript(js) { [weak self, weak webView] result, _ in
+    private func waitForContentThenHideSplash(on webView: WKWebView, deadline: Date, attempt: Int = 0) {
+        webView.evaluateJavaScript(Self.readinessCheckJS) { [weak self, weak webView] result, _ in
             guard let self, let webView else { return }
             let ready = (result as? Bool) ?? false
-            if !ready, attempt < 80 {
+            if !ready, Date() < deadline {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                    self?.waitForContentThenHideSplash(on: webView, attempt: attempt + 1)
+                    self?.waitForContentThenHideSplash(on: webView, deadline: deadline, attempt: attempt + 1)
                 }
                 return
+            }
+            if ready {
+                // TEMPORARY — part of the startupLog timing set.
+                startupLog("waitForContentThenHideSplash: readiness first passed after \(attempt) poll(s)")
             }
             startupLog("waitForContentThenHideSplash: ready=\(ready) after \(attempt) poll(s), hiding splash + comet ring")
             self.hideSplashAndCometRing(on: webView)

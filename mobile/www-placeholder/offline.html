@@ -143,13 +143,20 @@
 </style>
 </head>
 <body>
-  <img class="wordmark" src="yuppie_logo_forte_forward.png" alt="Yuppie" />
-  <h1>You&rsquo;re offline</h1>
-  <p>Yuppie needs an internet connection to load. Check your Wi-Fi or mobile data, then try again.</p>
-  <button id="retry" type="button">
-    <span class="label">Try again</span>
-    <span class="spinner" aria-hidden="true"></span>
-  </button>
+  <!-- <main> so the native splash's readiness check (a <main> with no
+       aria-busy; see ios/App/App/SceneDelegate.swift) passes as soon as
+       this screen paints, instead of only at its 10s cap. display:
+       contents keeps it out of the layout: the four elements stay direct
+       flex items of <body>, exactly as before. -->
+  <main style="display: contents">
+    <img class="wordmark" src="yuppie_logo_forte_forward.png" alt="Yuppie" />
+    <h1>You&rsquo;re offline</h1>
+    <p>Yuppie needs an internet connection to load. Check your Wi-Fi or mobile data, then try again.</p>
+    <button id="retry" type="button">
+      <span class="label">Try again</span>
+      <span class="spinner" aria-hidden="true"></span>
+    </button>
+  </main>
 
 <script>
   // This page only ever loads as a native-side fallback, when the initial
@@ -162,7 +169,7 @@
   // globally on every page (including this plain, non-bundled one)
   // regardless of the ESM import style the main app uses.
   var retryBtn = document.getElementById("retry");
-  var SITE_URL = "https://clubyuppie.com/member-login"; // replaced at build/sync time, see scripts/inject-server-url.cjs
+  var SITE_URL = "https://clubyuppie.com/members"; // replaced at build/sync time, see scripts/inject-server-url.cjs
 
   // A failure with no connection at all comes back almost instantly; the
   // spinner stays up at least this long so that doesn't read as a flash

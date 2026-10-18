@@ -35,14 +35,18 @@ const config: CapacitorConfig = {
     contentInset: "automatic",
   },
   server: {
-    // Defaults to the members area so a plain `npx cap sync && npx cap
-    // open ios` with no env var sends builds straight to the native app's
-    // members-only entry point on clubyuppie.com. Override with
+    // Defaults to the members area itself, so a plain `npx cap sync &&
+    // npx cap open ios` with no env var opens builds straight on
+    // clubyuppie.com/members. A signed-in member (the normal case, since
+    // sessions persist) lands on the home screen with no /member-login
+    // hop; a signed-out one is redirected to /member-login by the members
+    // layout's AuthGate. ExternalLinkPlugin keeps both in the WebView,
+    // since it decides by host, not path. Override with
     // CAPACITOR_SERVER_URL to point at localhost (e.g.
     // "http://192.168.1.x:3000", a real LAN IP, since the iOS
     // simulator/device can't reach "localhost" meaning *this* machine) or
     // a Vercel preview URL during development.
-    url: process.env.CAPACITOR_SERVER_URL || "https://clubyuppie.com/member-login",
+    url: process.env.CAPACITOR_SERVER_URL || "https://clubyuppie.com/members",
     androidScheme: "https",
     // Hosts beyond the primary server.url above that should still load
     // inside the main WebView rather than being treated as "external" (see

@@ -21,14 +21,13 @@ import Capacitor
 // containment check in WebViewDelegationHandler.swift. That built-in check
 // is `navURL.absoluteString.starts(with: bridge.config.serverURL.absoluteString)`
 // — a *path* prefix match against the exact configured server.url, not
-// just a host match. Since server.url is
-// "https://clubyuppie.com/member-login" (a sub-path, not the bare origin
-// — see capacitor.config.ts), any in-app navigation whose path doesn't
-// literally start with "/member-login" fails that check and gets bounced
-// out via UIApplication.shared.open — both the offline-recovery retry
-// (www-placeholder/offline.html navigating back to SITE_URL) and, more
-// broadly, ordinary post-login navigation from /member-login to
-// /members/*. Deciding authoritatively here instead keeps our own
+// just a host match. Since server.url is "https://clubyuppie.com/members"
+// (a sub-path, not the bare origin — see capacitor.config.ts), any in-app
+// navigation whose path doesn't literally start with "/members" fails
+// that check and gets bounced out via UIApplication.shared.open — most
+// importantly a signed-out launch's redirect to /member-login, and
+// /apply, /contact and the other public pages proxy.ts sends the app to.
+// Deciding authoritatively here instead keeps our own
 // host-based allowlist (which correctly treats all of clubyuppie.com as
 // in-app regardless of path) in control instead of relying on that
 // path-prefix assumption.

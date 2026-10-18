@@ -9,7 +9,7 @@ const fs = require("fs");
 const path = require("path");
 
 const serverUrl =
-  process.env.CAPACITOR_SERVER_URL || "https://clubyuppie.com/member-login";
+  process.env.CAPACITOR_SERVER_URL || "https://clubyuppie.com/members";
 const filePath = path.join(__dirname, "..", "www-placeholder", "offline.html");
 
 const original = fs.readFileSync(filePath, "utf8");
