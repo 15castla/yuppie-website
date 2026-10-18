@@ -67,8 +67,10 @@ export function formatEventPrice(pricePence: number) {
 // case. `border` is in the shared class (not just the outlined price
 // variant) so all three reserve the same 1px and come out the same height;
 // the filled variants just make that border transparent instead of
-// omitting it.
-const PRICE_PILL_BASE_CLASS =
+// omitting it. Also used for the discount badges (discounts-view.tsx,
+// RedeemCard.tsx, admin's PerkPreview), so every badge pill is the same
+// size too.
+export const PRICE_PILL_BASE_CLASS =
   "inline-flex min-w-20 shrink-0 items-center justify-center rounded-full border px-3 py-0.5 text-center text-xs font-bold";
 
 // booked: the member already has a confirmed booking, free or paid, so

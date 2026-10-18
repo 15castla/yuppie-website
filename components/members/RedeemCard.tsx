@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { X } from "lucide-react";
 
 import { getRedemptionStatus, type RedemptionStatus } from "@/app/members/redemption-actions";
-import { CARD_CLASS, initialsFor } from "@/components/members/ui";
+import { CARD_CLASS, PRICE_PILL_BASE_CLASS, initialsFor } from "@/components/members/ui";
 import { cn } from "@/lib/utils";
 
 type RedeemCardBase = {
@@ -148,7 +148,7 @@ export function RedeemCard(props: RedeemCardProps) {
                   </p>
                   <p className="text-sm text-foreground">{headline}</p>
                   {props.kind === "discount" && props.badge && (
-                    <span className="mt-1 inline-flex w-fit items-center rounded-full bg-foreground px-3 py-1 text-xs font-bold text-background">
+                    <span className={cn(PRICE_PILL_BASE_CLASS, "mt-1 w-fit border-transparent bg-foreground text-background")}>
                       {props.badge}
                     </span>
                   )}

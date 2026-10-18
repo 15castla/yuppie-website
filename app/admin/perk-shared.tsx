@@ -1,7 +1,7 @@
 import { Zap, Building2, Sparkles, Lock, type LucideIcon } from "lucide-react";
 
 import type { PartnerPerk } from "@/components/members/mock-perks";
-import { CARD_CLASS } from "@/components/members/ui";
+import { CARD_CLASS, PRICE_PILL_BASE_CLASS } from "@/components/members/ui";
 import { cn } from "@/lib/utils";
 import { inputClasses, labelClasses } from "@/app/admin/form-controls";
 
@@ -87,7 +87,7 @@ export function PerkPreview({ perk }: { perk: PartnerPerk }) {
         <p className="mt-1 text-xs text-foreground">{perk.headline || "What members get"}</p>
       </div>
       {perk.badge && (
-        <span className="shrink-0 rounded-full bg-foreground px-3 py-1 text-xs font-bold text-background">
+        <span className={cn(PRICE_PILL_BASE_CLASS, "border-transparent bg-foreground text-background")}>
           {perk.badge}
         </span>
       )}

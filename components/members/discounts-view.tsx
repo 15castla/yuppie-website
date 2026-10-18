@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 
 import type { PartnerPerk } from "@/components/members/mock-perks";
-import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS } from "@/components/members/ui";
+import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS, PRICE_PILL_BASE_CLASS } from "@/components/members/ui";
 import { RedeemCard } from "@/components/members/RedeemCard";
 import { cn } from "@/lib/utils";
 
@@ -86,7 +86,7 @@ export function DiscountsView({ perks }: { perks: PartnerPerk[] }) {
                   <p className="mt-1 text-xs text-foreground">{perk.headline}</p>
                 </div>
                 {perk.badge && (
-                  <span className="shrink-0 rounded-full bg-foreground px-3 py-1 text-xs font-bold text-background">
+                  <span className={cn(PRICE_PILL_BASE_CLASS, "border-transparent bg-foreground text-background")}>
                     {perk.badge}
                   </span>
                 )}
