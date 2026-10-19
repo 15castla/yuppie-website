@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { almarai, instrumentSerif } from "@/components/templates/creative-studio/fonts";
@@ -30,32 +30,43 @@ import {
 
 type DrawingComponent = typeof CoupesDrawing;
 
+// Each perk drawing's ink box in its 200-unit grid, strokes included
+// (rendered and pixel-scanned at the desktop stroke width of 3), as
+// [x, y, width, height]. Used as the drawing's viewBox here so its ink
+// starts exactly on the title's left edge and ends on the box's bottom;
+// the drawings' own 200x200 boxes have different empty margins.
+type InkBox = [number, number, number, number];
+
 // Each perk's copy is shorter on mobile (the boards differ).
-const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingComponent }[] = [
+const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingComponent; ink: InkBox }[] = [
   {
     title: "Events",
     desktop:
       "Supper clubs, Padel & Pints, wellness mornings and nights out, planned and run by our team. At cost, never marked up.",
     mobile: "Supper clubs, Padel & Pints, wellness and nights out, run by our team at cost.",
     Drawing: CoupesDrawing,
+    ink: [15.25, 22.5, 169.5, 147.5],
   },
   {
     title: "Discounts",
     desktop: "Real savings at restaurants, bars, barbers, gyms and sports clubs across the city.",
     mobile: "Real savings at restaurants, bars, barbers, gyms and sports clubs.",
     Drawing: PriceTagDrawing,
+    ink: [30.25, 28.5, 140.875, 125.875],
   },
   {
     title: "Access",
     desktop: "Members' clubs, skip-the-queue entry, invite-only parties and first dibs before things sell out.",
     mobile: "Members' clubs, skip-the-queue entry and first dibs.",
     Drawing: VelvetRopeDrawing,
+    ink: [16.5, 52.5, 167, 125],
   },
   {
     title: "Concierge",
     desktop: "Built on a top hotel concierge's black book. Ask it anything, and it learns your taste.",
     mobile: "A top hotel concierge's black book. It learns your taste.",
     Drawing: BrickPhoneDrawing,
+    ink: [66.5, 10.5, 67, 177],
   },
 ];
 
@@ -141,6 +152,14 @@ function Hero() {
   );
 }
 
+// The drawings keep their previous scale (112px per 200 units on desktop,
+// 64px on mobile), now applied to the cropped ink box.
+const PERK_SCALE = { mobile: 64 / 200, desktop: 112 / 200 };
+// Desktop: every drawing sits at the bottom of a box as tall as the
+// tallest (the phone's 177 units), so their bottoms share one line and
+// every title starts the same distance below it.
+const PERK_ROW_HEIGHT = Math.max(...PERKS.map(({ ink }) => ink[3])) * PERK_SCALE.desktop;
+
 function Perks() {
   return (
     <section
@@ -151,15 +170,35 @@ function Perks() {
         Four reasons to <span className={SERIF_ACCENT_CLASS}>leave the office.</span>
       </h2>
       <div className="mt-8 flex flex-col border-b-[1.5px] border-foreground md:mt-0 md:grid md:grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] md:gap-x-10 md:gap-y-12 md:border-b-0">
-        {PERKS.map(({ title, desktop, mobile, Drawing }) => (
+        {PERKS.map(({ title, desktop, mobile, Drawing, ink }) => (
           <article
             key={title}
             className="grid grid-cols-[64px_minmax(0,1fr)] grid-rows-[auto_1fr] items-start gap-x-4 gap-y-1 border-t-[1.5px] border-foreground py-5 md:flex md:flex-col md:gap-3.5 md:border-t-0 md:py-0"
           >
-            <Drawing
-              size={112}
-              className="row-span-2 block size-16 stroke-[3.5] md:-ml-3 md:size-28 md:stroke-[3]"
-            />
+            {/* Mobile: a 64x64 box in the icon column, the drawing centred
+                vertically and flush left on the container's edge. Desktop:
+                the row-height box, the drawing at its bottom and flush left
+                on the title's edge. */}
+            <div
+              className="row-span-2 flex size-16 items-center md:h-[var(--perk-row-h)] md:w-auto md:items-end"
+              style={{ "--perk-row-h": `${PERK_ROW_HEIGHT}px` } as CSSProperties}
+            >
+              <Drawing
+                size={ink[2] * PERK_SCALE.desktop}
+                viewBox={ink.join(" ")}
+                width={ink[2] * PERK_SCALE.desktop}
+                height={ink[3] * PERK_SCALE.desktop}
+                className="block h-[var(--ink-h-mobile)] w-[var(--ink-w-mobile)] overflow-visible stroke-[3.5] md:h-[var(--ink-h-desktop)] md:w-[var(--ink-w-desktop)] md:stroke-[3]"
+                style={
+                  {
+                    "--ink-w-mobile": `${ink[2] * PERK_SCALE.mobile}px`,
+                    "--ink-h-mobile": `${ink[3] * PERK_SCALE.mobile}px`,
+                    "--ink-w-desktop": `${ink[2] * PERK_SCALE.desktop}px`,
+                    "--ink-h-desktop": `${ink[3] * PERK_SCALE.desktop}px`,
+                  } as CSSProperties
+                }
+              />
+            </div>
             <h3 className="m-0 text-xl font-extrabold md:text-2xl md:tracking-[-0.01em]">{title}</h3>
             <p className="m-0 text-[15px] leading-normal md:text-base md:leading-[1.55]">
               <span className="md:hidden">{mobile}</span>
