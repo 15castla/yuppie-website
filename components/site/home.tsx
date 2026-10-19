@@ -101,27 +101,20 @@ export function SiteHome() {
   );
 }
 
-// Mobile: headline, then the drawing standing on the 3px rule, then the
-// intro and button. Desktop: headline, intro and button on the left, the
-// drawing on the right, standing on the rule along the section's bottom.
+// Desktop: headline, intro and button on the left, the drawing on the
+// right, standing on the rule along the section's bottom.
 //
-// On phones the hero is exactly the rest of the first screen (100svh less
-// the 72px header and the top safe area), so the next section never peeks
-// in under Safari's translucent bottom toolbar. The drawing's area takes
-// whatever height is left and the drawing is scaled to fit it,
-// bottom-aligned on the rule. Its floor is 180px: a 390x664 screen leaves
-// it about 200px once everything else fits, so a 220px floor would push
-// the button off that screen. On a screen too short even for that the
-// hero just grows past the fold. Below the button: at least 24px, or the
-// bottom safe area if that's taller. On a tall phone where the drawing
-// reaches its natural height first, the spare height goes above the
-// drawing (the heading's auto bottom margin), so the button keeps exactly
-// that gap and the next section starts the usual 72px below it.
+// Phones: exactly the rest of the first screen (100svh less the 72px
+// header and the top safe area), with a full-width 3px rule as the
+// section's bottom border. Headline, then the intro and button, then the
+// whole drawing (never cropped) in the leftover height (at least 200px),
+// centred and standing on that bottom rule. On a screen too short for the
+// 200px the hero just grows past the fold.
 function Hero() {
   return (
-    <section className="flex min-h-[calc(100svh-72px-var(--safe-top))] flex-col border-foreground md:block md:min-h-0 md:border-b-[3px]">
+    <section className="flex min-h-[calc(100svh-72px-var(--safe-top))] flex-col border-b-[3px] border-foreground md:block md:min-h-0 md:border-b-[3px]">
       <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-x-12 md:px-[clamp(20px,4vw,40px)]">
-        <h1 className="m-0 mb-auto px-5 pt-3.5 text-[62px] font-extrabold leading-[0.92] tracking-[-0.04em] [text-wrap:balance] md:mb-0 md:col-start-1 md:row-start-1 md:px-0 md:pt-[clamp(48px,7vw,120px)] md:text-[clamp(56px,7vw,104px)] md:leading-[0.95] md:tracking-[-0.03em]">
+        <h1 className="m-0 px-5 pt-3.5 text-[62px] font-extrabold leading-[0.92] tracking-[-0.04em] [text-wrap:balance] md:col-start-1 md:row-start-1 md:px-0 md:pt-[clamp(48px,7vw,120px)] md:text-[clamp(56px,7vw,104px)] md:leading-[0.95] md:tracking-[-0.03em]">
           Your social life, <span className={HEADLINE_ACCENT_CLASS}>sorted.</span>
         </h1>
         {/* The SVG's viewBox is trimmed to its ink on the left, top and
@@ -129,14 +122,14 @@ function Hero() {
             arm) lands on the container's right edge, in line with the
             header's Apply pill. Max widths are the old 500px / 340px scaled
             by 463.5/540 (the trimmed width), so the drawing keeps its size. */}
-        {/* Phones: the drawing at full content width, anchored to the top
-            of a box that clips it. The box takes the first screen's
-            leftover height, from 200px up to the drawing's natural height
-            (where the feet stand on the rule, as on desktop); on shorter
-            screens the rule cuts the figures off, at about the thighs on a
-            390x664 screen. The rule is the top border of the text block
-            below, full width. */}
-        <div className="relative mx-5 mt-3.5 max-h-[calc((100vw-40px)*615.375/463.5)] min-h-[200px] flex-1 overflow-hidden md:col-start-2 md:row-span-2 md:row-start-1 md:mx-0 md:mt-0 md:flex md:max-h-none md:min-h-0 md:flex-none md:justify-end md:self-end md:overflow-visible md:pt-6">
+        {/* Phones: last (order-2), 28px under the button. The whole drawing
+            is sized to the area's height (never wider than the 350px
+            container: max-height is that width's matching height) and
+            centred. Its viewBox keeps 7.5 units of empty space under the
+            feet (bottom of 620, ink ending at 612.5), so it's moved down by
+            exactly that, 7.5/615.375 of its own height, and the feet stand
+            on the section's bottom rule at any size. */}
+        <div className="relative order-2 mx-5 mt-7 min-h-[200px] flex-1 md:order-none md:col-start-2 md:row-span-2 md:row-start-1 md:mx-0 md:mt-0 md:flex md:min-h-0 md:flex-none md:justify-end md:self-end md:pt-6">
           <Image
             src="/yuppie-group.svg"
             alt="Line drawing of three young yuppies out together: one on a brick phone, two clinking champagne coupes"
@@ -144,10 +137,11 @@ function Hero() {
             height={615.375}
             loading="eager"
             fetchPriority="high"
-            className="absolute top-0 left-0 block h-auto w-full md:static md:-mb-0.5 md:w-full md:max-w-[429.17px]"
+            className="absolute bottom-0 left-1/2 block h-full max-h-[calc((100vw-40px)*615.375/463.5)] w-auto -translate-x-1/2 translate-y-[1.21875%] md:static md:-mb-0.5 md:h-auto md:max-h-none md:w-full md:max-w-[429.17px] md:translate-none"
           />
         </div>
-        <div className="flex flex-col gap-[18px] border-t-[3px] border-foreground px-5 pt-[18px] pb-[max(24px,env(safe-area-inset-bottom))] md:col-start-1 md:row-start-2 md:gap-7 md:border-t-0 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
+        {/* Phones: second (order-1), 20px under the headline. */}
+        <div className="order-1 mt-5 flex flex-col gap-[18px] px-5 md:order-none md:col-start-1 md:row-start-2 md:mt-0 md:gap-7 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
           <p className="m-0 text-[17px] leading-[1.45] md:max-w-[460px] md:text-[19px] md:leading-normal">
             <span className="md:hidden">
               A members&apos; club for professionals with full diaries and empty weekends.
@@ -178,7 +172,7 @@ function Perks() {
   return (
     <section
       id="perks"
-      className={cn(SITE_CONTAINER_CLASS, "pt-12 pb-[72px] md:py-[clamp(72px,9vw,128px)]")}
+      className={cn(SITE_CONTAINER_CLASS, "pt-[88px] pb-[88px] md:py-[clamp(72px,9vw,128px)]")}
     >
       <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:mb-[clamp(48px,6vw,80px)] md:text-[clamp(40px,4.6vw,64px)]">
         Four reasons to <span className={SERIF_ACCENT_CLASS}>leave the office.</span>
