@@ -112,9 +112,8 @@ export function SiteHome() {
 // bottom-aligned on the rule. Its floor is 180px: a 390x664 screen leaves
 // it about 200px once everything else fits, so a 220px floor would push
 // the button off that screen. On a screen too short even for that the
-// hero just grows past the fold. Below the button: at least 24px, and
-// never less than the fixed bottom strip's height (site-nav.tsx), so the
-// strip can't cover the button.
+// hero just grows past the fold. Below the button: at least 24px, or the
+// bottom safe area if that's taller.
 function Hero() {
   return (
     <section className="flex min-h-[calc(100svh-72px-var(--safe-top))] flex-col border-foreground md:block md:min-h-0 md:border-b-[3px]">
@@ -408,7 +407,7 @@ function SiteFooter() {
     <footer>
       <section className="border-y-[3px] border-foreground">
         <div className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-12")}>
-          <div className="pt-14 md:pt-[clamp(72px,9vw,128px)] md:pb-[clamp(56px,6vw,88px)]">
+          <div className="pt-14 text-center md:pt-[clamp(72px,9vw,128px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
             <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:text-[clamp(40px,4.6vw,64px)]">
               This isn&apos;t for everyone.
               <br />
@@ -454,18 +453,20 @@ function SiteFooter() {
             Contact
           </Link>
         </FooterColumn>
-        {/* Last row, across both columns, on mobile, so the email has the
-            full width. */}
-        <FooterColumn heading="Say hello" className="order-last col-span-2 md:order-none md:col-span-1">
+        {/* Phones: a 2x2 grid, Explore | Follow then Say hello | Get the
+            app (order-3/order-4 move these two after Follow), and "Email
+            us" in place of the address so it fits its column. */}
+        <FooterColumn heading="Say hello" className="order-3 md:order-none">
           <a href={`mailto:${CONTACT_EMAIL}`} className={cn(FOOTER_LINK_CLASS, "break-all")}>
-            {CONTACT_EMAIL}
+            <span className="md:hidden">Email us</span>
+            <span className="hidden md:inline">{CONTACT_EMAIL}</span>
           </a>
         </FooterColumn>
         <FooterColumn heading="Follow">
           <ExternalLinkItem link={EXTERNAL_LINKS.instagram} />
           <ExternalLinkItem link={EXTERNAL_LINKS.tiktok} />
         </FooterColumn>
-        <FooterColumn heading="Get the app">
+        <FooterColumn heading="Get the app" className="order-4 md:order-none">
           <ExternalLinkItem link={EXTERNAL_LINKS.appStore} />
           <ExternalLinkItem link={EXTERNAL_LINKS.googlePlay} />
         </FooterColumn>
@@ -497,7 +498,7 @@ function SiteFooter() {
       <div
         className={cn(
           SITE_CONTAINER_CLASS,
-          "flex flex-col gap-1 pt-7 pb-8 text-[13px] leading-normal text-site-muted md:flex-row md:items-baseline md:justify-between md:gap-x-10 md:text-sm",
+          "flex flex-col gap-1 pt-7 pb-[calc(32px+env(safe-area-inset-bottom))] text-[13px] leading-normal text-site-muted md:flex-row md:items-baseline md:justify-between md:gap-x-10 md:text-sm",
         )}
       >
         <p className="m-0">{legalLine(new Date().getFullYear())}</p>

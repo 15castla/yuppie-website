@@ -5,12 +5,9 @@
 // native app, which have their own styles.
 
 // Each page's outer wrapper: the site fonts (pass almarai.variable and
-// instrumentSerif.variable alongside it). On phones its bottom padding is
-// the height of the header's fixed bottom strip (site-nav.tsx), so a
-// page's last row is never hidden under it. `site-page` is the hook for
+// instrumentSerif.variable alongside it). `site-page` is the hook for
 // globals.css's no-focus-box rule.
-export const SITE_STRIP_PADDING_CLASS = "pb-[max(1rem,env(safe-area-inset-bottom))] md:pb-0";
-export const SITE_PAGE_CLASS = `site-page flex flex-1 flex-col bg-background text-foreground antialiased ${SITE_STRIP_PADDING_CLASS}`;
+export const SITE_PAGE_CLASS = "site-page flex flex-1 flex-col bg-background text-foreground antialiased";
 export const SITE_FONT_STYLE = {
   fontFamily: "var(--font-almarai), 'Helvetica Neue', ui-sans-serif, system-ui, sans-serif",
 };

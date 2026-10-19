@@ -242,20 +242,6 @@ function SiteHeader({ pathname }: { pathname: string }) {
           returnFocusTo={menuButtonRef}
         />
       )}
-
-      {/* Phones only: a solid strip along the bottom edge, the same as the
-          members area's (components/members/members-nav.tsx,
-          MembersBottomBar). Safari 26 tints its toolbar from a fixed
-          element's literal background-color at the viewport edge, not
-          from theme-color, so this keeps that toolbar yellow over every
-          section. Height is the bottom safe area (34px on Face ID
-          iPhones), at least 16px; SITE_PAGE_CLASS pads each page's
-          bottom by the same amount so nothing ends up under it. Inside
-          the header, so the native app hides it with the header. */}
-      <div
-        aria-hidden
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-[max(1rem,env(safe-area-inset-bottom))] bg-background md:hidden"
-      />
     </header>
   );
 }
