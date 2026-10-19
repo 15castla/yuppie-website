@@ -113,12 +113,15 @@ export function SiteHome() {
 // it about 200px once everything else fits, so a 220px floor would push
 // the button off that screen. On a screen too short even for that the
 // hero just grows past the fold. Below the button: at least 24px, or the
-// bottom safe area if that's taller.
+// bottom safe area if that's taller. On a tall phone where the drawing
+// reaches its natural height first, the spare height goes above the
+// drawing (the heading's auto bottom margin), so the button keeps exactly
+// that gap and the next section starts the usual 72px below it.
 function Hero() {
   return (
     <section className="flex min-h-[calc(100svh-72px-var(--safe-top))] flex-col border-foreground md:block md:min-h-0 md:border-b-[3px]">
       <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-x-12 md:px-[clamp(20px,4vw,40px)]">
-        <h1 className="m-0 px-5 pt-3.5 text-[62px] font-extrabold leading-[0.92] tracking-[-0.04em] [text-wrap:balance] md:col-start-1 md:row-start-1 md:px-0 md:pt-[clamp(48px,7vw,120px)] md:text-[clamp(56px,7vw,104px)] md:leading-[0.95] md:tracking-[-0.03em]">
+        <h1 className="m-0 mb-auto px-5 pt-3.5 text-[62px] font-extrabold leading-[0.92] tracking-[-0.04em] [text-wrap:balance] md:mb-0 md:col-start-1 md:row-start-1 md:px-0 md:pt-[clamp(48px,7vw,120px)] md:text-[clamp(56px,7vw,104px)] md:leading-[0.95] md:tracking-[-0.03em]">
           Your social life, <span className={HEADLINE_ACCENT_CLASS}>sorted.</span>
         </h1>
         {/* The SVG's viewBox is trimmed to its ink on the left, top and
@@ -175,7 +178,7 @@ function Perks() {
   return (
     <section
       id="perks"
-      className={cn(SITE_CONTAINER_CLASS, "pt-[72px] pb-[72px] md:py-[clamp(72px,9vw,128px)]")}
+      className={cn(SITE_CONTAINER_CLASS, "pt-12 pb-[72px] md:py-[clamp(72px,9vw,128px)]")}
     >
       <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:mb-[clamp(48px,6vw,80px)] md:text-[clamp(40px,4.6vw,64px)]">
         Four reasons to <span className={SERIF_ACCENT_CLASS}>leave the office.</span>
@@ -231,7 +234,7 @@ function OpenInvite() {
       <div
         className={cn(
           SITE_CONTAINER_CLASS,
-          "flex flex-col pt-14 pb-[60px] md:flex-row md:flex-wrap md:items-center md:gap-x-20 md:gap-y-14 md:py-[clamp(72px,9vw,128px)]",
+          "flex flex-col pt-16 pb-[72px] md:flex-row md:flex-wrap md:items-center md:gap-x-20 md:gap-y-14 md:py-[clamp(72px,9vw,128px)]",
         )}
       >
         <div className="flex min-w-0 flex-col gap-[18px] md:flex-[1_1_520px] md:gap-7">
@@ -357,15 +360,17 @@ const WORDMARK_INK = { left: 16, top: 16, width: 1911, height: 610 };
 const WORDMARK_FILE = { width: 1942, height: 641 };
 
 const FOOTER_COLUMN_HEADING_CLASS = cn(SERIF_ACCENT_CLASS, "m-0 mb-3.5 text-2xl leading-none md:text-[26px]");
+// The phone footer's headings sit on its 44px row rhythm.
+const PHONE_FOOTER_HEADING_CLASS = cn(SERIF_ACCENT_CLASS, "m-0 flex h-11 items-center text-2xl leading-none");
 const FOOTER_LINK_CLASS = cn(
   "flex min-h-11 items-center text-base font-bold text-foreground no-underline hover:opacity-70 md:min-h-9",
   FOCUS_UNDERLINE_CLASS,
 );
 
-function ExternalLinkItem({ link }: { link: { label: string; url: string | null } }) {
+function ExternalLinkItem({ link, className }: { link: { label: string; url: string | null }; className?: string }) {
   if (!link.url) {
     return (
-      <span className="flex min-h-11 items-center gap-2 text-base font-bold text-foreground md:min-h-9">
+      <span className={cn("flex min-h-11 items-center gap-2 text-base font-bold text-foreground md:min-h-9", className)}>
         {link.label}
         <span className="inline-flex min-h-[22px] items-center rounded-full border-[1.5px] border-foreground px-2 text-[11px] font-bold uppercase tracking-[0.04em]">
           Soon
@@ -374,7 +379,7 @@ function ExternalLinkItem({ link }: { link: { label: string; url: string | null 
     );
   }
   return (
-    <a href={link.url} target="_blank" rel="noopener noreferrer" className={FOOTER_LINK_CLASS}>
+    <a href={link.url} target="_blank" rel="noopener noreferrer" className={cn(FOOTER_LINK_CLASS, className)}>
       {link.label}
     </a>
   );
@@ -413,11 +418,13 @@ function SiteFooter() {
               <br />
               <span className={SERIF_ACCENT_CLASS}>Might be for you though.</span>
             </h2>
-            <div className="mt-8 hidden md:block">
-              <ApplyButton>Apply for membership</ApplyButton>
+            {/* Phones: full width, 28px under the heading, then the rope
+                36px below it. */}
+            <div className="mt-7 md:mt-8">
+              <ApplyButton className="w-full md:w-auto">Apply for membership</ApplyButton>
             </div>
           </div>
-          <div className="mt-8 flex justify-center md:mt-0 md:justify-end md:self-end">
+          <div className="mt-9 flex justify-center md:mt-0 md:justify-end md:self-end">
             <VelvetRopeDrawing
               size={300}
               viewBox={ROPE_VIEWBOX}
@@ -428,16 +435,41 @@ function SiteFooter() {
           </div>
         </div>
       </section>
-      <div className={cn(SITE_CONTAINER_CLASS, "mt-7 md:hidden")}>
-        <ApplyButton className="w-full">Apply for membership</ApplyButton>
-      </div>
+      {/* Phones: two equal columns on one 44px row rhythm (every heading
+          and item exactly 44px, no gaps between groups), so the rows line
+          up across both columns and both end on the same line. */}
+      <nav aria-label="Footer" className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-2 gap-x-4 py-16 md:hidden")}>
+        <div className="flex min-w-0 flex-col">
+          <h3 className={PHONE_FOOTER_HEADING_CLASS}>Explore</h3>
+          <Link href="/member-login" className={cn(FOOTER_LINK_CLASS, "h-11")}>
+            Members Area
+          </Link>
+          <Link href="/apply" className={cn(FOOTER_LINK_CLASS, "h-11")}>
+            Apply
+          </Link>
+          <Link href="/faq" className={cn(FOOTER_LINK_CLASS, "h-11")}>
+            FAQs
+          </Link>
+          <Link href="/contact" className={cn(FOOTER_LINK_CLASS, "h-11")}>
+            Contact
+          </Link>
+          <a href={`mailto:${CONTACT_EMAIL}`} className={cn(FOOTER_LINK_CLASS, "h-11")}>
+            Email us
+          </a>
+        </div>
+        <div className="flex min-w-0 flex-col">
+          <h3 className={PHONE_FOOTER_HEADING_CLASS}>Follow</h3>
+          <ExternalLinkItem link={EXTERNAL_LINKS.instagram} className="h-11" />
+          <ExternalLinkItem link={EXTERNAL_LINKS.tiktok} className="h-11" />
+          <h3 className={PHONE_FOOTER_HEADING_CLASS}>Get the app</h3>
+          <ExternalLinkItem link={EXTERNAL_LINKS.appStore} className="h-11" />
+          <ExternalLinkItem link={EXTERNAL_LINKS.googlePlay} className="h-11" />
+        </div>
+      </nav>
 
       <nav
         aria-label="Footer"
-        className={cn(
-          SITE_CONTAINER_CLASS,
-          "grid grid-cols-2 gap-x-4 gap-y-8 pt-12 pb-16 md:grid-cols-4 md:gap-10 md:pt-14",
-        )}
+        className={cn(SITE_CONTAINER_CLASS, "hidden pb-16 md:grid md:grid-cols-4 md:gap-10 md:pt-14")}
       >
         <FooterColumn heading="Explore">
           <Link href="/member-login" className={FOOTER_LINK_CLASS}>
@@ -453,20 +485,16 @@ function SiteFooter() {
             Contact
           </Link>
         </FooterColumn>
-        {/* Phones: a 2x2 grid, Explore | Follow then Say hello | Get the
-            app (order-3/order-4 move these two after Follow), and "Email
-            us" in place of the address so it fits its column. */}
-        <FooterColumn heading="Say hello" className="order-3 md:order-none">
+        <FooterColumn heading="Say hello">
           <a href={`mailto:${CONTACT_EMAIL}`} className={cn(FOOTER_LINK_CLASS, "break-all")}>
-            <span className="md:hidden">Email us</span>
-            <span className="hidden md:inline">{CONTACT_EMAIL}</span>
+            {CONTACT_EMAIL}
           </a>
         </FooterColumn>
         <FooterColumn heading="Follow">
           <ExternalLinkItem link={EXTERNAL_LINKS.instagram} />
           <ExternalLinkItem link={EXTERNAL_LINKS.tiktok} />
         </FooterColumn>
-        <FooterColumn heading="Get the app" className="order-4 md:order-none">
+        <FooterColumn heading="Get the app">
           <ExternalLinkItem link={EXTERNAL_LINKS.appStore} />
           <ExternalLinkItem link={EXTERNAL_LINKS.googlePlay} />
         </FooterColumn>
@@ -498,13 +526,13 @@ function SiteFooter() {
       <div
         className={cn(
           SITE_CONTAINER_CLASS,
-          "flex flex-col gap-1 pt-7 pb-[calc(32px+env(safe-area-inset-bottom))] text-[13px] leading-normal text-site-muted md:flex-row md:items-baseline md:justify-between md:gap-x-10 md:text-sm",
+          "flex flex-row items-baseline justify-between gap-1 gap-x-6 pt-7 pb-[calc(32px+env(safe-area-inset-bottom))] text-[13px] leading-normal text-site-muted md:flex-row md:items-baseline md:justify-between md:gap-x-10 md:text-sm",
         )}
       >
         <p className="m-0">{legalLine(new Date().getFullYear())}</p>
         <Link
           href="/privacy"
-          className={cn("inline-flex min-h-11 shrink-0 items-center self-start text-site-muted no-underline hover:opacity-70 md:min-h-0", FOCUS_UNDERLINE_CLASS)}
+          className={cn("inline-flex min-h-11 shrink-0 items-center self-baseline text-site-muted no-underline hover:opacity-70 md:min-h-0 md:self-start", FOCUS_UNDERLINE_CLASS)}
         >
           Privacy
         </Link>

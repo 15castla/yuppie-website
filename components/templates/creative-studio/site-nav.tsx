@@ -8,7 +8,6 @@ import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } fro
 import { cn } from "@/lib/utils";
 import { isNativeAppCookie } from "@/lib/native-app";
 import { ArrowRightIcon, CloseIcon } from "@/components/site/icons";
-import { CONTACT_EMAIL } from "@/components/site/links";
 import {
   CURRENT_LINK_CLASS,
   FOCUS_UNDERLINE_CLASS,
@@ -331,7 +330,7 @@ function MobileMenu({
       role="dialog"
       aria-modal="true"
       aria-label="Menu"
-      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background pb-[env(safe-area-inset-bottom)] text-foreground md:hidden"
+      className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background text-foreground md:hidden"
     >
       <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-5 pt-[calc(14px+var(--safe-top))] pb-3.5">
         <button
@@ -372,33 +371,27 @@ function MobileMenu({
         ))}
       </nav>
 
-      {/* The three figures standing on a 3px rule, then the Apply button
-          and the email. On screens under 700px tall the drawing is left
-          out so it can't crowd the links and the button. */}
+      {/* The three figures (180px) standing on a 3px rule, at least 32px
+          below the links, then the Apply button 24px below the rule. The
+          menu is full screen behind Safari's floating toolbar, so the
+          button keeps the bottom safe area plus 56px under it. On screens
+          under 700px tall the drawing is left out so it can't crowd the
+          links and the button. */}
       <div className="mt-auto">
-        <div className="mx-5 flex justify-center border-b-[3px] border-foreground [@media(max-height:699.98px)]:hidden">
+        <div className="mx-5 flex justify-center border-b-[3px] border-foreground pt-8 [@media(max-height:699.98px)]:hidden">
           <Image
             src="/yuppie-group.svg"
             alt=""
-            width={200}
-            height={(200 * 615.375) / 463.5}
-            className="-mb-0.5 block h-auto w-[200px]"
+            width={180}
+            height={(180 * 615.375) / 463.5}
+            className="-mb-0.5 block h-auto w-[180px]"
           />
         </div>
-        <div className="flex flex-col gap-3.5 px-5 pt-5 pb-[34px]">
+        <div className="px-5 pt-6 pb-[calc(env(safe-area-inset-bottom)+56px)]">
           <Link href="/apply" onClick={onClose} className={cn(PRIMARY_BUTTON_CLASS, "w-full", FOCUS_UNDERLINE_CLASS)}>
             Apply for membership
             <ArrowRightIcon />
           </Link>
-          <a
-            href={`mailto:${CONTACT_EMAIL}`}
-            className={cn(
-              "inline-flex min-h-11 items-center justify-center self-center text-sm text-site-muted no-underline hover:text-foreground",
-              FOCUS_UNDERLINE_CLASS,
-            )}
-          >
-            {CONTACT_EMAIL}
-          </a>
         </div>
       </div>
     </div>
