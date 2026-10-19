@@ -99,15 +99,20 @@ function Hero() {
         <h1 className="m-0 px-5 pt-7 text-[60px] font-extrabold leading-[0.93] tracking-[-0.035em] [text-wrap:balance] md:col-start-1 md:row-start-1 md:px-0 md:pt-[clamp(48px,7vw,120px)] md:text-[clamp(56px,7vw,104px)] md:leading-[0.95] md:tracking-[-0.03em]">
           Your social life, <span className={HEADLINE_ACCENT_CLASS}>sorted.</span>
         </h1>
-        <div className="mt-5 flex justify-center border-b-[3px] border-foreground px-5 md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0 md:self-end md:border-b-0 md:px-0 md:pt-6">
+        {/* The SVG's viewBox is trimmed to its ink on the left, top and
+            right, so on desktop its right edge (the right-hand figure's
+            arm) lands on the container's right edge, in line with the
+            header's Apply pill. Max widths are the old 500px / 340px scaled
+            by 463.5/540 (the trimmed width), so the drawing keeps its size. */}
+        <div className="mt-5 flex justify-center border-b-[3px] border-foreground px-5 md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0 md:justify-end md:self-end md:border-b-0 md:px-0 md:pt-6">
           <Image
             src="/yuppie-group.svg"
             alt="Line drawing of three young yuppies out together: one on a brick phone, two clinking champagne coupes"
-            width={540}
-            height={620}
+            width={463.5}
+            height={615.375}
             loading="eager"
             fetchPriority="high"
-            className="-mb-0.5 block h-auto w-full max-w-[340px] md:max-w-[500px]"
+            className="-mb-0.5 block h-auto w-full max-w-[291.83px] md:max-w-[429.17px]"
           />
         </div>
         <div className="flex flex-col gap-5 px-5 pt-6 pb-2 md:col-start-1 md:row-start-2 md:gap-7 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
