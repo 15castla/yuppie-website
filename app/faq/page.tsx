@@ -1,31 +1,24 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Minus, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { almarai, instrumentSerif } from "@/components/templates/creative-studio/fonts";
+import { CONTACT_EMAIL } from "@/components/site/links";
 import {
-  almarai,
-  instrumentSerif,
-} from "@/components/templates/creative-studio/fonts";
-import { WordsPullUpMultiStyle } from "@/components/templates/creative-studio/primitives";
-
-// Same curve/pattern as Hero's entrance animation
-// (components/templates/creative-studio/hero.tsx), reused here so the
-// FAQ page's arrival reads as the same transition as the rest of the site.
-const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
-
-const HEADING_SEGMENTS = [
-  { text: "Got questions?" },
-  {
-    text: "We've got answers.",
-    className: "italic [font-family:var(--font-instrument-serif)]",
-  },
-];
+  PAGE_H1_CLASS,
+  HEADLINE_ACCENT_CLASS,
+  SITE_CONTAINER_CLASS,
+  SITE_FONT_STYLE,
+  SITE_MAIN_PADDING_CLASS,
+  SITE_PAGE_CLASS,
+  TEXT_LINK_CLASS,
+} from "@/components/site/ui";
 
 type FaqEntry = { question: string; answer: string };
 
+// Copy from the approved board (design-ref/boards/DFaq.dc.html).
 const FAQ_ITEMS: FaqEntry[] = [
   {
     question: "How does membership work? Can I cancel at any time?",
@@ -43,8 +36,7 @@ const FAQ_ITEMS: FaqEntry[] = [
       "No, your card details are saved securely with Stripe when you apply, but you're not charged anything. We only take payment once your application's approved, and you can cancel any time after that.",
   },
   {
-    question:
-      "Do I have to pay for events, or are they included in membership?",
+    question: "Do I have to pay for events, or are they included in membership?",
     answer:
       "Membership covers your discounts, access and entry to events. Most events do have their own cost on top, but we run them at cost, so you're only ever paying what it actually costs to put on, never a markup. We also run free members only events regularly.",
   },
@@ -60,110 +52,74 @@ const FAQ_ITEMS: FaqEntry[] = [
   },
 ];
 
-function FaqAccordionItem({ item }: { item: FaqEntry }) {
-  const [open, setOpen] = useState(false);
-  const reduce = useReducedMotion();
-
-  return (
-    <div className="rounded-2xl border border-foreground/10 bg-background-muted">
-      <button
-        type="button"
-        onClick={() => setOpen((prev) => !prev)}
-        aria-expanded={open}
-        className="flex w-full items-center justify-between gap-4 p-6 text-left sm:p-8"
-      >
-        <span className="text-sm font-bold text-foreground sm:text-base">
-          {item.question}
-        </span>
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-background">
-          {open ? (
-            <Minus className="h-4 w-4 text-foreground" />
-          ) : (
-            <Plus className="h-4 w-4 text-foreground" />
-          )}
-        </span>
-      </button>
-
-      <AnimatePresence initial={false}>
-        {open && (
-          <motion.div
-            initial={reduce ? false : { height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={reduce ? undefined : { height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <p className="px-6 pb-6 text-sm leading-relaxed text-foreground-muted sm:px-8 sm:pb-8 sm:text-base">
-              {item.answer}
-            </p>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
-}
-
+// One answer open at a time, the first to start with (as on the board).
 export default function FaqPage() {
+  const [openIndex, setOpenIndex] = useState<number | null>(0);
   const reduce = useReducedMotion();
-  const fade = (delay: number) => ({
-    initial: reduce ? false : { y: 20, opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
-  });
+  const idPrefix = useId();
 
   return (
-    <div
-      className={cn(
-        almarai.variable,
-        instrumentSerif.variable,
-        "flex flex-1 flex-col bg-background text-foreground antialiased",
-      )}
-      style={{
-        fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
-      }}
-    >
-      <section className="relative flex flex-1 flex-col overflow-hidden">
-        <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(7rem+var(--safe-top))] pb-20 sm:px-6 sm:pt-[calc(8rem+var(--safe-top))] sm:pb-28 md:pb-32">
-          <div className="flex w-full max-w-3xl flex-col items-center gap-3 text-center">
-            <motion.span
-              {...fade(0.15)}
-              className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim"
-            >
-              FAQ&apos;S
-            </motion.span>
+    <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
+      <main className={cn(SITE_CONTAINER_CLASS, SITE_MAIN_PADDING_CLASS)}>
+        <div className="flex max-w-[860px] flex-col gap-8 md:gap-[clamp(40px,5vw,64px)]">
+          <h1 className={cn(PAGE_H1_CLASS, "[text-wrap:balance]")}>
+            Got questions? <span className={HEADLINE_ACCENT_CLASS}>We&apos;ve got answers.</span>
+          </h1>
 
-            <motion.h1
-              {...fade(0.3)}
-              className="text-3xl leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl font-extrabold optical-trim"
-            >
-              <WordsPullUpMultiStyle segments={HEADING_SEGMENTS} />
-            </motion.h1>
-
-            <motion.p
-              {...fade(0.45)}
-              className="max-w-md text-sm text-foreground-muted sm:text-base"
-            >
-              Can&apos;t find what you&apos;re looking for?
-              <br />
-              Get in touch at{" "}
-              <a
-                href="mailto:hello@clubyuppie.com"
-                className="text-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
-              >
-                hello@clubyuppie.com
-              </a>
-            </motion.p>
+          <div className="border-t-[1.5px] border-foreground">
+            {FAQ_ITEMS.map((item, index) => {
+              const open = openIndex === index;
+              const answerId = `${idPrefix}-answer-${index}`;
+              return (
+                <div key={item.question} className="border-b-[1.5px] border-foreground">
+                  <h2 className="m-0">
+                    <button
+                      type="button"
+                      aria-expanded={open}
+                      aria-controls={answerId}
+                      onClick={() => setOpenIndex(open ? null : index)}
+                      className="flex min-h-16 w-full items-center justify-between gap-4 border-0 bg-transparent py-[18px] text-left text-foreground md:min-h-[72px] md:gap-6 md:py-[22px]"
+                    >
+                      <span className="text-[17px] font-bold leading-[1.3] md:text-[clamp(19px,1.8vw,22px)]">
+                        {item.question}
+                      </span>
+                      <span
+                        aria-hidden
+                        className="flex size-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-foreground text-lg font-bold leading-none md:size-9 md:text-xl"
+                      >
+                        {open ? "–" : "+"}
+                      </span>
+                    </button>
+                  </h2>
+                  <AnimatePresence initial={false}>
+                    {open && (
+                      <motion.div
+                        id={answerId}
+                        initial={reduce ? false : { height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={reduce ? undefined : { height: 0, opacity: 0 }}
+                        transition={{ duration: 0.25, ease: "easeInOut" }}
+                        className="overflow-hidden"
+                      >
+                        <p className="m-0 pb-[22px] text-base leading-[1.6] md:max-w-[700px] md:pr-[60px] md:pb-[26px] md:text-[17px]">
+                          {item.answer}
+                        </p>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              );
+            })}
           </div>
 
-          <div className="mt-12 flex w-full max-w-3xl flex-col gap-4">
-            {FAQ_ITEMS.map((item, index) => (
-              <motion.div key={item.question} {...fade(0.6 + index * 0.08)}>
-                <FaqAccordionItem item={item} />
-              </motion.div>
-            ))}
-          </div>
-        </main>
-      </section>
+          <p className="m-0 text-base leading-[1.55] md:text-[17px]">
+            Can&apos;t find what you&apos;re looking for? Get in touch at{" "}
+            <a href={`mailto:${CONTACT_EMAIL}`} className={TEXT_LINK_CLASS}>
+              {CONTACT_EMAIL}
+            </a>
+          </p>
+        </div>
+      </main>
     </div>
   );
 }

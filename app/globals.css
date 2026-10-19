@@ -7,6 +7,9 @@
   --foreground-muted: #6b6560;
   --accent: #ffd904;
   --cream: #f5f3e7;
+  /* The public website's muted text (option D design): the lightest text
+     colour allowed on the yellow, 5.6:1 there. */
+  --site-muted: #57514c;
   /* Top safe-area inset (notch/Dynamic Island) to add on top of a page's
      own top padding. On the web this is plain env() — 0 in a regular
      browser tab, where the page already starts below the status bar. The
@@ -23,6 +26,7 @@
   --color-foreground-muted: var(--foreground-muted);
   --color-accent: var(--accent);
   --color-cream: var(--cream);
+  --color-site-muted: var(--site-muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
@@ -141,4 +145,49 @@ body {
 
 .PhoneInputCountrySelect {
   cursor: pointer;
+}
+
+/* Inside the native app (html[data-native-app], set before the first paint
+   by app/layout.tsx's inline script): the website's header is never shown
+   (SiteNav also stops rendering it once hydrated), and the sign-in
+   watermark (components/SiteWatermark.tsx) is shown only there, behind
+   the app's own sign-in form. */
+html[data-native-app] [data-site-header] {
+  display: none !important;
+}
+
+html:not([data-native-app]) [data-site-watermark] {
+  display: none;
+}
+
+/* The phone field on /apply (option D design): react-phone-number-input's
+   country select as its own 50px box beside the number input, 8px apart,
+   with the site's 1.5px ink borders. Scoped to .site-phone so the members
+   profile editor's phone field (the unscoped .PhoneInput rules above)
+   doesn't change. */
+.site-phone .PhoneInput {
+  gap: 8px;
+}
+
+.site-phone .PhoneInput input {
+  border-top-left-radius: 0.75rem;
+  border-bottom-left-radius: 0.75rem;
+}
+
+.site-phone .PhoneInputCountry {
+  margin-right: 0;
+  min-height: 50px;
+  padding: 0 10px 0 12px;
+  border: 1.5px solid var(--foreground);
+  border-radius: 0.75rem;
+}
+
+.site-phone .PhoneInputCountry:has(:focus-visible) {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+.site-phone .PhoneInputCountrySelectArrow {
+  color: var(--foreground);
+  opacity: 1;
 }

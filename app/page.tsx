@@ -1,5 +1,5 @@
-import CreativeStudio from "@/components/templates/creative-studio/creative-studio";
+import { SiteHome } from "@/components/site/home";
 
 export default function Home() {
-  return <CreativeStudio />;
+  return <SiteHome />;
 }

@@ -11,9 +11,20 @@ import Link from "next/link";
 
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/Button";
 import { MessageSlot } from "@/components/StableLayout";
-import { PAGE_EYEBROW_CLASS, PAGE_TITLE_TOP_PADDING } from "@/components/page-header";
+import {
+  CARD_CLASS,
+  INPUT_CLASS,
+  LABEL_CLASS,
+  PAGE_H1_CLASS,
+  PRIMARY_BUTTON_CLASS,
+  HEADLINE_ACCENT_CLASS,
+  SITE_CONTAINER_CLASS,
+  SITE_FONT_STYLE,
+  SITE_MAIN_PADDING_CLASS,
+  SITE_PAGE_CLASS,
+  TEXT_LINK_CLASS,
+} from "@/components/site/ui";
 import { useKeyboardReveal } from "./use-keyboard-reveal";
 import {
   almarai,
@@ -36,14 +47,6 @@ const VERIFY_CODE_ERRORS = {
 
 const EMAIL_STEP_HELPER = "Enter your email and we'll send you a one-time code.";
 
-const inputClasses =
-  "w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
-
-// Same curve/pattern as Hero's entrance animation
-// (components/templates/creative-studio/hero.tsx), reused here so
-// member-login's arrival reads as the same transition as the homepage.
-const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
-
 // The submit button's label crossfade (Send login code -> Sending… ->
 // Verify code).
 const LABEL_FADE_MS = 180;
@@ -51,12 +54,6 @@ const LABEL_FADE_MS = 180;
 export function MemberLoginForm() {
   const router = useRouter();
   const reduce = useReducedMotion();
-
-  const fade = (delay: number) => ({
-    initial: reduce ? false : { y: 20, opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
-  });
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
@@ -174,90 +171,72 @@ export function MemberLoginForm() {
 
   const codeStepHelper = `We sent a 6-digit code to ${email}.`;
   const errorId = useId();
+  const inputId = useId();
 
   return (
     <div
-      className={cn(
-        almarai.variable,
-        instrumentSerif.variable,
-        "flex min-h-dvh flex-1 flex-col bg-background text-foreground antialiased",
-      )}
-      style={{
-        fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
-      }}
+      className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS, "min-h-dvh")}
+      style={SITE_FONT_STYLE}
     >
       <section className="relative flex flex-1 flex-col">
-        {/* The title starts where /apply's and /faq's do, below the
-            public SiteNav. */}
         <main
           className={cn(
-            "relative z-10 flex flex-1 flex-col items-center px-4 pb-20 sm:px-6 sm:pb-28 md:pb-32",
-            PAGE_TITLE_TOP_PADDING,
+            SITE_CONTAINER_CLASS,
+            SITE_MAIN_PADDING_CLASS,
+            "flex flex-1 flex-col items-center gap-5 text-center md:gap-6",
           )}
         >
-          <motion.span
-            {...fade(0.2)}
-            className={PAGE_EYEBROW_CLASS}
-          >
-            Members Area
-          </motion.span>
-
           {/* Static across both steps; only the helper text below and the
               card's contents change when a code is sent. */}
-          <motion.h1
-            {...fade(0.3)}
-            className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
-          >
+          <h1 className={PAGE_H1_CLASS}>
             Welcome back.
             <br />
-            <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
-              Let&apos;s see what&apos;s on.
-            </em>
-          </motion.h1>
+            <span className={HEADLINE_ACCENT_CLASS}>Let&apos;s see what&apos;s on.</span>
+          </h1>
           {/* Purely instructional, never an error. Both steps' lines are
               stacked in one grid cell so swapping them at the step change
               can't move the card below. The code-step line includes the
               typed email, so it's only reserved once on that step (typing a
               long email can't shift the page). Polite live region, so the
               step change ("We sent a 6-digit code to…") is announced. */}
-          <motion.div
-            {...fade(0.45)}
+          <div
             aria-live="polite"
-            className="mx-auto mt-3 grid w-full max-w-sm text-center text-sm text-foreground-muted sm:text-base"
+            className="m-0 grid w-full max-w-[560px] text-[17px] leading-normal md:text-[19px]"
           >
-            <p aria-hidden className="invisible [grid-area:1/1]">
+            <p aria-hidden className="invisible m-0 [grid-area:1/1]">
               {EMAIL_STEP_HELPER}
             </p>
             {step === "code" && (
-              <p aria-hidden className="invisible [grid-area:1/1]">
+              <p aria-hidden className="invisible m-0 [grid-area:1/1]">
                 {codeStepHelper}
               </p>
             )}
-            <p className="[grid-area:1/1]">
+            <p className="m-0 break-words [grid-area:1/1]">
               {step === "email" ? EMAIL_STEP_HELPER : codeStepHelper}
             </p>
-          </motion.div>
+          </div>
 
-          <motion.div
-            {...fade(0.6)}
-            className="mt-12 w-full max-w-sm rounded-2xl border border-foreground/10 bg-background-muted p-8 shadow-[0_24px_48px_-28px_rgba(27,21,18,0.45)]"
-          >
+          <div className={cn(CARD_CLASS, "mt-3 mr-1.5 w-full self-stretch text-left md:mt-4 md:mr-0 md:max-w-[440px] md:self-center")}>
             {/* A single form, input and button for both steps, so they're
-                literally the same boxes: only their content changes. h-14
-                pins the input at exactly 56px whatever the text styling
-                inside it (the code step's larger, letter-spaced digits). */}
+                literally the same boxes: only their content changes (the
+                label too, in the same row). h-[50px] pins the input at
+                exactly 50px whatever the text styling inside it (the code
+                step's larger, letter-spaced digits). */}
             <form
               onSubmit={isEmailStep ? handleSendCode : handleVerifyCode}
               noValidate
               className="flex flex-col"
             >
+              <label htmlFor={inputId} className={cn(LABEL_CLASS, "mb-2")}>
+                {isEmailStep ? "Email address" : "6-digit code"}
+              </label>
               <input
                 ref={inputRef}
+                id={inputId}
                 type={isEmailStep ? "email" : "text"}
                 inputMode={isEmailStep ? "email" : "numeric"}
                 autoComplete={isEmailStep ? "email" : "one-time-code"}
                 maxLength={isEmailStep ? undefined : 6}
-                aria-label={isEmailStep ? "Email address" : "6-digit code"}
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
                 value={isEmailStep ? email : code}
@@ -268,29 +247,33 @@ export function MemberLoginForm() {
                 }
                 placeholder={isEmailStep ? "you@example.com" : "123456"}
                 className={cn(
-                  inputClasses,
-                  "h-14",
+                  INPUT_CLASS,
+                  "h-[50px]",
                   !isEmailStep && "text-center text-lg tracking-[0.5em]",
-                  // Important, to win over the base and focus border colors
-                  // (cn is a plain join, not a Tailwind conflict merge).
+                  // Important, to win over the base border colour (cn is a
+                  // plain join, not a Tailwind conflict merge).
                   error && "border-[#B3261E]!",
                 )}
               />
 
               {/* No reserved space: with no error the button sits the usual
-                  12px below the input. An error mounts under the input and
+                  gap below the input. An error mounts under the input and
                   grows in (see MessageSlot). */}
               <MessageSlot
                 id={errorId}
-                className="text-center text-[13px] leading-[1.35] text-[#B3261E]"
+                className="text-center text-sm leading-[1.35] text-[#B3261E]"
               >
-                {error && <p>{error}</p>}
+                {error && <p className="m-0">{error}</p>}
               </MessageSlot>
 
               {/* The label crossfades in place (Send login code -> Sending…
                   -> Verify code); stacking old and new in one grid cell keeps
                   the button's size independent of either label. */}
-              <Button type="submit" disabled={submitting} className="mt-3 w-full">
+              <button
+                type="submit"
+                disabled={submitting}
+                className={cn(PRIMARY_BUTTON_CLASS, "mt-4 w-full md:mt-[18px]")}
+              >
                 <span className="grid">
                   <AnimatePresence initial={false}>
                     <motion.span
@@ -305,15 +288,12 @@ export function MemberLoginForm() {
                     </motion.span>
                   </AnimatePresence>
                 </span>
-              </Button>
+              </button>
 
-              {/* Code step only. It used to stay rendered (transparent and
-                  inert) on the email step to hold its row, which left the
-                  email step's card 32px heavier at the bottom than the top.
-                  Now it mounts on the code step and grows in like a
-                  message (.message-grow-in), 12px below the button. */}
+              {/* Code step only: mounts on the code step and grows in like
+                  a message (.message-grow-in), below the button. */}
               {!isEmailStep && (
-                <div className="message-grow-in [--message-gap-to:12px]">
+                <div className="message-grow-in [--message-gap-to:8px]">
                   <div>
                     <button
                       type="button"
@@ -322,7 +302,7 @@ export function MemberLoginForm() {
                         setCode("");
                         setError(null);
                       }}
-                      className="block w-full text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
+                      className="block min-h-11 w-full border-0 bg-transparent text-sm font-bold text-site-muted underline-offset-2 outline-none hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
                     >
                       Use a different email
                     </button>
@@ -330,17 +310,20 @@ export function MemberLoginForm() {
                 </div>
               )}
             </form>
-          </motion.div>
+          </div>
 
-          <p className="mt-6 text-center text-sm text-foreground-muted">
+          <p className="m-0 mt-2 text-[15px]">
             New to Yuppie?{" "}
-            <Link
-              href="/apply"
-              className="font-bold text-foreground underline underline-offset-2"
-            >
+            <Link href="/apply" className={TEXT_LINK_CLASS}>
               Apply for membership
             </Link>
           </p>
+          <Link
+            href="/privacy"
+            className="-mt-3 inline-flex min-h-11 items-center text-sm text-site-muted underline underline-offset-2 hover:text-foreground"
+          >
+            Privacy policy
+          </Link>
         </main>
         {/* Extra scroll room while the keyboard covers part of the screen;
             0px otherwise. Sized by useKeyboardReveal. */}

@@ -3,6 +3,14 @@ import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
+import {
+  PAGE_H1_CLASS,
+  SITE_CONTAINER_CLASS,
+  SITE_FONT_STYLE,
+  SITE_MAIN_PADDING_CLASS,
+  SITE_PAGE_CLASS,
+  TEXT_LINK_CLASS,
+} from "@/components/site/ui";
 type PolicySection = { heading: string; paragraphs: string[] };
 
 const POLICY_SECTIONS: PolicySection[] = [
@@ -66,7 +74,7 @@ function renderWithEmailLink(text: string) {
       <a
         key={`email-${index}`}
         href={`mailto:${CONTACT_EMAIL}`}
-        className="text-foreground/70 underline-offset-2 transition-colors hover:text-foreground hover:underline"
+        className={TEXT_LINK_CLASS}
       >
         {CONTACT_EMAIL}
       </a>,
@@ -81,33 +89,16 @@ export default function PrivacyPage() {
     year: "numeric",
   });
 
+  // The wording above and below is the live policy, unchanged; only the
+  // styling follows the option D design (design-ref/boards/DPrivacy).
   return (
-    <div
-      className={cn(
-        almarai.variable,
-        instrumentSerif.variable,
-        "flex flex-1 flex-col bg-background text-foreground antialiased",
-      )}
-      style={{
-        fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
-      }}
-    >
-      <section className="relative flex flex-1 flex-col overflow-hidden">
-        <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(7rem+var(--safe-top))] pb-20 sm:px-6 sm:pt-[calc(8rem+var(--safe-top))] sm:pb-28 md:pb-32">
-          <div className="flex w-full max-w-3xl flex-col items-center gap-3 text-center">
-            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim">
-              PRIVACY POLICY
-            </span>
-
-            <h1 className="text-3xl leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl font-extrabold optical-trim">
-              Yuppie Privacy Policy
-            </h1>
-
-            <p className="text-sm text-foreground-muted sm:text-base">
-              Last updated: {lastUpdated}
-            </p>
-
-            <p className="max-w-2xl text-sm text-foreground-muted sm:text-base">
+    <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
+      <main className={cn(SITE_CONTAINER_CLASS, SITE_MAIN_PADDING_CLASS)}>
+        <article className="flex max-w-[760px] flex-col gap-8 md:gap-10">
+          <div className="flex flex-col gap-4 md:gap-5">
+            <h1 className={PAGE_H1_CLASS}>Yuppie Privacy Policy</h1>
+            <p className="m-0 text-sm text-site-muted md:text-[15px]">Last updated: {lastUpdated}</p>
+            <p className="m-0 text-base leading-[1.6] md:text-lg">
               This policy explains what personal data Yuppie (&quot;we&quot;,
               &quot;us&quot;) collects through clubyuppie.com and the Yuppie
               app, why, and what rights you have over it. Yuppie is operated
@@ -116,30 +107,21 @@ export default function PrivacyPage() {
             </p>
           </div>
 
-          <div className="mt-12 flex w-full max-w-3xl flex-col gap-4">
-            {POLICY_SECTIONS.map((section) => (
-              <div
-                key={section.heading}
-                className="rounded-2xl border border-foreground/10 bg-background-muted p-6 sm:p-8"
-              >
-                <h2 className="text-sm font-bold text-foreground sm:text-base">
-                  {section.heading}
-                </h2>
-                <div className="mt-3 flex flex-col gap-3">
-                  {section.paragraphs.map((paragraph, index) => (
-                    <p
-                      key={index}
-                      className="text-sm leading-relaxed text-foreground-muted sm:text-base"
-                    >
-                      {renderWithEmailLink(paragraph)}
-                    </p>
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        </main>
-      </section>
+          {POLICY_SECTIONS.map((section) => (
+            <section
+              key={section.heading}
+              className="flex flex-col gap-3 border-t-[1.5px] border-foreground pt-5 md:gap-3.5 md:pt-6"
+            >
+              <h2 className="m-0 text-xl font-extrabold tracking-[-0.01em] md:text-2xl">{section.heading}</h2>
+              {section.paragraphs.map((paragraph, index) => (
+                <p key={index} className="m-0 text-base leading-[1.65] md:text-[17px]">
+                  {renderWithEmailLink(paragraph)}
+                </p>
+              ))}
+            </section>
+          ))}
+        </article>
+      </main>
     </div>
   );
 }

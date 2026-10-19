@@ -9,7 +9,14 @@ import Image from "next/image";
 // on an ancestor becomes the containing block for position: fixed
 // descendants, which briefly misplaces anything fixed inside it during
 // the page-transition animation.
-const WATERMARK_ROUTES = ["/apply", "/faq", "/member-login"];
+//
+// Only the native app's sign-in screen (member-login-form-native.tsx)
+// shows it now: the website's pages dropped it in the option D redesign.
+// Both share the /member-login route, so it's always rendered there and
+// globals.css hides it unless <html data-native-app> is set (before the
+// first paint, by app/layout.tsx), so neither side flashes the other's
+// look on load.
+const WATERMARK_ROUTES = ["/member-login"];
 
 export function SiteWatermark() {
   const pathname = usePathname();
@@ -21,6 +28,7 @@ export function SiteWatermark() {
   return (
     <div
       aria-hidden
+      data-site-watermark
       className="pointer-events-none fixed inset-x-0 bottom-0 select-none"
     >
       <Image

@@ -1,65 +1,74 @@
 import { cn } from "@/lib/utils";
+import { almarai, instrumentSerif } from "@/components/templates/creative-studio/fonts";
+import { BrickPhoneDrawing } from "@/components/site/icons";
+import { CONTACT_EMAIL } from "@/components/site/links";
 import {
-  almarai,
-  instrumentSerif,
-} from "@/components/templates/creative-studio/fonts";
+  PAGE_H1_CLASS,
+  HEADLINE_ACCENT_CLASS,
+  SITE_CONTAINER_CLASS,
+  SITE_FONT_STYLE,
+  SITE_MAIN_PADDING_CLASS,
+  SITE_PAGE_CLASS,
+} from "@/components/site/ui";
+
+const ROW_CLASS =
+  "flex flex-col gap-2 border-b-[1.5px] border-foreground py-[22px] md:flex-row md:flex-wrap md:items-baseline md:gap-x-8 md:py-7";
+const TERM_CLASS =
+  "text-xs font-bold uppercase tracking-[0.18em] text-site-muted md:flex-[0_0_120px] md:text-[13px]";
+
 export default function ContactPage() {
   return (
-    <div
-      className={cn(
-        almarai.variable,
-        instrumentSerif.variable,
-        "flex flex-1 flex-col bg-background text-foreground antialiased",
-      )}
-      style={{
-        fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
-      }}
-    >
-      <section className="relative flex flex-1 flex-col overflow-hidden">
-        <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(7rem+var(--safe-top))] pb-20 sm:px-6 sm:pt-[calc(8rem+var(--safe-top))] sm:pb-28 md:pb-32">
-          <div className="flex w-full max-w-md flex-col items-center gap-3 text-center">
-            <span className="text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim">
-              CONTACT
-            </span>
-
-            <h1 className="text-3xl leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl font-extrabold optical-trim">
-              Get in touch.
+    <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
+      <main
+        className={cn(
+          SITE_CONTAINER_CLASS,
+          SITE_MAIN_PADDING_CLASS,
+          "flex flex-col gap-8 md:flex-row md:flex-wrap md:items-center md:justify-between md:gap-x-20 md:gap-y-12",
+        )}
+      >
+        <div className="flex min-w-0 flex-col gap-8 md:flex-[1_1_560px] md:gap-[clamp(36px,4vw,56px)]">
+          {/* On mobile the phone sits beside the heading; on desktop it's on
+              the right of the whole block. */}
+          <div className="flex items-start justify-between gap-3">
+            <h1 className={PAGE_H1_CLASS}>
+              Get in <span className={HEADLINE_ACCENT_CLASS}>touch.</span>
             </h1>
-
-            <p className="max-w-sm text-sm text-foreground-muted sm:text-base">
-              Questions about membership, events, or anything else, drop us
-              an email and we&apos;ll get back to you.
-            </p>
+            <BrickPhoneDrawing
+              size={96}
+              strokeWidth={3.5}
+              label="Line drawing of an 80s brick phone"
+              className="block shrink-0 rotate-[14deg] md:hidden"
+            />
           </div>
-
-          <div className="mt-12 flex w-full max-w-md flex-col gap-4">
-            <div className="rounded-2xl border border-foreground/10 bg-background-muted p-6 sm:p-8">
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground-muted">
-                Email
-              </h2>
-              <a
-                href="mailto:hello@clubyuppie.com"
-                className="mt-2 inline-block text-sm font-bold text-foreground underline-offset-2 transition-colors hover:underline sm:text-base"
-              >
-                hello@clubyuppie.com
-              </a>
+          <dl className="m-0 border-t-[1.5px] border-foreground md:max-w-[620px]">
+            <div className={ROW_CLASS}>
+              <dt className={TERM_CLASS}>Email</dt>
+              <dd className="m-0 text-2xl font-extrabold tracking-[-0.015em] md:text-[clamp(24px,2.4vw,32px)]">
+                <a
+                  href={`mailto:${CONTACT_EMAIL}`}
+                  className="inline-flex min-h-11 items-center break-all no-underline hover:opacity-70"
+                >
+                  {CONTACT_EMAIL}
+                </a>
+              </dd>
             </div>
-
-            <div className="rounded-2xl border border-foreground/10 bg-background-muted p-6 sm:p-8">
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.2em] text-foreground-muted">
-                Registered address
-              </h2>
-              <p className="mt-2 text-sm leading-relaxed text-foreground sm:text-base">
+            <div className={ROW_CLASS}>
+              <dt className={TERM_CLASS}>Address</dt>
+              <dd className="m-0 text-lg leading-[1.45] md:text-xl">
                 Club Yuppie
-                <br />
-                1 Westmoreland Mansions
+                <br />1 Westmoreland Mansions
                 <br />
                 Westminster, London W1G 8TN
-              </p>
+              </dd>
             </div>
-          </div>
-        </main>
-      </section>
+          </dl>
+        </div>
+        <BrickPhoneDrawing
+          size={180}
+          label="Line drawing of an 80s brick phone"
+          className="mx-auto hidden shrink-0 rotate-[14deg] md:block"
+        />
+      </main>
     </div>
   );
 }

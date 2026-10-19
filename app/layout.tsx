@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteWatermark } from "@/components/SiteWatermark";
 import { SiteNav } from "@/components/templates/creative-studio/site-nav";
+import { NATIVE_APP_COOKIE_NAME } from "@/lib/native-app";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -71,11 +72,21 @@ export const viewport: Viewport = {
   colorScheme: "light",
 };
 
+// Marks <html data-native-app> inside the native app before the first
+// paint, from the is-native-app cookie proxy.ts sets on every response
+// (the same check as lib/native-app.ts's isNativeAppCookie). globals.css
+// uses it to hide the website's header, which is server-rendered so the
+// website doesn't jump when it hydrates, and to keep the sign-in
+// watermark to the app. React never renders this attribute, hence
+// suppressHydrationWarning on <html>.
+const NATIVE_APP_MARKER_SCRIPT = `if(document.cookie.split(";").some(function(c){return c.trim()===${JSON.stringify(`${NATIVE_APP_COOKIE_NAME}=1`)}}))document.documentElement.setAttribute("data-native-app","")`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      suppressHydrationWarning
     >
       <head>
         {/* Duplicates globals.css's `html { background: var(--background) }`
@@ -87,6 +98,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             the real background, and won't re-sample until the next trigger
             (scroll, reload). Keep this in sync with --background above. */}
         <style>{`html{background:#ffd904}`}</style>
+        <script dangerouslySetInnerHTML={{ __html: NATIVE_APP_MARKER_SCRIPT }} />
       </head>
       <body className="relative min-h-full flex flex-col bg-background text-foreground">
         <SiteWatermark />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { forwardRef, useEffect, useState, type ComponentProps, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { loadStripe } from "@stripe/stripe-js";
@@ -12,15 +12,27 @@ import {
 } from "@stripe/react-stripe-js";
 import PhoneInput, { isValidPhoneNumber } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
-import { motion, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/Button";
-import { PhoneNumberField } from "@/components/PhoneNumberField";
 import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
+import { StepList } from "@/components/site/step-list";
+import { LockIcon } from "@/components/site/icons";
+import {
+  CARD_CLASS,
+  INPUT_CLASS,
+  LABEL_CLASS,
+  PAGE_H1_CLASS,
+  PRIMARY_BUTTON_CLASS,
+  HEADLINE_ACCENT_CLASS,
+  SITE_CONTAINER_CLASS,
+  SITE_FONT_STYLE,
+  SITE_MAIN_PADDING_CLASS,
+  SITE_PAGE_CLASS,
+  TEXT_LINK_CLASS,
+} from "@/components/site/ui";
 import { STRIPE_APPEARANCE, getStripeErrorMessage } from "@/lib/stripe-ui";
 import { submitApplication } from "./actions";
 
@@ -37,14 +49,37 @@ const stripePromise = loadStripe(
 
 const FALLBACK_ERROR = "Something went wrong saving your card. Please try again.";
 
-const inputClasses =
-  "w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
+// The shared Stripe look (lib/stripe-ui.ts, also used by the members'
+// event payment form) with this page's 1.5px ink borders and 14px bold
+// labels.
+const APPLY_STRIPE_APPEARANCE = {
+  ...STRIPE_APPEARANCE,
+  rules: {
+    ...STRIPE_APPEARANCE.rules,
+    ".Input": {
+      border: "1.5px solid #1b1512",
+      padding: "14px 16px",
+    },
+    ".Input:focus": {
+      border: "1.5px solid #1b1512",
+      boxShadow: "0 0 0 2px #1b1512",
+    },
+    ".Label": {
+      fontSize: "14px",
+      fontWeight: "700",
+      color: "#1b1512",
+    },
+  },
+};
 
-const labelClasses =
-  "text-left text-xs font-semibold uppercase tracking-wider text-foreground/60";
+// The phone number's own input, in this page's field style. (The shared
+// components/PhoneNumberField.tsx keeps the members profile editor's.)
+const ApplyPhoneNumberField = forwardRef<HTMLInputElement, ComponentProps<"input">>(
+  (props, ref) => <input {...props} ref={ref} className={INPUT_CLASS} />,
+);
+ApplyPhoneNumberField.displayName = "ApplyPhoneNumberField";
 
-const fieldHover = { scale: 1.02 };
-const fieldTransition = { type: "spring" as const, stiffness: 400, damping: 25 };
+const FIELD_CLASS = "flex min-w-0 flex-col gap-2";
 
 const REQUIRED_FIELDS: { name: string; label: string }[] = [
   { name: "full_name", label: "Full name" },
@@ -56,11 +91,7 @@ const REQUIRED_FIELDS: { name: string; label: string }[] = [
   { name: "linkedin_url", label: "LinkedIn URL" },
 ];
 
-const CARD_SHADOW = "0 25px 50px -12px rgba(0,0,0,0.15)";
-const CARD_SHADOW_HOVER =
-  "0 25px 50px -12px rgba(0,0,0,0.15), 0 0 45px 8px rgba(255,217,4,0.45)";
-
-const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
+const APPLY_STEPS = ["Apply", "Committee reviews", "Get a text when you're approved"];
 
 // Bridges the gap when confirmSetup ends up doing a full browser redirect
 // (Apple Pay, some 3D Secure checks) instead of resolving in place: the
@@ -88,7 +119,6 @@ function clearRedirectReturnState() {
 function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
   const stripe = useStripe();
   const elements = useElements();
-  const reduce = useReducedMotion();
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<{
@@ -330,172 +360,111 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
   }
 
   return (
-    <motion.div
-      initial={reduce ? false : { opacity: 0, y: 20, boxShadow: CARD_SHADOW }}
-      animate={{ opacity: 1, y: 0, boxShadow: CARD_SHADOW }}
-      whileHover={{
-        boxShadow: CARD_SHADOW_HOVER,
-        transition: { duration: 0.3 },
-      }}
-      transition={{ duration: 0.6, delay: 0.6, ease: "easeOut" }}
-      className="mt-12 w-full max-w-md rounded-2xl border border-foreground/10 bg-background-muted p-8 sm:p-12"
-    >
-      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-7">
-        <div className="flex flex-col gap-2.5">
-          <label htmlFor="full_name" className={labelClasses}>
-            Full name
-          </label>
-          <motion.input
-            id="full_name"
-            name="full_name"
-            type="text"
-            placeholder="e.g. Marcus Smith"
-            whileHover={fieldHover}
-            transition={fieldTransition}
-            className={inputClasses}
-          />
+    <div className={CARD_CLASS}>
+      <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[18px] md:gap-[22px]">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))] gap-x-5 gap-y-[18px]">
+          <div className={FIELD_CLASS}>
+            <label htmlFor="full_name" className={LABEL_CLASS}>
+              Full name
+            </label>
+            <input id="full_name" name="full_name" type="text" placeholder="e.g. Marcus Smith" className={INPUT_CLASS} />
+          </div>
+          <div className={FIELD_CLASS}>
+            <label htmlFor="email" className={LABEL_CLASS}>
+              Email
+            </label>
+            <input id="email" name="email" type="email" placeholder="e.g. marcus@example.com" className={INPUT_CLASS} />
+          </div>
+          <div className={cn(FIELD_CLASS, "site-phone")}>
+            <label htmlFor="phone" className={LABEL_CLASS}>
+              Phone
+            </label>
+            <PhoneInput
+              id="phone"
+              name="phone"
+              placeholder="e.g. 07123 456789"
+              value={phone}
+              onChange={setPhone}
+              defaultCountry="GB"
+              international
+              inputComponent={ApplyPhoneNumberField}
+            />
+          </div>
+          <div className={FIELD_CLASS}>
+            <label htmlFor="instagram_username" className={LABEL_CLASS}>
+              Instagram username
+            </label>
+            <input id="instagram_username" name="instagram_username" type="text" placeholder="@yourhandle" className={INPUT_CLASS} />
+          </div>
+          <div className={FIELD_CLASS}>
+            <label htmlFor="employer" className={LABEL_CLASS}>
+              Employer
+            </label>
+            <input id="employer" name="employer" type="text" placeholder="e.g. ABC LLP" className={INPUT_CLASS} />
+          </div>
+          <div className={FIELD_CLASS}>
+            <label htmlFor="role_title" className={LABEL_CLASS}>
+              Role / job title
+            </label>
+            <input id="role_title" name="role_title" type="text" placeholder="e.g. Associate" className={INPUT_CLASS} />
+          </div>
         </div>
 
-        <div className="flex flex-col gap-2.5">
-          <label htmlFor="email" className={labelClasses}>
-            Email
-          </label>
-          <motion.input
-            id="email"
-            name="email"
-            type="email"
-            placeholder="e.g. marcus@example.com"
-            whileHover={fieldHover}
-            transition={fieldTransition}
-            className={inputClasses}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2.5">
-          <label htmlFor="phone" className={labelClasses}>
-            Phone
-          </label>
-          <PhoneInput
-            id="phone"
-            name="phone"
-            placeholder="e.g. 07123 456789"
-            value={phone}
-            onChange={setPhone}
-            defaultCountry="GB"
-            international
-            inputComponent={PhoneNumberField}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2.5">
-          <label htmlFor="instagram_username" className={labelClasses}>
-            Instagram username
-          </label>
-          <motion.input
-            id="instagram_username"
-            name="instagram_username"
-            type="text"
-            placeholder="@yourhandle"
-            whileHover={fieldHover}
-            transition={fieldTransition}
-            className={inputClasses}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2.5">
-          <label htmlFor="employer" className={labelClasses}>
-            Employer
-          </label>
-          <motion.input
-            id="employer"
-            name="employer"
-            type="text"
-            placeholder="e.g. ABC LLP"
-            whileHover={fieldHover}
-            transition={fieldTransition}
-            className={inputClasses}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2.5">
-          <label htmlFor="role_title" className={labelClasses}>
-            Role / job title
-          </label>
-          <motion.input
-            id="role_title"
-            name="role_title"
-            type="text"
-            placeholder="e.g. Associate"
-            whileHover={fieldHover}
-            transition={fieldTransition}
-            className={inputClasses}
-          />
-        </div>
-
-        <div className="flex flex-col gap-2.5">
-          <label htmlFor="linkedin_url" className={labelClasses}>
+        <div className={FIELD_CLASS}>
+          <label htmlFor="linkedin_url" className={LABEL_CLASS}>
             LinkedIn URL
           </label>
-          <motion.input
-            id="linkedin_url"
-            name="linkedin_url"
-            type="url"
-            placeholder="https://linkedin.com/in/yourname"
-            whileHover={fieldHover}
-            transition={fieldTransition}
-            className={inputClasses}
-          />
+          <input id="linkedin_url" name="linkedin_url" type="url" placeholder="https://linkedin.com/in/yourname" className={INPUT_CLASS} />
         </div>
 
-        <div className="flex flex-col gap-2.5">
-          <span className={labelClasses}>Payment details</span>
-          <p className="-mt-1.5 text-xs text-foreground/60">
+        <div className="flex flex-col gap-2 pt-1 md:pt-1.5">
+          <span className={cn(LABEL_CLASS, "inline-flex items-center gap-2")}>
+            <LockIcon />
+            Payment details
+          </span>
+          <p className="m-0 text-sm leading-[1.45] text-site-muted">
             You won&apos;t be charged until your application is approved.
           </p>
-          <PaymentElement
-            options={{
-              layout: { type: "accordion", defaultCollapsed: true },
-              wallets: { applePay: "auto", googlePay: "auto" },
-              fields: {
-                billingDetails: {
-                  address: { country: "never", postalCode: "auto" },
+          <div className="mt-1">
+            <PaymentElement
+              options={{
+                layout: { type: "accordion", defaultCollapsed: true },
+                wallets: { applePay: "auto", googlePay: "auto" },
+                fields: {
+                  billingDetails: {
+                    address: { country: "never", postalCode: "auto" },
+                  },
                 },
-              },
-            }}
-          />
+              }}
+            />
+          </div>
         </div>
 
         {error && (
           <p
-            className={
-              error.isDuplicate
-                ? "text-sm font-medium text-foreground/70"
-                : "text-sm font-medium text-red-700"
-            }
+            role="alert"
+            className={cn(
+              "m-0 text-sm font-bold",
+              error.isDuplicate ? "text-foreground" : "text-red-700",
+            )}
           >
             {error.message}
           </p>
         )}
 
-        <Button
-          type="submit"
-          disabled={submitting}
-          className="mt-2 disabled:transition-none"
-        >
+        <button type="submit" disabled={submitting} className={cn(PRIMARY_BUTTON_CLASS, "w-full")}>
           {submitting ? "Submitting…" : "Submit application"}
-        </Button>
+        </button>
 
-        <p className="-mt-4 text-center text-xs text-foreground-muted">
+        <p className="m-0 text-center text-[13px]">
           By applying, you agree to our{" "}
-          <Link
-            href="/privacy"
-            className="font-bold text-foreground underline underline-offset-2"
-          >
+          <Link href="/privacy" className={TEXT_LINK_CLASS}>
             Privacy Policy
           </Link>
+          .
         </p>
 
-        <p className="text-center text-xs leading-relaxed text-foreground-muted">
+        <p className="m-0 text-[13px] leading-[1.55] text-site-muted">
           We ask for your Instagram, employer and LinkedIn so our
           membership committee can review your application properly. Your
           card is saved securely with Stripe and isn&apos;t charged now,
@@ -505,7 +474,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           us.
         </p>
       </form>
-    </motion.div>
+    </div>
   );
 }
 
@@ -516,132 +485,78 @@ export default function ApplyForm({
   clientSecret: string | null;
   setupError: string | null;
 }) {
-  const reduce = useReducedMotion();
-  const fade = (delay: number) => ({
-    initial: reduce ? false : { y: 20, opacity: 0 },
-    animate: { y: 0, opacity: 1 },
-    transition: { duration: 0.8, delay, ease: EASE_OUT_EXPO },
-  });
-
   const [submitted, setSubmitted] = useState(false);
 
-  const heading =
-    "text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim";
-  const eyebrow =
-    "text-[10px] font-bold uppercase tracking-[0.24em] text-foreground sm:text-xs optical-trim";
-
   return (
-    <div
-      className={cn(
-        almarai.variable,
-        instrumentSerif.variable,
-        "flex flex-1 flex-col bg-background text-foreground antialiased",
-      )}
-      style={{
-        fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
-      }}
-    >
-      <section className="relative flex flex-1 flex-col overflow-hidden">
-        {submitted ? (
-          <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-24 text-center sm:px-6">
-            <motion.span {...fade(0.15)} className={eyebrow}>
-              Membership
-            </motion.span>
+    <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
+      {submitted ? (
+        <main className={cn(SITE_CONTAINER_CLASS, SITE_MAIN_PADDING_CLASS, "flex flex-col gap-5 md:gap-7")}>
+          <h1 className={PAGE_H1_CLASS}>
+            Thanks for applying.{" "}
+            <span className={HEADLINE_ACCENT_CLASS}>We&apos;ll be in touch.</span>
+          </h1>
+          <p className="m-0 max-w-[560px] text-[17px] leading-normal md:text-[19px]">
+            Your application is with our membership committee now. If
+            you&apos;re approved, you&apos;ll get a text from Yuppie
+            letting you know.
+          </p>
+          <div>
+            <Link href="/" className={cn(PRIMARY_BUTTON_CLASS, "w-full md:w-auto")}>
+              Back to home
+            </Link>
+          </div>
+        </main>
+      ) : (
+        <main
+          className={cn(
+            SITE_CONTAINER_CLASS,
+            SITE_MAIN_PADDING_CLASS,
+            "flex flex-col gap-[22px] md:flex-row md:flex-wrap md:items-start md:gap-x-20 md:gap-y-14",
+          )}
+        >
+          <div className="flex min-w-0 flex-col gap-[22px] md:flex-[1_1_420px] md:gap-7">
+            <h1 className={cn(PAGE_H1_CLASS, "flex flex-wrap items-baseline gap-x-[0.22em]")}>
+              <span>Apply to</span>
+              <Image
+                src="/yuppie_logo_forte_forward.png"
+                alt="Yuppie"
+                width={1942}
+                height={641}
+                loading="eager"
+                className="mt-[0.08em] block h-[0.95em] w-auto self-center"
+              />
+            </h1>
+            <p className="m-0 text-[17px] leading-normal md:max-w-[440px] md:text-[19px]">
+              £10 a month. Cancel any time. Every application is
+              reviewed by our membership committee before you&apos;re
+              approved.
+            </p>
+            <StepList steps={APPLY_STEPS} className="md:mt-2 md:max-w-[520px]" />
+          </div>
 
-            <motion.h1 {...fade(0.3)} className={cn("mt-3", heading)}>
-              Thanks for applying.{" "}
-              <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
-                We&apos;ll be in touch.
-              </em>
-            </motion.h1>
-
-            <motion.p
-              {...fade(0.45)}
-              className="mx-auto mt-4 max-w-md text-sm text-foreground-muted sm:text-base"
-            >
-              Your application is with our membership committee now. If
-              you&apos;re approved, you&apos;ll get a text from Yuppie
-              letting you know.
-            </motion.p>
-
-            <motion.div {...fade(0.6)}>
-              <Link
-                href="/"
-                className="mt-6 inline-block text-sm font-bold text-foreground underline underline-offset-2"
-              >
-                Back to home
-              </Link>
-            </motion.div>
-          </main>
-        ) : (
-          <main className="relative z-10 flex flex-1 flex-col items-center px-4 pt-[calc(7rem+var(--safe-top))] pb-20 sm:px-6 sm:pt-[calc(8rem+var(--safe-top))] sm:pb-28 md:pb-32">
-            <div className="flex w-full max-w-md flex-col items-center gap-3 text-center">
-              <motion.span {...fade(0.15)} className={eyebrow}>
-                Membership
-              </motion.span>
-
-              <motion.h1
-                {...fade(0.3)}
-                className={cn(
-                  "flex flex-wrap items-center justify-center gap-x-2 gap-y-1",
-                  heading,
-                )}
-              >
-                <span>Apply to</span>
-                <Image
-                  src="/yuppie_logo_forte_forward.png"
-                  alt="Yuppie"
-                  width={1942}
-                  height={641}
-                  priority
-                  className="h-[1em] w-auto translate-y-[10%]"
-                />
-              </motion.h1>
-
-              <motion.p
-                {...fade(0.45)}
-                className="max-w-sm text-sm text-foreground-muted sm:text-base"
-              >
-                £10 a month. Cancel any time. Every application is
-                reviewed by our membership committee before you&apos;re
-                approved.
-              </motion.p>
-            </div>
-
+          <div className="mt-3.5 mr-1.5 flex min-w-0 flex-col gap-6 md:mt-0 md:mr-0 md:max-w-[600px] md:flex-[1_1_520px]">
             {clientSecret ? (
               <Elements
                 stripe={stripePromise}
-                options={{ clientSecret, appearance: STRIPE_APPEARANCE }}
+                options={{ clientSecret, appearance: APPLY_STRIPE_APPEARANCE }}
               >
                 <ApplicationForm onSubmitted={() => setSubmitted(true)} />
               </Elements>
             ) : (
-              <p className="mt-12 max-w-md text-center text-sm font-medium text-red-700">
+              <p role="alert" className={cn(CARD_CLASS, "m-0 text-[15px] font-bold text-red-700")}>
                 {setupError}
               </p>
             )}
 
-            <p className="mt-6 text-center text-sm text-foreground-muted">
+            <p className="m-0 text-center text-[15px]">
               Already a member?{" "}
-              <Link
-                href="/member-login"
-                className="font-bold text-foreground underline underline-offset-2"
-              >
+              <Link href="/member-login" className={cn(TEXT_LINK_CLASS, "inline-flex min-h-11 items-center")}>
                 Log in
               </Link>
             </p>
-            <p className="mt-2 text-center text-sm text-foreground-muted">
-              Got questions? Check the{" "}
-              <Link
-                href="/faq"
-                className="font-bold text-foreground underline underline-offset-2"
-              >
-                FAQ
-              </Link>
-            </p>
-          </main>
-        )}
-      </section>
+          </div>
+        </main>
+      )}
     </div>
   );
 }
