@@ -94,10 +94,17 @@ export default function PrivacyPage() {
   return (
     <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
       <main className={cn(SITE_CONTAINER_CLASS, SITE_MAIN_PADDING_CLASS)}>
-        <article className="flex max-w-[760px] flex-col gap-8 md:gap-10">
-          <div className="flex flex-col gap-4 md:gap-5">
-            <h1 className={PAGE_H1_CLASS}>Yuppie Privacy Policy</h1>
+        {/* Below lg, one column capped at 760px, as before. From lg, two:
+            the title and date on the left, sticky, and the policy on the
+            right at 760px max. The left column's h1 is sized down there
+            so "Privacy" and "Policy" fit its width without breaking. */}
+        <article className="grid max-w-[760px] grid-cols-1 gap-4 md:gap-5 lg:max-w-none lg:grid-cols-[minmax(240px,1fr)_minmax(0,760px)] lg:gap-x-16 lg:gap-y-0">
+          <div className="flex flex-col gap-4 md:gap-5 lg:sticky lg:top-8 lg:self-start">
+            <h1 className={cn(PAGE_H1_CLASS, "lg:text-[clamp(44px,4.4vw,64px)]")}>Yuppie Privacy Policy</h1>
             <p className="m-0 text-sm text-site-muted md:text-[15px]">Last updated: {lastUpdated}</p>
+          </div>
+
+          <div className="flex min-w-0 flex-col gap-8 md:gap-10">
             <p className="m-0 text-base leading-[1.6] md:text-lg">
               This policy explains what personal data Yuppie (&quot;we&quot;,
               &quot;us&quot;) collects through clubyuppie.com and the Yuppie
@@ -105,21 +112,21 @@ export default function PrivacyPage() {
               by Club Yuppie, registered at 1 Westmoreland Mansions,
               Westminster, London W1G 8TN.
             </p>
-          </div>
 
-          {POLICY_SECTIONS.map((section) => (
-            <section
-              key={section.heading}
-              className="flex flex-col gap-3 border-t-[1.5px] border-foreground pt-5 md:gap-3.5 md:pt-6"
-            >
-              <h2 className="m-0 text-xl font-extrabold tracking-[-0.01em] md:text-2xl">{section.heading}</h2>
-              {section.paragraphs.map((paragraph, index) => (
-                <p key={index} className="m-0 text-base leading-[1.65] md:text-[17px]">
-                  {renderWithEmailLink(paragraph)}
-                </p>
-              ))}
-            </section>
-          ))}
+            {POLICY_SECTIONS.map((section) => (
+              <section
+                key={section.heading}
+                className="flex flex-col gap-3 border-t-[1.5px] border-foreground pt-5 md:gap-3.5 md:pt-6"
+              >
+                <h2 className="m-0 text-xl font-extrabold tracking-[-0.01em] md:text-2xl">{section.heading}</h2>
+                {section.paragraphs.map((paragraph, index) => (
+                  <p key={index} className="m-0 text-base leading-[1.65] md:text-[17px]">
+                    {renderWithEmailLink(paragraph)}
+                  </p>
+                ))}
+              </section>
+            ))}
+          </div>
         </article>
       </main>
     </div>

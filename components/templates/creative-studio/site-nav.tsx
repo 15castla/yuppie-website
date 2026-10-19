@@ -100,6 +100,19 @@ function isCurrent(pathname: string, href: string) {
   return pathname === href;
 }
 
+// Header and menu controls never show a box: no outline in any state and
+// no iOS tap highlight, so nothing is left around a link after a click,
+// a tap or a programmatic focus. Keyboard focus (:focus-visible) shows a
+// 3px underline instead, offset like the current page's underline (the
+// menu's big links use their own 8px offset). The wordmark is an image,
+// so its keyboard focus is a 3px line under it instead.
+const NO_BOX_CLASS = "outline-none [-webkit-tap-highlight-color:transparent]";
+const FOCUS_UNDERLINE_CLASS = `${NO_BOX_CLASS} focus-visible:underline focus-visible:decoration-[3px] focus-visible:underline-offset-[6px]`;
+const WORDMARK_FOCUS_CLASS = `${NO_BOX_CLASS} focus-visible:shadow-[0_3px_0_var(--foreground)]`;
+// The two round buttons (menu, Close): a 2px ink outline on keyboard
+// focus, which follows their circle.
+const CIRCLE_FOCUS_CLASS = `${NO_BOX_CLASS} focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground`;
+
 export function SiteNav() {
   // The native app is members-only end to end (see proxy.ts's
   // NATIVE_APP_REDIRECT_PATHS and mobile/capacitor.config.ts's
@@ -122,12 +135,20 @@ function SiteHeader({ pathname }: { pathname: string }) {
   const [menuOpenOn, setMenuOpenOn] = useState<string | null>(null);
   const menuOpen = menuOpenOn === pathname;
   const menuButtonRef = useRef<HTMLButtonElement>(null);
-  const showApply = pathname !== SIGN_IN_PATH;
 
   const linkClass = (href: string) =>
-    cn("inline-flex min-h-11 items-center no-underline hover:opacity-70", isCurrent(pathname, href) && CURRENT_LINK_CLASS);
-  const applyPillClass =
-    "inline-flex min-h-11 items-center rounded-full bg-foreground text-[15px] font-bold text-background no-underline hover:opacity-85";
+    cn(
+      "inline-flex min-h-11 items-center no-underline hover:opacity-70",
+      FOCUS_UNDERLINE_CLASS,
+      isCurrent(pathname, href) && CURRENT_LINK_CLASS,
+    );
+  // h-11 (not min-h): exactly the menu button's 44px on mobile, so the two
+  // can't end up different heights. Its keyboard-focus underline is in its
+  // own (yellow) text colour, since an ink line wouldn't show on the pill.
+  const applyPillClass = cn(
+    "inline-flex h-11 items-center rounded-full bg-foreground text-[15px] font-bold text-background no-underline hover:opacity-85",
+    FOCUS_UNDERLINE_CLASS,
+  );
 
   return (
     <header
@@ -150,7 +171,12 @@ function SiteHeader({ pathname }: { pathname: string }) {
               Contact
             </Link>
           </nav>
-          <Link href="/" aria-label="Yuppie home" aria-current={pathname === "/" ? "page" : undefined} className="block">
+          <Link
+            href="/"
+            aria-label="Yuppie home"
+            aria-current={pathname === "/" ? "page" : undefined}
+            className={cn("block", WORDMARK_FOCUS_CLASS)}
+          >
             <Wordmark className="h-[46px]" />
           </Link>
           <div className="flex flex-wrap items-center justify-end gap-x-7 gap-y-2 text-[15px] font-bold">
@@ -161,15 +187,13 @@ function SiteHeader({ pathname }: { pathname: string }) {
             >
               Members Area
             </Link>
-            {showApply && (
-              <Link
-                href="/apply"
-                aria-current={isCurrent(pathname, "/apply") ? "page" : undefined}
-                className={cn(applyPillClass, "px-[22px]")}
-              >
-                Apply
-              </Link>
-            )}
+            <Link
+              href="/apply"
+              aria-current={isCurrent(pathname, "/apply") ? "page" : undefined}
+              className={cn(applyPillClass, "px-[22px]")}
+            >
+              Apply
+            </Link>
           </div>
         </div>
       </div>
@@ -183,8 +207,13 @@ function SiteHeader({ pathname }: { pathname: string }) {
           aria-expanded={menuOpen}
           aria-controls="site-menu"
           onClick={() => setMenuOpenOn(pathname)}
-          className="flex size-11 flex-col items-center justify-center gap-[5px] justify-self-start rounded-full border-[1.5px] border-foreground bg-transparent p-0"
+          className={cn(
+            "flex h-11 w-11 flex-col items-center justify-center gap-1 justify-self-start rounded-full border-[1.5px] border-foreground bg-transparent p-0",
+            CIRCLE_FOCUS_CLASS,
+          )}
         >
+          {/* Three 18x2px lines, 4px apart. */}
+          <span className="block h-0.5 w-[18px] bg-foreground" />
           <span className="block h-0.5 w-[18px] bg-foreground" />
           <span className="block h-0.5 w-[18px] bg-foreground" />
         </button>
@@ -193,21 +222,17 @@ function SiteHeader({ pathname }: { pathname: string }) {
           href="/"
           aria-label="Yuppie home"
           aria-current={pathname === "/" ? "page" : undefined}
-          className="flex min-h-11 items-center"
+          className={cn("flex min-h-11 items-center", WORDMARK_FOCUS_CLASS)}
         >
           <Wordmark className="h-8" />
         </Link>
-        {showApply ? (
-          <Link
-            href="/apply"
-            aria-current={isCurrent(pathname, "/apply") ? "page" : undefined}
-            className={cn(applyPillClass, "justify-self-end px-[18px]")}
-          >
-            Apply
-          </Link>
-        ) : (
-          <span aria-hidden />
-        )}
+        <Link
+          href="/apply"
+          aria-current={isCurrent(pathname, "/apply") ? "page" : undefined}
+          className={cn(applyPillClass, "justify-self-end px-[18px]")}
+        >
+          Apply
+        </Link>
       </div>
 
       {menuOpen && (
@@ -217,6 +242,20 @@ function SiteHeader({ pathname }: { pathname: string }) {
           returnFocusTo={menuButtonRef}
         />
       )}
+
+      {/* Phones only: a solid strip along the bottom edge, the same as the
+          members area's (components/members/members-nav.tsx,
+          MembersBottomBar). Safari 26 tints its toolbar from a fixed
+          element's literal background-color at the viewport edge, not
+          from theme-color, so this keeps that toolbar yellow over every
+          section. Height is the bottom safe area (34px on Face ID
+          iPhones), at least 16px; SITE_PAGE_CLASS pads each page's
+          bottom by the same amount so nothing ends up under it. Inside
+          the header, so the native app hides it with the header. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-20 h-[max(1rem,env(safe-area-inset-bottom))] bg-background md:hidden"
+      />
     </header>
   );
 }
@@ -224,10 +263,11 @@ function SiteHeader({ pathname }: { pathname: string }) {
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 // Full-screen menu (mobile only). A modal dialog: focus moves in and is
-// kept inside (Tab and Shift+Tab wrap), Esc closes it, the page behind
-// doesn't scroll, and focus goes back to the menu button on close. Closes
-// on navigation (see SiteHeader), on any of its links (including the page
-// already open), and if the window grows to the desktop layout.
+// kept inside (Tab and Shift+Tab wrap), Esc closes it, and the page behind
+// doesn't scroll. Closing with Esc or the Close button puts focus back on
+// the menu button. Closing by navigating (a menu link, back/forward, see
+// SiteHeader) or by the window growing to the desktop layout doesn't move
+// focus, so nothing gets a focus ring on the new page.
 function MobileMenu({
   pathname,
   onClose,
@@ -243,6 +283,13 @@ function MobileMenu({
   useEffect(() => {
     onCloseRef.current = onClose;
   });
+  // Set only by Esc and the Close button: the closes that should return
+  // focus to the menu button.
+  const restoreFocusRef = useRef(false);
+  const closeAndRestoreFocus = () => {
+    restoreFocusRef.current = true;
+    onClose();
+  };
 
   useEffect(() => {
     const returnTarget = returnFocusTo.current;
@@ -255,6 +302,7 @@ function MobileMenu({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         event.preventDefault();
+        restoreFocusRef.current = true;
         onCloseRef.current();
         return;
       }
@@ -284,9 +332,9 @@ function MobileMenu({
       document.removeEventListener("keydown", onKeyDown);
       desktop.removeEventListener("change", onDesktopChange);
       root.style.overflow = previousOverflow;
-      // After a navigation the button may have moved on with the page;
-      // only refocus it while it's still in the document.
-      if (returnTarget?.isConnected) returnTarget.focus({ preventScroll: true });
+      if (restoreFocusRef.current && returnTarget?.isConnected) {
+        returnTarget.focus({ preventScroll: true });
+      }
     };
   }, [returnFocusTo]);
 
@@ -304,12 +352,15 @@ function MobileMenu({
           ref={closeButtonRef}
           type="button"
           aria-label="Close menu"
-          onClick={onClose}
-          className="flex size-11 items-center justify-center justify-self-start rounded-full border-[1.5px] border-foreground bg-foreground p-0 text-background"
+          onClick={closeAndRestoreFocus}
+          className={cn(
+            "flex h-11 w-11 items-center justify-center justify-self-start rounded-full border-[1.5px] border-foreground bg-foreground p-0 text-background",
+            CIRCLE_FOCUS_CLASS,
+          )}
         >
           <CloseIcon />
         </button>
-        <Link href="/" aria-label="Yuppie home" onClick={onClose} className="flex min-h-11 items-center">
+        <Link href="/" aria-label="Yuppie home" onClick={onClose} className={cn("flex min-h-11 items-center", WORDMARK_FOCUS_CLASS)}>
           <Wordmark className="h-8" />
         </Link>
         <span aria-hidden />
@@ -324,6 +375,8 @@ function MobileMenu({
             aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
             className={cn(
               "flex min-h-[72px] items-center justify-between border-t-[1.5px] border-foreground text-[34px] font-extrabold tracking-[-0.02em] no-underline",
+              NO_BOX_CLASS,
+              "focus-visible:underline focus-visible:decoration-[3px] focus-visible:underline-offset-[8px]",
               isCurrent(pathname, item.href) && "underline decoration-[3px] underline-offset-[8px]",
             )}
           >
@@ -334,7 +387,7 @@ function MobileMenu({
       </nav>
 
       <div className="mt-auto flex flex-col gap-[18px] px-5 pt-6 pb-8">
-        <Link href="/apply" onClick={onClose} className={cn(PRIMARY_BUTTON_CLASS, "w-full")}>
+        <Link href="/apply" onClick={onClose} className={cn(PRIMARY_BUTTON_CLASS, "w-full", FOCUS_UNDERLINE_CLASS)}>
           Apply for membership
           <ArrowRightIcon />
         </Link>

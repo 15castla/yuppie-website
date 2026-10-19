@@ -191,3 +191,17 @@ html:not([data-native-app]) [data-site-watermark] {
   color: var(--foreground);
   opacity: 1;
 }
+
+/* The public website (option D): no focus box left around a link or
+   button after a mouse click, a tap or a programmatic focus (e.g. focus
+   moved by the browser after navigating), and no iOS tap-highlight box.
+   Keyboard focus (:focus-visible) keeps each control's own visible style. */
+.site-page :focus:not(:focus-visible),
+[data-site-header] :focus:not(:focus-visible) {
+  outline: none;
+}
+
+.site-page a,
+.site-page button {
+  -webkit-tap-highlight-color: transparent;
+}

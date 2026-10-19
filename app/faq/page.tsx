@@ -43,7 +43,7 @@ const FAQ_ITEMS: FaqEntry[] = [
   {
     question: "What additional perks do I get, beyond access to events?",
     answer:
-      "Real discounts with partners across London, from restaurants and bars to barbers, gyms and sports clubs. Plus access to things that aren't open to the public, like skip the queue entry at partner venues, invite only parties and first dibs before things sell out.",
+      "Real discounts with partners across the city, from restaurants and bars to barbers, gyms and sports clubs. Plus access to things that aren't open to the public, like skip the queue entry at partner venues, invite only parties and first dibs before things sell out.",
   },
   {
     question: "How do I book onto events?",
@@ -61,8 +61,12 @@ export default function FaqPage() {
   return (
     <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
       <main className={cn(SITE_CONTAINER_CLASS, SITE_MAIN_PADDING_CLASS)}>
-        <div className="flex max-w-[860px] flex-col gap-8 md:gap-[clamp(40px,5vw,64px)]">
-          <h1 className={cn(PAGE_H1_CLASS, "[text-wrap:balance]")}>
+        {/* The rows run the full container width (their rules and +/-
+            circles end on its right edge, in line with the header's Apply
+            pill); the heading keeps its 860px measure and the answers
+            their 700px reading width. */}
+        <div className="flex flex-col gap-8 md:gap-[clamp(40px,5vw,64px)]">
+          <h1 className={cn(PAGE_H1_CLASS, "max-w-[860px] [text-wrap:balance]")}>
             Got questions? <span className={HEADLINE_ACCENT_CLASS}>We&apos;ve got answers.</span>
           </h1>
 

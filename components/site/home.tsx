@@ -52,7 +52,7 @@ const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingC
   },
   {
     title: "Concierge",
-    desktop: "Built on a top London hotel concierge's black book. Ask it anything, and it learns your taste.",
+    desktop: "Built on a top hotel concierge's black book. Ask it anything, and it learns your taste.",
     mobile: "A top hotel concierge's black book. It learns your taste.",
     Drawing: BrickPhoneDrawing,
   },
@@ -92,10 +92,21 @@ export function SiteHome() {
 // Mobile: headline, then the drawing standing on the 3px rule, then the
 // intro and button. Desktop: headline, intro and button on the left, the
 // drawing on the right, standing on the rule along the section's bottom.
+//
+// On phones the hero is exactly the rest of the first screen (100svh less
+// the 72px header and the top safe area), so the next section never peeks
+// in under Safari's translucent bottom toolbar. The drawing's area takes
+// whatever height is left and the drawing is scaled to fit it,
+// bottom-aligned on the rule. Its floor is 180px: a 390x664 screen leaves
+// it about 200px once everything else fits, so a 220px floor would push
+// the button off that screen. On a screen too short even for that the
+// hero just grows past the fold. Below the button: at least 24px, and
+// never less than the fixed bottom strip's height (site-nav.tsx), so the
+// strip can't cover the button.
 function Hero() {
   return (
-    <section className="border-foreground md:border-b-[3px]">
-      <div className="mx-auto grid max-w-[1240px] grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-x-12 md:px-[clamp(20px,4vw,40px)]">
+    <section className="flex min-h-[calc(100svh-72px-var(--safe-top))] flex-col border-foreground md:block md:min-h-0 md:border-b-[3px]">
+      <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-x-12 md:px-[clamp(20px,4vw,40px)]">
         <h1 className="m-0 px-5 pt-7 text-[60px] font-extrabold leading-[0.93] tracking-[-0.035em] [text-wrap:balance] md:col-start-1 md:row-start-1 md:px-0 md:pt-[clamp(48px,7vw,120px)] md:text-[clamp(56px,7vw,104px)] md:leading-[0.95] md:tracking-[-0.03em]">
           Your social life, <span className={HEADLINE_ACCENT_CLASS}>sorted.</span>
         </h1>
@@ -104,7 +115,7 @@ function Hero() {
             arm) lands on the container's right edge, in line with the
             header's Apply pill. Max widths are the old 500px / 340px scaled
             by 463.5/540 (the trimmed width), so the drawing keeps its size. */}
-        <div className="mt-5 flex justify-center border-b-[3px] border-foreground px-5 md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0 md:justify-end md:self-end md:border-b-0 md:px-0 md:pt-6">
+        <div className="relative mt-5 min-h-[180px] flex-1 border-b-[3px] border-foreground md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0 md:flex md:min-h-0 md:flex-none md:justify-end md:self-end md:border-b-0 md:pt-6">
           <Image
             src="/yuppie-group.svg"
             alt="Line drawing of three young yuppies out together: one on a brick phone, two clinking champagne coupes"
@@ -112,12 +123,12 @@ function Hero() {
             height={615.375}
             loading="eager"
             fetchPriority="high"
-            className="-mb-0.5 block h-auto w-full max-w-[291.83px] md:max-w-[429.17px]"
+            className="absolute inset-x-5 top-0 bottom-[-2px] block h-[calc(100%+2px)] w-[calc(100%-40px)] object-contain object-bottom md:static md:-mb-0.5 md:h-auto md:w-full md:max-w-[429.17px]"
           />
         </div>
-        <div className="flex flex-col gap-5 px-5 pt-6 pb-2 md:col-start-1 md:row-start-2 md:gap-7 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
+        <div className="flex flex-col gap-5 px-5 pt-6 pb-[max(24px,env(safe-area-inset-bottom))] md:col-start-1 md:row-start-2 md:gap-7 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
           <p className="m-0 text-[17px] leading-normal md:max-w-[460px] md:text-[19px]">
-            A members&apos; club for Londoners with full diaries and empty weekends. Dinners, sport,
+            A members&apos; club for professionals with full diaries and empty weekends. Dinners, sport,
             parties and perks, all planned for you. You just show up.
           </p>
           <div>
@@ -246,7 +257,7 @@ function Membership() {
           <span className="text-base text-site-muted md:text-[17px]">/month</span>
         </p>
         <p className="m-0 text-[15px] leading-normal text-site-muted md:text-base">
-          Basically, a skeleton key to London&apos;s social scene.
+          Basically, a skeleton key to the city&apos;s social scene.
         </p>
         <ul className="m-0 flex list-none flex-col gap-2.5 p-0 text-[14.5px] md:text-[15px]">
           {MEMBERSHIP_INCLUDES.map((item) => (
