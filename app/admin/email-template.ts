@@ -276,7 +276,7 @@ export function renderWelcomeEmailHtml({
             </tr>
             <tr>
               <td align="center" style="padding:24px 0 0;">
-                <a href="${SITE_URL}" class="footer-link" style="font-size:12px;color:#1B1512;text-decoration:none;font-family:${ALMARAI_FONT_STACK};">Yuppie - Your Social Life, Curated</a>
+                <a href="${SITE_URL}" class="footer-link" style="font-size:12px;color:#1B1512;text-decoration:none;font-family:${ALMARAI_FONT_STACK};">Yuppie - Your Social Life, Sorted</a>
               </td>
             </tr>
           </table>

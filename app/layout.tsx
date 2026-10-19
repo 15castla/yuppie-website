@@ -16,10 +16,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://clubyuppie.com"),
-  title: "Yuppie - Your Social Life, Curated",
+  title: "Yuppie - Your Social Life, Sorted",
   description: "Curated events, partner discounts and access across London. Apply to join Yuppie, we’ll handle the planning, you just show up.",
   openGraph: {
-    title: "Yuppie - Your Social Life, Curated",
+    title: "Yuppie - Your Social Life, Sorted",
     description: "Curated events, partner discounts and access across London. Apply to join Yuppie, we’ll handle the planning, you just show up.",
     url: "https://clubyuppie.com",
     siteName: "Yuppie",
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Yuppie - Your Social Life, Curated",
+    title: "Yuppie - Your Social Life, Sorted",
     description: "Curated events, partner discounts and access across London. Apply to join Yuppie, we’ll handle the planning, you just show up.",
     // Share image: app/twitter-image.png (+ .alt.txt).
   },
