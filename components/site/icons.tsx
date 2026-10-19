@@ -173,10 +173,19 @@ export function CheckIcon() {
   );
 }
 
-export function CloseIcon() {
+// The phone bar's "Menu" and "Close" icons: 18x12, stroke 2, round caps.
+export function MenuLinesIcon() {
   return (
-    <svg width={16} height={16} viewBox="0 0 16 16" fill="none" aria-hidden>
-      <path d="M3 3l10 10M13 3L3 13" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+    <svg width={18} height={12} viewBox="0 0 18 12" fill="none" aria-hidden className="shrink-0">
+      <path d="M1 1h16M1 6h16M1 11h16" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function CloseXIcon() {
+  return (
+    <svg width={18} height={12} viewBox="0 0 18 12" fill="none" aria-hidden className="shrink-0">
+      <path d="M4 1l10 10M14 1L4 11" stroke="currentColor" strokeWidth={2} strokeLinecap="round" />
     </svg>
   );
 }

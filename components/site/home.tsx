@@ -104,17 +104,17 @@ export function SiteHome() {
 // Desktop: headline, intro and button on the left, the drawing on the
 // right, standing on the rule along the section's bottom.
 //
-// Phones: exactly the rest of the first screen (100svh less the 72px
-// header and the top safe area), with a full-width 3px rule as the
+// Phones: exactly the rest of the first screen (100svh less the phone
+// bar's --site-header-h and the top safe area), with a full-width 3px rule as the
 // section's bottom border. Headline, then the intro and button, then the
-// whole drawing (never cropped) in the leftover height (at least 200px),
+// whole drawing (never cropped) in the leftover height (at least 180px),
 // centred and standing on that bottom rule. On a screen too short for the
-// 200px the hero just grows past the fold.
+// 180px the hero just grows past the fold.
 function Hero() {
   return (
-    <section className="flex min-h-[calc(100svh-72px-var(--safe-top))] flex-col border-b-[3px] border-foreground md:block md:min-h-0 md:border-b-[3px]">
+    <section className="flex min-h-[calc(100svh-var(--site-header-h)-var(--safe-top))] flex-col border-b-[3px] border-foreground md:block md:min-h-0 md:border-b-[3px]">
       <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-x-12 md:px-[clamp(20px,4vw,40px)]">
-        <h1 className="m-0 px-5 pt-3.5 text-[62px] font-extrabold leading-[0.92] tracking-[-0.04em] [text-wrap:balance] md:col-start-1 md:row-start-1 md:px-0 md:pt-[clamp(48px,7vw,120px)] md:text-[clamp(56px,7vw,104px)] md:leading-[0.95] md:tracking-[-0.03em]">
+        <h1 className="m-0 px-5 pt-[22px] text-[64px] font-extrabold leading-[0.92] tracking-[-0.04em] [text-wrap:balance] md:col-start-1 md:row-start-1 md:px-0 md:pt-[clamp(48px,7vw,120px)] md:text-[clamp(56px,7vw,104px)] md:leading-[0.95] md:tracking-[-0.03em]">
           Your social life, <span className={HEADLINE_ACCENT_CLASS}>sorted.</span>
         </h1>
         {/* The SVG's viewBox is trimmed to its ink on the left, top and
@@ -122,14 +122,14 @@ function Hero() {
             arm) lands on the container's right edge, in line with the
             header's Apply pill. Max widths are the old 500px / 340px scaled
             by 463.5/540 (the trimmed width), so the drawing keeps its size. */}
-        {/* Phones: last (order-2), 28px under the button. The whole drawing
+        {/* Phones: last (order-2), 26px under the button. The whole drawing
             is sized to the area's height (never wider than the 350px
             container: max-height is that width's matching height) and
             centred. Its viewBox keeps 7.5 units of empty space under the
             feet (bottom of 620, ink ending at 612.5), so it's moved down by
             exactly that, 7.5/615.375 of its own height, and the feet stand
             on the section's bottom rule at any size. */}
-        <div className="relative order-2 mx-5 mt-7 min-h-[200px] flex-1 md:order-none md:col-start-2 md:row-span-2 md:row-start-1 md:mx-0 md:mt-0 md:flex md:min-h-0 md:flex-none md:justify-end md:self-end md:pt-6">
+        <div className="relative order-2 mx-5 mt-[26px] min-h-[180px] flex-1 md:order-none md:col-start-2 md:row-span-2 md:row-start-1 md:mx-0 md:mt-0 md:flex md:min-h-0 md:flex-none md:justify-end md:self-end md:pt-6">
           <Image
             src="/yuppie-group.svg"
             alt="Line drawing of three young yuppies out together: one on a brick phone, two clinking champagne coupes"
@@ -140,8 +140,8 @@ function Hero() {
             className="absolute bottom-0 left-1/2 block h-full max-h-[calc((100vw-40px)*615.375/463.5)] w-auto -translate-x-1/2 translate-y-[1.21875%] md:static md:-mb-0.5 md:h-auto md:max-h-none md:w-full md:max-w-[429.17px] md:translate-none"
           />
         </div>
-        {/* Phones: second (order-1), 20px under the headline. */}
-        <div className="order-1 mt-5 flex flex-col gap-[18px] px-5 md:order-none md:col-start-1 md:row-start-2 md:mt-0 md:gap-7 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
+        {/* Phones: second (order-1), 16px under the headline. */}
+        <div className="order-1 mt-4 flex flex-col gap-[22px] px-5 md:order-none md:col-start-1 md:row-start-2 md:mt-0 md:gap-7 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
           <p className="m-0 text-[17px] leading-[1.45] md:max-w-[460px] md:text-[19px] md:leading-normal">
             <span className="md:hidden">
               A members&apos; club for professionals with full diaries and empty weekends.

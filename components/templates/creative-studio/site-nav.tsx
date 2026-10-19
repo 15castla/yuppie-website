@@ -3,11 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 
 import { cn } from "@/lib/utils";
 import { isNativeAppCookie } from "@/lib/native-app";
-import { ArrowRightIcon, CloseIcon } from "@/components/site/icons";
+import { ArrowRightIcon, CloseXIcon, CoupesDrawing, MenuLinesIcon } from "@/components/site/icons";
 import {
   CURRENT_LINK_CLASS,
   FOCUS_UNDERLINE_CLASS,
@@ -108,9 +108,55 @@ function isCurrent(pathname: string, href: string) {
 // links use their own 8px offset). The wordmark is an image, so its
 // keyboard focus is a 3px line under it instead.
 const WORDMARK_FOCUS_CLASS = `${NO_BOX_CLASS} focus-visible:shadow-[0_3px_0_var(--foreground)]`;
-// The two round buttons (menu, Close): a 2px ink outline on keyboard
-// focus, which follows their circle.
-const CIRCLE_FOCUS_CLASS = `${NO_BOX_CLASS} focus-visible:outline-solid focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground`;
+
+// The phone bar's left control ("Menu" in the header, "Close" in the
+// menu): a word with a small icon, no circle, at least 44px tall.
+const BAR_WORD_BUTTON_CLASS = cn(
+  "flex min-h-11 items-center gap-2 justify-self-start border-0 bg-transparent p-0 text-[15px] font-bold text-foreground",
+  FOCUS_UNDERLINE_CLASS,
+);
+
+// The phone top bar, shared by the header and the open menu's top row so
+// the two are identical: one row, 64px tall below the top safe area
+// (--site-header-h in globals.css, which includes the 1.5px line along
+// its bottom), 20px sides. The grid's equal side columns keep the
+// wordmark exactly centred on the screen at any phone width.
+function PhoneBar({
+  left,
+  pathname,
+  onNavigate,
+}: {
+  left: ReactNode;
+  pathname: string;
+  onNavigate?: () => void;
+}) {
+  return (
+    <div className="grid h-[calc(var(--site-header-h)+var(--safe-top))] grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b-[1.5px] border-foreground px-5 pt-[var(--safe-top)] md:hidden">
+      {left}
+      {/* min-h-11: a 44px tap target around the 30px wordmark. */}
+      <Link
+        href="/"
+        aria-label="Yuppie home"
+        aria-current={pathname === "/" ? "page" : undefined}
+        onClick={onNavigate}
+        className={cn("flex min-h-11 items-center", WORDMARK_FOCUS_CLASS)}
+      >
+        <Wordmark className="h-[30px]" />
+      </Link>
+      <Link
+        href="/apply"
+        aria-current={isCurrent(pathname, "/apply") ? "page" : undefined}
+        onClick={onNavigate}
+        className={cn(
+          "inline-flex h-11 items-center justify-self-end rounded-full bg-foreground px-4 text-[15px] font-bold text-background no-underline hover:opacity-85",
+          FOCUS_UNDERLINE_CLASS,
+        )}
+      >
+        Apply
+      </Link>
+    </div>
+  );
+}
 
 export function SiteNav() {
   // The native app is members-only end to end (see proxy.ts's
@@ -197,42 +243,23 @@ function SiteHeader({ pathname }: { pathname: string }) {
         </div>
       </div>
 
-      {/* Mobile: menu button | wordmark | Apply. */}
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-5 pt-[calc(14px+var(--safe-top))] pb-3.5 md:hidden">
-        <button
-          ref={menuButtonRef}
-          type="button"
-          aria-label="Open menu"
-          aria-expanded={menuOpen}
-          aria-controls="site-menu"
-          onClick={() => setMenuOpenOn(pathname)}
-          className={cn(
-            "flex h-11 w-11 flex-col items-center justify-center gap-1 justify-self-start rounded-full border-[1.5px] border-foreground bg-transparent p-0",
-            CIRCLE_FOCUS_CLASS,
-          )}
-        >
-          {/* Three 18x2px lines, 4px apart. */}
-          <span className="block h-0.5 w-[18px] bg-foreground" />
-          <span className="block h-0.5 w-[18px] bg-foreground" />
-          <span className="block h-0.5 w-[18px] bg-foreground" />
-        </button>
-        {/* min-h-11: a 44px tap target around the 32px wordmark. */}
-        <Link
-          href="/"
-          aria-label="Yuppie home"
-          aria-current={pathname === "/" ? "page" : undefined}
-          className={cn("flex min-h-11 items-center", WORDMARK_FOCUS_CLASS)}
-        >
-          <Wordmark className="h-8" />
-        </Link>
-        <Link
-          href="/apply"
-          aria-current={isCurrent(pathname, "/apply") ? "page" : undefined}
-          className={cn(applyPillClass, "justify-self-end px-[18px]")}
-        >
-          Apply
-        </Link>
-      </div>
+      {/* Mobile: Menu | wordmark | Apply. */}
+      <PhoneBar
+        pathname={pathname}
+        left={
+          <button
+            ref={menuButtonRef}
+            type="button"
+            aria-expanded={menuOpen}
+            aria-controls="site-menu"
+            onClick={() => setMenuOpenOn(pathname)}
+            className={BAR_WORD_BUTTON_CLASS}
+          >
+            <MenuLinesIcon />
+            Menu
+          </button>
+        }
+      />
 
       {menuOpen && (
         <MobileMenu
@@ -244,6 +271,10 @@ function SiteHeader({ pathname }: { pathname: string }) {
     </header>
   );
 }
+
+// The coupes' ink box in their 200-unit grid (the same crop as the
+// homepage's Events perk), so they stand exactly on the rule.
+const COUPES_INK_VIEWBOX = "15.25 22.5 169.5 147.5";
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -332,24 +363,17 @@ function MobileMenu({
       aria-label="Menu"
       className="fixed inset-0 z-50 flex flex-col overflow-y-auto bg-background text-foreground md:hidden"
     >
-      <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 px-5 pt-[calc(14px+var(--safe-top))] pb-3.5">
-        <button
-          ref={closeButtonRef}
-          type="button"
-          aria-label="Close menu"
-          onClick={closeAndRestoreFocus}
-          className={cn(
-            "flex h-11 w-11 items-center justify-center justify-self-start rounded-full border-[1.5px] border-foreground bg-foreground p-0 text-background",
-            CIRCLE_FOCUS_CLASS,
-          )}
-        >
-          <CloseIcon />
-        </button>
-        <Link href="/" aria-label="Yuppie home" onClick={onClose} className={cn("flex min-h-11 items-center", WORDMARK_FOCUS_CLASS)}>
-          <Wordmark className="h-8" />
-        </Link>
-        <span aria-hidden />
-      </div>
+      {/* The same bar as the header's, with "Close" where "Menu" was. */}
+      <PhoneBar
+        pathname={pathname}
+        onNavigate={onClose}
+        left={
+          <button ref={closeButtonRef} type="button" onClick={closeAndRestoreFocus} className={BAR_WORD_BUTTON_CLASS}>
+            <CloseXIcon />
+            Close
+          </button>
+        }
+      />
 
       <nav aria-label="Menu" className="mx-5 mt-5 flex flex-col border-b-[1.5px] border-foreground">
         {MENU_ITEMS.map((item) => (
@@ -371,20 +395,21 @@ function MobileMenu({
         ))}
       </nav>
 
-      {/* The three figures (180px) standing on a 3px rule, at least 32px
-          below the links, then the Apply button 24px below the rule. The
-          menu is full screen behind Safari's floating toolbar, so the
-          button keeps the bottom safe area plus 56px under it. On screens
-          under 700px tall the drawing is left out so it can't crowd the
-          links and the button. */}
+      {/* The two champagne coupes (cropped to their ink, 170px wide)
+          standing on a 3px rule, at least 32px below the links, then the
+          Apply button 24px below the rule. (The hero shows the figures
+          large, so the menu doesn't repeat them.) The menu is full screen
+          behind Safari's floating toolbar, so the button keeps the bottom
+          safe area plus 56px under it. On screens under 700px tall the
+          drawing is left out so it can't crowd the links and the button. */}
       <div className="mt-auto">
         <div className="mx-5 flex justify-center border-b-[3px] border-foreground pt-8 [@media(max-height:699.98px)]:hidden">
-          <Image
-            src="/yuppie-group.svg"
-            alt=""
-            width={180}
-            height={(180 * 615.375) / 463.5}
-            className="-mb-0.5 block h-auto w-[180px]"
+          <CoupesDrawing
+            size={170}
+            viewBox={COUPES_INK_VIEWBOX}
+            width={170}
+            height={(170 * 147.5) / 169.5}
+            className="block"
           />
         </div>
         <div className="px-5 pt-6 pb-[calc(env(safe-area-inset-bottom)+56px)]">

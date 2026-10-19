@@ -205,3 +205,13 @@ html:not([data-native-app]) [data-site-watermark] {
 .site-page button {
   -webkit-tap-highlight-color: transparent;
 }
+
+/* The public site's phone top bar (site-nav.tsx): 64px plus its 1.5px
+   bottom line, below the top safe area. The bar and the homepage hero
+   (components/site/home.tsx) both read it, so they can't disagree.
+   Phones only; desktop doesn't use it. */
+@media (max-width: 767.98px) {
+  :root {
+    --site-header-h: 65.5px;
+  }
+}
