@@ -18,18 +18,18 @@ import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
-import { StepList } from "@/components/site/step-list";
+import { StepList, StepRow } from "@/components/site/step-list";
 import { LockIcon } from "@/components/site/icons";
 import {
   CARD_CLASS,
   INPUT_CLASS,
   LABEL_CLASS,
-  PAGE_H1_CLASS,
+  INNER_PAGE_H1_CLASS,
   PRIMARY_BUTTON_CLASS,
   HEADLINE_ACCENT_CLASS,
   SITE_CONTAINER_CLASS,
   SITE_FONT_STYLE,
-  SITE_MAIN_PADDING_CLASS,
+  INNER_MAIN_PADDING_CLASS,
   SITE_PAGE_CLASS,
   TEXT_LINK_CLASS,
 } from "@/components/site/ui";
@@ -360,7 +360,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
   }
 
   return (
-    <div className={CARD_CLASS}>
+    <div className={cn(CARD_CLASS, "max-md:py-6")}>
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[18px] md:gap-[22px]">
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))] gap-x-5 gap-y-[18px]">
           <div className={FIELD_CLASS}>
@@ -417,15 +417,16 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           <input id="linkedin_url" name="linkedin_url" type="url" placeholder="https://linkedin.com/in/yourname" className={INPUT_CLASS} />
         </div>
 
-        <div className="flex flex-col gap-2 pt-1 md:pt-1.5">
-          <span className={cn(LABEL_CLASS, "inline-flex items-center gap-2")}>
+        {/* Phones: its own section, under a 1.5px rule with a 17px heading. */}
+        <div className="flex flex-col gap-2 pt-1 md:pt-1.5 max-md:mt-1 max-md:gap-0 max-md:border-t-[1.5px] max-md:border-foreground max-md:pt-5">
+          <span className={cn(LABEL_CLASS, "inline-flex items-center gap-2 max-md:text-[17px] max-md:font-extrabold")}>
             <LockIcon />
             Payment details
           </span>
-          <p className="m-0 text-sm leading-[1.45] text-site-muted">
+          <p className="m-0 text-sm leading-[1.45] text-site-muted max-md:mt-1.5 max-md:mb-3">
             You won&apos;t be charged until your application is approved.
           </p>
-          <div className="mt-1">
+          <div className="mt-1 max-md:mt-0">
             <PaymentElement
               options={{
                 layout: { type: "accordion", defaultCollapsed: true },
@@ -490,8 +491,8 @@ export default function ApplyForm({
   return (
     <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
       {submitted ? (
-        <main className={cn(SITE_CONTAINER_CLASS, SITE_MAIN_PADDING_CLASS, "flex flex-col gap-5 md:gap-7")}>
-          <h1 className={PAGE_H1_CLASS}>
+        <main className={cn(SITE_CONTAINER_CLASS, INNER_MAIN_PADDING_CLASS, "flex flex-col gap-5 md:gap-7")}>
+          <h1 className={INNER_PAGE_H1_CLASS}>
             Thanks for applying.{" "}
             <span className={HEADLINE_ACCENT_CLASS}>We&apos;ll be in touch.</span>
           </h1>
@@ -510,12 +511,12 @@ export default function ApplyForm({
         <main
           className={cn(
             SITE_CONTAINER_CLASS,
-            SITE_MAIN_PADDING_CLASS,
+            INNER_MAIN_PADDING_CLASS,
             "flex flex-col gap-[22px] md:flex-row md:flex-wrap md:items-start md:gap-x-20 md:gap-y-14",
           )}
         >
-          <div className="flex min-w-0 flex-col gap-[22px] md:flex-[1_1_420px] md:gap-7">
-            <h1 className={cn(PAGE_H1_CLASS, "flex flex-wrap items-baseline gap-x-[0.22em]")}>
+          <div className="flex min-w-0 flex-col gap-[18px] md:flex-[1_1_420px] md:gap-7">
+            <h1 className={cn(INNER_PAGE_H1_CLASS, "flex flex-wrap items-baseline gap-x-[0.22em]")}>
               <span>Apply to</span>
               <Image
                 src="/yuppie_logo_forte_forward.png"
@@ -531,7 +532,11 @@ export default function ApplyForm({
               reviewed by our membership committee before you&apos;re
               approved.
             </p>
-            <StepList steps={APPLY_STEPS} className="md:mt-2 md:max-w-[520px]" />
+            {/* Desktop: the stacked steps. Phones: one row of three. */}
+            <div className="hidden md:block">
+              <StepList steps={APPLY_STEPS} className="md:mt-2 md:max-w-[520px]" />
+            </div>
+            <StepRow steps={APPLY_STEPS} className="mt-3.5 md:hidden" />
           </div>
 
           <div className="mt-3.5 mr-1.5 flex min-w-0 flex-col gap-6 md:mt-0 md:mr-0 md:max-w-[600px] md:flex-[1_1_520px]">

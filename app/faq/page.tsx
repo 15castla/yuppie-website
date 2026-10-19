@@ -6,12 +6,15 @@ import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { almarai, instrumentSerif } from "@/components/templates/creative-studio/fonts";
 import { CONTACT_EMAIL } from "@/components/site/links";
+import { BrickPhoneDrawing } from "@/components/site/icons";
 import {
-  PAGE_H1_CLASS,
+  CARD_CLASS,
+  INNER_PAGE_H1_CLASS,
+  INNER_MAIN_PADDING_CLASS,
   HEADLINE_ACCENT_CLASS,
+  SERIF_ACCENT_CLASS,
   SITE_CONTAINER_CLASS,
   SITE_FONT_STYLE,
-  SITE_MAIN_PADDING_CLASS,
   SITE_PAGE_CLASS,
   TEXT_LINK_CLASS,
 } from "@/components/site/ui";
@@ -60,14 +63,15 @@ export default function FaqPage() {
 
   return (
     <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
-      <main className={cn(SITE_CONTAINER_CLASS, SITE_MAIN_PADDING_CLASS)}>
+      <main className={cn(SITE_CONTAINER_CLASS, INNER_MAIN_PADDING_CLASS)}>
         {/* The rows run the full container width (their rules and +/-
             circles end on its right edge, in line with the header's Apply
             pill); the heading keeps its 860px measure and the answers
             their 700px reading width. */}
         <div className="flex flex-col gap-8 md:gap-[clamp(40px,5vw,64px)]">
-          <h1 className={cn(PAGE_H1_CLASS, "max-w-[860px] [text-wrap:balance]")}>
-            Got questions? <span className={HEADLINE_ACCENT_CLASS}>We&apos;ve got answers.</span>
+          <h1 className={cn(INNER_PAGE_H1_CLASS, "max-w-[860px] [text-wrap:balance]")}>
+            Got questions? <br className="md:hidden" />
+            <span className={HEADLINE_ACCENT_CLASS}>We&apos;ve got answers.</span>
           </h1>
 
           <div className="border-t-[1.5px] border-foreground">
@@ -82,14 +86,18 @@ export default function FaqPage() {
                       aria-expanded={open}
                       aria-controls={answerId}
                       onClick={() => setOpenIndex(open ? null : index)}
-                      className="flex min-h-16 w-full items-center justify-between gap-4 border-0 bg-transparent py-[18px] text-left text-foreground md:min-h-[72px] md:gap-6 md:py-[22px]"
+                      className="flex min-h-[72px] w-full items-center justify-between gap-4 border-0 bg-transparent py-3.5 text-left text-foreground md:gap-6 md:py-[22px]"
                     >
                       <span className="text-[17px] font-bold leading-[1.3] md:text-[clamp(19px,1.8vw,22px)]">
                         {item.question}
                       </span>
                       <span
                         aria-hidden
-                        className="flex size-8 shrink-0 items-center justify-center rounded-full border-[1.5px] border-foreground text-lg font-bold leading-none md:size-9 md:text-xl"
+                        className={cn(
+                          "flex size-9 shrink-0 items-center justify-center rounded-full border-[1.5px] border-foreground text-xl font-bold leading-none",
+                          // Phones: filled ink with a yellow minus while open.
+                          open && "max-md:bg-foreground max-md:text-background",
+                        )}
                       >
                         {open ? "–" : "+"}
                       </span>
@@ -105,7 +113,7 @@ export default function FaqPage() {
                         transition={{ duration: 0.25, ease: "easeInOut" }}
                         className="overflow-hidden"
                       >
-                        <p className="m-0 pb-[22px] text-base leading-[1.6] md:max-w-[700px] md:pr-[60px] md:pb-[26px] md:text-[17px]">
+                        <p className="m-0 pr-11 pb-[22px] text-base leading-[1.55] md:max-w-[700px] md:pr-[60px] md:pb-[26px] md:text-[17px] md:leading-[1.6]">
                           {item.answer}
                         </p>
                       </motion.div>
@@ -116,12 +124,25 @@ export default function FaqPage() {
             })}
           </div>
 
-          <p className="m-0 text-base leading-[1.55] md:text-[17px]">
+          <p className="m-0 text-base leading-[1.55] max-md:hidden md:text-[17px]">
             Can&apos;t find what you&apos;re looking for? Get in touch at{" "}
             <a href={`mailto:${CONTACT_EMAIL}`} className={TEXT_LINK_CLASS}>
               {CONTACT_EMAIL}
             </a>
           </p>
+          {/* Phones: the same line in a card, with the brick phone. */}
+          <div className={cn(CARD_CLASS, "mt-2 mr-1.5 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 md:hidden")}>
+            <div>
+              <h2 className={cn(SERIF_ACCENT_CLASS, "m-0 text-[28px] leading-[1.05]")}>Still stuck?</h2>
+              <p className="m-0 mt-2 text-[15px] leading-[1.45]">
+                Can&apos;t find what you&apos;re looking for? Get in touch at{" "}
+                <a href={`mailto:${CONTACT_EMAIL}`} className={cn(TEXT_LINK_CLASS, "break-all")}>
+                  {CONTACT_EMAIL}
+                </a>
+              </p>
+            </div>
+            <BrickPhoneDrawing size={30} viewBox="66.5 10.5 67 177" width={30} height={80} className="block" />
+          </div>
         </div>
       </main>
     </div>

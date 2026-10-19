@@ -8,6 +8,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type RefObject } fro
 import { cn } from "@/lib/utils";
 import { isNativeAppCookie } from "@/lib/native-app";
 import { ArrowRightIcon, CloseIcon } from "@/components/site/icons";
+import { CONTACT_EMAIL } from "@/components/site/links";
 import {
   CURRENT_LINK_CLASS,
   FOCUS_UNDERLINE_CLASS,
@@ -365,7 +366,7 @@ function MobileMenu({
         <span aria-hidden />
       </div>
 
-      <nav aria-label="Menu" className="mx-5 flex flex-col border-b-[1.5px] border-foreground pt-6">
+      <nav aria-label="Menu" className="mx-5 mt-5 flex flex-col border-b-[1.5px] border-foreground">
         {MENU_ITEMS.map((item) => (
           <Link
             key={item.href}
@@ -373,7 +374,7 @@ function MobileMenu({
             onClick={onClose}
             aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
             className={cn(
-              "flex min-h-[72px] items-center justify-between border-t-[1.5px] border-foreground text-[34px] font-extrabold tracking-[-0.02em] no-underline",
+              "flex min-h-[68px] items-center justify-between border-t-[1.5px] border-foreground text-[36px] font-extrabold tracking-[-0.025em] no-underline",
               NO_BOX_CLASS,
               "focus-visible:underline focus-visible:decoration-[3px] focus-visible:underline-offset-[8px]",
               isCurrent(pathname, item.href) && "underline decoration-[3px] underline-offset-[8px]",
@@ -385,11 +386,34 @@ function MobileMenu({
         ))}
       </nav>
 
-      <div className="mt-auto flex flex-col gap-[18px] px-5 pt-6 pb-8">
-        <Link href="/apply" onClick={onClose} className={cn(PRIMARY_BUTTON_CLASS, "w-full", FOCUS_UNDERLINE_CLASS)}>
-          Apply for membership
-          <ArrowRightIcon />
-        </Link>
+      {/* The three figures standing on a 3px rule, then the Apply button
+          and the email. On screens under 700px tall the drawing is left
+          out so it can't crowd the links and the button. */}
+      <div className="mt-auto">
+        <div className="mx-5 flex justify-center border-b-[3px] border-foreground [@media(max-height:699.98px)]:hidden">
+          <Image
+            src="/yuppie-group.svg"
+            alt=""
+            width={200}
+            height={(200 * 615.375) / 463.5}
+            className="-mb-0.5 block h-auto w-[200px]"
+          />
+        </div>
+        <div className="flex flex-col gap-3.5 px-5 pt-5 pb-[34px]">
+          <Link href="/apply" onClick={onClose} className={cn(PRIMARY_BUTTON_CLASS, "w-full", FOCUS_UNDERLINE_CLASS)}>
+            Apply for membership
+            <ArrowRightIcon />
+          </Link>
+          <a
+            href={`mailto:${CONTACT_EMAIL}`}
+            className={cn(
+              "inline-flex min-h-11 items-center justify-center self-center text-sm text-site-muted no-underline hover:text-foreground",
+              FOCUS_UNDERLINE_CLASS,
+            )}
+          >
+            {CONTACT_EMAIL}
+          </a>
+        </div>
       </div>
     </div>
   );

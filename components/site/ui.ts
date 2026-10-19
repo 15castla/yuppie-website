@@ -31,6 +31,16 @@ export const SERIF_ACCENT_CLASS =
   "[font-family:var(--font-instrument-serif),Georgia,serif] italic font-normal";
 export const HEADLINE_ACCENT_CLASS = `${SERIF_ACCENT_CLASS} tracking-[-0.01em]`;
 
+// The inner pages' h1 and <main> padding on phones (mobile boards,
+// design-ref/mobile): 46px h1 at -0.035em, 36px above, 64px below.
+// Desktop values are the same as PAGE_H1_CLASS / SITE_MAIN_PADDING_CLASS.
+// Used by /apply, /faq, /contact and /privacy; the sign-in page keeps the
+// older PAGE_H1_CLASS and SITE_MAIN_PADDING_CLASS.
+export const INNER_PAGE_H1_CLASS =
+  "m-0 text-[46px] font-extrabold leading-[0.95] tracking-[-0.035em] md:text-[clamp(48px,6vw,88px)] md:tracking-[-0.03em]";
+export const INNER_MAIN_PADDING_CLASS =
+  "pt-9 pb-16 md:pt-[clamp(48px,7vw,104px)] md:pb-[clamp(80px,10vw,136px)]";
+
 // Inner page h1: 44px mobile, clamp(48px, 6vw, 88px) desktop.
 export const PAGE_H1_CLASS =
   "m-0 text-[44px] font-extrabold leading-[0.95] tracking-[-0.03em] md:text-[clamp(48px,6vw,88px)]";
