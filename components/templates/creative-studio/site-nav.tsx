@@ -10,6 +10,8 @@ import { isNativeAppCookie } from "@/lib/native-app";
 import { ArrowRightIcon, CloseIcon } from "@/components/site/icons";
 import {
   CURRENT_LINK_CLASS,
+  FOCUS_UNDERLINE_CLASS,
+  NO_BOX_CLASS,
   PRIMARY_BUTTON_CLASS,
   SITE_CONTAINER_CLASS,
   SITE_FONT_STYLE,
@@ -100,14 +102,11 @@ function isCurrent(pathname: string, href: string) {
   return pathname === href;
 }
 
-// Header and menu controls never show a box: no outline in any state and
-// no iOS tap highlight, so nothing is left around a link after a click,
-// a tap or a programmatic focus. Keyboard focus (:focus-visible) shows a
-// 3px underline instead, offset like the current page's underline (the
-// menu's big links use their own 8px offset). The wordmark is an image,
-// so its keyboard focus is a 3px line under it instead.
-const NO_BOX_CLASS = "outline-none [-webkit-tap-highlight-color:transparent]";
-const FOCUS_UNDERLINE_CLASS = `${NO_BOX_CLASS} focus-visible:underline focus-visible:decoration-[3px] focus-visible:underline-offset-[6px]`;
+// Header and menu controls never show a box (NO_BOX_CLASS and
+// FOCUS_UNDERLINE_CLASS, in components/site/ui.ts): keyboard focus is a
+// 3px underline, offset like the current page's underline (the menu's big
+// links use their own 8px offset). The wordmark is an image, so its
+// keyboard focus is a 3px line under it instead.
 const WORDMARK_FOCUS_CLASS = `${NO_BOX_CLASS} focus-visible:shadow-[0_3px_0_var(--foreground)]`;
 // The two round buttons (menu, Close): a 2px ink outline on keyboard
 // focus, which follows their circle.

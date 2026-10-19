@@ -12,3 +12,10 @@ export const EXTERNAL_LINKS: Record<
 };
 
 export const CONTACT_EMAIL = "hello@clubyuppie.com";
+
+// The company behind Yuppie, for the homepage footer's legal line. While
+// either is null the footer shows "© {year} Yuppie. All rights reserved.";
+// with both set it shows the registered company line instead.
+export const COMPANY = { name: null as string | null, number: null as string | null };
+
+export const REGISTERED_OFFICE = "1 Westmoreland Mansions, Westminster, London W1G 8TN";

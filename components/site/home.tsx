@@ -16,9 +16,10 @@ import {
   TennisRacketsDrawing,
   VelvetRopeDrawing,
 } from "./icons";
-import { CONTACT_EMAIL, EXTERNAL_LINKS } from "./links";
+import { COMPANY, CONTACT_EMAIL, EXTERNAL_LINKS, REGISTERED_OFFICE } from "./links";
 import { StepList } from "./step-list";
 import {
+  FOCUS_UNDERLINE_CLASS,
   HEADLINE_ACCENT_CLASS,
   PRIMARY_BUTTON_CLASS,
   SERIF_ACCENT_CLASS,
@@ -273,15 +274,36 @@ function Membership() {
   );
 }
 
-const FOOTER_HEADING_CLASS = "text-[11px] font-bold uppercase tracking-[0.18em] text-site-muted";
-const FOOTER_LINK_CLASS = "flex min-h-11 items-center text-[15px] no-underline hover:opacity-70 md:min-h-0";
+// The rope's viewBox cropped to its ink, strokes included (measured at
+// x 16.5-183.5, y 52.5-177.5 of the 200-unit grid), so the post bases sit
+// on the SVG's bottom edge and the right-hand post on its right edge.
+const ROPE_VIEWBOX = "16.5 52.5 167 125";
+
+// The footer wordmark, cropped to its ink: the PNG (1942x641) has
+// transparent padding round the lettering, so the image is drawn slightly
+// wider than its box and shifted, and the box clips it. The crop is the
+// ink's 50%-opacity edge (x 16-1927, y 16-626 of the file; its faint
+// antialiased fringe starts 3px further out), so the visible ink runs
+// exactly edge to edge of the container. The file itself is shared
+// (header, /apply, the app's sign-in watermark, emails), so it isn't
+// trimmed.
+const WORDMARK_INK = { left: 16, top: 16, width: 1911, height: 610 };
+const WORDMARK_FILE = { width: 1942, height: 641 };
+
+const FOOTER_COLUMN_HEADING_CLASS = cn(SERIF_ACCENT_CLASS, "m-0 mb-3.5 text-2xl leading-none md:text-[26px]");
+const FOOTER_LINK_CLASS = cn(
+  "flex min-h-11 items-center text-base font-bold text-foreground no-underline hover:opacity-70 md:min-h-9",
+  FOCUS_UNDERLINE_CLASS,
+);
 
 function ExternalLinkItem({ link }: { link: { label: string; url: string | null } }) {
   if (!link.url) {
     return (
-      <span className="inline-flex min-h-11 items-center gap-2 text-[15px] text-site-muted md:min-h-0">
+      <span className="flex min-h-11 items-center gap-2 text-base font-bold text-foreground md:min-h-9">
         {link.label}
-        <span className="rounded-full bg-foreground/10 px-[7px] py-0.5 text-[10px] font-bold">SOON</span>
+        <span className="inline-flex min-h-[22px] items-center rounded-full border-[1.5px] border-foreground px-2 text-[11px] font-bold uppercase tracking-[0.04em]">
+          Soon
+        </span>
       </span>
     );
   }
@@ -292,25 +314,66 @@ function ExternalLinkItem({ link }: { link: { label: string; url: string | null 
   );
 }
 
+function FooterColumn({ heading, className, children }: { heading: string; className?: string; children: ReactNode }) {
+  return (
+    <div className={cn("flex min-w-0 flex-col", className)}>
+      <h3 className={FOOTER_COLUMN_HEADING_CLASS}>{heading}</h3>
+      {children}
+    </div>
+  );
+}
+
+function legalLine(year: number) {
+  return COMPANY.name && COMPANY.number
+    ? `© ${year} ${COMPANY.name}. Registered in England and Wales, company no. ${COMPANY.number}. Registered office: ${REGISTERED_OFFICE}.`
+    : `© ${year} Yuppie. All rights reserved.`;
+}
+
 // Homepage only: the other public pages have no footer.
+//
+// The closing band is framed by full-bleed 3px rules like the hero and
+// the Open Invite band. Desktop: heading and button on the left, the
+// velvet rope on the right standing on the bottom rule, its right post on
+// the container's edge. Mobile, in the hero's order: heading, the rope
+// standing on the rule, then the button below the rule.
 function SiteFooter() {
   return (
-    <footer className={cn(SITE_CONTAINER_CLASS, "pb-7 md:pb-8")}>
-      <div className="flex flex-col gap-5 border-y-[1.5px] border-foreground py-10 md:flex-row md:flex-wrap md:items-end md:justify-between md:gap-x-10 md:gap-y-7 md:py-12">
-        <h2 className="m-0 text-[32px] font-extrabold leading-none tracking-[-0.02em] md:text-[clamp(32px,3.6vw,48px)]">
-          This isn&apos;t for everyone.
-          <br />
-          <span className={SERIF_ACCENT_CLASS}>Might be for you though.</span>
-        </h2>
-        <ApplyButton className="self-start md:self-auto">Apply</ApplyButton>
+    <footer>
+      <section className="border-y-[3px] border-foreground">
+        <div className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-12")}>
+          <div className="pt-14 md:pt-[clamp(72px,9vw,128px)] md:pb-[clamp(56px,6vw,88px)]">
+            <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:text-[clamp(40px,4.6vw,64px)]">
+              This isn&apos;t for everyone.
+              <br />
+              <span className={SERIF_ACCENT_CLASS}>Might be for you though.</span>
+            </h2>
+            <div className="mt-8 hidden md:block">
+              <ApplyButton>Apply for membership</ApplyButton>
+            </div>
+          </div>
+          <div className="mt-8 flex justify-center md:mt-0 md:justify-end md:self-end">
+            <VelvetRopeDrawing
+              size={300}
+              viewBox={ROPE_VIEWBOX}
+              width={300}
+              height={(300 * 125) / 167}
+              className="block h-auto w-[190px] md:w-[300px]"
+            />
+          </div>
+        </div>
+      </section>
+      <div className={cn(SITE_CONTAINER_CLASS, "mt-7 md:hidden")}>
+        <ApplyButton className="w-full">Apply for membership</ApplyButton>
       </div>
 
       <nav
         aria-label="Footer"
-        className="grid grid-cols-2 gap-x-4 gap-y-8 py-9 md:flex md:flex-wrap md:justify-between md:gap-x-12 md:gap-y-8 md:py-11"
+        className={cn(
+          SITE_CONTAINER_CLASS,
+          "grid grid-cols-2 gap-x-4 gap-y-8 pt-12 pb-16 md:grid-cols-4 md:gap-10 md:pt-14",
+        )}
       >
-        <div className="flex flex-col gap-2.5 md:gap-3">
-          <span className={FOOTER_HEADING_CLASS}>Yuppie</span>
+        <FooterColumn heading="Explore">
           <Link href="/member-login" className={FOOTER_LINK_CLASS}>
             Members Area
           </Link>
@@ -323,39 +386,58 @@ function SiteFooter() {
           <Link href="/contact" className={FOOTER_LINK_CLASS}>
             Contact
           </Link>
-        </div>
-        <div className="flex flex-col gap-2.5 md:gap-3">
-          <span className={FOOTER_HEADING_CLASS}>Connect</span>
-          <ExternalLinkItem link={EXTERNAL_LINKS.instagram} />
-          <ExternalLinkItem link={EXTERNAL_LINKS.tiktok} />
-        </div>
-        <div className="flex min-w-0 flex-col gap-2.5 md:gap-3">
-          <span className={FOOTER_HEADING_CLASS}>Contact</span>
-          <a href={`mailto:${CONTACT_EMAIL}`} className={cn(FOOTER_LINK_CLASS, "break-all md:break-normal")}>
+        </FooterColumn>
+        {/* Last row, across both columns, on mobile, so the email has the
+            full width. */}
+        <FooterColumn heading="Say hello" className="order-last col-span-2 md:order-none md:col-span-1">
+          <a href={`mailto:${CONTACT_EMAIL}`} className={cn(FOOTER_LINK_CLASS, "break-all")}>
             {CONTACT_EMAIL}
           </a>
-          <span className="hidden text-[15px] md:inline">Westminster, London W1G 8TN</span>
-        </div>
-        <div className="flex flex-col gap-2.5 md:gap-3">
-          <span className={FOOTER_HEADING_CLASS}>Get the app</span>
+        </FooterColumn>
+        <FooterColumn heading="Follow">
+          <ExternalLinkItem link={EXTERNAL_LINKS.instagram} />
+          <ExternalLinkItem link={EXTERNAL_LINKS.tiktok} />
+        </FooterColumn>
+        <FooterColumn heading="Get the app">
           <ExternalLinkItem link={EXTERNAL_LINKS.appStore} />
           <ExternalLinkItem link={EXTERNAL_LINKS.googlePlay} />
-        </div>
+        </FooterColumn>
       </nav>
 
-      <div aria-hidden className="border-t-[1.5px] border-foreground pt-6 md:pt-8">
-        <Image
-          src="/yuppie_logo_forte_forward.png"
-          alt=""
-          width={1942}
-          height={641}
-          sizes="(min-width: 1240px) 1160px, 100vw"
-          className="block h-auto w-full opacity-10"
-        />
+      <div className={cn(SITE_CONTAINER_CLASS, "mt-2")}>
+        <div
+          aria-hidden
+          className="relative w-full overflow-hidden"
+          style={{ aspectRatio: `${WORDMARK_INK.width} / ${WORDMARK_INK.height}` }}
+        >
+          <Image
+            src="/yuppie_logo_forte_forward.png"
+            alt=""
+            width={WORDMARK_FILE.width}
+            height={WORDMARK_FILE.height}
+            sizes="(min-width: 1240px) 1180px, 100vw"
+            className="absolute block max-w-none"
+            style={{
+              width: `${(WORDMARK_FILE.width / WORDMARK_INK.width) * 100}%`,
+              height: `${(WORDMARK_FILE.height / WORDMARK_INK.height) * 100}%`,
+              left: `${(-WORDMARK_INK.left / WORDMARK_INK.width) * 100}%`,
+              top: `${(-WORDMARK_INK.top / WORDMARK_INK.height) * 100}%`,
+            }}
+          />
+        </div>
       </div>
-      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-3 pt-5 text-[13px] text-site-muted md:pt-6">
-        <span>© {new Date().getFullYear()} Yuppie. All rights reserved.</span>
-        <Link href="/privacy" className="inline-flex min-h-11 items-center text-site-muted no-underline hover:opacity-70">
+
+      <div
+        className={cn(
+          SITE_CONTAINER_CLASS,
+          "flex flex-col gap-1 pt-7 pb-8 text-[13px] leading-normal text-site-muted md:flex-row md:items-baseline md:justify-between md:gap-x-10 md:text-sm",
+        )}
+      >
+        <p className="m-0">{legalLine(new Date().getFullYear())}</p>
+        <Link
+          href="/privacy"
+          className={cn("inline-flex min-h-11 shrink-0 items-center self-start text-site-muted no-underline hover:opacity-70 md:min-h-0", FOCUS_UNDERLINE_CLASS)}
+        >
           Privacy
         </Link>
       </div>

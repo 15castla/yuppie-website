@@ -53,6 +53,14 @@ export const LABEL_CLASS = "text-sm font-bold";
 // Underlined text link inside body copy.
 export const TEXT_LINK_CLASS = "font-bold text-foreground underline underline-offset-2 hover:opacity-70";
 
+// Links that never show a box: no outline in any state and no iOS tap
+// highlight, so nothing is left around a link after a click, a tap or a
+// programmatic focus. Keyboard focus (:focus-visible) shows a 3px
+// underline instead, offset like the current page's. Used by the header,
+// the mobile menu and the homepage footer.
+export const NO_BOX_CLASS = "outline-none [-webkit-tap-highlight-color:transparent]";
+export const FOCUS_UNDERLINE_CLASS = `${NO_BOX_CLASS} focus-visible:underline focus-visible:decoration-[3px] focus-visible:underline-offset-[6px]`;
+
 // The current page's link in the header.
 export const CURRENT_LINK_CLASS = "underline decoration-2 underline-offset-[6px]";
 
