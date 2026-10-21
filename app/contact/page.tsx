@@ -59,15 +59,6 @@ export default function ContactPage() {
               </a>
             </dd>
           </div>
-          <div className={ROW_CLASS}>
-            <dt className={TERM_CLASS}>Address</dt>
-            <dd className="m-0 text-lg leading-[1.45] md:text-xl">
-              Club Yuppie
-              <br />1 Westmoreland Mansions
-              <br />
-              Westminster, London W1G 8TN
-            </dd>
-          </div>
         </dl>
 
         {/* Phones only. */}
