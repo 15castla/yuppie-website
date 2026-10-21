@@ -142,7 +142,7 @@ function Hero() {
         </div>
         {/* Phones: second (order-1), 16px under the headline. */}
         <div className="order-1 mt-4 flex flex-col gap-[22px] px-5 md:order-none md:col-start-1 md:row-start-2 md:mt-0 md:gap-7 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
-          <p className="m-0 text-[17px] leading-[1.45] md:max-w-[460px] md:text-[19px] md:leading-normal">
+          <p className="m-0 text-[17px] leading-[1.45] max-md:[text-wrap:balance] md:max-w-[460px] md:text-[19px] md:leading-normal">
             <span className="md:hidden">
               A club for full diaries and empty weekends.
             </span>
@@ -310,7 +310,7 @@ function Membership() {
         <span className={HEADLINE_ACCENT_CLASS}>No catch.</span>
       </h2>
       <p className="m-0 text-[17px] md:text-lg">Cancel whenever life gets too fun.</p>
-      <div className="mt-[22px] box-border flex w-full flex-col rounded-[20px] border-2 border-foreground bg-background-muted px-[22px] pt-[26px] pb-[22px] text-left shadow-[6px_6px_0_var(--foreground)] md:mt-6 md:max-w-[460px] md:gap-[18px] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]">
+      <div className="mt-[22px] box-border flex w-full flex-col max-md:w-[calc(100%-6px)] max-md:self-start rounded-[20px] border-2 border-foreground bg-background-muted px-[22px] pt-[26px] pb-[22px] text-left shadow-[6px_6px_0_var(--foreground)] md:mt-6 md:max-w-[460px] md:gap-[18px] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]">
         <p className="m-0 flex items-baseline gap-2 md:gap-1.5">
           <span className="text-[72px] font-extrabold leading-none tracking-[-0.04em] md:text-[60px] md:leading-[0.9] md:tracking-[-0.03em]">
             £10
@@ -404,10 +404,12 @@ function SiteFooter() {
       <section className="border-y-[3px] border-foreground">
         <div className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-12")}>
           <div className="pt-14 text-center md:pt-[clamp(72px,9vw,128px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
-            <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:text-[clamp(40px,4.6vw,64px)]">
+            <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] max-md:[text-wrap:balance] md:text-[clamp(40px,4.6vw,64px)]">
               This isn&apos;t for everyone.
               <br />
-              <span className={SERIF_ACCENT_CLASS}>Might be for you though.</span>
+              <span className={SERIF_ACCENT_CLASS}>
+                Might be for <span className="max-md:whitespace-nowrap">you though.</span>
+              </span>
             </h2>
             {/* Phones: full width, 28px under the heading, then the rope
                 36px below it. */}
@@ -523,7 +525,7 @@ function SiteFooter() {
         <p className="m-0">{legalLine(new Date().getFullYear())}</p>
         <Link
           href="/privacy"
-          className={cn("inline-flex min-h-11 shrink-0 items-center self-baseline text-site-muted no-underline hover:opacity-70 md:min-h-0 md:self-start", FOCUS_UNDERLINE_CLASS)}
+          className={cn("inline-flex min-h-11 shrink-0 items-center self-baseline text-site-muted no-underline hover:opacity-70 max-md:min-w-11 max-md:justify-end md:min-h-0 md:self-start", FOCUS_UNDERLINE_CLASS)}
         >
           Privacy
         </Link>
