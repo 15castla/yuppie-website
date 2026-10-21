@@ -50,7 +50,7 @@ const POLICY_SECTIONS: PolicySection[] = [
   {
     heading: "Changes to this policy",
     paragraphs: [
-      "If this policy changes, we'll update the date at the top. Continuing to use Yuppie after a change means you accept the updated policy.",
+      "If this policy changes, we’ll update the date at the top. Continuing to use Club Yuppie after a change means you accept the updated policy.",
     ],
   },
   {
@@ -100,7 +100,7 @@ export default function PrivacyPage() {
             so "Privacy" and "Policy" fit its width without breaking. */}
         <article className="grid max-w-[760px] grid-cols-1 gap-4 md:gap-5 lg:max-w-none lg:grid-cols-[minmax(240px,1fr)_minmax(0,760px)] lg:gap-x-16 lg:gap-y-0">
           <div className="flex flex-col gap-4 md:gap-5 lg:sticky lg:top-8 lg:self-start">
-            <h1 className={cn(INNER_PAGE_H1_CLASS, "lg:text-[clamp(44px,4.4vw,64px)]")}>Yuppie Privacy Policy</h1>
+            <h1 className={cn(INNER_PAGE_H1_CLASS, "lg:text-[clamp(44px,4.4vw,64px)]")}>Club Yuppie privacy policy</h1>
             <p className="m-0 text-sm text-site-muted md:text-[15px]">Last updated: {lastUpdated}</p>
           </div>
 
