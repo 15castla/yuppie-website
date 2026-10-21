@@ -1,6 +1,6 @@
 "use client";
 
-import { forwardRef, useEffect, useState, type ComponentProps, type FormEvent } from "react";
+import { forwardRef, useEffect, useRef, useState, type ComponentProps, type FormEvent } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { loadStripe } from "@stripe/stripe-js";
@@ -19,7 +19,7 @@ import {
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
 import { StepList, StepRow } from "@/components/site/step-list";
-import { LockIcon } from "@/components/site/icons";
+import { LockIcon, VelvetRopeDrawing } from "@/components/site/icons";
 import { MessageSlot } from "@/components/StableLayout";
 import { CONTACT_EMAIL } from "@/components/site/links";
 import {
@@ -107,6 +107,10 @@ function isFieldName(name: string): name is FieldName {
 }
 
 const APPLY_STEPS = ["Apply", "Committee reviews", "Hear back by text and email"];
+
+// The velvet rope's viewBox cropped to its ink (as the home page's closing
+// band), so its post bases sit on the SVG's bottom edge.
+const ROPE_VIEWBOX = "16.5 52.5 167 125";
 
 // Bridges the gap when confirmSetup ends up doing a full browser redirect
 // (Apple Pay, some 3D Secure checks) instead of resolving in place: the
@@ -582,25 +586,53 @@ export default function ApplyForm({
   setupError: string | null;
 }) {
   const [submitted, setSubmitted] = useState(false);
+  const thanksHeadingRef = useRef<HTMLHeadingElement>(null);
+
+  // When the form is replaced by the thank-you view, start at the top of it
+  // and move focus to its heading. The new view is shorter than the form,
+  // so otherwise the browser keeps the user near the bottom.
+  useEffect(() => {
+    if (!submitted) return;
+    window.scrollTo(0, 0);
+    thanksHeadingRef.current?.focus({ preventScroll: true });
+  }, [submitted]);
 
   return (
     <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
       {submitted ? (
-        <main className={cn(SITE_CONTAINER_CLASS, INNER_MAIN_PADDING_CLASS, "flex flex-col gap-5 md:gap-7")}>
-          <h1 className={INNER_PAGE_H1_CLASS}>
-            Thanks for applying.{" "}
-            <span className={HEADLINE_ACCENT_CLASS}>We&apos;ll be in touch.</span>
-          </h1>
-          <p className="m-0 max-w-[560px] text-[17px] leading-normal md:text-[19px]">
-            Your application is with our membership committee now. If
-            you’re in, you’ll hear from us by text and email.
-          </p>
-          <div>
-            <Link href="/" className={cn(PRIMARY_BUTTON_CLASS, "w-full md:w-auto")}>
-              Back to home
-            </Link>
+        <>
+          {/* Phones: the bottom padding is dropped so the rope band below
+              sits 36px under the button. */}
+          <main className={cn(SITE_CONTAINER_CLASS, INNER_MAIN_PADDING_CLASS, "flex flex-col gap-5 max-md:pb-0 md:gap-7")}>
+            <h1 ref={thanksHeadingRef} tabIndex={-1} className={cn(INNER_PAGE_H1_CLASS, "outline-none")}>
+              Thanks for applying.{" "}
+              <br className="md:hidden" />
+              <span className={HEADLINE_ACCENT_CLASS}>We’ll be in touch.</span>
+            </h1>
+            <p className="m-0 max-w-[560px] text-[17px] leading-normal md:text-[19px]">
+              Your application is with our membership committee now. If
+              you’re in, you’ll hear from us by text and email.
+            </p>
+            <div>
+              <Link href="/" className={cn(PRIMARY_BUTTON_CLASS, "w-full md:w-auto")}>
+                Back to home
+              </Link>
+            </div>
+          </main>
+          {/* Phones: the rope on a 3px rule. You are outside the rope until
+              the committee says yes. */}
+          <div className="border-b-[3px] border-foreground md:hidden">
+            <div className={cn(SITE_CONTAINER_CLASS, "flex justify-center pt-9")}>
+              <VelvetRopeDrawing
+                size={300}
+                viewBox={ROPE_VIEWBOX}
+                width={300}
+                height={(300 * 125) / 167}
+                className="block h-auto w-[190px]"
+              />
+            </div>
           </div>
-        </main>
+        </>
       ) : (
         <main
           className={cn(
