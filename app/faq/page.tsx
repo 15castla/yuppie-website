@@ -26,12 +26,12 @@ const FAQ_ITEMS: FaqEntry[] = [
   {
     question: "How does membership work? Can I cancel at any time?",
     answer:
-      "Yes, it's completely flexible. £10/month gets you in, and you can cancel whenever you like, no lock-in, no faff.",
+      "Yes. It’s £10 a month, cancel whenever you like. No lock-in, no faff.",
   },
   {
     question: "How will I know if my application's been approved?",
     answer:
-      "Every application is reviewed by our membership committee, so it's not instant. Once you're approved, you'll get a text from Yuppie letting you know.",
+      "Every application is reviewed by our membership committee, so it’s not instant. If you’re in, we’ll tell you by text and email.",
   },
   {
     question: "Will I be charged when I apply?",
@@ -41,17 +41,17 @@ const FAQ_ITEMS: FaqEntry[] = [
   {
     question: "Do I have to pay for events, or are they included in membership?",
     answer:
-      "Membership covers your discounts, access and entry to events. Most events do have their own cost on top, but we run them at cost, so you're only ever paying what it actually costs to put on, never a markup. We also run free members only events regularly.",
+      "Membership covers your discounts and access. Events are run at cost and never marked up, and some are free for members.",
   },
   {
     question: "What additional perks do I get, beyond access to events?",
     answer:
-      "Real discounts with partners across the city, from restaurants and bars to barbers, gyms and sports clubs. Plus access to things that aren't open to the public, like skip the queue entry at partner venues, invite only parties and first dibs before things sell out.",
+      "Discounts at partner restaurants, bars, barbers, gyms and sports clubs. Plus access to things that aren’t open to the public: skip-the-queue entry at partner venues, guest lists and first dibs before things sell out.",
   },
   {
     question: "How do I book onto events?",
     answer:
-      "You can book through your Members Area or the Yuppie app, downloadable from the App Store and Google Play. Everything happening that month is listed there, so you just pick what you fancy.",
+      "You can book through your Members Area or the Club Yuppie app, downloadable from the App Store and Google Play. Everything happening that month is listed there, so you just pick what you fancy.",
   },
 ];
 
