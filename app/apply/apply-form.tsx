@@ -20,6 +20,7 @@ import {
 } from "@/components/templates/creative-studio/fonts";
 import { StepList, StepRow } from "@/components/site/step-list";
 import { LockIcon } from "@/components/site/icons";
+import { CONTACT_EMAIL } from "@/components/site/links";
 import {
   CARD_CLASS,
   INPUT_CLASS,
@@ -47,7 +48,7 @@ const stripePromise = loadStripe(
   },
 );
 
-const FALLBACK_ERROR = "Something went wrong saving your card. Please try again.";
+const FALLBACK_ERROR = "We couldn’t save your card. Have another go.";
 
 // The shared Stripe look (lib/stripe-ui.ts, also used by the members'
 // event payment form) with this page's 1.5px ink borders and 14px bold
@@ -91,7 +92,7 @@ const REQUIRED_FIELDS: { name: string; label: string }[] = [
   { name: "linkedin_url", label: "LinkedIn URL" },
 ];
 
-const APPLY_STEPS = ["Apply", "Committee reviews", "Get a text when you're approved"];
+const APPLY_STEPS = ["Apply", "Committee reviews", "Hear back by text and email"];
 
 // Bridges the gap when confirmSetup ends up doing a full browser redirect
 // (Apple Pay, some 3D Secure checks) instead of resolving in place: the
@@ -170,8 +171,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
             setupIntent,
           });
           setError({
-            message:
-              "Something went wrong confirming your payment method. Please try again.",
+            message: "We couldn’t confirm your card. Have another go.",
             isDuplicate: false,
           });
           return;
@@ -182,7 +182,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
         if (!draft) {
           setError({
             message:
-              "Your payment method was confirmed, but we lost your application details on this device. Please fill in the form again.",
+              "Your card is confirmed, but we lost your application details on this device. Fill the form in again.",
             isDuplicate: false,
           });
           return;
@@ -204,9 +204,8 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
         onSubmitted();
       } catch (err) {
         console.error("Unexpected error handling redirect return:", err);
-        const detail = err instanceof Error ? err.message : String(err);
         setError({
-          message: `Something went wrong confirming your application: ${detail}. Please try again or contact us if this keeps happening.`,
+          message: `We couldn’t confirm your application. Have another go, or email ${CONTACT_EMAIL} if it keeps happening.`,
           isDuplicate: false,
         });
       } finally {
@@ -252,13 +251,13 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
       atIndex > 0 &&
       email.indexOf(".", atIndex) > atIndex;
     if (!emailValid) {
-      setError({ message: "Please enter a valid email address.", isDuplicate: false });
+      setError({ message: "That email doesn’t look right.", isDuplicate: false });
       return;
     }
 
     if (!isValidPhoneNumber(phone ?? "")) {
       setError({
-        message: "Please enter a valid phone number for the selected country",
+        message: "That phone number doesn’t look right for the country you picked.",
         isDuplicate: false,
       });
       return;
@@ -349,9 +348,8 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
       onSubmitted();
     } catch (err) {
       console.error("Unexpected error in handleSubmit:", err);
-      const detail = err instanceof Error ? err.message : String(err);
       setError({
-        message: `Something went wrong submitting your application: ${detail}. Please try again or contact us if this keeps happening.`,
+        message: `We couldn’t send your application. Have another go, or email ${CONTACT_EMAIL} if it keeps happening.`,
         isDuplicate: false,
       });
     } finally {
@@ -454,13 +452,13 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
         )}
 
         <button type="submit" disabled={submitting} className={cn(PRIMARY_BUTTON_CLASS, "w-full")}>
-          {submitting ? "Submitting…" : "Submit application"}
+          {submitting ? "Submitting…" : "Send application"}
         </button>
 
         <p className="m-0 text-center text-[13px]">
           By applying, you agree to our{" "}
           <Link href="/privacy" className={TEXT_LINK_CLASS}>
-            Privacy Policy
+            Privacy policy
           </Link>
           .
         </p>
@@ -468,10 +466,10 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
         <p className="m-0 text-[13px] leading-[1.55] text-site-muted">
           We ask for your Instagram, employer and LinkedIn so our
           membership committee can review your application properly. Your
-          card is saved securely with Stripe and isn&apos;t charged now,
-          we only take payment if you&apos;re approved, and you can
-          cancel any time after that. We won&apos;t share your details
-          with anyone outside Yuppie. Want your data deleted? Just email
+          card is saved securely with Stripe and isn’t charged now:
+          we only take payment if you’re approved, and you can
+          cancel any time after that. We won’t share your details
+          with anyone outside Club Yuppie. Want your data deleted? Just email
           us.
         </p>
       </form>
@@ -498,8 +496,7 @@ export default function ApplyForm({
           </h1>
           <p className="m-0 max-w-[560px] text-[17px] leading-normal md:text-[19px]">
             Your application is with our membership committee now. If
-            you&apos;re approved, you&apos;ll get a text from Yuppie
-            letting you know.
+            you’re in, you’ll hear from us by text and email.
           </p>
           <div>
             <Link href="/" className={cn(PRIMARY_BUTTON_CLASS, "w-full md:w-auto")}>
@@ -520,7 +517,7 @@ export default function ApplyForm({
               <span>Apply to</span>
               <Image
                 src="/yuppie_logo_forte_forward.png"
-                alt="Yuppie"
+                alt="Club Yuppie"
                 width={1942}
                 height={641}
                 loading="eager"

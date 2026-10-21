@@ -2,6 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { stripe } from "@/lib/stripe";
+import { CONTACT_EMAIL } from "@/components/site/links";
 
 export type SubmitApplicationResult =
   | { success: true }
@@ -32,13 +33,13 @@ export async function createCardSetupIntent(): Promise<CreateSetupIntentResult> 
     });
 
     if (!setupIntent.client_secret) {
-      return { success: false, error: "Could not start card setup. Please try again." };
+      return { success: false, error: "We couldn’t start card setup. Have another go." };
     }
 
     return { success: true, clientSecret: setupIntent.client_secret };
   } catch (err) {
     console.error("createCardSetupIntent error:", err);
-    return { success: false, error: "Could not start card setup. Please try again." };
+    return { success: false, error: "We couldn’t start card setup. Have another go." };
   }
 }
 
@@ -58,7 +59,7 @@ export async function submitApplication(
   if (typeof paymentMethodId !== "string" || !paymentMethodId) {
     return {
       success: false,
-      error: "Card details are required to apply. Please try again.",
+      error: "Add your card to apply. You won’t be charged until you’re approved.",
     };
   }
 
@@ -84,7 +85,7 @@ export async function submitApplication(
     console.error("Stripe customer creation error:", err);
     return {
       success: false,
-      error: "Something went wrong saving your card. Please try again.",
+      error: "We couldn’t save your card. Have another go.",
     };
   }
 
@@ -119,17 +120,16 @@ export async function submitApplication(
 
       return {
         success: false,
-        error: `Something went wrong submitting your application: ${error.message}. Please try again or contact us if this keeps happening.`,
+        error: `We couldn’t send your application. Have another go, or email ${CONTACT_EMAIL} if it keeps happening.`,
       };
     }
 
     return { success: true };
   } catch (err) {
     console.error("submitApplication unexpected error:", err);
-    const detail = err instanceof Error ? err.message : String(err);
     return {
       success: false,
-      error: `Something went wrong submitting your application: ${detail}. Please try again or contact us if this keeps happening.`,
+      error: `We couldn’t send your application. Have another go, or email ${CONTACT_EMAIL} if it keeps happening.`,
     };
   }
 }
