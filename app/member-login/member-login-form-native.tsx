@@ -207,7 +207,7 @@ export function MemberLoginFormNative() {
           <motion.div {...fade(0.1)}>
             <Image
               src="/yuppie_app_badge_y.png"
-              alt="Yuppie"
+              alt="Club Yuppie"
               // 3x the 60px display size, so phones get a crisp source.
               width={180}
               height={180}

@@ -89,7 +89,7 @@ function Wordmark({ className }: { className: string }) {
   return (
     <Image
       src="/yuppie_logo_forte_forward.png"
-      alt="Yuppie"
+      alt="Club Yuppie"
       width={1942}
       height={641}
       loading="eager"
@@ -136,7 +136,7 @@ function PhoneBar({
       {/* min-h-11: a 44px tap target around the 30px wordmark. */}
       <Link
         href="/"
-        aria-label="Yuppie home"
+        aria-label="Club Yuppie home"
         aria-current={pathname === "/" ? "page" : undefined}
         onClick={onNavigate}
         className={cn("flex min-h-11 items-center", WORDMARK_FOCUS_CLASS)}
@@ -218,7 +218,7 @@ function SiteHeader({ pathname }: { pathname: string }) {
           </nav>
           <Link
             href="/"
-            aria-label="Yuppie home"
+            aria-label="Club Yuppie home"
             aria-current={pathname === "/" ? "page" : undefined}
             className={cn("block", WORDMARK_FOCUS_CLASS)}
           >
