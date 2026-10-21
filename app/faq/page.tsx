@@ -1,17 +1,19 @@
 "use client";
 
 import { useId, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 import { almarai, instrumentSerif } from "@/components/templates/creative-studio/fonts";
 import { CONTACT_EMAIL } from "@/components/site/links";
-import { BrickPhoneDrawing } from "@/components/site/icons";
+import { ArrowRightIcon, BrickPhoneDrawing } from "@/components/site/icons";
 import {
   CARD_CLASS,
   INNER_PAGE_H1_CLASS,
   INNER_MAIN_PADDING_CLASS,
   HEADLINE_ACCENT_CLASS,
+  PRIMARY_BUTTON_CLASS,
   SERIF_ACCENT_CLASS,
   SITE_CONTAINER_CLASS,
   SITE_FONT_STYLE,
@@ -143,6 +145,11 @@ export default function FaqPage() {
             </div>
             <BrickPhoneDrawing size={30} viewBox="66.5 10.5 67 177" width={30} height={80} className="block" />
           </div>
+          {/* Phones: one way to act at the foot of the page. */}
+          <Link href="/apply" className={cn(PRIMARY_BUTTON_CLASS, "mt-2 w-full md:hidden")}>
+            Apply for membership
+            <ArrowRightIcon />
+          </Link>
         </div>
       </main>
     </div>
