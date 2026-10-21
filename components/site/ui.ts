@@ -57,6 +57,14 @@ export const INPUT_CLASS =
 
 export const LABEL_CLASS = "text-sm font-bold";
 
+// A form field that failed validation (/apply): its border turns the error
+// red (#B3261E, --yp-error in brand/tokens.css), still 1.5px so the input
+// stays 50px; the `!` beats INPUT_CLASS's ink border, as on /member-login.
+// FIELD_ERROR_CLASS is the 13px message under it (a MessageSlot with
+// parentGap 8, so it sits 8px below the input).
+export const INPUT_ERROR_CLASS = "border-[#B3261E]!";
+export const FIELD_ERROR_CLASS = "text-[13px] leading-[1.35] text-[#B3261E]";
+
 // Underlined text link inside body copy.
 export const TEXT_LINK_CLASS = "font-bold text-foreground underline underline-offset-2 hover:opacity-70";
 
