@@ -31,14 +31,14 @@ const FAQ_ITEMS: FaqEntry[] = [
       "Yes. It’s £10 a month, cancel whenever you like. No lock-in, no faff.",
   },
   {
-    question: "How will I know if my application's been approved?",
+    question: "How will I know if my application’s been approved?",
     answer:
       "Every application is reviewed by our membership committee, so it’s not instant. If you’re in, we’ll tell you by text and email.",
   },
   {
     question: "Will I be charged when I apply?",
     answer:
-      "No, your card details are saved securely with Stripe when you apply, but you're not charged anything. We only take payment once your application's approved, and you can cancel any time after that.",
+      "No, your card details are saved securely with Stripe when you apply, but you’re not charged anything. We only take payment once your application’s approved, and you can cancel any time after that.",
   },
   {
     question: "Do I have to pay for events, or are they included in membership?",
@@ -73,7 +73,7 @@ export default function FaqPage() {
         <div className="flex flex-col gap-8 md:gap-[clamp(40px,5vw,64px)]">
           <h1 className={cn(INNER_PAGE_H1_CLASS, "max-w-[860px] [text-wrap:balance]")}>
             Got questions? <br className="md:hidden" />
-            <span className={HEADLINE_ACCENT_CLASS}>We&apos;ve got answers.</span>
+            <span className={HEADLINE_ACCENT_CLASS}>We’ve got answers.</span>
           </h1>
 
           <div className="border-t-[1.5px] border-foreground">
@@ -127,7 +127,7 @@ export default function FaqPage() {
           </div>
 
           <p className="m-0 text-base leading-[1.55] max-md:hidden md:text-[17px]">
-            Can&apos;t find what you&apos;re looking for? Get in touch at{" "}
+            Can’t find what you’re looking for? Get in touch at{" "}
             <a href={`mailto:${CONTACT_EMAIL}`} className={TEXT_LINK_CLASS}>
               {CONTACT_EMAIL}
             </a>
@@ -137,7 +137,7 @@ export default function FaqPage() {
             <div>
               <h2 className={cn(SERIF_ACCENT_CLASS, "m-0 text-[28px] leading-[1.05]")}>Still stuck?</h2>
               <p className="m-0 mt-2 text-[15px] leading-[1.45]">
-                Can&apos;t find what you&apos;re looking for? Get in touch at{" "}
+                Can’t find what you’re looking for? Get in touch at{" "}
                 <a href={`mailto:${CONTACT_EMAIL}`} className={cn(TEXT_LINK_CLASS, "break-all")}>
                   {CONTACT_EMAIL}
                 </a>

@@ -57,14 +57,14 @@ const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingC
   {
     title: "Access",
     desktop: "Members’ clubs, skip-the-queue entry, guest lists and first dibs before things sell out.",
-    mobile: "Members' clubs, guest lists and first dibs.",
+    mobile: "Members’ clubs, guest lists and first dibs.",
     Drawing: VelvetRopeDrawing,
     ink: [16.5, 52.5, 167, 125],
   },
   {
     title: "Concierge",
-    desktop: "Built on a top hotel concierge's black book. Ask it anything, and it learns your taste.",
-    mobile: "A top hotel concierge's black book. It learns your taste.",
+    desktop: "Built on a top hotel concierge’s black book. Ask it anything, and it learns your taste.",
+    mobile: "A top hotel concierge’s black book. It learns your taste.",
     Drawing: BrickPhoneDrawing,
     ink: [66.5, 10.5, 67, 177],
   },
@@ -249,7 +249,7 @@ function OpenInvite() {
             <span className="hidden md:inline">
               A marketplace for plans, run by members. Fancy a Saturday class and brunch, but your friends
               are busy? Post it and find members who want to do the same, or browse what others are planning
-              and say you&apos;re in.
+              and say you’re in.
             </span>
           </p>
           {/* Desktop: the steps under the lead. Phones: one row of three
@@ -286,7 +286,7 @@ function OpenInvite() {
               <dd className="m-0">2 more people</dd>
             </dl>
             <span aria-hidden className={cn(PRIMARY_BUTTON_CLASS, "hover:opacity-100")}>
-              I&apos;m in
+              I’m in
             </span>
           </figure>
         </div>
@@ -318,7 +318,7 @@ function Membership() {
           <span className="text-[17px] text-site-muted">/month</span>
         </p>
         <p className="m-0 mt-3 mb-[18px] text-[15.5px] leading-[1.45] text-site-muted md:m-0 md:text-base md:leading-normal">
-          Basically, a skeleton key to the city&apos;s <span className="max-md:whitespace-nowrap">social scene.</span>
+          Basically, a skeleton key to the city’s <span className="max-md:whitespace-nowrap">social scene.</span>
         </p>
         <ul className="m-0 mb-6 flex list-none flex-col gap-3 border-t-[1.5px] border-foreground p-0 pt-[18px] text-base md:mb-0 md:gap-2.5 md:border-t-0 md:pt-0 md:text-[15px]">
           {MEMBERSHIP_INCLUDES.map((item) => (
@@ -405,7 +405,7 @@ function SiteFooter() {
         <div className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-12")}>
           <div className="pt-14 text-center md:pt-[clamp(72px,9vw,128px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
             <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] max-md:[text-wrap:balance] md:text-[clamp(40px,4.6vw,64px)]">
-              This isn&apos;t for everyone.
+              This isn’t for everyone.
               <br />
               <span className={SERIF_ACCENT_CLASS}>
                 Might be for <span className="max-md:whitespace-nowrap">you though.</span>

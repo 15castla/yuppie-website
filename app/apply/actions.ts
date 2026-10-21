@@ -113,7 +113,7 @@ export async function submitApplication(
       if (error.code === "23505") {
         return {
           success: false,
-          error: "You've already got an application with us. We'll be in touch soon.",
+          error: "You’ve already got an application with us. We’ll be in touch soon.",
           isDuplicate: true,
         };
       }

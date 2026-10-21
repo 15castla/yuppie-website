@@ -18,15 +18,15 @@ const POLICY_SECTIONS: PolicySection[] = [
     heading: "What we collect",
     paragraphs: [
       "When you apply to join, we collect your full name, email address, phone number, employer, role title, and any social media handles you choose to give us (LinkedIn, Instagram).",
-      "If you're approved and become a member, we also hold your profile details (bio, avatar), your membership status, and your booking history for events.",
+      "If you’re approved and become a member, we also hold your profile details (bio, avatar), your membership status, and your booking history for events.",
       "If you pay for membership or a paid event, payment is handled entirely by Stripe. We never see or store your card details ourselves; we hold a reference (a Stripe customer and subscription ID) so we can manage your billing.",
-      "We do not use analytics or tracking cookies. The only cookie we set is a strictly necessary one that keeps you signed in, which doesn't require separate consent under UK law.",
+      "We do not use analytics or tracking cookies. The only cookie we set is a strictly necessary one that keeps you signed in, which doesn’t require separate consent under UK law.",
     ],
   },
   {
     heading: "Why we collect it",
     paragraphs: [
-      "To assess your application, run your membership, let you book events, take payment, and send you emails about your account (login codes, booking confirmations, and updates about your application or membership). We don't send marketing emails at this time; if that ever changes, we'll give you a clear way to opt out.",
+      "To assess your application, run your membership, let you book events, take payment, and send you emails about your account (login codes, booking confirmations, and updates about your application or membership). We don’t send marketing emails at this time; if that ever changes, we’ll give you a clear way to opt out.",
     ],
   },
   {
@@ -38,13 +38,13 @@ const POLICY_SECTIONS: PolicySection[] = [
   {
     heading: "How long we keep it",
     paragraphs: [
-      "We keep application data for as long as needed to consider it and for a reasonable period after in case you reapply. We keep member data for as long as you're a member, and for a limited period after you leave in case of billing or legal queries, after which it's deleted.",
+      "We keep application data for as long as needed to consider it and for a reasonable period after in case you reapply. We keep member data for as long as you’re a member, and for a limited period after you leave in case of billing or legal queries, after which it’s deleted.",
     ],
   },
   {
     heading: "Your rights",
     paragraphs: [
-      "Under UK data protection law, you can ask us at any time to see what data we hold on you, correct it if it's wrong, or delete it. To do any of this, email hello@clubyuppie.com and we'll act on it as soon as we can.",
+      "Under UK data protection law, you can ask us at any time to see what data we hold on you, correct it if it’s wrong, or delete it. To do any of this, email hello@clubyuppie.com and we’ll act on it as soon as we can.",
     ],
   },
   {
@@ -106,8 +106,8 @@ export default function PrivacyPage() {
 
           <div className="flex min-w-0 flex-col gap-8 md:gap-10">
             <p className="m-0 text-base leading-[1.6] md:text-lg">
-              This policy explains what personal data Yuppie (&quot;we&quot;,
-              &quot;us&quot;) collects through clubyuppie.com and the Yuppie
+              This policy explains what personal data Yuppie (“we”,
+              “us”) collects through clubyuppie.com and the Yuppie
               app, why, and what rights you have over it. Yuppie is operated
               by Club Yuppie, registered at 1 Westmoreland Mansions,
               Westminster, London W1G 8TN.

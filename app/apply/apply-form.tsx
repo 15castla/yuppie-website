@@ -513,7 +513,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
             Payment details
           </span>
           <p className="m-0 text-sm leading-[1.45] text-site-muted max-md:mt-1.5 max-md:mb-3">
-            You won&apos;t be charged until your application is approved.
+            You won’t be charged until your application is approved.
           </p>
           <div className="mt-1 max-md:mt-0">
             <PaymentElement
@@ -655,7 +655,7 @@ export default function ApplyForm({
             </h1>
             <p className="m-0 text-[17px] leading-normal md:max-w-[440px] md:text-[19px]">
               £10 a month. Cancel any time. Every application is
-              reviewed by our membership committee before you&apos;re
+              reviewed by our membership committee before you’re
               approved.
             </p>
             {/* Desktop: the stacked steps. Phones: one row of three. */}
