@@ -360,6 +360,11 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
   return (
     <div className={cn(CARD_CLASS, "max-md:py-6")}>
       <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-[18px] md:gap-[22px]">
+        {/* Phones: the fields come in three groups, About you, For the
+            committee and Payment details, each heading in the same 17px/800
+            style. Desktop keeps one undivided form (these blocks are
+            md:hidden there). */}
+        <h2 className="m-0 text-[17px] font-extrabold leading-[1.2] md:hidden">About you</h2>
         <div className="grid grid-cols-[repeat(auto-fit,minmax(min(220px,100%),1fr))] gap-x-5 gap-y-[18px]">
           <div className={FIELD_CLASS}>
             <label htmlFor="full_name" className={LABEL_CLASS}>
@@ -391,6 +396,17 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
               inputComponent={ApplyPhoneNumberField}
             />
           </div>
+          {/* Phones: the why-we-ask sentence at the moment of asking, under a
+              1.5px rule like the Payment block's. -mb-1.5 makes the first
+              label sit 12px below the sentence. col-span-full keeps it a
+              full row if the grid shows two columns below 768px. */}
+          <div className="col-span-full mt-1 -mb-1.5 flex flex-col border-t-[1.5px] border-foreground pt-5 md:hidden">
+            <h2 className="m-0 text-[17px] font-extrabold leading-[1.2]">For the committee</h2>
+            <p className="m-0 mt-1.5 text-sm leading-[1.45] text-site-muted">
+              We ask for your Instagram, employer and LinkedIn so our membership committee can review your
+              application properly.
+            </p>
+          </div>
           <div className={FIELD_CLASS}>
             <label htmlFor="instagram_username" className={LABEL_CLASS}>
               Instagram username
@@ -409,13 +425,15 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
             </label>
             <input id="role_title" name="role_title" type="text" autoComplete="organization-title" autoCapitalize="words" enterKeyHint="next" placeholder="e.g. Associate" className={INPUT_CLASS} />
           </div>
-        </div>
-
-        <div className={FIELD_CLASS}>
-          <label htmlFor="linkedin_url" className={LABEL_CLASS}>
-            LinkedIn URL
-          </label>
-          <input id="linkedin_url" name="linkedin_url" type="url" autoComplete="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="done" placeholder="https://linkedin.com/in/yourname" className={INPUT_CLASS} />
+          {/* The last field of the grid on every width; its 4px top margin
+              makes the grid's 18px row gap the 22px the form gap gave it
+              on desktop. */}
+          <div className={cn(FIELD_CLASS, "md:col-span-full md:mt-1")}>
+            <label htmlFor="linkedin_url" className={LABEL_CLASS}>
+              LinkedIn URL
+            </label>
+            <input id="linkedin_url" name="linkedin_url" type="url" autoComplete="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="done" placeholder="https://linkedin.com/in/yourname" className={INPUT_CLASS} />
+          </div>
         </div>
 
         {/* Phones: its own section, under a 1.5px rule with a 17px heading. */}
@@ -466,10 +484,20 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           .
         </p>
 
-        <p className="m-0 text-[13px] leading-[1.55] text-site-muted">
+        {/* Two paragraphs, not a hidden span: a hidden inline span changed
+            the antialiasing of the desktop text. On phones the first
+            sentence has moved up, under "For the committee". */}
+        <p className="m-0 hidden text-[13px] leading-[1.55] text-site-muted md:block">
           We ask for your Instagram, employer and LinkedIn so our
           membership committee can review your application properly. Your
           card is saved securely with Stripe and isn’t charged now:
+          we only take payment if you’re approved, and you can
+          cancel any time after that. We won’t share your details
+          with anyone outside Club Yuppie. Want your data deleted? Just email
+          us.
+        </p>
+        <p className="m-0 text-[13px] leading-[1.55] text-site-muted md:hidden">
+          Your card is saved securely with Stripe and isn’t charged now:
           we only take payment if you’re approved, and you can
           cancel any time after that. We won’t share your details
           with anyone outside Club Yuppie. Want your data deleted? Just email
