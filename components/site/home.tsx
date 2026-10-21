@@ -318,7 +318,7 @@ function Membership() {
           <span className="text-[17px] text-site-muted">/month</span>
         </p>
         <p className="m-0 mt-3 mb-[18px] text-[15.5px] leading-[1.45] text-site-muted md:m-0 md:text-base md:leading-normal">
-          Basically, a skeleton key to the city&apos;s social scene.
+          Basically, a skeleton key to the city&apos;s <span className="max-md:whitespace-nowrap">social scene.</span>
         </p>
         <ul className="m-0 mb-6 flex list-none flex-col gap-3 border-t-[1.5px] border-foreground p-0 pt-[18px] text-base md:mb-0 md:gap-2.5 md:border-t-0 md:pt-0 md:text-[15px]">
           {MEMBERSHIP_INCLUDES.map((item) => (
