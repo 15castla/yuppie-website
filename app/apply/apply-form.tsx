@@ -365,13 +365,13 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
             <label htmlFor="full_name" className={LABEL_CLASS}>
               Full name
             </label>
-            <input id="full_name" name="full_name" type="text" placeholder="e.g. Marcus Smith" className={INPUT_CLASS} />
+            <input id="full_name" name="full_name" type="text" autoComplete="name" autoCapitalize="words" enterKeyHint="next" placeholder="e.g. Marcus Smith" className={INPUT_CLASS} />
           </div>
           <div className={FIELD_CLASS}>
             <label htmlFor="email" className={LABEL_CLASS}>
               Email
             </label>
-            <input id="email" name="email" type="email" placeholder="e.g. marcus@example.com" className={INPUT_CLASS} />
+            <input id="email" name="email" type="email" autoComplete="email" inputMode="email" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" placeholder="e.g. marcus@example.com" className={INPUT_CLASS} />
           </div>
           <div className={cn(FIELD_CLASS, "site-phone")}>
             <label htmlFor="phone" className={LABEL_CLASS}>
@@ -380,6 +380,9 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
             <PhoneInput
               id="phone"
               name="phone"
+              autoComplete="tel"
+              inputMode="tel"
+              enterKeyHint="next"
               placeholder="e.g. 07123 456789"
               value={phone}
               onChange={setPhone}
@@ -392,19 +395,19 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
             <label htmlFor="instagram_username" className={LABEL_CLASS}>
               Instagram username
             </label>
-            <input id="instagram_username" name="instagram_username" type="text" placeholder="@yourhandle" className={INPUT_CLASS} />
+            <input id="instagram_username" name="instagram_username" type="text" autoComplete="off" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="next" placeholder="@yourhandle" className={INPUT_CLASS} />
           </div>
           <div className={FIELD_CLASS}>
             <label htmlFor="employer" className={LABEL_CLASS}>
               Employer
             </label>
-            <input id="employer" name="employer" type="text" placeholder="e.g. ABC LLP" className={INPUT_CLASS} />
+            <input id="employer" name="employer" type="text" autoComplete="organization" autoCapitalize="words" enterKeyHint="next" placeholder="e.g. ABC LLP" className={INPUT_CLASS} />
           </div>
           <div className={FIELD_CLASS}>
             <label htmlFor="role_title" className={LABEL_CLASS}>
               Role / job title
             </label>
-            <input id="role_title" name="role_title" type="text" placeholder="e.g. Associate" className={INPUT_CLASS} />
+            <input id="role_title" name="role_title" type="text" autoComplete="organization-title" autoCapitalize="words" enterKeyHint="next" placeholder="e.g. Associate" className={INPUT_CLASS} />
           </div>
         </div>
 
@@ -412,7 +415,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           <label htmlFor="linkedin_url" className={LABEL_CLASS}>
             LinkedIn URL
           </label>
-          <input id="linkedin_url" name="linkedin_url" type="url" placeholder="https://linkedin.com/in/yourname" className={INPUT_CLASS} />
+          <input id="linkedin_url" name="linkedin_url" type="url" autoComplete="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="done" placeholder="https://linkedin.com/in/yourname" className={INPUT_CLASS} />
         </div>
 
         {/* Phones: its own section, under a 1.5px rule with a 17px heading. */}
