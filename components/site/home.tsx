@@ -525,7 +525,7 @@ function SiteFooter() {
         <p className="m-0">{legalLine(new Date().getFullYear())}</p>
         <Link
           href="/privacy"
-          className={cn("inline-flex min-h-11 shrink-0 items-center self-baseline text-site-muted no-underline hover:opacity-70 max-md:min-w-11 max-md:justify-end md:min-h-0 md:self-start", FOCUS_UNDERLINE_CLASS)}
+          className={cn("inline-flex min-h-11 shrink-0 items-center self-baseline text-site-muted no-underline hover:opacity-70 max-md:-ml-2 max-md:pl-2 max-md:justify-end md:min-h-0 md:self-start", FOCUS_UNDERLINE_CLASS)}
         >
           Privacy
         </Link>
