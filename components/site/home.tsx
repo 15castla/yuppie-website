@@ -49,14 +49,14 @@ const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingC
   },
   {
     title: "Discounts",
-    desktop: "Real savings at restaurants, bars, barbers, gyms and sports clubs across the city.",
-    mobile: "Real savings at restaurants, bars, gyms and clubs.",
+    desktop: "Money off at restaurants, bars, barbers, gyms and sports clubs in the city.",
+    mobile: "Money off at restaurants, bars, gyms and clubs.",
     Drawing: PriceTagDrawing,
     ink: [30.25, 28.5, 140.875, 125.875],
   },
   {
     title: "Access",
-    desktop: "Members' clubs, skip-the-queue entry, invite-only parties and first dibs before things sell out.",
+    desktop: "Members’ clubs, skip-the-queue entry, guest lists and first dibs before things sell out.",
     mobile: "Members' clubs, guest lists and first dibs.",
     Drawing: VelvetRopeDrawing,
     ink: [16.5, 52.5, 167, 125],
@@ -73,7 +73,7 @@ const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingC
 const OPEN_INVITE_STEPS = ["Post an invite", "Members say yes", "Go together"];
 
 const MEMBERSHIP_INCLUDES = [
-  "Yuppie Events, run at cost",
+  "Events run by us, at cost",
   "Open Invites from other members",
   "Discounts, access and the concierge",
 ];
@@ -144,10 +144,10 @@ function Hero() {
         <div className="order-1 mt-4 flex flex-col gap-[22px] px-5 md:order-none md:col-start-1 md:row-start-2 md:mt-0 md:gap-7 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
           <p className="m-0 text-[17px] leading-[1.45] md:max-w-[460px] md:text-[19px] md:leading-normal">
             <span className="md:hidden">
-              A members&apos; club for professionals with full diaries and empty weekends.
+              A club for full diaries and empty weekends.
             </span>
             <span className="hidden md:inline">
-              A members&apos; club for professionals with full diaries and empty weekends. Dinners, sport,
+              A club for full diaries and empty weekends. Dinners, sport,
               parties and perks, all planned for you. You just show up.
             </span>
           </p>
@@ -232,9 +232,6 @@ function OpenInvite() {
         )}
       >
         <div className="flex min-w-0 flex-col gap-[18px] md:flex-[1_1_520px] md:gap-7">
-          <span className="inline-flex min-h-[30px] items-center self-start rounded-full border-[1.5px] border-foreground px-3 text-[13px] font-bold md:px-3.5">
-            The members&apos; marketplace
-          </span>
           <h2
             className={cn(
               "m-0 text-[84px] leading-[0.9] md:text-[clamp(72px,8.6vw,128px)] md:leading-[0.88]",
@@ -284,7 +281,7 @@ function OpenInvite() {
               <dt className="font-bold">When</dt>
               <dd className="m-0">Saturday morning</dd>
               <dt className="font-bold">Posted by</dt>
-              <dd className="m-0">A Yuppie member</dd>
+              <dd className="m-0">A Club Yuppie member</dd>
               <dt className="font-bold">Looking for</dt>
               <dd className="m-0">2 more people</dd>
             </dl>
@@ -391,7 +388,7 @@ function FooterColumn({ heading, className, children }: { heading: string; class
 function legalLine(year: number) {
   return COMPANY.name && COMPANY.number
     ? `© ${year} ${COMPANY.name}. Registered in England and Wales, company no. ${COMPANY.number}. Registered office: ${REGISTERED_OFFICE}.`
-    : `© ${year} Yuppie. All rights reserved.`;
+    : `© ${year} Club Yuppie. All rights reserved.`;
 }
 
 // Homepage only: the other public pages have no footer.
