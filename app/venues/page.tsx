@@ -130,7 +130,7 @@ export default function VenuesPage() {
             <div className="flex min-w-0 flex-col gap-[18px] md:flex-[1_1_480px] md:gap-7">
               <h1 className={cn(INNER_PAGE_H1_CLASS, "[text-wrap:balance]")}>
                 We plan the evenings. <br className="md:hidden" />
-                <span className={HEADLINE_ACCENT_CLASS}>You’ve got the room.</span>
+                <span className={HEADLINE_ACCENT_CLASS}>You’ve got <span className="max-md:whitespace-nowrap">the room.</span></span>
               </h1>
               <p data-measure className="m-0 text-[17px] leading-normal md:max-w-[460px] md:text-[19px]">
                 Club Yuppie is a club for full diaries and empty weekends. We’d like you as a partner.
@@ -168,7 +168,7 @@ export default function VenuesPage() {
         <section className={cn(SITE_CONTAINER_CLASS, "pt-[72px] pb-[72px] md:py-[clamp(72px,9vw,128px)]")}>
           <h2 className={cn(SECTION_H2_CLASS, "md:mb-[clamp(24px,3vw,40px)]")}>
             What we ask. <br className="md:hidden" />
-            <span className={SERIF_ACCENT_CLASS}>An offer for members.</span>
+            <span className={SERIF_ACCENT_CLASS}>An offer <span className="max-md:whitespace-nowrap">for members.</span></span>
           </h2>
           <p
             data-measure
@@ -248,7 +248,7 @@ export default function VenuesPage() {
               <h2 className={cn(SECTION_H2_CLASS, "max-md:[text-wrap:balance]")}>
                 Let’s talk.
                 <br />
-                <span className={SERIF_ACCENT_CLASS}>We’ll bring the evening.</span>
+                <span className={SERIF_ACCENT_CLASS}>We’ll bring <span className="max-md:whitespace-nowrap">the evening.</span></span>
               </h2>
               <p data-measure className="m-0 mt-4 text-[17px] leading-normal md:mt-5 md:max-w-[460px] md:text-[19px]">
                 Tell us about the room and what you’d like to offer. A few lines is plenty.
