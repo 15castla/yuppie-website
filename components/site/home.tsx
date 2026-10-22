@@ -296,21 +296,28 @@ function OpenInvite() {
   );
 }
 
+// The deal: the first half of the page's one ending (the closing band in
+// SiteFooter is the second). No Apply button here: the page asks once,
+// after the price and the rope. Phones: centred, the card under the words.
+// Desktop: the words on the left, the £10 card on the right, its 8px
+// shadow ending on the container's right edge.
 function Membership() {
   return (
     <section
       id="membership"
       className={cn(
         SITE_CONTAINER_CLASS,
-        "flex flex-col items-center gap-3.5 pt-[72px] pb-[72px] text-center md:gap-5 md:pt-[clamp(80px,10vw,136px)] md:pb-[clamp(64px,8vw,104px)]",
+        "flex flex-col items-center gap-3.5 pt-[72px] pb-0 text-center md:grid md:grid-cols-2 md:grid-rows-[auto_auto] md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:gap-y-0 md:pt-[clamp(72px,9vw,128px)] md:text-left",
       )}
     >
-      <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.03em] md:text-[clamp(44px,5.6vw,80px)] md:leading-[0.95]">
-        One membership. <br className="md:hidden" />
+      <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.03em] md:col-start-1 md:row-start-1 md:self-end md:text-[clamp(40px,4.6vw,64px)] md:tracking-[-0.025em]">
+        One membership. <br />
         <span className={HEADLINE_ACCENT_CLASS}>No catch.</span>
       </h2>
-      <p className="m-0 text-[17px] md:text-lg">Cancel whenever life gets too fun.</p>
-      <div className="mt-[22px] box-border flex w-full flex-col max-md:w-[calc(100%-6px)] max-md:self-start rounded-[20px] border-2 border-foreground bg-background-muted px-[22px] pt-[26px] pb-[22px] text-left shadow-[6px_6px_0_var(--foreground)] md:mt-6 md:max-w-[460px] md:gap-[18px] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]">
+      <p className="m-0 text-[17px] md:col-start-1 md:row-start-2 md:mt-5 md:self-start md:text-lg">
+        Cancel whenever life gets too fun.
+      </p>
+      <div className="mt-[22px] box-border flex w-full flex-col max-md:w-[calc(100%-6px)] max-md:self-start rounded-[20px] border-2 border-foreground bg-background-muted px-[22px] pt-[26px] pb-[26px] text-left shadow-[6px_6px_0_var(--foreground)] md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0 md:mr-2 md:w-[calc(100%-8px)] md:max-w-[460px] md:justify-self-end md:gap-[18px] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]">
         <p className="m-0 flex items-baseline gap-2 md:gap-1.5">
           <span className="text-[72px] font-extrabold leading-none tracking-[-0.04em] md:text-[60px] md:leading-[0.9] md:tracking-[-0.03em]">
             £10
@@ -320,7 +327,7 @@ function Membership() {
         <p className="m-0 mt-3 mb-[18px] text-[15.5px] leading-[1.45] text-site-muted md:m-0 md:text-base md:leading-normal">
           Basically, a skeleton key to the city’s <span className="max-md:whitespace-nowrap">social scene.</span>
         </p>
-        <ul className="m-0 mb-6 flex list-none flex-col gap-3 border-t-[1.5px] border-foreground p-0 pt-[18px] text-base md:mb-0 md:gap-2.5 md:border-t-0 md:pt-0 md:text-[15px]">
+        <ul className="m-0 flex list-none flex-col gap-3 border-t-[1.5px] border-foreground p-0 pt-[18px] text-base md:gap-2.5 md:border-t-0 md:pt-0 md:text-[15px]">
           {MEMBERSHIP_INCLUDES.map((item) => (
             <li key={item} className="flex items-center gap-2.5">
               <CheckIcon />
@@ -328,7 +335,6 @@ function Membership() {
             </li>
           ))}
         </ul>
-        <ApplyButton className="w-full md:mt-1.5">Apply for membership</ApplyButton>
       </div>
     </section>
   );
@@ -393,17 +399,20 @@ function legalLine(year: number) {
 
 // Homepage only: the other public pages have no footer.
 //
-// The closing band is framed by full-bleed 3px rules like the hero and
-// the Open Invite band. Desktop: heading and button on the left, the
-// velvet rope on the right standing on the bottom rule, its right post on
-// the container's edge. Mobile, in the hero's order: heading, the rope
-// standing on the rule, then the button below the rule.
+// The closing band is the door, the second half of the page's one ending:
+// it follows Membership's £10 card with no rule between them, and ends on
+// a full-bleed 3px rule like the hero and the Open Invite band. Phones,
+// centred: the rope line 64px under the card, the committee line, the one
+// Apply button, then the rope standing on the bottom rule. Desktop: the
+// rope line, committee line and button on the left, the velvet rope on the
+// right standing on the bottom rule, its right post on the container's
+// edge.
 function SiteFooter() {
   return (
     <footer>
-      <section className="border-y-[3px] border-foreground">
+      <section data-rhythm="art-on-rule" className="border-b-[3px] border-foreground">
         <div className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-12")}>
-          <div className="pt-14 text-center md:pt-[clamp(72px,9vw,128px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
+          <div className="pt-16 text-center md:pt-[clamp(64px,8vw,104px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
             <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] max-md:[text-wrap:balance] md:text-[clamp(40px,4.6vw,64px)]">
               This isn’t for everyone.
               <br />
@@ -411,8 +420,11 @@ function SiteFooter() {
                 Might be for <span className="max-md:whitespace-nowrap">you though.</span>
               </span>
             </h2>
-            {/* Phones: full width, 28px under the heading, then the rope
-                36px below it. */}
+            <p className="m-0 mt-4 text-[17px] leading-[1.45] [text-wrap:balance] md:mt-5 md:max-w-[520px] md:text-[19px] md:leading-normal">
+              Every application is reviewed by our membership committee.
+            </p>
+            {/* Phones: full width, 28px under the committee line, then the
+                rope 36px below it. */}
             <div className="mt-7 md:mt-8">
               <ApplyButton className="w-full md:w-auto">Apply for membership</ApplyButton>
             </div>
