@@ -20,8 +20,8 @@ function stepState(index: number, current: number | undefined): StepState {
 }
 
 // The check after a done step's label, on the label's first line: the
-// wrapper's top margin centres the 16px icon in the line box (24px for
-// StepList's 16px/1.5 label, 18.75px for StepRow's 15px/1.25).
+// wrapper's top margin centres the 16px icon in the line box (20.8px for
+// StepList's 16px/1.3 progress label, 18.75px for StepRow's 15px/1.25).
 function DoneCheck({ className }: { className: string }) {
   return (
     <span className={cn("flex", className)}>
@@ -64,9 +64,17 @@ export function StepList({
             <span className={cn("min-w-3.5 text-2xl leading-none md:text-[26px]", SERIF_ACCENT_CLASS)}>
               {index + 1}
             </span>
-            <span className={cn("text-base font-bold", state === "done" && "inline-flex items-start gap-1")}>
+            {/* As progress, the labels are set at 1.3 (as approved, spec
+                D3.1), so a two-line label stays close under its numeral. */}
+            <span
+              className={cn(
+                "text-base font-bold",
+                state !== "plain" && "leading-[1.3]",
+                state === "done" && "inline-flex items-start gap-1",
+              )}
+            >
               {step}
-              {state === "done" && <DoneCheck className="mt-1" />}
+              {state === "done" && <DoneCheck className="mt-0.5" />}
             </span>
           </li>
         );
