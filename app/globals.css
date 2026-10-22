@@ -215,3 +215,15 @@ html:not([data-native-app]) [data-site-watermark] {
     --site-header-h: 65.5px;
   }
 }
+
+/* From 768px the public site's header is sticky (site-nav.tsx): 94px,
+   plus the 1.5px rule it shows once the page has scrolled. Whatever the
+   browser scrolls into view (keyboard focus, a form's first error, a
+   #link) stops just below it instead of behind it (WCAG 2.2 SC 2.4.11,
+   focus not obscured). Only on pages that show that header, so the
+   members area and admin, which have their own bars, are unchanged. */
+@media (min-width: 768px) {
+  html:not([data-native-app]):has([data-site-header]) {
+    scroll-padding-top: 96px;
+  }
+}
