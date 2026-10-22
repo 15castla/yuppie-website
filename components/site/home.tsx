@@ -21,6 +21,7 @@ import { StepList, StepRow } from "./step-list";
 import {
   FOCUS_UNDERLINE_CLASS,
   HEADLINE_ACCENT_CLASS,
+  MD_SERIF_ACCENT_CLASS,
   PRIMARY_BUTTON_CLASS,
   SERIF_ACCENT_CLASS,
   SITE_CONTAINER_CLASS,
@@ -313,14 +314,16 @@ function OpenInvite() {
 // SiteFooter is the second). No Apply button here: the page asks once,
 // after the price and the rope. Phones: centred, the card under the words.
 // Desktop: the words on the left, the £10 card on the right, its 8px
-// shadow ending on the container's right edge.
+// shadow ending on the container's right edge. The card is the section's
+// first and last ink, so the bottom padding is the top padding plus the
+// shadow: equal gaps above the card and below its shadow (RULE-10).
 function Membership() {
   return (
     <section
       id="membership"
       className={cn(
         SITE_CONTAINER_CLASS,
-        "flex flex-col items-center gap-3.5 pt-[72px] pb-0 text-center md:grid md:grid-cols-2 md:grid-rows-[auto_auto] md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:gap-y-0 md:pt-[clamp(72px,9vw,128px)] md:text-left",
+        "flex flex-col items-center gap-3.5 pt-[72px] pb-0 text-center md:grid md:grid-cols-2 md:grid-rows-[auto_auto] md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:gap-y-0 md:pt-[clamp(72px,9vw,128px)] md:pb-[calc(clamp(72px,9vw,128px)+8px)] md:text-left",
       )}
     >
       <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.03em] md:col-start-1 md:row-start-1 md:self-end md:text-[clamp(40px,4.6vw,64px)] md:tracking-[-0.025em]">
@@ -425,21 +428,26 @@ function legalLine(year: number) {
 
 // Homepage only: the other public pages have no footer.
 //
-// The closing band is the door, the second half of the page's one ending:
-// it follows Membership's £10 card with no rule between them, and ends on
-// a full-bleed 3px rule like the hero and the Open Invite band. Phones,
-// centred: the rope line 64px under the card, the committee line, the one
-// Apply button, then the rope standing on the bottom rule. Desktop: the
-// rope line, committee line and button on the left, the velvet rope on the
-// right standing on the bottom rule, its right post on the container's
-// edge.
+// The closing band is the door, the second half of the page's one ending,
+// and ends on a full-bleed 3px rule like the hero and the Open Invite band.
+// Phones, centred, with no rule above it: the rope line 64px under the
+// card, the committee line, the one Apply button, then the rope standing on
+// the bottom rule. Desktop: its own band under a full-bleed 3px top rule,
+// the sign-off headline in the serif (like ApplyBand on FAQ and Contact),
+// the committee line and button on the left, the velvet rope on the right
+// standing on the bottom rule, its right post on the container's edge.
 function SiteFooter() {
   return (
     <footer>
-      <section data-rhythm="art-on-rule" className="border-b-[3px] border-foreground">
+      <section data-rhythm="art-on-rule" className="border-b-[3px] border-foreground md:border-t-[3px]">
         <div className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-12")}>
-          <div className="pt-16 text-center md:pt-[clamp(64px,8vw,104px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
-            <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] max-md:[text-wrap:balance] md:text-[clamp(40px,4.6vw,64px)]">
+          <div className="pt-16 text-center md:pt-[clamp(56px,6vw,88px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
+            <h2
+              className={cn(
+                "m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] max-md:[text-wrap:balance] md:text-[clamp(40px,4.6vw,64px)]",
+                MD_SERIF_ACCENT_CLASS,
+              )}
+            >
               This isn’t for everyone.
               <br />
               <span className={SERIF_ACCENT_CLASS}>

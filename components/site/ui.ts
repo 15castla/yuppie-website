@@ -27,6 +27,9 @@ export const SITE_MAIN_PADDING_CLASS =
 export const SERIF_ACCENT_CLASS =
   "[font-family:var(--font-instrument-serif),Georgia,serif] italic font-normal";
 export const HEADLINE_ACCENT_CLASS = `${SERIF_ACCENT_CLASS} tracking-[-0.01em]`;
+// From md only: a whole heading in the serif accent at -0.01em (the home closing band's sign-off on desktop).
+export const MD_SERIF_ACCENT_CLASS =
+  "md:[font-family:var(--font-instrument-serif),Georgia,serif] md:italic md:font-normal md:tracking-[-0.01em]";
 
 // The inner pages' h1 and <main> padding on phones (mobile boards,
 // design-ref/mobile): 46px h1 at -0.035em, 36px above, 64px below.
