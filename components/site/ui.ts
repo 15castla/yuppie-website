@@ -78,9 +78,6 @@ export const TERM_LABEL_CLASS = "m-0 text-[13px] font-bold uppercase tracking-[0
 export const INPUT_ERROR_CLASS = "border-[#B3261E]!";
 export const FIELD_ERROR_CLASS = "text-[13px] leading-[1.35] text-[#B3261E]";
 
-// Underlined text link inside body copy.
-export const TEXT_LINK_CLASS = "font-bold text-foreground underline underline-offset-2 hover:opacity-70";
-
 // Links that never show a box: no outline in any state and no iOS tap
 // highlight, so nothing is left around a link after a click, a tap or a
 // programmatic focus. Keyboard focus (:focus-visible) shows a 3px
@@ -88,6 +85,11 @@ export const TEXT_LINK_CLASS = "font-bold text-foreground underline underline-of
 // the mobile menu and the homepage footer.
 export const NO_BOX_CLASS = "outline-none [-webkit-tap-highlight-color:transparent]";
 export const FOCUS_UNDERLINE_CLASS = `${NO_BOX_CLASS} focus-visible:underline focus-visible:decoration-[3px] focus-visible:underline-offset-[6px]`;
+
+// Underlined text link inside body copy (/apply's "Log in" and "Privacy
+// policy", the FAQ's email, /privacy, /member-login). Never a box
+// (RULE-35): keyboard focus thickens its own underline to 3px instead.
+export const TEXT_LINK_CLASS = `font-bold text-foreground underline underline-offset-2 hover:opacity-70 ${NO_BOX_CLASS} focus-visible:decoration-[3px]`;
 
 // The current page's link in the header.
 export const CURRENT_LINK_CLASS = "underline decoration-2 underline-offset-[6px]";

@@ -106,13 +106,17 @@ const APPLY_CARD_TITLES = ["About you", "For the committee", "Payment details"];
 // A card's head: the serif numeral (as the site's other 1, 2, 3) and the
 // title, 21px/800 on phones and 24px/800 from md (the perk-title tokens).
 // The id names the card's group (aria-labelledby) and is where the index
-// links land: the scroll margin puts the card's top edge 128px down, level
-// with the sticky summary (2px border plus the card's top padding).
+// links land, with the card's top edge 128px down, level with the sticky
+// summary. The head sits the 2px border plus the card's top padding below
+// that edge, so it must stop 130px plus the padding down. The page's
+// scroll-padding-top (96px from 768, app/globals.css, for the sticky
+// header) already gives 96 of that, so the head's own margin is the
+// other 34 plus the padding.
 function StepCardHead({ step, icon }: { step: number; icon?: ReactNode }) {
   return (
     <h2
       id={`apply-step-${step}`}
-      className="col-span-full m-0 flex items-baseline gap-3 lg:scroll-mt-[calc(130px+clamp(28px,3vw,40px))]"
+      className="col-span-full m-0 flex items-baseline gap-3 lg:scroll-mt-[calc(34px+clamp(28px,3vw,40px))]"
     >
       <span aria-hidden className={cn(SERIF_ACCENT_CLASS, "min-w-4 text-[30px] leading-none md:text-[32px]")}>
         {step}
