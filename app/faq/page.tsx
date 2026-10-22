@@ -9,8 +9,10 @@ import { CONTACT_EMAIL } from "@/components/site/links";
 import { ApplyBand } from "@/components/site/apply-band";
 import { BrickPhoneDrawing } from "@/components/site/icons";
 import {
+  FOCUS_UNDERLINE_CLASS,
   INNER_PAGE_H1_CLASS,
   HEADLINE_ACCENT_CLASS,
+  NO_BOX_CLASS,
   SERIF_ACCENT_CLASS,
   SITE_CONTAINER_CLASS,
   SITE_FONT_STYLE,
@@ -112,9 +114,14 @@ export default function FaqPage() {
                               aria-expanded={open}
                               aria-controls={answerId}
                               onClick={() => setOpenIndex(open ? null : index)}
-                              className="flex min-h-[72px] w-full items-center justify-between gap-4 border-0 bg-transparent py-3.5 text-left text-foreground md:gap-6 md:py-[22px]"
+                              className={cn(
+                                // No box after a click or tap; keyboard focus
+                                // is a 3px underline on the question (RULE-35).
+                                "group flex min-h-[72px] w-full items-center justify-between gap-4 border-0 bg-transparent py-3.5 text-left text-foreground md:gap-6 md:py-[22px]",
+                                NO_BOX_CLASS,
+                              )}
                             >
-                              <span className="text-[17px] font-bold leading-[1.3] md:text-[clamp(19px,1.8vw,22px)]">
+                              <span className="text-[17px] font-bold leading-[1.3] group-focus-visible:underline group-focus-visible:decoration-[3px] group-focus-visible:underline-offset-[6px] md:text-[clamp(19px,1.8vw,22px)]">
                                 {item.question}
                               </span>
                               <span
@@ -171,7 +178,7 @@ export default function FaqPage() {
                 </h2>
                 <p className="m-0 mt-2 text-[15px] leading-[1.45] md:mt-2.5 md:leading-normal">
                   Can’t find what you’re looking for? Get in touch at{" "}
-                  <a href={`mailto:${CONTACT_EMAIL}`} className={cn(TEXT_LINK_CLASS, "[overflow-wrap:anywhere]")}>
+                  <a href={`mailto:${CONTACT_EMAIL}`} className={cn(TEXT_LINK_CLASS, FOCUS_UNDERLINE_CLASS, "[overflow-wrap:anywhere]")}>
                     {CONTACT_EMAIL}
                   </a>
                 </p>
