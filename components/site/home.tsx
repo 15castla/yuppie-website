@@ -253,13 +253,14 @@ function OpenInvite() {
             </span>
           </p>
           {/* Desktop: the steps under the lead. Phones: one row of three
-              below the card (StepRow, after it). */}
+              under the lead, so the example card closes the section. */}
           <div className="hidden md:block">
             <StepList steps={OPEN_INVITE_STEPS} className="md:mt-1 md:max-w-[560px]" />
           </div>
+          <StepRow steps={OPEN_INVITE_STEPS} className="mt-4 md:hidden" />
         </div>
 
-        <div className="relative mt-11 min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_380px] md:pt-14 md:pr-6">
+        <div className="relative mt-[68px] min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_380px] md:pt-14 md:pr-6">
           <TennisRacketsDrawing
             clipId="open-invite-racket-strings"
             size={140}
@@ -290,7 +291,6 @@ function OpenInvite() {
             </span>
           </figure>
         </div>
-        <StepRow steps={OPEN_INVITE_STEPS} className="mt-10 md:hidden" />
       </div>
     </section>
   );
