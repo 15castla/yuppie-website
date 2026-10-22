@@ -260,7 +260,12 @@ function OpenInvite() {
             className="absolute top-[-46px] right-0 z-10 block size-[84px] rotate-[14deg] md:top-[-40px] md:right-[-28px] md:size-[140px]"
           />
           {/* An example invite, not a real one: the "I'm in" pill is part
-              of the picture, so it isn't a button. */}
+              of the picture, so it isn't a button. It is the small 44px
+              pill sized to its word (the header Apply pill's height and
+              15px type), so it never looks like the page's real Apply
+              buttons. The `!`s are needed because cn() is a plain join:
+              without them PRIMARY_BUTTON_CLASS's min-h-14, px-7 and
+              text-[17px] come later in the CSS and win. */}
           <figure
             aria-label="Example Open Invite"
             className="relative m-0 mr-1.5 flex flex-col rounded-[20px] border-2 border-foreground bg-background px-[22px] pt-6 pb-[22px] shadow-[6px_6px_0_var(--foreground)] md:mr-0 md:gap-5 md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]"
@@ -279,7 +284,10 @@ function OpenInvite() {
               <dt className="font-bold">Looking for</dt>
               <dd className="m-0">2 more people</dd>
             </dl>
-            <span aria-hidden className={cn(PRIMARY_BUTTON_CLASS, "hover:opacity-100")}>
+            <span
+              aria-hidden
+              className={cn(PRIMARY_BUTTON_CLASS, "hover:opacity-100 min-h-11! self-start px-5! text-[15px]!")}
+            >
               I’m in
             </span>
           </figure>
