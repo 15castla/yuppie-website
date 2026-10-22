@@ -34,6 +34,7 @@ import {
   SITE_CONTAINER_CLASS,
   SITE_FONT_STYLE,
   INNER_MAIN_PADDING_CLASS,
+  INNER_MAIN_PADDING_TOP_CLASS,
   SITE_PAGE_CLASS,
   TEXT_LINK_CLASS,
 } from "@/components/site/ui";
@@ -600,39 +601,52 @@ export default function ApplyForm({
   return (
     <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
       {submitted ? (
-        <>
-          {/* Phones: the bottom padding is dropped so the rope band below
-              sits 36px under the button. */}
-          <main className={cn(SITE_CONTAINER_CLASS, INNER_MAIN_PADDING_CLASS, "flex flex-col gap-5 max-md:pb-0 md:gap-7")}>
-            <h1 ref={thanksHeadingRef} tabIndex={-1} className={cn(INNER_PAGE_H1_CLASS, "outline-none")}>
-              Thanks for applying.{" "}
-              <br className="md:hidden" />
-              <span className={HEADLINE_ACCENT_CLASS}>We’ll be in touch.</span>
-            </h1>
-            <p className="m-0 max-w-[560px] text-[17px] leading-normal md:text-[19px]">
-              Your application is with our membership committee now. If
-              you’re in, you’ll hear from us by text and email.
-            </p>
-            <div>
-              <Link href="/" className={cn(PRIMARY_BUTTON_CLASS, "w-full md:w-auto")}>
-                Back to home
-              </Link>
+        // One 3px rule under the whole view, at every width, and the rope
+        // standing on it: you are outside the rope until the committee says
+        // yes. Phones: the rope is centred 24px under the button. From md:
+        // words on the left, the rope on the right edge (as the home page's
+        // closing band), and only the words have bottom padding.
+        <section className="border-b-[3px] border-foreground">
+          <main
+            className={cn(
+              SITE_CONTAINER_CLASS,
+              INNER_MAIN_PADDING_TOP_CLASS,
+              "flex flex-col md:grid md:grid-cols-[minmax(0,1fr)_auto] md:items-end md:gap-x-12",
+            )}
+          >
+            <div className="flex flex-col gap-5 md:gap-7 md:pb-[clamp(56px,6vw,88px)]">
+              <h1 ref={thanksHeadingRef} tabIndex={-1} className={cn(INNER_PAGE_H1_CLASS, "outline-none")}>
+                Thanks for applying.{" "}
+                <br />
+                <span className={HEADLINE_ACCENT_CLASS}>We’ll be in touch.</span>
+              </h1>
+              <p className="m-0 max-w-[560px] text-[17px] leading-normal md:text-[19px]">
+                Your application is with our membership committee now. If
+                you’re in, you’ll hear from us by text and email.
+              </p>
+              {/* Where you are now: 1 done, 2 current, 3 next. Phones: one
+                  row of three. Desktop: three columns. */}
+              <StepRow steps={APPLY_STEPS} current={1} className="md:hidden" />
+              <div className="hidden md:mt-1 md:block">
+                <StepList steps={APPLY_STEPS} current={1} className="md:max-w-[560px]" />
+              </div>
+              <div>
+                <Link href="/" className={cn(PRIMARY_BUTTON_CLASS, "w-full md:w-auto")}>
+                  Back to home
+                </Link>
+              </div>
             </div>
-          </main>
-          {/* Phones: the rope on a 3px rule. You are outside the rope until
-              the committee says yes. */}
-          <div className="border-b-[3px] border-foreground md:hidden">
-            <div className={cn(SITE_CONTAINER_CLASS, "flex justify-center pt-9")}>
+            <div className="flex justify-center pt-6 md:justify-end md:pt-0">
               <VelvetRopeDrawing
                 size={300}
                 viewBox={ROPE_VIEWBOX}
                 width={300}
                 height={(300 * 125) / 167}
-                className="block h-auto w-[190px]"
+                className="block h-auto w-[170px] md:w-[clamp(200px,24vw,300px)]"
               />
             </div>
-          </div>
-        </>
+          </main>
+        </section>
       ) : (
         <main
           className={cn(
