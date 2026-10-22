@@ -48,12 +48,37 @@ function isNavExcludedRoute(pathname: string): boolean {
 
 const SIGN_IN_PATH = "/member-login";
 
-const MENU_ITEMS: { label: string; href: string }[] = [
-  { label: "Home", href: "/" },
+// The phone menu (round 2, menu A): the club first, in big type, then the
+// site's pages in small type. The club links go to the home page's
+// sections, in the home page's order; the ids belong to
+// components/site/home.tsx (Perks, OpenInvite, Membership), so if they
+// change there they must change here.
+const MENU_CLUB_ITEMS: { label: string; id: string }[] = [
+  { label: "Perks", id: "perks" },
+  { label: "Open Invite", id: "open-invite" },
+  { label: "Membership", id: "membership" },
+];
+
+const MENU_PAGE_ITEMS: { label: string; href: string }[] = [
   { label: "FAQs", href: "/faq" },
   { label: "Contact", href: "/contact" },
   { label: "Members Area", href: SIGN_IN_PATH },
 ];
+
+// A home section's top in the page once the page has settled. A page
+// arriving from another route fades up from 12px lower (app/template.tsx
+// moves its wrapper with a transform), so scrolling to where the section is
+// mid-fade would leave its top 12px above the screen once it settles: take
+// the ancestors' vertical translation back out. (offsetTop also ignores
+// transforms, but rounds to whole pixels, which hid 1px of a section.)
+function documentTop(element: HTMLElement): number {
+  let top = element.getBoundingClientRect().top + window.scrollY;
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    const { transform } = getComputedStyle(node);
+    if (transform !== "none") top -= new DOMMatrixReadOnly(transform).m42;
+  }
+  return top;
+}
 
 // The is-native-app cookie never changes mid-session, so there's nothing
 // to subscribe to — this only exists to give useSyncExternalStore a
@@ -81,6 +106,22 @@ function useIsNativeApp(): boolean {
   return useSyncExternalStore(
     subscribeToNothing,
     () => isNativeAppCookie(document.cookie),
+    () => false,
+  );
+}
+
+// Whether the page has scrolled at all, for the desktop header's rule.
+// The server (and so the first render, before hydration) says no, which is
+// also the state of a page that opens at its top.
+function subscribeToScroll(onChange: () => void) {
+  window.addEventListener("scroll", onChange, { passive: true });
+  return () => window.removeEventListener("scroll", onChange);
+}
+
+function usePageScrolled(): boolean {
+  return useSyncExternalStore(
+    subscribeToScroll,
+    () => window.scrollY > 0,
     () => false,
   );
 }
@@ -181,6 +222,27 @@ function SiteHeader({ pathname }: { pathname: string }) {
   const menuOpen = menuOpenOn === pathname;
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
+  // A club link in the menu (Perks, Open Invite, Membership) lands on its
+  // home section from any page. The scroll waits until the menu has closed
+  // (it locks the page's scrolling while open) and the home page is
+  // showing. From another page Next.js also scrolls to the #id as it
+  // arrives; this then corrects for the page's fade-up (see documentTop).
+  // On the home page itself MobileMenu skips the navigation, so a link
+  // whose #id is already in the address still scrolls. Dropped if the
+  // visitor ends up somewhere else.
+  const pendingSectionRef = useRef<{ id: string; from: string } | null>(null);
+  useEffect(() => {
+    const pending = pendingSectionRef.current;
+    if (!pending || menuOpen) return;
+    if (pathname === "/") {
+      pendingSectionRef.current = null;
+      const section = document.getElementById(pending.id);
+      if (section) window.scrollTo(0, documentTop(section));
+    } else if (pathname !== pending.from) {
+      pendingSectionRef.current = null;
+    }
+  }, [menuOpen, pathname]);
+
   const linkClass = (href: string) =>
     cn(
       "inline-flex min-h-11 items-center no-underline hover:opacity-70",
@@ -195,10 +257,24 @@ function SiteHeader({ pathname }: { pathname: string }) {
     FOCUS_UNDERLINE_CLASS,
   );
 
+  // From 768px (desktop header option B, approved 22 Oct 2026) the header
+  // stays at the top of the window while the page scrolls, and a 1.5px ink
+  // rule shows under it once the page has moved (data-scrolled), so content
+  // never slides under an edgeless bar. The rule is a shadow, not a border,
+  // so the bar is 94px in both states (RULE-22) and the top of every page
+  // is unchanged. Phones keep the bar as it was: in the page's flow, with
+  // its own rule, and data-scrolled does nothing there.
+  const scrolled = usePageScrolled();
+
   return (
     <header
       data-site-header
-      className={cn(almarai.variable, instrumentSerif.variable, "relative z-30 bg-background text-foreground antialiased")}
+      data-scrolled={scrolled ? "" : undefined}
+      className={cn(
+        almarai.variable,
+        instrumentSerif.variable,
+        "relative z-30 bg-background text-foreground antialiased md:sticky md:top-0 md:data-[scrolled]:shadow-[0_1.5px_0_var(--foreground)]",
+      )}
       style={SITE_FONT_STYLE}
     >
       {/* Desktop: FAQs and Contact | wordmark | Members Area and Apply. */}
@@ -265,6 +341,10 @@ function SiteHeader({ pathname }: { pathname: string }) {
         <MobileMenu
           pathname={pathname}
           onClose={() => setMenuOpenOn(null)}
+          onSectionLink={(id) => {
+            pendingSectionRef.current = { id, from: pathname };
+            setMenuOpenOn(null);
+          }}
           returnFocusTo={menuButtonRef}
         />
       )}
@@ -287,10 +367,12 @@ const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1
 function MobileMenu({
   pathname,
   onClose,
+  onSectionLink,
   returnFocusTo,
 }: {
   pathname: string;
   onClose: () => void;
+  onSectionLink: (id: string) => void;
   returnFocusTo: RefObject<HTMLButtonElement | null>;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -375,47 +457,83 @@ function MobileMenu({
         }
       />
 
-      <nav aria-label="Menu" className="mx-5 mt-5 flex flex-col border-b-[1.5px] border-foreground">
-        {MENU_ITEMS.map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            onClick={onClose}
-            aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
-            className={cn(
-              "flex min-h-[68px] items-center justify-between border-t-[1.5px] border-foreground text-[36px] font-extrabold tracking-[-0.025em] no-underline",
-              NO_BOX_CLASS,
-              "focus-visible:underline focus-visible:decoration-[3px] focus-visible:underline-offset-[8px]",
-              isCurrent(pathname, item.href) && "underline decoration-[3px] underline-offset-[8px]",
-            )}
-          >
-            {item.label}
-            <ArrowRightIcon width={20} height={14} />
-          </Link>
-        ))}
+      {/* The club first: the home page's three sections in big rows (never
+          marked current). Then the site's pages in small type, 44px tall
+          each, the current page underlined as in the desktop header. One
+          nav, so one landmark. */}
+      <nav aria-label="Menu" className="mt-5">
+        <div className="mx-5 flex flex-col border-b-[1.5px] border-foreground">
+          {MENU_CLUB_ITEMS.map((item) => (
+            <Link
+              key={item.id}
+              href={`/#${item.id}`}
+              onClick={(event) => {
+                // A new tab or window: leave it to the browser.
+                if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                // Already on the home page: no navigation, so the section
+                // scrolls into view even when its #id is already in the
+                // address (SiteHeader scrolls once the menu has closed).
+                if (pathname === "/") {
+                  event.preventDefault();
+                  if (window.location.hash !== `#${item.id}`) window.history.pushState(null, "", `/#${item.id}`);
+                }
+                onSectionLink(item.id);
+              }}
+              className={cn(
+                "flex min-h-[68px] items-center justify-between border-t-[1.5px] border-foreground text-[36px] font-extrabold tracking-[-0.025em] no-underline",
+                NO_BOX_CLASS,
+                "focus-visible:underline focus-visible:decoration-[3px] focus-visible:underline-offset-[8px]",
+              )}
+            >
+              {item.label}
+              <ArrowRightIcon width={20} height={14} />
+            </Link>
+          ))}
+        </div>
+        <div className="mx-5 mt-2 flex flex-wrap gap-x-6">
+          {MENU_PAGE_ITEMS.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              onClick={onClose}
+              aria-current={isCurrent(pathname, item.href) ? "page" : undefined}
+              className={cn(
+                "inline-flex min-h-11 min-w-11 items-center text-base font-bold no-underline",
+                FOCUS_UNDERLINE_CLASS,
+                isCurrent(pathname, item.href) && CURRENT_LINK_CLASS,
+              )}
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
       </nav>
 
       {/* The two champagne coupes (cropped to their ink) standing on a 3px
-          rule, then the Apply button 24px below the rule. (The hero shows
-          the figures large, so the menu doesn't repeat them.) Sized by the
-          visible height: 170px wide and 32px below the links from 680px;
-          128px wide and 24px below them from 632px to 679px (the 170px
-          drawing doesn't fit with the button's 56px underneath, and
-          keeping 128px up to 699px would leave a gap over 88px above it);
-          left out under 632px so it can't crowd the links and the button.
-          The menu is full screen behind Safari's floating toolbar, so the
-          button keeps the bottom safe area plus 56px under it. */}
+          rule, then the price line and the Apply button 16px below the
+          rule. (The hero shows the figures large, so the menu doesn't
+          repeat them.) Sized by the visible height: 170px wide and 32px
+          below the links from 700px; 128px wide and 24px below them from
+          650px to 699px (the 170px drawing doesn't fit with the price line
+          and the button underneath); left out under 650px so it can't
+          crowd the links and the button. At 664 (iPhone 390 with Safari's
+          toolbars) the space between the small links and the coupes is
+          46px. The menu is full screen behind Safari's floating toolbar,
+          so the button keeps the bottom safe area plus 56px under it. */}
       <div className="mt-auto">
-        <div className="mx-5 flex justify-center border-b-[3px] border-foreground pt-6 [@media(min-height:680px)]:pt-8 [@media(max-height:631.98px)]:hidden">
+        <div className="mx-5 flex justify-center border-b-[3px] border-foreground pt-6 [@media(min-height:700px)]:pt-8 [@media(max-height:649.98px)]:hidden">
           <CoupesDrawing
             size={170}
             viewBox={COUPES_INK_VIEWBOX}
             width={170}
             height={(170 * 147.5) / 169.5}
-            className="block h-auto w-[128px] [@media(min-height:680px)]:w-[170px]"
+            className="block h-auto w-[128px] [@media(min-height:700px)]:w-[170px]"
           />
         </div>
-        <div className="px-5 pt-6 pb-[calc(env(safe-area-inset-bottom)+56px)]">
+        <div className="px-5 pt-4 pb-[calc(env(safe-area-inset-bottom)+56px)]">
+          {/* Centred over the centred button label and coupes (RULE-12,
+              allowed 22 Oct 2026). */}
+          <p className="m-0 mb-3 text-center text-[15px] font-bold leading-[1.4]">£10 a month. Cancel any time.</p>
           <Link href="/apply" onClick={onClose} className={cn(PRIMARY_BUTTON_CLASS, "w-full", FOCUS_UNDERLINE_CLASS)}>
             Apply for membership
             <ArrowRightIcon />

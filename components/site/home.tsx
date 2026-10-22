@@ -21,6 +21,7 @@ import { StepList, StepRow } from "./step-list";
 import {
   FOCUS_UNDERLINE_CLASS,
   HEADLINE_ACCENT_CLASS,
+  MD_SERIF_ACCENT_CLASS,
   PRIMARY_BUTTON_CLASS,
   SERIF_ACCENT_CLASS,
   SITE_CONTAINER_CLASS,
@@ -160,58 +161,58 @@ function Hero() {
   );
 }
 
-// The drawings keep their previous scale (112px per 200 units on desktop,
-// 64px on mobile), now applied to the cropped ink box.
-const PERK_SCALE = { mobile: 0.48, desktop: 112 / 200 };
-// Desktop: every drawing sits at the bottom of a box as tall as the
-// tallest (the phone's 177 units), so their bottoms share one line and
-// every title starts the same distance below it.
-const PERK_ROW_HEIGHT = Math.max(...PERKS.map(({ ink }) => ink[3])) * PERK_SCALE.desktop;
+// The drawings' smallest scale: 112px per 200 units (their desktop size
+// before round 2), applied to the cropped ink box. It is the floor of the
+// clamp() in the drawing's class (0.56px per unit, up to 0.8px from 1440
+// wide); here it only sets the SVG's width and height attributes.
+const PERK_MIN_SCALE = 112 / 200;
 
+// Four ruled rows: the words on the container's left edge, each drawing
+// on the right edge with its ink bottom standing on the row's 1.5px rule
+// (RULE-07: the drawing box's negative bottom margin equals the row's
+// bottom padding). Phones: one column, the words centred in the row.
+// Desktop: two columns where two 420px columns fit (about 975px wide and
+// up), one below that, never three; the words hang from the top so the
+// titles share one line. Every row takes the tallest row's height.
 function Perks() {
   return (
     <section
       id="perks"
-      className={cn(SITE_CONTAINER_CLASS, "pt-[88px] pb-[88px] md:py-[clamp(72px,9vw,128px)]")}
+      className={cn(
+        SITE_CONTAINER_CLASS,
+        "pt-[88px] pb-[88px] md:pt-[clamp(72px,9vw,122px)] md:pb-[clamp(72px,9vw,128px)]",
+      )}
     >
-      <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:mb-[clamp(48px,6vw,80px)] md:text-[clamp(40px,4.6vw,64px)]">
+      {/* Desktop: the top padding tops out at 122px and the heading's
+          bottom margin at 74px, so neither empty band (hero rule to the
+          heading's ink, heading's ink to the first title's ink) passes
+          128px at any width (RULE-11). */}
+      <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:mb-[clamp(48px,6vw,74px)] md:text-[clamp(40px,4.6vw,64px)]">
         Four reasons to <span className={SERIF_ACCENT_CLASS}>leave the office.</span>
       </h2>
-      {/* Phones: a 2x2 grid ruled top, between the rows, at the bottom
-          and down the middle; cells are padded only beside the centre
-          rule, so their outer edges sit on the container's. */}
-      <div className="mt-9 grid grid-cols-2 border-t-[1.5px] border-foreground md:mt-0 md:grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] md:gap-x-10 md:gap-y-12 md:border-t-0">
+      <div className="mt-9 grid grid-cols-1 auto-rows-fr border-t-[1.5px] border-foreground md:mt-0 md:grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] md:gap-x-[clamp(40px,5.5vw,80px)] md:border-t-0">
         {PERKS.map(({ title, desktop, mobile, Drawing, ink }) => (
           <article
             key={title}
-            className="flex min-w-0 flex-col border-b-[1.5px] border-foreground pt-[22px] pb-[26px] odd:pr-4 even:border-l-[1.5px] even:pl-4 md:gap-3.5 md:border-b-0 md:py-0 md:odd:pr-0 md:even:border-l-0 md:even:pl-0"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)_96px] grid-rows-[1fr_auto_auto_1fr] gap-x-4 border-b-[1.5px] border-foreground py-6 md:grid-cols-[minmax(0,1fr)_auto] md:grid-rows-[auto_auto_1fr] md:gap-x-8 md:py-10"
           >
-            {/* Phones: a 72px icon area, the drawing at its bottom and flush
-                left (the phone, 85px tall, rises above it). Desktop: the
-                row-height box, the drawing at its bottom and flush left on
-                the title's edge. */}
-            <div
-              className="mb-4 flex h-[72px] items-end md:mb-0 md:h-[var(--perk-row-h)] md:w-auto"
-              style={{ "--perk-row-h": `${PERK_ROW_HEIGHT}px` } as CSSProperties}
-            >
+            <div className="col-start-2 row-span-full -mb-6 flex items-end justify-end self-end md:-mb-10">
+              {/* Sized from the ink box in 200-unit grid units (unitless
+                  --ink-w and --ink-h) times one scale: 0.56px per unit up
+                  to 1007px wide, growing to 0.8px at 1440 and above. */}
               <Drawing
-                size={ink[2] * PERK_SCALE.desktop}
+                size={ink[2] * PERK_MIN_SCALE}
                 viewBox={ink.join(" ")}
-                width={ink[2] * PERK_SCALE.desktop}
-                height={ink[3] * PERK_SCALE.desktop}
-                className="block h-[var(--ink-h-mobile)] w-[var(--ink-w-mobile)] overflow-visible stroke-[3.2] md:h-[var(--ink-h-desktop)] md:w-[var(--ink-w-desktop)] md:stroke-[3]"
-                style={
-                  {
-                    "--ink-w-mobile": `${ink[2] * PERK_SCALE.mobile}px`,
-                    "--ink-h-mobile": `${ink[3] * PERK_SCALE.mobile}px`,
-                    "--ink-w-desktop": `${ink[2] * PERK_SCALE.desktop}px`,
-                    "--ink-h-desktop": `${ink[3] * PERK_SCALE.desktop}px`,
-                  } as CSSProperties
-                }
+                width={ink[2] * PERK_MIN_SCALE}
+                height={ink[3] * PERK_MIN_SCALE}
+                className="block h-[calc(var(--ink-h)*clamp(0.56px,0.0556vw,0.8px))] w-[calc(var(--ink-w)*clamp(0.56px,0.0556vw,0.8px))] overflow-visible stroke-[3]"
+                style={{ "--ink-w": ink[2], "--ink-h": ink[3] } as CSSProperties}
               />
             </div>
-            <h3 className="m-0 mb-1.5 text-[21px] font-extrabold tracking-[-0.01em] md:mb-0 md:text-2xl">{title}</h3>
-            <p className="m-0 text-[14.5px] leading-[1.45] md:text-base md:leading-[1.55]">
+            <h3 className="m-0 col-start-1 row-start-2 mb-1.5 self-end text-2xl leading-[1.2] font-extrabold tracking-[-0.01em] md:row-start-1 md:mb-2.5 md:self-auto">
+              {title}
+            </h3>
+            <p className="m-0 col-start-1 row-start-3 self-start text-base leading-[1.45] md:row-start-2 md:max-w-[420px] md:leading-[1.55]">
               <span className="md:hidden">{mobile}</span>
               <span className="hidden md:inline">{desktop}</span>
             </p>
@@ -228,10 +229,13 @@ function OpenInvite() {
       <div
         className={cn(
           SITE_CONTAINER_CLASS,
-          "flex flex-col pt-16 pb-[72px] md:flex-row md:flex-wrap md:items-center md:gap-x-20 md:gap-y-14 md:py-[clamp(72px,9vw,128px)]",
+          "flex flex-col pt-16 pb-[72px] md:flex-row md:flex-nowrap md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:py-[clamp(72px,9vw,128px)]",
         )}
       >
-        <div className="flex min-w-0 flex-col gap-[18px] md:flex-[1_1_520px] md:gap-7">
+        {/* Desktop: the words and the example card side by side at every
+            width from 768 (never wrapped, so the card never falls under
+            the words and leaves half the band empty). */}
+        <div className="flex min-w-0 flex-col gap-[18px] md:flex-[1_1_360px] md:gap-7">
           <h2
             className={cn(
               "m-0 text-[84px] leading-[0.9] md:text-[clamp(72px,8.6vw,128px)] md:leading-[0.88]",
@@ -260,14 +264,21 @@ function OpenInvite() {
           <StepRow steps={OPEN_INVITE_STEPS} className="mt-4 md:hidden" />
         </div>
 
-        <div className="relative mt-[68px] min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_380px] md:pt-14 md:pr-6">
+        {/* The rackets sit on the card's top right corner, inside the
+            column (right-0), so they never pass the window's edge. */}
+        <div className="relative mt-[68px] min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_300px] md:pt-14 md:pr-6">
           <TennisRacketsDrawing
             clipId="open-invite-racket-strings"
             size={140}
-            className="absolute top-[-46px] right-0 z-10 block size-[84px] rotate-[14deg] md:top-[-40px] md:right-[-28px] md:size-[140px]"
+            className="absolute top-[-46px] right-0 z-10 block size-[84px] rotate-[14deg] md:top-[-40px] md:size-[140px]"
           />
           {/* An example invite, not a real one: the "I'm in" pill is part
-              of the picture, so it isn't a button. */}
+              of the picture, so it isn't a button. It is the small 44px
+              pill sized to its word (the header Apply pill's height and
+              15px type), so it never looks like the page's real Apply
+              buttons. The `!`s are needed because cn() is a plain join:
+              without them PRIMARY_BUTTON_CLASS's min-h-14, px-7 and
+              text-[17px] come later in the CSS and win. */}
           <figure
             aria-label="Example Open Invite"
             className="relative m-0 mr-1.5 flex flex-col rounded-[20px] border-2 border-foreground bg-background px-[22px] pt-6 pb-[22px] shadow-[6px_6px_0_var(--foreground)] md:mr-0 md:gap-5 md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]"
@@ -286,7 +297,10 @@ function OpenInvite() {
               <dt className="font-bold">Looking for</dt>
               <dd className="m-0">2 more people</dd>
             </dl>
-            <span aria-hidden className={cn(PRIMARY_BUTTON_CLASS, "hover:opacity-100")}>
+            <span
+              aria-hidden
+              className={cn(PRIMARY_BUTTON_CLASS, "hover:opacity-100 min-h-11! self-start px-5! text-[15px]!")}
+            >
               I’m in
             </span>
           </figure>
@@ -296,21 +310,30 @@ function OpenInvite() {
   );
 }
 
+// The deal: the first half of the page's one ending (the closing band in
+// SiteFooter is the second). No Apply button here: the page asks once,
+// after the price and the rope. Phones: centred, the card under the words.
+// Desktop: the words on the left, the £10 card on the right, its 8px
+// shadow ending on the container's right edge. The card is the section's
+// first and last ink, so the bottom padding is the top padding plus the
+// shadow: equal gaps above the card and below its shadow (RULE-10).
 function Membership() {
   return (
     <section
       id="membership"
       className={cn(
         SITE_CONTAINER_CLASS,
-        "flex flex-col items-center gap-3.5 pt-[72px] pb-[72px] text-center md:gap-5 md:pt-[clamp(80px,10vw,136px)] md:pb-[clamp(64px,8vw,104px)]",
+        "flex flex-col items-center gap-3.5 pt-[72px] pb-0 text-center md:grid md:grid-cols-2 md:grid-rows-[auto_auto] md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:gap-y-0 md:pt-[clamp(72px,9vw,128px)] md:pb-[calc(clamp(72px,9vw,128px)+8px)] md:text-left",
       )}
     >
-      <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.03em] md:text-[clamp(44px,5.6vw,80px)] md:leading-[0.95]">
-        One membership. <br className="md:hidden" />
+      <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.03em] md:col-start-1 md:row-start-1 md:self-end md:text-[clamp(40px,4.6vw,64px)] md:tracking-[-0.025em]">
+        One membership. <br />
         <span className={HEADLINE_ACCENT_CLASS}>No catch.</span>
       </h2>
-      <p className="m-0 text-[17px] md:text-lg">Cancel whenever life gets too fun.</p>
-      <div className="mt-[22px] box-border flex w-full flex-col max-md:w-[calc(100%-6px)] max-md:self-start rounded-[20px] border-2 border-foreground bg-background-muted px-[22px] pt-[26px] pb-[22px] text-left shadow-[6px_6px_0_var(--foreground)] md:mt-6 md:max-w-[460px] md:gap-[18px] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]">
+      <p className="m-0 text-[17px] md:col-start-1 md:row-start-2 md:mt-5 md:self-start md:text-lg">
+        Cancel whenever life gets too fun.
+      </p>
+      <div className="mt-[22px] box-border flex w-full flex-col max-md:w-[calc(100%-6px)] max-md:self-start rounded-[20px] border-2 border-foreground bg-background-muted px-[22px] pt-[26px] pb-[26px] text-left shadow-[6px_6px_0_var(--foreground)] md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0 md:mr-2 md:w-[calc(100%-8px)] md:max-w-[460px] md:justify-self-end md:gap-[18px] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]">
         <p className="m-0 flex items-baseline gap-2 md:gap-1.5">
           <span className="text-[72px] font-extrabold leading-none tracking-[-0.04em] md:text-[60px] md:leading-[0.9] md:tracking-[-0.03em]">
             £10
@@ -320,7 +343,7 @@ function Membership() {
         <p className="m-0 mt-3 mb-[18px] text-[15.5px] leading-[1.45] text-site-muted md:m-0 md:text-base md:leading-normal">
           Basically, a skeleton key to the city’s <span className="max-md:whitespace-nowrap">social scene.</span>
         </p>
-        <ul className="m-0 mb-6 flex list-none flex-col gap-3 border-t-[1.5px] border-foreground p-0 pt-[18px] text-base md:mb-0 md:gap-2.5 md:border-t-0 md:pt-0 md:text-[15px]">
+        <ul className="m-0 flex list-none flex-col gap-3 border-t-[1.5px] border-foreground p-0 pt-[18px] text-base md:gap-2.5 md:border-t-0 md:pt-0 md:text-[15px]">
           {MEMBERSHIP_INCLUDES.map((item) => (
             <li key={item} className="flex items-center gap-2.5">
               <CheckIcon />
@@ -328,7 +351,6 @@ function Membership() {
             </li>
           ))}
         </ul>
-        <ApplyButton className="w-full md:mt-1.5">Apply for membership</ApplyButton>
       </div>
     </section>
   );
@@ -358,10 +380,18 @@ const FOOTER_LINK_CLASS = cn(
   FOCUS_UNDERLINE_CLASS,
 );
 
+// whitespace-nowrap: a label and its "Soon" tag never break across a row
+// (at 320 "Google Play" used to wrap inside its 44px row). The footer
+// columns grow to fit them instead (minmax(max-content, 1fr)).
 function ExternalLinkItem({ link, className }: { link: { label: string; url: string | null }; className?: string }) {
   if (!link.url) {
     return (
-      <span className={cn("flex min-h-11 items-center gap-2 text-base font-bold text-foreground md:min-h-9", className)}>
+      <span
+        className={cn(
+          "flex min-h-11 items-center gap-2 whitespace-nowrap text-base font-bold text-foreground md:min-h-9",
+          className,
+        )}
+      >
         {link.label}
         <span className="inline-flex min-h-[22px] items-center rounded-full border-[1.5px] border-foreground px-2 text-[11px] font-bold uppercase tracking-[0.04em]">
           Soon
@@ -370,7 +400,12 @@ function ExternalLinkItem({ link, className }: { link: { label: string; url: str
     );
   }
   return (
-    <a href={link.url} target="_blank" rel="noopener noreferrer" className={cn(FOOTER_LINK_CLASS, className)}>
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(FOOTER_LINK_CLASS, "whitespace-nowrap", className)}
+    >
       {link.label}
     </a>
   );
@@ -393,26 +428,37 @@ function legalLine(year: number) {
 
 // Homepage only: the other public pages have no footer.
 //
-// The closing band is framed by full-bleed 3px rules like the hero and
-// the Open Invite band. Desktop: heading and button on the left, the
-// velvet rope on the right standing on the bottom rule, its right post on
-// the container's edge. Mobile, in the hero's order: heading, the rope
-// standing on the rule, then the button below the rule.
+// The closing band is the door, the second half of the page's one ending,
+// and ends on a full-bleed 3px rule like the hero and the Open Invite band.
+// Phones, centred, with no rule above it: the rope line 64px under the
+// card, the committee line, the one Apply button, then the rope standing on
+// the bottom rule. Desktop: its own band under a full-bleed 3px top rule,
+// the sign-off headline in the serif (like ApplyBand on FAQ and Contact),
+// the committee line and button on the left, the velvet rope on the right
+// standing on the bottom rule, its right post on the container's edge.
 function SiteFooter() {
   return (
     <footer>
-      <section className="border-y-[3px] border-foreground">
+      <section data-rhythm="art-on-rule" className="border-b-[3px] border-foreground md:border-t-[3px]">
         <div className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-12")}>
-          <div className="pt-14 text-center md:pt-[clamp(72px,9vw,128px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
-            <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] max-md:[text-wrap:balance] md:text-[clamp(40px,4.6vw,64px)]">
+          <div className="pt-16 text-center md:pt-[clamp(56px,6vw,88px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
+            <h2
+              className={cn(
+                "m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] max-md:[text-wrap:balance] md:text-[clamp(40px,4.6vw,64px)]",
+                MD_SERIF_ACCENT_CLASS,
+              )}
+            >
               This isn’t for everyone.
               <br />
               <span className={SERIF_ACCENT_CLASS}>
                 Might be for <span className="max-md:whitespace-nowrap">you though.</span>
               </span>
             </h2>
-            {/* Phones: full width, 28px under the heading, then the rope
-                36px below it. */}
+            <p className="m-0 mt-4 text-[17px] leading-[1.45] [text-wrap:balance] md:mt-5 md:max-w-[520px] md:text-[19px] md:leading-normal">
+              Every application is reviewed by our membership committee.
+            </p>
+            {/* Phones: full width, 28px under the committee line, then the
+                rope 36px below it. */}
             <div className="mt-7 md:mt-8">
               <ApplyButton className="w-full md:w-auto">Apply for membership</ApplyButton>
             </div>
@@ -428,10 +474,18 @@ function SiteFooter() {
           </div>
         </div>
       </section>
-      {/* Phones: two equal columns on one 44px row rhythm (every heading
-          and item exactly 44px, no gaps between groups), so the rows line
-          up across both columns and both end on the same line. */}
-      <nav aria-label="Footer" className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-2 gap-x-4 py-16 md:hidden")}>
+      {/* Phones: two columns on one 44px row rhythm (every heading and
+          item exactly 44px, no gaps between groups), so the rows line up
+          across both columns and both end on the same line. The columns
+          are equal wherever both fit (360 and up); below that each is at
+          least as wide as its widest label, so nothing wraps at 320. */}
+      <nav
+        aria-label="Footer"
+        className={cn(
+          SITE_CONTAINER_CLASS,
+          "grid grid-cols-[minmax(max-content,1fr)_minmax(max-content,1fr)] gap-x-4 py-16 md:hidden",
+        )}
+      >
         <div className="flex min-w-0 flex-col">
           <h3 className={PHONE_FOOTER_HEADING_CLASS}>Explore</h3>
           <Link href="/member-login" className={cn(FOOTER_LINK_CLASS, "h-11")}>
@@ -462,7 +516,10 @@ function SiteFooter() {
 
       <nav
         aria-label="Footer"
-        className={cn(SITE_CONTAINER_CLASS, "hidden pb-16 md:grid md:grid-cols-4 md:gap-10 md:pt-14")}
+        className={cn(
+          SITE_CONTAINER_CLASS,
+          "hidden pb-16 md:grid md:grid-cols-[repeat(4,minmax(max-content,1fr))] md:gap-10 md:pt-14",
+        )}
       >
         <FooterColumn heading="Explore">
           <Link href="/member-login" className={FOOTER_LINK_CLASS}>
@@ -479,7 +536,7 @@ function SiteFooter() {
           </Link>
         </FooterColumn>
         <FooterColumn heading="Say hello">
-          <a href={`mailto:${CONTACT_EMAIL}`} className={cn(FOOTER_LINK_CLASS, "break-all")}>
+          <a href={`mailto:${CONTACT_EMAIL}`} className={FOOTER_LINK_CLASS}>
             {CONTACT_EMAIL}
           </a>
         </FooterColumn>

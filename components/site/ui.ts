@@ -27,6 +27,9 @@ export const SITE_MAIN_PADDING_CLASS =
 export const SERIF_ACCENT_CLASS =
   "[font-family:var(--font-instrument-serif),Georgia,serif] italic font-normal";
 export const HEADLINE_ACCENT_CLASS = `${SERIF_ACCENT_CLASS} tracking-[-0.01em]`;
+// From md only: a whole heading in the serif accent at -0.01em (the home closing band's sign-off on desktop).
+export const MD_SERIF_ACCENT_CLASS =
+  "md:[font-family:var(--font-instrument-serif),Georgia,serif] md:italic md:font-normal md:tracking-[-0.01em]";
 
 // The inner pages' h1 and <main> padding on phones (mobile boards,
 // design-ref/mobile): 46px h1 at -0.035em, 36px above, 64px below.
@@ -35,8 +38,11 @@ export const HEADLINE_ACCENT_CLASS = `${SERIF_ACCENT_CLASS} tracking-[-0.01em]`;
 // older PAGE_H1_CLASS and SITE_MAIN_PADDING_CLASS.
 export const INNER_PAGE_H1_CLASS =
   "m-0 text-[46px] font-extrabold leading-[0.95] tracking-[-0.035em] md:text-[clamp(48px,6vw,88px)] md:tracking-[-0.03em]";
-export const INNER_MAIN_PADDING_CLASS =
-  "pt-9 pb-16 md:pt-[clamp(48px,7vw,104px)] md:pb-[clamp(80px,10vw,136px)]";
+// The top half on its own, for a page that ends on its own rule instead of
+// the bottom padding (/apply's sent view): two md: padding-bottom classes on
+// one element would conflict, since cn() does not merge them.
+export const INNER_MAIN_PADDING_TOP_CLASS = "pt-9 md:pt-[clamp(48px,7vw,104px)]";
+export const INNER_MAIN_PADDING_CLASS = `${INNER_MAIN_PADDING_TOP_CLASS} pb-16 md:pb-[clamp(80px,10vw,136px)]`;
 
 // Inner page h1: 44px mobile, clamp(48px, 6vw, 88px) desktop.
 export const PAGE_H1_CLASS =
@@ -61,6 +67,12 @@ export const INPUT_CLASS =
 
 export const LABEL_CLASS = "text-sm font-bold";
 
+// The small caps label above or beside a value: the FAQ's group labels
+// ("Joining", "Once you’re in") and Contact's row labels. 13px/700, 0.14em,
+// muted #57514C (5.65:1 on the yellow, RULE-37). Contact widens the
+// tracking to 0.18em from md.
+export const TERM_LABEL_CLASS = "m-0 text-[13px] font-bold uppercase tracking-[0.14em] text-site-muted";
+
 // A form field that failed validation (/apply): its border turns the error
 // red (#B3261E, --yp-error in brand/tokens.css), still 1.5px so the input
 // stays 50px; the `!` beats INPUT_CLASS's ink border, as on /member-login.
@@ -69,9 +81,6 @@ export const LABEL_CLASS = "text-sm font-bold";
 export const INPUT_ERROR_CLASS = "border-[#B3261E]!";
 export const FIELD_ERROR_CLASS = "text-[13px] leading-[1.35] text-[#B3261E]";
 
-// Underlined text link inside body copy.
-export const TEXT_LINK_CLASS = "font-bold text-foreground underline underline-offset-2 hover:opacity-70";
-
 // Links that never show a box: no outline in any state and no iOS tap
 // highlight, so nothing is left around a link after a click, a tap or a
 // programmatic focus. Keyboard focus (:focus-visible) shows a 3px
@@ -79,6 +88,11 @@ export const TEXT_LINK_CLASS = "font-bold text-foreground underline underline-of
 // the mobile menu and the homepage footer.
 export const NO_BOX_CLASS = "outline-none [-webkit-tap-highlight-color:transparent]";
 export const FOCUS_UNDERLINE_CLASS = `${NO_BOX_CLASS} focus-visible:underline focus-visible:decoration-[3px] focus-visible:underline-offset-[6px]`;
+
+// Underlined text link inside body copy (/apply's "Log in" and "Privacy
+// policy", the FAQ's email, /privacy, /member-login). Never a box
+// (RULE-35): keyboard focus thickens its own underline to 3px instead.
+export const TEXT_LINK_CLASS = `font-bold text-foreground underline underline-offset-2 hover:opacity-70 ${NO_BOX_CLASS} focus-visible:decoration-[3px]`;
 
 // The current page's link in the header.
 export const CURRENT_LINK_CLASS = "underline decoration-2 underline-offset-[6px]";
