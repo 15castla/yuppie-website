@@ -160,14 +160,19 @@ function Hero() {
   );
 }
 
-// The drawings keep their previous scale (112px per 200 units on desktop,
-// 64px on mobile), now applied to the cropped ink box.
-const PERK_SCALE = { mobile: 0.48, desktop: 112 / 200 };
-// Desktop: every drawing sits at the bottom of a box as tall as the
-// tallest (the phone's 177 units), so their bottoms share one line and
-// every title starts the same distance below it.
-const PERK_ROW_HEIGHT = Math.max(...PERKS.map(({ ink }) => ink[3])) * PERK_SCALE.desktop;
+// The drawings' smallest scale: 112px per 200 units (their desktop size
+// before round 2), applied to the cropped ink box. It is the floor of the
+// clamp() in the drawing's class (0.56px per unit, up to 0.8px from 1440
+// wide); here it only sets the SVG's width and height attributes.
+const PERK_MIN_SCALE = 112 / 200;
 
+// Four ruled rows: the words on the container's left edge, each drawing
+// on the right edge with its ink bottom standing on the row's 1.5px rule
+// (RULE-07: the drawing box's negative bottom margin equals the row's
+// bottom padding). Phones: one column, the words centred in the row.
+// Desktop: two columns where two 420px columns fit (about 975px wide and
+// up), one below that, never three; the words hang from the top so the
+// titles share one line. Every row takes the tallest row's height.
 function Perks() {
   return (
     <section
@@ -177,41 +182,29 @@ function Perks() {
       <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:mb-[clamp(48px,6vw,80px)] md:text-[clamp(40px,4.6vw,64px)]">
         Four reasons to <span className={SERIF_ACCENT_CLASS}>leave the office.</span>
       </h2>
-      {/* Phones: a 2x2 grid ruled top, between the rows, at the bottom
-          and down the middle; cells are padded only beside the centre
-          rule, so their outer edges sit on the container's. */}
-      <div className="mt-9 grid grid-cols-2 border-t-[1.5px] border-foreground md:mt-0 md:grid-cols-[repeat(auto-fit,minmax(min(240px,100%),1fr))] md:gap-x-10 md:gap-y-12 md:border-t-0">
+      <div className="mt-9 grid grid-cols-1 auto-rows-fr border-t-[1.5px] border-foreground md:mt-0 md:grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] md:gap-x-[clamp(40px,5.5vw,80px)] md:border-t-0">
         {PERKS.map(({ title, desktop, mobile, Drawing, ink }) => (
           <article
             key={title}
-            className="flex min-w-0 flex-col border-b-[1.5px] border-foreground pt-[22px] pb-[26px] odd:pr-4 even:border-l-[1.5px] even:pl-4 md:gap-3.5 md:border-b-0 md:py-0 md:odd:pr-0 md:even:border-l-0 md:even:pl-0"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)_96px] grid-rows-[1fr_auto_auto_1fr] gap-x-4 border-b-[1.5px] border-foreground py-6 md:grid-cols-[minmax(0,1fr)_auto] md:grid-rows-[auto_auto_1fr] md:gap-x-8 md:py-10"
           >
-            {/* Phones: a 72px icon area, the drawing at its bottom and flush
-                left (the phone, 85px tall, rises above it). Desktop: the
-                row-height box, the drawing at its bottom and flush left on
-                the title's edge. */}
-            <div
-              className="mb-4 flex h-[72px] items-end md:mb-0 md:h-[var(--perk-row-h)] md:w-auto"
-              style={{ "--perk-row-h": `${PERK_ROW_HEIGHT}px` } as CSSProperties}
-            >
+            <div className="col-start-2 row-span-full -mb-6 flex items-end justify-end self-end md:-mb-10">
+              {/* Sized from the ink box in 200-unit grid units (unitless
+                  --ink-w and --ink-h) times one scale: 0.56px per unit up
+                  to 1007px wide, growing to 0.8px at 1440 and above. */}
               <Drawing
-                size={ink[2] * PERK_SCALE.desktop}
+                size={ink[2] * PERK_MIN_SCALE}
                 viewBox={ink.join(" ")}
-                width={ink[2] * PERK_SCALE.desktop}
-                height={ink[3] * PERK_SCALE.desktop}
-                className="block h-[var(--ink-h-mobile)] w-[var(--ink-w-mobile)] overflow-visible stroke-[3.2] md:h-[var(--ink-h-desktop)] md:w-[var(--ink-w-desktop)] md:stroke-[3]"
-                style={
-                  {
-                    "--ink-w-mobile": `${ink[2] * PERK_SCALE.mobile}px`,
-                    "--ink-h-mobile": `${ink[3] * PERK_SCALE.mobile}px`,
-                    "--ink-w-desktop": `${ink[2] * PERK_SCALE.desktop}px`,
-                    "--ink-h-desktop": `${ink[3] * PERK_SCALE.desktop}px`,
-                  } as CSSProperties
-                }
+                width={ink[2] * PERK_MIN_SCALE}
+                height={ink[3] * PERK_MIN_SCALE}
+                className="block h-[calc(var(--ink-h)*clamp(0.56px,0.0556vw,0.8px))] w-[calc(var(--ink-w)*clamp(0.56px,0.0556vw,0.8px))] overflow-visible stroke-[3]"
+                style={{ "--ink-w": ink[2], "--ink-h": ink[3] } as CSSProperties}
               />
             </div>
-            <h3 className="m-0 mb-1.5 text-[21px] font-extrabold tracking-[-0.01em] md:mb-0 md:text-2xl">{title}</h3>
-            <p className="m-0 text-[14.5px] leading-[1.45] md:text-base md:leading-[1.55]">
+            <h3 className="m-0 col-start-1 row-start-2 mb-1.5 self-end text-2xl leading-[1.2] font-extrabold tracking-[-0.01em] md:row-start-1 md:mb-2.5 md:self-auto">
+              {title}
+            </h3>
+            <p className="m-0 col-start-1 row-start-3 self-start text-base leading-[1.45] md:row-start-2 md:max-w-[420px] md:leading-[1.55]">
               <span className="md:hidden">{mobile}</span>
               <span className="hidden md:inline">{desktop}</span>
             </p>
