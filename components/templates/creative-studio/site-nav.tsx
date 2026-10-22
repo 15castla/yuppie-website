@@ -89,7 +89,7 @@ function Wordmark({ className }: { className: string }) {
   return (
     <Image
       src="/yuppie_logo_forte_forward.png"
-      alt="Yuppie"
+      alt="Club Yuppie"
       width={1942}
       height={641}
       loading="eager"
@@ -136,7 +136,7 @@ function PhoneBar({
       {/* min-h-11: a 44px tap target around the 30px wordmark. */}
       <Link
         href="/"
-        aria-label="Yuppie home"
+        aria-label="Club Yuppie home"
         aria-current={pathname === "/" ? "page" : undefined}
         onClick={onNavigate}
         className={cn("flex min-h-11 items-center", WORDMARK_FOCUS_CLASS)}
@@ -218,7 +218,7 @@ function SiteHeader({ pathname }: { pathname: string }) {
           </nav>
           <Link
             href="/"
-            aria-label="Yuppie home"
+            aria-label="Club Yuppie home"
             aria-current={pathname === "/" ? "page" : undefined}
             className={cn("block", WORDMARK_FOCUS_CLASS)}
           >
@@ -395,21 +395,24 @@ function MobileMenu({
         ))}
       </nav>
 
-      {/* The two champagne coupes (cropped to their ink, 170px wide)
-          standing on a 3px rule, at least 32px below the links, then the
-          Apply button 24px below the rule. (The hero shows the figures
-          large, so the menu doesn't repeat them.) The menu is full screen
-          behind Safari's floating toolbar, so the button keeps the bottom
-          safe area plus 56px under it. On screens under 700px tall the
-          drawing is left out so it can't crowd the links and the button. */}
+      {/* The two champagne coupes (cropped to their ink) standing on a 3px
+          rule, then the Apply button 24px below the rule. (The hero shows
+          the figures large, so the menu doesn't repeat them.) Sized by the
+          visible height: 170px wide and 32px below the links from 680px;
+          128px wide and 24px below them from 632px to 679px (the 170px
+          drawing doesn't fit with the button's 56px underneath, and
+          keeping 128px up to 699px would leave a gap over 88px above it);
+          left out under 632px so it can't crowd the links and the button.
+          The menu is full screen behind Safari's floating toolbar, so the
+          button keeps the bottom safe area plus 56px under it. */}
       <div className="mt-auto">
-        <div className="mx-5 flex justify-center border-b-[3px] border-foreground pt-8 [@media(max-height:699.98px)]:hidden">
+        <div className="mx-5 flex justify-center border-b-[3px] border-foreground pt-6 [@media(min-height:680px)]:pt-8 [@media(max-height:631.98px)]:hidden">
           <CoupesDrawing
             size={170}
             viewBox={COUPES_INK_VIEWBOX}
             width={170}
             height={(170 * 147.5) / 169.5}
-            className="block"
+            className="block h-auto w-[128px] [@media(min-height:680px)]:w-[170px]"
           />
         </div>
         <div className="px-5 pt-6 pb-[calc(env(safe-area-inset-bottom)+56px)]">

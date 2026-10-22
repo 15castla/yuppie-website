@@ -51,11 +51,23 @@ export const PRIMARY_BUTTON_CLASS =
 export const CARD_CLASS =
   "box-border rounded-[20px] border-2 border-foreground bg-background-muted px-5 py-[22px] shadow-[6px_6px_0_var(--foreground)] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]";
 
-// 50px inputs, 16px text (no iOS zoom on focus), 1.5px ink border.
+// 50px inputs, 16px text (no iOS zoom on focus), 1.5px ink border. Keyboard
+// focus (RULE-35) is the house 2px ink outline, offset 2, drawn outside the
+// border so the field never changes size. outline-none also sets
+// --tw-outline-style to none, which focus-visible:outline-2 reads, so
+// focus-visible:outline-solid is what turns the outline back on.
 export const INPUT_CLASS =
-  "box-border block min-h-[50px] w-full rounded-xl border-[1.5px] border-foreground bg-cream px-3.5 text-base font-normal text-foreground placeholder:text-site-muted outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-foreground md:px-4";
+  "box-border block min-h-[50px] w-full rounded-xl border-[1.5px] border-foreground bg-cream px-3.5 text-base font-normal text-foreground placeholder:text-site-muted outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-foreground md:px-4";
 
 export const LABEL_CLASS = "text-sm font-bold";
+
+// A form field that failed validation (/apply): its border turns the error
+// red (#B3261E, --yp-error in brand/tokens.css), still 1.5px so the input
+// stays 50px; the `!` beats INPUT_CLASS's ink border, as on /member-login.
+// FIELD_ERROR_CLASS is the 13px message under it (a MessageSlot with
+// parentGap 8, so it sits 8px below the input).
+export const INPUT_ERROR_CLASS = "border-[#B3261E]!";
+export const FIELD_ERROR_CLASS = "text-[13px] leading-[1.35] text-[#B3261E]";
 
 // Underlined text link inside body copy.
 export const TEXT_LINK_CLASS = "font-bold text-foreground underline underline-offset-2 hover:opacity-70";

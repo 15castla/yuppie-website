@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Yuppie",
-    short_name: "Yuppie",
-    description: "Apply to join, we'll handle the planning, you just show up.",
+    name: "Club Yuppie",
+    short_name: "Club Yuppie",
+    description: "Apply to join. We handle the planning. You just show up.",
     start_url: "/",
     display: "standalone",
     background_color: "#FFD904",

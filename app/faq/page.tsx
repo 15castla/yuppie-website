@@ -1,17 +1,19 @@
 "use client";
 
 import { useId, useState } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 
 import { cn } from "@/lib/utils";
 import { almarai, instrumentSerif } from "@/components/templates/creative-studio/fonts";
 import { CONTACT_EMAIL } from "@/components/site/links";
-import { BrickPhoneDrawing } from "@/components/site/icons";
+import { ArrowRightIcon, BrickPhoneDrawing } from "@/components/site/icons";
 import {
   CARD_CLASS,
   INNER_PAGE_H1_CLASS,
   INNER_MAIN_PADDING_CLASS,
   HEADLINE_ACCENT_CLASS,
+  PRIMARY_BUTTON_CLASS,
   SERIF_ACCENT_CLASS,
   SITE_CONTAINER_CLASS,
   SITE_FONT_STYLE,
@@ -26,32 +28,32 @@ const FAQ_ITEMS: FaqEntry[] = [
   {
     question: "How does membership work? Can I cancel at any time?",
     answer:
-      "Yes, it's completely flexible. £10/month gets you in, and you can cancel whenever you like, no lock-in, no faff.",
+      "Yes. It’s £10 a month, cancel whenever you like. No lock-in, no faff.",
   },
   {
-    question: "How will I know if my application's been approved?",
+    question: "How will I know if my application’s been approved?",
     answer:
-      "Every application is reviewed by our membership committee, so it's not instant. Once you're approved, you'll get a text from Yuppie letting you know.",
+      "Every application is reviewed by our membership committee, so it’s not instant. If you’re in, we’ll tell you by text and email.",
   },
   {
     question: "Will I be charged when I apply?",
     answer:
-      "No, your card details are saved securely with Stripe when you apply, but you're not charged anything. We only take payment once your application's approved, and you can cancel any time after that.",
+      "No, your card details are saved securely with Stripe when you apply, but you’re not charged anything. We only take payment once your application’s approved, and you can cancel any time after that.",
   },
   {
     question: "Do I have to pay for events, or are they included in membership?",
     answer:
-      "Membership covers your discounts, access and entry to events. Most events do have their own cost on top, but we run them at cost, so you're only ever paying what it actually costs to put on, never a markup. We also run free members only events regularly.",
+      "Membership covers your discounts and access. Events are run at cost and never marked up, and some are free for members.",
   },
   {
     question: "What additional perks do I get, beyond access to events?",
     answer:
-      "Real discounts with partners across the city, from restaurants and bars to barbers, gyms and sports clubs. Plus access to things that aren't open to the public, like skip the queue entry at partner venues, invite only parties and first dibs before things sell out.",
+      "Discounts at partner restaurants, bars, barbers, gyms and sports clubs. Plus access to things that aren’t open to the public: skip-the-queue entry at partner venues, guest lists and first dibs before things sell out.",
   },
   {
     question: "How do I book onto events?",
     answer:
-      "You can book through your Members Area or the Yuppie app, downloadable from the App Store and Google Play. Everything happening that month is listed there, so you just pick what you fancy.",
+      "You can book through your Members Area or the Club Yuppie app, downloadable from the App Store and Google Play. Everything happening that month is listed there, so you just pick what you fancy.",
   },
 ];
 
@@ -71,7 +73,7 @@ export default function FaqPage() {
         <div className="flex flex-col gap-8 md:gap-[clamp(40px,5vw,64px)]">
           <h1 className={cn(INNER_PAGE_H1_CLASS, "max-w-[860px] [text-wrap:balance]")}>
             Got questions? <br className="md:hidden" />
-            <span className={HEADLINE_ACCENT_CLASS}>We&apos;ve got answers.</span>
+            <span className={HEADLINE_ACCENT_CLASS}>We’ve got answers.</span>
           </h1>
 
           <div className="border-t-[1.5px] border-foreground">
@@ -125,7 +127,7 @@ export default function FaqPage() {
           </div>
 
           <p className="m-0 text-base leading-[1.55] max-md:hidden md:text-[17px]">
-            Can&apos;t find what you&apos;re looking for? Get in touch at{" "}
+            Can’t find what you’re looking for? Get in touch at{" "}
             <a href={`mailto:${CONTACT_EMAIL}`} className={TEXT_LINK_CLASS}>
               {CONTACT_EMAIL}
             </a>
@@ -135,7 +137,7 @@ export default function FaqPage() {
             <div>
               <h2 className={cn(SERIF_ACCENT_CLASS, "m-0 text-[28px] leading-[1.05]")}>Still stuck?</h2>
               <p className="m-0 mt-2 text-[15px] leading-[1.45]">
-                Can&apos;t find what you&apos;re looking for? Get in touch at{" "}
+                Can’t find what you’re looking for? Get in touch at{" "}
                 <a href={`mailto:${CONTACT_EMAIL}`} className={cn(TEXT_LINK_CLASS, "break-all")}>
                   {CONTACT_EMAIL}
                 </a>
@@ -143,6 +145,11 @@ export default function FaqPage() {
             </div>
             <BrickPhoneDrawing size={30} viewBox="66.5 10.5 67 177" width={30} height={80} className="block" />
           </div>
+          {/* Phones: one way to act at the foot of the page. */}
+          <Link href="/apply" className={cn(PRIMARY_BUTTON_CLASS, "mt-2 w-full md:hidden")}>
+            Apply for membership
+            <ArrowRightIcon />
+          </Link>
         </div>
       </main>
     </div>

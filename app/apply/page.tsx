@@ -3,8 +3,8 @@ import type { Metadata } from "next";
 import ApplyForm from "./apply-form";
 import { createCardSetupIntent } from "./actions";
 
-const TITLE = "Apply to Yuppie";
-const DESCRIPTION = "Apply to join. We’ll handle the planning, you just show up.";
+const TITLE = "Apply to Club Yuppie";
+const DESCRIPTION = "Apply to join. We handle the planning. You just show up.";
 
 // Nested openGraph/twitter objects replace the root layout's rather than
 // merging with them, so every field a link preview shows is spelled out
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     title: TITLE,
     description: DESCRIPTION,
     url: "https://clubyuppie.com/apply",
-    siteName: "Yuppie",
+    siteName: "Club Yuppie",
     type: "website",
   },
   twitter: {

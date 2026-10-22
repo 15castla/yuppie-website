@@ -49,22 +49,22 @@ const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingC
   },
   {
     title: "Discounts",
-    desktop: "Real savings at restaurants, bars, barbers, gyms and sports clubs across the city.",
-    mobile: "Real savings at restaurants, bars, gyms and clubs.",
+    desktop: "Money off at restaurants, bars, barbers, gyms and sports clubs in the city.",
+    mobile: "Money off at restaurants, bars, gyms and clubs.",
     Drawing: PriceTagDrawing,
     ink: [30.25, 28.5, 140.875, 125.875],
   },
   {
     title: "Access",
-    desktop: "Members' clubs, skip-the-queue entry, invite-only parties and first dibs before things sell out.",
-    mobile: "Members' clubs, guest lists and first dibs.",
+    desktop: "Members’ clubs, skip-the-queue entry, guest lists and first dibs before things sell out.",
+    mobile: "Members’ clubs, guest lists and first dibs.",
     Drawing: VelvetRopeDrawing,
     ink: [16.5, 52.5, 167, 125],
   },
   {
     title: "Concierge",
-    desktop: "Built on a top hotel concierge's black book. Ask it anything, and it learns your taste.",
-    mobile: "A top hotel concierge's black book. It learns your taste.",
+    desktop: "Built on a top hotel concierge’s black book. Ask it anything, and it learns your taste.",
+    mobile: "A top hotel concierge’s black book. It learns your taste.",
     Drawing: BrickPhoneDrawing,
     ink: [66.5, 10.5, 67, 177],
   },
@@ -73,7 +73,7 @@ const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingC
 const OPEN_INVITE_STEPS = ["Post an invite", "Members say yes", "Go together"];
 
 const MEMBERSHIP_INCLUDES = [
-  "Yuppie Events, run at cost",
+  "Events run by us, at cost",
   "Open Invites from other members",
   "Discounts, access and the concierge",
 ];
@@ -142,12 +142,12 @@ function Hero() {
         </div>
         {/* Phones: second (order-1), 16px under the headline. */}
         <div className="order-1 mt-4 flex flex-col gap-[22px] px-5 md:order-none md:col-start-1 md:row-start-2 md:mt-0 md:gap-7 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
-          <p className="m-0 text-[17px] leading-[1.45] md:max-w-[460px] md:text-[19px] md:leading-normal">
+          <p className="m-0 text-[17px] leading-[1.45] max-md:[text-wrap:balance] md:max-w-[460px] md:text-[19px] md:leading-normal">
             <span className="md:hidden">
-              A members&apos; club for professionals with full diaries and empty weekends.
+              A club for full diaries and empty weekends.
             </span>
             <span className="hidden md:inline">
-              A members&apos; club for professionals with full diaries and empty weekends. Dinners, sport,
+              A club for full diaries and empty weekends. Dinners, sport,
               parties and perks, all planned for you. You just show up.
             </span>
           </p>
@@ -232,9 +232,6 @@ function OpenInvite() {
         )}
       >
         <div className="flex min-w-0 flex-col gap-[18px] md:flex-[1_1_520px] md:gap-7">
-          <span className="inline-flex min-h-[30px] items-center self-start rounded-full border-[1.5px] border-foreground px-3 text-[13px] font-bold md:px-3.5">
-            The members&apos; marketplace
-          </span>
           <h2
             className={cn(
               "m-0 text-[84px] leading-[0.9] md:text-[clamp(72px,8.6vw,128px)] md:leading-[0.88]",
@@ -252,17 +249,18 @@ function OpenInvite() {
             <span className="hidden md:inline">
               A marketplace for plans, run by members. Fancy a Saturday class and brunch, but your friends
               are busy? Post it and find members who want to do the same, or browse what others are planning
-              and say you&apos;re in.
+              and say you’re in.
             </span>
           </p>
           {/* Desktop: the steps under the lead. Phones: one row of three
-              below the card (StepRow, after it). */}
+              under the lead, so the example card closes the section. */}
           <div className="hidden md:block">
             <StepList steps={OPEN_INVITE_STEPS} className="md:mt-1 md:max-w-[560px]" />
           </div>
+          <StepRow steps={OPEN_INVITE_STEPS} className="mt-4 md:hidden" />
         </div>
 
-        <div className="relative mt-11 min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_380px] md:pt-14 md:pr-6">
+        <div className="relative mt-[68px] min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_380px] md:pt-14 md:pr-6">
           <TennisRacketsDrawing
             clipId="open-invite-racket-strings"
             size={140}
@@ -284,16 +282,15 @@ function OpenInvite() {
               <dt className="font-bold">When</dt>
               <dd className="m-0">Saturday morning</dd>
               <dt className="font-bold">Posted by</dt>
-              <dd className="m-0">A Yuppie member</dd>
+              <dd className="m-0">A Club Yuppie member</dd>
               <dt className="font-bold">Looking for</dt>
               <dd className="m-0">2 more people</dd>
             </dl>
             <span aria-hidden className={cn(PRIMARY_BUTTON_CLASS, "hover:opacity-100")}>
-              I&apos;m in
+              I’m in
             </span>
           </figure>
         </div>
-        <StepRow steps={OPEN_INVITE_STEPS} className="mt-10 md:hidden" />
       </div>
     </section>
   );
@@ -313,7 +310,7 @@ function Membership() {
         <span className={HEADLINE_ACCENT_CLASS}>No catch.</span>
       </h2>
       <p className="m-0 text-[17px] md:text-lg">Cancel whenever life gets too fun.</p>
-      <div className="mt-[22px] box-border flex w-full flex-col rounded-[20px] border-2 border-foreground bg-background-muted px-[22px] pt-[26px] pb-[22px] text-left shadow-[6px_6px_0_var(--foreground)] md:mt-6 md:max-w-[460px] md:gap-[18px] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]">
+      <div className="mt-[22px] box-border flex w-full flex-col max-md:w-[calc(100%-6px)] max-md:self-start rounded-[20px] border-2 border-foreground bg-background-muted px-[22px] pt-[26px] pb-[22px] text-left shadow-[6px_6px_0_var(--foreground)] md:mt-6 md:max-w-[460px] md:gap-[18px] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]">
         <p className="m-0 flex items-baseline gap-2 md:gap-1.5">
           <span className="text-[72px] font-extrabold leading-none tracking-[-0.04em] md:text-[60px] md:leading-[0.9] md:tracking-[-0.03em]">
             £10
@@ -321,7 +318,7 @@ function Membership() {
           <span className="text-[17px] text-site-muted">/month</span>
         </p>
         <p className="m-0 mt-3 mb-[18px] text-[15.5px] leading-[1.45] text-site-muted md:m-0 md:text-base md:leading-normal">
-          Basically, a skeleton key to the city&apos;s social scene.
+          Basically, a skeleton key to the city’s <span className="max-md:whitespace-nowrap">social scene.</span>
         </p>
         <ul className="m-0 mb-6 flex list-none flex-col gap-3 border-t-[1.5px] border-foreground p-0 pt-[18px] text-base md:mb-0 md:gap-2.5 md:border-t-0 md:pt-0 md:text-[15px]">
           {MEMBERSHIP_INCLUDES.map((item) => (
@@ -391,7 +388,7 @@ function FooterColumn({ heading, className, children }: { heading: string; class
 function legalLine(year: number) {
   return COMPANY.name && COMPANY.number
     ? `© ${year} ${COMPANY.name}. Registered in England and Wales, company no. ${COMPANY.number}. Registered office: ${REGISTERED_OFFICE}.`
-    : `© ${year} Yuppie. All rights reserved.`;
+    : `© ${year} Club Yuppie. All rights reserved.`;
 }
 
 // Homepage only: the other public pages have no footer.
@@ -407,10 +404,12 @@ function SiteFooter() {
       <section className="border-y-[3px] border-foreground">
         <div className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-12")}>
           <div className="pt-14 text-center md:pt-[clamp(72px,9vw,128px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
-            <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:text-[clamp(40px,4.6vw,64px)]">
-              This isn&apos;t for everyone.
+            <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] max-md:[text-wrap:balance] md:text-[clamp(40px,4.6vw,64px)]">
+              This isn’t for everyone.
               <br />
-              <span className={SERIF_ACCENT_CLASS}>Might be for you though.</span>
+              <span className={SERIF_ACCENT_CLASS}>
+                Might be for <span className="max-md:whitespace-nowrap">you though.</span>
+              </span>
             </h2>
             {/* Phones: full width, 28px under the heading, then the rope
                 36px below it. */}
@@ -526,7 +525,7 @@ function SiteFooter() {
         <p className="m-0">{legalLine(new Date().getFullYear())}</p>
         <Link
           href="/privacy"
-          className={cn("inline-flex min-h-11 shrink-0 items-center self-baseline text-site-muted no-underline hover:opacity-70 md:min-h-0 md:self-start", FOCUS_UNDERLINE_CLASS)}
+          className={cn("inline-flex min-h-11 shrink-0 items-center self-baseline text-site-muted no-underline hover:opacity-70 max-md:-ml-2 max-md:pl-2 max-md:justify-end md:min-h-0 md:self-start", FOCUS_UNDERLINE_CLASS)}
         >
           Privacy
         </Link>

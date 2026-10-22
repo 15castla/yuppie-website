@@ -17,21 +17,21 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://clubyuppie.com"),
-  title: "Yuppie - Your Social Life, Sorted",
-  description: "Events, partner discounts and access, all planned for you. Apply to join Yuppie. We’ll handle the planning, you just show up.",
+  title: "Club Yuppie: Your social life, sorted.",
+  description: "Events, partner discounts and access, all planned for you. Apply to join Club Yuppie. We handle the planning. You just show up.",
   openGraph: {
-    title: "Yuppie - Your Social Life, Sorted",
-    description: "Events, partner discounts and access, all planned for you. Apply to join Yuppie. We’ll handle the planning, you just show up.",
+    title: "Club Yuppie: Your social life, sorted.",
+    description: "Events, partner discounts and access, all planned for you. Apply to join Club Yuppie. We handle the planning. You just show up.",
     url: "https://clubyuppie.com",
-    siteName: "Yuppie",
+    siteName: "Club Yuppie",
     type: "website",
     // Share image: app/opengraph-image.png (+ .alt.txt), Next's file-based
     // metadata, which also sets its width/height/type. /apply has its own.
   },
   twitter: {
     card: "summary_large_image",
-    title: "Yuppie - Your Social Life, Sorted",
-    description: "Events, partner discounts and access, all planned for you. Apply to join Yuppie. We’ll handle the planning, you just show up.",
+    title: "Club Yuppie: Your social life, sorted.",
+    description: "Events, partner discounts and access, all planned for you. Apply to join Club Yuppie. We handle the planning. You just show up.",
     // Share image: app/twitter-image.png (+ .alt.txt).
   },
   // Browser and search-engine icons are the files app/favicon.ico (16, 32
