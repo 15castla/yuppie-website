@@ -112,7 +112,9 @@ export default function FaqPage() {
                             <button
                               type="button"
                               aria-expanded={open}
-                              aria-controls={answerId}
+                              // The answer is only in the page while open, so
+                              // point at it only then (a closed row has no panel).
+                              aria-controls={open ? answerId : undefined}
                               onClick={() => setOpenIndex(open ? null : index)}
                               className={cn(
                                 // No box after a click or tap; keyboard focus
