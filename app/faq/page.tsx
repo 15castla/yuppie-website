@@ -15,6 +15,7 @@ import {
   SITE_CONTAINER_CLASS,
   SITE_FONT_STYLE,
   SITE_PAGE_CLASS,
+  TERM_LABEL_CLASS,
   TEXT_LINK_CLASS,
 } from "@/components/site/ui";
 
@@ -72,12 +73,6 @@ const FAQ_GROUPS: { label: string; items: number[] }[] = [
 // on /contact.
 const BAND_MAIN_PADDING_CLASS =
   "pt-9 pb-16 md:pt-[clamp(48px,7vw,104px)] md:pb-[clamp(56px,6vw,88px)]";
-
-// The small caps group label. Defined here (ui.ts is not this file's to
-// edit); same values as TERM_LABEL_CLASS in the inner pages spec 5.1, which
-// the apply side adds to ui.ts. Swap for the shared constant once both
-// branches are merged. Desktop tracking matches the Contact labels.
-const TERM_LABEL_CLASS = "m-0 text-[13px] font-bold uppercase tracking-[0.14em] text-site-muted";
 
 // One answer open at a time, the first to start with (as on the board).
 export default function FaqPage() {
