@@ -678,7 +678,11 @@ export default function ApplyForm({
         // The 1, 2, 3 of what happens next is on the sent view. One column
         // up to 1023. From 1024 (lg, the one annotated RULE-45 exception):
         // the summary on the left, sticky 128px from the top (the 94px bar
-        // plus 34), beside the cards in a column capped at 600px.
+        // plus 34), beside the cards in a column capped at 600px. It only
+        // sticks in a window at least 700px tall: the summary is up to 556px
+        // (at 1060 wide), so in a shorter window (a 1366x768 laptop shows
+        // about 660) a stuck summary would hide "Log in" until the end of
+        // the form. There it scrolls with the page instead.
         <main
           className={cn(
             SITE_CONTAINER_CLASS,
@@ -686,7 +690,7 @@ export default function ApplyForm({
             "flex flex-col gap-[22px] md:gap-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,600px)] lg:items-start lg:gap-x-[clamp(48px,6vw,80px)]",
           )}
         >
-          <div className="flex min-w-0 flex-col gap-[18px] md:gap-6 lg:sticky lg:top-32 lg:self-start">
+          <div className="flex min-w-0 flex-col gap-[18px] md:gap-6 lg:top-32 lg:self-start [@media(min-width:1024px)_and_(min-height:700px)]:sticky">
             <h1 className={cn(INNER_PAGE_H1_CLASS, "flex flex-wrap items-baseline gap-x-[0.22em]")}>
               <span>Apply to</span>
               <Image
