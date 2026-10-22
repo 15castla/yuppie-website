@@ -110,6 +110,22 @@ function useIsNativeApp(): boolean {
   );
 }
 
+// Whether the page has scrolled at all, for the desktop header's rule.
+// The server (and so the first render, before hydration) says no, which is
+// also the state of a page that opens at its top.
+function subscribeToScroll(onChange: () => void) {
+  window.addEventListener("scroll", onChange, { passive: true });
+  return () => window.removeEventListener("scroll", onChange);
+}
+
+function usePageScrolled(): boolean {
+  return useSyncExternalStore(
+    subscribeToScroll,
+    () => window.scrollY > 0,
+    () => false,
+  );
+}
+
 function Wordmark({ className }: { className: string }) {
   return (
     <Image
@@ -241,10 +257,24 @@ function SiteHeader({ pathname }: { pathname: string }) {
     FOCUS_UNDERLINE_CLASS,
   );
 
+  // From 768px (desktop header option B, approved 22 Oct 2026) the header
+  // stays at the top of the window while the page scrolls, and a 1.5px ink
+  // rule shows under it once the page has moved (data-scrolled), so content
+  // never slides under an edgeless bar. The rule is a shadow, not a border,
+  // so the bar is 94px in both states (RULE-22) and the top of every page
+  // is unchanged. Phones keep the bar as it was: in the page's flow, with
+  // its own rule, and data-scrolled does nothing there.
+  const scrolled = usePageScrolled();
+
   return (
     <header
       data-site-header
-      className={cn(almarai.variable, instrumentSerif.variable, "relative z-30 bg-background text-foreground antialiased")}
+      data-scrolled={scrolled ? "" : undefined}
+      className={cn(
+        almarai.variable,
+        instrumentSerif.variable,
+        "relative z-30 bg-background text-foreground antialiased md:sticky md:top-0 md:data-[scrolled]:shadow-[0_1.5px_0_var(--foreground)]",
+      )}
       style={SITE_FONT_STYLE}
     >
       {/* Desktop: FAQs and Contact | wordmark | Members Area and Apply. */}
