@@ -221,10 +221,13 @@ function OpenInvite() {
       <div
         className={cn(
           SITE_CONTAINER_CLASS,
-          "flex flex-col pt-16 pb-[72px] md:flex-row md:flex-wrap md:items-center md:gap-x-20 md:gap-y-14 md:py-[clamp(72px,9vw,128px)]",
+          "flex flex-col pt-16 pb-[72px] md:flex-row md:flex-nowrap md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:py-[clamp(72px,9vw,128px)]",
         )}
       >
-        <div className="flex min-w-0 flex-col gap-[18px] md:flex-[1_1_520px] md:gap-7">
+        {/* Desktop: the words and the example card side by side at every
+            width from 768 (never wrapped, so the card never falls under
+            the words and leaves half the band empty). */}
+        <div className="flex min-w-0 flex-col gap-[18px] md:flex-[1_1_360px] md:gap-7">
           <h2
             className={cn(
               "m-0 text-[84px] leading-[0.9] md:text-[clamp(72px,8.6vw,128px)] md:leading-[0.88]",
@@ -253,11 +256,13 @@ function OpenInvite() {
           <StepRow steps={OPEN_INVITE_STEPS} className="mt-4 md:hidden" />
         </div>
 
-        <div className="relative mt-[68px] min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_380px] md:pt-14 md:pr-6">
+        {/* The rackets sit on the card's top right corner, inside the
+            column (right-0), so they never pass the window's edge. */}
+        <div className="relative mt-[68px] min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_300px] md:pt-14 md:pr-6">
           <TennisRacketsDrawing
             clipId="open-invite-racket-strings"
             size={140}
-            className="absolute top-[-46px] right-0 z-10 block size-[84px] rotate-[14deg] md:top-[-40px] md:right-[-28px] md:size-[140px]"
+            className="absolute top-[-46px] right-0 z-10 block size-[84px] rotate-[14deg] md:top-[-40px] md:size-[140px]"
           />
           {/* An example invite, not a real one: the "I'm in" pill is part
               of the picture, so it isn't a button. It is the small 44px
