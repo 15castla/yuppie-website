@@ -65,17 +65,17 @@ const MENU_PAGE_ITEMS: { label: string; href: string }[] = [
   { label: "Members Area", href: SIGN_IN_PATH },
 ];
 
-// A home section's top in the page, ignoring transforms. A page arriving
-// from another route fades up 12px (app/template.tsx), so scrolling to
-// where the section is mid-fade would leave its top 12px above the screen
-// once it settles. offsetTop is measured without transforms, to the
-// offsetParent's padding edge, hence the parent's top border (clientTop).
+// A home section's top in the page once the page has settled. A page
+// arriving from another route fades up from 12px lower (app/template.tsx
+// moves its wrapper with a transform), so scrolling to where the section is
+// mid-fade would leave its top 12px above the screen once it settles: take
+// the ancestors' vertical translation back out. (offsetTop also ignores
+// transforms, but rounds to whole pixels, which hid 1px of a section.)
 function documentTop(element: HTMLElement): number {
-  let top = 0;
-  for (let node: HTMLElement | null = element; node; ) {
-    const parent = node.offsetParent as HTMLElement | null;
-    top += node.offsetTop + (parent ? parent.clientTop : 0);
-    node = parent;
+  let top = element.getBoundingClientRect().top + window.scrollY;
+  for (let node = element.parentElement; node; node = node.parentElement) {
+    const { transform } = getComputedStyle(node);
+    if (transform !== "none") top -= new DOMMatrixReadOnly(transform).m42;
   }
   return top;
 }
