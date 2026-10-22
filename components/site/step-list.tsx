@@ -30,8 +30,9 @@ function DoneCheck({ className }: { className: string }) {
   );
 }
 
-// Numbered steps on a 1.5px rule each: rows on mobile, side-by-side
-// columns from md. The homepage's Open Invite steps and /apply's.
+// Numbered steps on a 1.5px rule each: rows on mobile, three columns from
+// md. Both callers show three steps (the homepage's Open Invite and
+// /apply's), so the steps never wrap 2 + 1.
 export function StepList({
   steps,
   current,
@@ -44,7 +45,7 @@ export function StepList({
   return (
     <ol
       className={cn(
-        "m-0 flex list-none flex-col border-b-[1.5px] border-foreground p-0 md:grid md:grid-cols-[repeat(auto-fit,minmax(min(140px,100%),1fr))] md:gap-x-8 md:gap-y-5 md:border-b-0",
+        "m-0 flex list-none flex-col border-b-[1.5px] border-foreground p-0 md:grid md:grid-cols-3 md:gap-x-8 md:gap-y-5 md:border-b-0",
         className,
       )}
     >
