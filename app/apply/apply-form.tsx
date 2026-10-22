@@ -36,6 +36,7 @@ import {
   SITE_FONT_STYLE,
   INNER_MAIN_PADDING_CLASS,
   INNER_MAIN_PADDING_TOP_CLASS,
+  NO_BOX_CLASS,
   SITE_PAGE_CLASS,
   TEXT_LINK_CLASS,
 } from "@/components/site/ui";
@@ -98,17 +99,27 @@ const STEP_CARD_CLASS = cn(
   "mr-1.5 grid grid-cols-1 gap-y-[18px] max-md:py-6 md:mr-2 md:grid-cols-2 md:gap-x-5",
 );
 
+// The three cards' titles, in order: the cards' heads and, from 1024, the
+// index beside them.
+const APPLY_CARD_TITLES = ["About you", "For the committee", "Payment details"];
+
 // A card's head: the serif numeral (as the site's other 1, 2, 3) and the
 // title, 21px/800 on phones and 24px/800 from md (the perk-title tokens).
-// The id names the card's group (aria-labelledby).
-function StepCardHead({ step, children }: { step: number; children: ReactNode }) {
+// The id names the card's group (aria-labelledby) and is where the index
+// links land: the scroll margin puts the card's top edge 128px down, level
+// with the sticky summary (2px border plus the card's top padding).
+function StepCardHead({ step, icon }: { step: number; icon?: ReactNode }) {
   return (
-    <h2 id={`apply-step-${step}`} className="col-span-full m-0 flex items-baseline gap-3">
+    <h2
+      id={`apply-step-${step}`}
+      className="col-span-full m-0 flex items-baseline gap-3 lg:scroll-mt-[calc(130px+clamp(28px,3vw,40px))]"
+    >
       <span aria-hidden className={cn(SERIF_ACCENT_CLASS, "min-w-4 text-[30px] leading-none md:text-[32px]")}>
         {step}
       </span>
       <span className="inline-flex items-center gap-2 text-[21px] font-extrabold leading-[1.2] tracking-[-0.01em] md:text-2xl">
-        {children}
+        {APPLY_CARD_TITLES[step - 1]}
+        {icon}
       </span>
     </h2>
   );
@@ -449,7 +460,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           committee, 3 Payment details. The fields keep their order (the
           order REQUIRED_FIELDS focuses errors in). */}
       <div role="group" aria-labelledby="apply-step-1" className={STEP_CARD_CLASS}>
-        <StepCardHead step={1}>About you</StepCardHead>
+        <StepCardHead step={1} />
         <div className={cn(FIELD_CLASS, "md:col-span-2")}>
           <label htmlFor="full_name" className={LABEL_CLASS}>
             Full name
@@ -490,7 +501,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
       </div>
 
       <div role="group" aria-labelledby="apply-step-2" className={STEP_CARD_CLASS}>
-        <StepCardHead step={2}>For the committee</StepCardHead>
+        <StepCardHead step={2} />
         {/* Why we ask and who sees the answers, beside the questions they
             are about (both moved up from the small print under the
             button): 6px under the head on phones, 8px from md. */}
@@ -531,10 +542,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
       </div>
 
       <div role="group" aria-labelledby="apply-step-3" className={STEP_CARD_CLASS}>
-        <StepCardHead step={3}>
-          Payment details
-          <LockIcon />
-        </StepCardHead>
+        <StepCardHead step={3} icon={<LockIcon />} />
         {/* The price again where the card goes in (from the intro): 6px
             under the head on phones, 8px from md; the note 4px under it;
             the card block 18px under the note. */}
@@ -667,9 +675,18 @@ export default function ApplyForm({
         </section>
       ) : (
         // The deal and the way in for members first, then the three cards.
-        // The 1, 2, 3 of what happens next is on the sent view.
-        <main className={cn(SITE_CONTAINER_CLASS, INNER_MAIN_PADDING_CLASS, "flex flex-col gap-[22px] md:gap-10")}>
-          <div className="flex min-w-0 flex-col gap-[18px] md:gap-6">
+        // The 1, 2, 3 of what happens next is on the sent view. One column
+        // up to 1023. From 1024 (lg, the one annotated RULE-45 exception):
+        // the summary on the left, sticky 128px from the top (the 94px bar
+        // plus 34), beside the cards in a column capped at 600px.
+        <main
+          className={cn(
+            SITE_CONTAINER_CLASS,
+            INNER_MAIN_PADDING_CLASS,
+            "flex flex-col gap-[22px] md:gap-10 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,600px)] lg:items-start lg:gap-x-[clamp(48px,6vw,80px)]",
+          )}
+        >
+          <div className="flex min-w-0 flex-col gap-[18px] md:gap-6 lg:sticky lg:top-32 lg:self-start">
             <h1 className={cn(INNER_PAGE_H1_CLASS, "flex flex-wrap items-baseline gap-x-[0.22em]")}>
               <span>Apply to</span>
               <Image
@@ -692,6 +709,29 @@ export default function ApplyForm({
                 before you’re approved.
               </p>
             </div>
+            {/* From 1024: a map of the form, the cards' numerals and titles
+                on 1.5px rules; each row jumps to its card. Keyboard focus
+                underlines the title (RULE-35), never a box. */}
+            <ol className="m-0 mt-2 hidden max-w-[440px] list-none border-b-[1.5px] border-foreground p-0 lg:block">
+              {APPLY_CARD_TITLES.map((title, index) => (
+                <li key={title}>
+                  <a
+                    href={`#apply-step-${index + 1}`}
+                    className={cn(
+                      "group flex min-h-[52px] items-baseline gap-3.5 border-t-[1.5px] border-foreground py-3 text-foreground no-underline hover:opacity-70",
+                      NO_BOX_CLASS,
+                    )}
+                  >
+                    <span aria-hidden className={cn(SERIF_ACCENT_CLASS, "min-w-4 text-[26px] leading-none")}>
+                      {index + 1}
+                    </span>
+                    <span className="text-base font-bold group-focus-visible:underline group-focus-visible:decoration-[3px] group-focus-visible:underline-offset-[6px]">
+                      {title}
+                    </span>
+                  </a>
+                </li>
+              ))}
+            </ol>
             {/* For a member who tapped Apply by mistake. The link box is 44px
                 tall; the negative margins keep that box 10px from the deal
                 and from card 1 on phones. */}
