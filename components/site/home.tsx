@@ -177,9 +177,16 @@ function Perks() {
   return (
     <section
       id="perks"
-      className={cn(SITE_CONTAINER_CLASS, "pt-[88px] pb-[88px] md:py-[clamp(72px,9vw,128px)]")}
+      className={cn(
+        SITE_CONTAINER_CLASS,
+        "pt-[88px] pb-[88px] md:pt-[clamp(72px,9vw,122px)] md:pb-[clamp(72px,9vw,128px)]",
+      )}
     >
-      <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:mb-[clamp(48px,6vw,80px)] md:text-[clamp(40px,4.6vw,64px)]">
+      {/* Desktop: the top padding tops out at 122px and the heading's
+          bottom margin at 74px, so neither empty band (hero rule to the
+          heading's ink, heading's ink to the first title's ink) passes
+          128px at any width (RULE-11). */}
+      <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:mb-[clamp(48px,6vw,74px)] md:text-[clamp(40px,4.6vw,64px)]">
         Four reasons to <span className={SERIF_ACCENT_CLASS}>leave the office.</span>
       </h2>
       <div className="mt-9 grid grid-cols-1 auto-rows-fr border-t-[1.5px] border-foreground md:mt-0 md:grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] md:gap-x-[clamp(40px,5.5vw,80px)] md:border-t-0">
