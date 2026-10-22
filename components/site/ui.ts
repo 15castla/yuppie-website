@@ -35,8 +35,11 @@ export const HEADLINE_ACCENT_CLASS = `${SERIF_ACCENT_CLASS} tracking-[-0.01em]`;
 // older PAGE_H1_CLASS and SITE_MAIN_PADDING_CLASS.
 export const INNER_PAGE_H1_CLASS =
   "m-0 text-[46px] font-extrabold leading-[0.95] tracking-[-0.035em] md:text-[clamp(48px,6vw,88px)] md:tracking-[-0.03em]";
-export const INNER_MAIN_PADDING_CLASS =
-  "pt-9 pb-16 md:pt-[clamp(48px,7vw,104px)] md:pb-[clamp(80px,10vw,136px)]";
+// The top half on its own, for a page that ends on its own rule instead of
+// the bottom padding (/apply's sent view): two md: padding-bottom classes on
+// one element would conflict, since cn() does not merge them.
+export const INNER_MAIN_PADDING_TOP_CLASS = "pt-9 md:pt-[clamp(48px,7vw,104px)]";
+export const INNER_MAIN_PADDING_CLASS = `${INNER_MAIN_PADDING_TOP_CLASS} pb-16 md:pb-[clamp(80px,10vw,136px)]`;
 
 // Inner page h1: 44px mobile, clamp(48px, 6vw, 88px) desktop.
 export const PAGE_H1_CLASS =
@@ -60,6 +63,12 @@ export const INPUT_CLASS =
   "box-border block min-h-[50px] w-full rounded-xl border-[1.5px] border-foreground bg-cream px-3.5 text-base font-normal text-foreground placeholder:text-site-muted outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-offset-2 focus-visible:outline-foreground md:px-4";
 
 export const LABEL_CLASS = "text-sm font-bold";
+
+// The small caps label above or beside a value: the FAQ's group labels
+// ("Joining", "Once you’re in") and Contact's row labels. 13px/700, 0.14em,
+// muted #57514C (5.65:1 on the yellow, RULE-37). Contact widens the
+// tracking to 0.18em from md.
+export const TERM_LABEL_CLASS = "m-0 text-[13px] font-bold uppercase tracking-[0.14em] text-site-muted";
 
 // A form field that failed validation (/apply): its border turns the error
 // red (#B3261E, --yp-error in brand/tokens.css), still 1.5px so the input
