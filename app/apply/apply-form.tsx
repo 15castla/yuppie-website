@@ -715,27 +715,30 @@ export default function ApplyForm({
             </div>
             {/* From 1024: a map of the form, the cards' numerals and titles
                 on 1.5px rules; each row jumps to its card. Keyboard focus
-                underlines the title (RULE-35), never a box. */}
-            <ol className="m-0 mt-2 hidden max-w-[440px] list-none border-b-[1.5px] border-foreground p-0 lg:block">
-              {APPLY_CARD_TITLES.map((title, index) => (
-                <li key={title}>
-                  <a
-                    href={`#apply-step-${index + 1}`}
-                    className={cn(
-                      "group flex min-h-[52px] items-baseline gap-3.5 border-t-[1.5px] border-foreground py-3 text-foreground no-underline hover:opacity-70",
-                      NO_BOX_CLASS,
-                    )}
-                  >
-                    <span aria-hidden className={cn(SERIF_ACCENT_CLASS, "min-w-4 text-[26px] leading-none")}>
-                      {index + 1}
-                    </span>
-                    <span className="text-base font-bold group-focus-visible:underline group-focus-visible:decoration-[3px] group-focus-visible:underline-offset-[6px]">
-                      {title}
-                    </span>
-                  </a>
-                </li>
-              ))}
-            </ol>
+                underlines the title (RULE-35), never a box. Only when the
+                form is there: if card setup fails there are no cards. */}
+            {clientSecret && (
+              <ol className="m-0 mt-2 hidden max-w-[440px] list-none border-b-[1.5px] border-foreground p-0 lg:block">
+                {APPLY_CARD_TITLES.map((title, index) => (
+                  <li key={title}>
+                    <a
+                      href={`#apply-step-${index + 1}`}
+                      className={cn(
+                        "group flex min-h-[52px] items-baseline gap-3.5 border-t-[1.5px] border-foreground py-3 text-foreground no-underline hover:opacity-70",
+                        NO_BOX_CLASS,
+                      )}
+                    >
+                      <span aria-hidden className={cn(SERIF_ACCENT_CLASS, "min-w-4 text-[26px] leading-none")}>
+                        {index + 1}
+                      </span>
+                      <span className="text-base font-bold group-focus-visible:underline group-focus-visible:decoration-[3px] group-focus-visible:underline-offset-[6px]">
+                        {title}
+                      </span>
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            )}
             {/* For a member who tapped Apply by mistake. The link box is 44px
                 tall; the negative margins keep that box 10px from the deal
                 and from card 1 on phones. */}
