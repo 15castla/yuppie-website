@@ -370,10 +370,18 @@ const FOOTER_LINK_CLASS = cn(
   FOCUS_UNDERLINE_CLASS,
 );
 
+// whitespace-nowrap: a label and its "Soon" tag never break across a row
+// (at 320 "Google Play" used to wrap inside its 44px row). The footer
+// columns grow to fit them instead (minmax(max-content, 1fr)).
 function ExternalLinkItem({ link, className }: { link: { label: string; url: string | null }; className?: string }) {
   if (!link.url) {
     return (
-      <span className={cn("flex min-h-11 items-center gap-2 text-base font-bold text-foreground md:min-h-9", className)}>
+      <span
+        className={cn(
+          "flex min-h-11 items-center gap-2 whitespace-nowrap text-base font-bold text-foreground md:min-h-9",
+          className,
+        )}
+      >
         {link.label}
         <span className="inline-flex min-h-[22px] items-center rounded-full border-[1.5px] border-foreground px-2 text-[11px] font-bold uppercase tracking-[0.04em]">
           Soon
@@ -382,7 +390,12 @@ function ExternalLinkItem({ link, className }: { link: { label: string; url: str
     );
   }
   return (
-    <a href={link.url} target="_blank" rel="noopener noreferrer" className={cn(FOOTER_LINK_CLASS, className)}>
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(FOOTER_LINK_CLASS, "whitespace-nowrap", className)}
+    >
       {link.label}
     </a>
   );
@@ -446,10 +459,18 @@ function SiteFooter() {
           </div>
         </div>
       </section>
-      {/* Phones: two equal columns on one 44px row rhythm (every heading
-          and item exactly 44px, no gaps between groups), so the rows line
-          up across both columns and both end on the same line. */}
-      <nav aria-label="Footer" className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-2 gap-x-4 py-16 md:hidden")}>
+      {/* Phones: two columns on one 44px row rhythm (every heading and
+          item exactly 44px, no gaps between groups), so the rows line up
+          across both columns and both end on the same line. The columns
+          are equal wherever both fit (360 and up); below that each is at
+          least as wide as its widest label, so nothing wraps at 320. */}
+      <nav
+        aria-label="Footer"
+        className={cn(
+          SITE_CONTAINER_CLASS,
+          "grid grid-cols-[minmax(max-content,1fr)_minmax(max-content,1fr)] gap-x-4 py-16 md:hidden",
+        )}
+      >
         <div className="flex min-w-0 flex-col">
           <h3 className={PHONE_FOOTER_HEADING_CLASS}>Explore</h3>
           <Link href="/member-login" className={cn(FOOTER_LINK_CLASS, "h-11")}>
@@ -480,7 +501,10 @@ function SiteFooter() {
 
       <nav
         aria-label="Footer"
-        className={cn(SITE_CONTAINER_CLASS, "hidden pb-16 md:grid md:grid-cols-4 md:gap-10 md:pt-14")}
+        className={cn(
+          SITE_CONTAINER_CLASS,
+          "hidden pb-16 md:grid md:grid-cols-[repeat(4,minmax(max-content,1fr))] md:gap-10 md:pt-14",
+        )}
       >
         <FooterColumn heading="Explore">
           <Link href="/member-login" className={FOOTER_LINK_CLASS}>
@@ -497,7 +521,7 @@ function SiteFooter() {
           </Link>
         </FooterColumn>
         <FooterColumn heading="Say hello">
-          <a href={`mailto:${CONTACT_EMAIL}`} className={cn(FOOTER_LINK_CLASS, "break-all")}>
+          <a href={`mailto:${CONTACT_EMAIL}`} className={FOOTER_LINK_CLASS}>
             {CONTACT_EMAIL}
           </a>
         </FooterColumn>
