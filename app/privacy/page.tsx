@@ -95,11 +95,12 @@ export default function PrivacyPage() {
     <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
       <main className={cn(SITE_CONTAINER_CLASS, INNER_MAIN_PADDING_CLASS)}>
         {/* Below lg, one column capped at 760px, as before. From lg, two:
-            the title and date on the left, sticky, and the policy on the
+            the title and date on the left, sticky (128px from the top: the
+            94px site header plus 34px), and the policy on the
             right at 760px max. The left column's h1 is sized down there
             so "Privacy" and "Policy" fit its width without breaking. */}
         <article className="grid max-w-[760px] grid-cols-1 gap-4 md:gap-5 lg:max-w-none lg:grid-cols-[minmax(240px,1fr)_minmax(0,760px)] lg:gap-x-16 lg:gap-y-0">
-          <div className="flex flex-col gap-4 md:gap-5 lg:sticky lg:top-8 lg:self-start">
+          <div className="flex flex-col gap-4 md:gap-5 lg:sticky lg:top-32 lg:self-start">
             <h1 className={cn(INNER_PAGE_H1_CLASS, "lg:text-[clamp(44px,4.4vw,64px)]")}>Club Yuppie privacy policy</h1>
             <p className="m-0 text-sm text-site-muted md:text-[15px]">Last updated: {lastUpdated}</p>
           </div>
