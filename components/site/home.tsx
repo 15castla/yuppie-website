@@ -115,15 +115,24 @@ export function SiteHome() {
 // Desktop: headline, intro and button on the left, the drawing on the
 // right, standing on the rule along the section's bottom.
 //
-// Phones: exactly the rest of the first screen (100svh less the phone
-// bar's --site-header-h and the top safe area), with a full-width 3px rule as the
-// section's bottom border. Headline, then the intro and button, then the
-// whole drawing (never cropped) in the leftover height (at least 180px),
-// centred and standing on that bottom rule. On a screen too short for the
-// 180px the hero just grows past the fold.
+// Phones: the rest of the whole screen (100lvh, the large viewport: the
+// height with Safari's toolbar retracted, less the phone bar's
+// --site-header-h and the top safe area), with a full-width 3px rule as
+// the section's bottom border. TRIAL (fix/hero-fill): with 100svh the
+// rule landed above Safari's see-through bottom bar, and the top of the
+// next section's headline showed in the strip under the bar; with 100lvh
+// the rule lands at the bottom of the full screen, behind the bar, so
+// nothing of the next section shows under it. lvh, not dvh: it does not
+// change while the toolbar collapses, so the page never jumps. Where the
+// bar is solid and the page is not drawn under it, the rule and the
+// figures' feet sit below the visible area until the bar retracts.
+// Headline, then the intro and button, then the whole drawing (never
+// cropped) in the leftover height (at least 180px), centred and standing
+// on that bottom rule. On a screen too short for the 180px the hero just
+// grows past the fold.
 function Hero() {
   return (
-    <section className="flex min-h-[calc(100svh-var(--site-header-h)-var(--safe-top))] flex-col border-b-[3px] border-foreground md:block md:min-h-0 md:border-b-[3px]">
+    <section className="flex min-h-[calc(100lvh-var(--site-header-h)-var(--safe-top))] flex-col border-b-[3px] border-foreground md:block md:min-h-0 md:border-b-[3px]">
       <div className="mx-auto flex w-full max-w-[1240px] flex-1 flex-col md:grid md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] md:gap-x-12 md:px-[clamp(20px,4vw,40px)]">
         <h1 className="m-0 px-5 pt-[22px] text-[64px] font-extrabold leading-[0.92] tracking-[-0.04em] [text-wrap:balance] md:col-start-1 md:row-start-1 md:px-0 md:pt-[clamp(48px,7vw,120px)] md:text-[clamp(56px,7vw,104px)] md:leading-[0.95] md:tracking-[-0.03em]">
           Your social life, <span className={HEADLINE_ACCENT_CLASS}>sorted.</span>
