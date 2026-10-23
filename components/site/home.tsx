@@ -21,7 +21,6 @@ import { StepList, StepRow } from "./step-list";
 import {
   FOCUS_UNDERLINE_CLASS,
   HEADLINE_ACCENT_CLASS,
-  MD_SERIF_ACCENT_CLASS,
   PRIMARY_BUTTON_CLASS,
   SERIF_ACCENT_CLASS,
   SITE_CONTAINER_CLASS,
@@ -331,23 +330,26 @@ function OpenInvite() {
 // shadow ending on the container's right edge. The card is the section's
 // first and last ink, so the bottom padding is the top padding plus the
 // shadow: equal gaps above the card and below its shadow (RULE-10).
+// Phones: 72px above the headline and 72px below the card's 6px shadow;
+// the headline shrinks below 375 so "One membership." stays one line, and
+// the card stops at 460px and centres (from 506px wide).
 function Membership() {
   return (
     <section
       id="membership"
       className={cn(
         SITE_CONTAINER_CLASS,
-        "flex flex-col items-center gap-3.5 pt-[72px] pb-0 text-center md:grid md:grid-cols-2 md:grid-rows-[auto_auto] md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:gap-y-0 md:pt-[clamp(72px,9vw,128px)] md:pb-[calc(clamp(72px,9vw,128px)+8px)] md:text-left",
+        "flex flex-col items-center gap-3.5 pt-[72px] pb-[78px] text-center md:grid md:grid-cols-2 md:grid-rows-[auto_auto] md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:gap-y-0 md:pt-[clamp(72px,9vw,128px)] md:pb-[calc(clamp(72px,9vw,128px)+8px)] md:text-left",
       )}
     >
-      <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.03em] md:col-start-1 md:row-start-1 md:self-end md:text-[clamp(40px,4.6vw,64px)] md:tracking-[-0.025em]">
+      <h2 className="m-0 text-[clamp(32px,calc(11.9vw-4.8px),40px)] font-extrabold leading-none tracking-[-0.03em] md:col-start-1 md:row-start-1 md:self-end md:text-[clamp(40px,4.6vw,64px)] md:tracking-[-0.025em]">
         One membership. <br />
         <span className={HEADLINE_ACCENT_CLASS}>No catch.</span>
       </h2>
       <p className="m-0 text-[17px] md:col-start-1 md:row-start-2 md:mt-5 md:self-start md:text-lg">
         Cancel whenever life gets too fun.
       </p>
-      <div className="mt-[22px] box-border flex w-full flex-col max-md:w-[calc(100%-6px)] max-md:self-start rounded-[20px] border-2 border-foreground bg-background-muted px-[22px] pt-[26px] pb-[26px] text-left shadow-[6px_6px_0_var(--foreground)] md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0 md:mr-2 md:w-[calc(100%-8px)] md:max-w-[460px] md:justify-self-end md:gap-[18px] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]">
+      <div className="mt-[22px] box-border flex w-full flex-col max-md:w-[calc(100%-6px)] max-md:max-w-[460px] max-md:self-start max-md:ml-[max(0px,calc((100%-466px)/2))] rounded-[20px] border-2 border-foreground bg-background-muted px-[22px] pt-[26px] pb-[26px] text-left shadow-[6px_6px_0_var(--foreground)] md:col-start-2 md:row-span-2 md:row-start-1 md:mt-0 md:mr-2 md:w-[calc(100%-8px)] md:max-w-[460px] md:justify-self-end md:gap-[18px] md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]">
         <p className="m-0 flex items-baseline gap-2 md:gap-1.5">
           <span className="text-[72px] font-extrabold leading-none tracking-[-0.04em] md:text-[60px] md:leading-[0.9] md:tracking-[-0.03em]">
             £10
@@ -442,24 +444,24 @@ function legalLine(year: number) {
 
 // Homepage only: the other public pages have no footer.
 //
-// The closing band is the door, the second half of the page's one ending,
-// and ends on a full-bleed 3px rule like the hero and the Open Invite band.
-// Phones, centred, with no rule above it: the rope line 64px under the
-// card, the committee line, the one Apply button, then the rope standing on
-// the bottom rule. Desktop: its own band under a full-bleed 3px top rule,
-// the sign-off headline in the serif (like ApplyBand on FAQ and Contact),
-// the committee line and button on the left, the velvet rope on the right
+// The closing band is the door, the second half of the page's one ending:
+// its own band between full-bleed 3px rules, like the hero and the Open
+// Invite band, with the sign-off headline in the serif closing voice (like
+// ApplyBand on FAQ and Contact). Phones, centred: the sign-off on two
+// lines (it shrinks below 390 to fit), the committee line, the one Apply
+// button, then the rope standing on the bottom rule. Desktop: the sign-off,
+// committee line and button on the left, the velvet rope on the right
 // standing on the bottom rule, its right post on the container's edge.
 function SiteFooter() {
   return (
     <footer>
-      <section data-rhythm="art-on-rule" className="border-b-[3px] border-foreground md:border-t-[3px]">
+      <section data-rhythm="art-on-rule" className="border-y-[3px] border-foreground">
         <div className={cn(SITE_CONTAINER_CLASS, "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] md:gap-x-12")}>
           <div className="pt-16 text-center md:pt-[clamp(56px,6vw,88px)] md:pb-[clamp(56px,6vw,88px)] md:text-left">
             <h2
               className={cn(
-                "m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] max-md:[text-wrap:balance] md:text-[clamp(40px,4.6vw,64px)]",
-                MD_SERIF_ACCENT_CLASS,
+                "m-0 text-[clamp(30px,calc(11.5vw-4.6px),40px)] leading-[1.05] max-md:[text-wrap:balance] md:text-[clamp(40px,4.6vw,64px)] md:leading-none",
+                HEADLINE_ACCENT_CLASS,
               )}
             >
               This isn’t for everyone.
