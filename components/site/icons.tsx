@@ -116,42 +116,26 @@ export function BrickPhoneDrawing(props: DrawingProps) {
   );
 }
 
-const STRING_COLUMNS = [78, 87, 96, 105, 114, 123];
-const STRING_ROWS = [34, 43, 52, 61, 70, 79, 88, 97];
-
-function Racket({ angle, clipId }: { angle: number; clipId: string }) {
-  return (
-    <g transform={`rotate(${angle} 100 150)`}>
-      <ellipse cx="100" cy="62" rx="27" ry="36" fill={YELLOW} />
-      <g clipPath={`url(#${clipId})`} strokeWidth={1.6}>
-        {STRING_COLUMNS.map((x) => (
-          <path key={`v${x}`} d={`M${x},20 L${x},104`} />
-        ))}
-        {STRING_ROWS.map((y) => (
-          <path key={`h${y}`} d={`M70,${y} L130,${y}`} />
-        ))}
-      </g>
-      <path d="M88,95 L96,120 L104,120 L112,95" />
-      <rect x="94" y="118" width="12" height="52" rx="4" fill={YELLOW} />
-    </g>
-  );
-}
-
-// Two crossed tennis rackets and a ball, over the Open Invite card.
-// `clipId` must be unique on the page (it names the strings' clip path).
-export function TennisRacketsDrawing({ clipId, ...props }: DrawingProps & { clipId: string }) {
+// A trainer and a cup of coffee standing on one floor line (y 189.5 with
+// the stroke): the Saturday class, then brunch. The Open Invite card.
+export function TrainerAndCoffeeDrawing(props: DrawingProps) {
   return (
     <Drawing {...props}>
-      <defs>
-        <clipPath id={clipId}>
-          <ellipse cx="100" cy="62" rx="25" ry="34" />
-        </clipPath>
-      </defs>
-      <Racket angle={-28} clipId={clipId} />
-      <Racket angle={28} clipId={clipId} />
-      <circle cx="100" cy="176" r="13" fill={YELLOW} />
-      <path d="M89,169 C96,174 96,180 90,186" />
-      <path d="M111,166 C104,171 104,181 111,186" />
+      {/* trainer, side view, toe to the left: sole, upper, three laces, toe cap, sole line */}
+      <path d="M12,172 C12,182 18,188 28,188 L112,188 C120,188 122,182 120,172 Z" fill={YELLOW} />
+      <path d="M14,172 C16,160 30,152 52,146 L74,122 C78,116 86,114 92,118 L100,130 C106,122 114,122 118,128 L120,172 Z" fill={YELLOW} />
+      <path d="M58,142 L68,150" />
+      <path d="M66,133 L76,141" />
+      <path d="M74,124 L84,132" />
+      <path d="M16,164 C26,160 34,160 42,164" />
+      <path d="M12,180 L120,180" />
+      {/* cup on its saucer, three lines of steam */}
+      <path d="M126,182 C130,190 186,190 190,182 Z" fill={YELLOW} />
+      <path d="M128,132 L132,170 C133,178 140,182 148,182 L162,182 C170,182 177,178 178,170 L182,132 Z" fill={YELLOW} />
+      <path d="M180,142 C194,142 194,164 176,164" />
+      <path d="M142,118 C138,110 146,104 142,96" />
+      <path d="M155,118 C151,110 159,104 155,96" />
+      <path d="M168,118 C164,110 172,104 168,96" />
     </Drawing>
   );
 }

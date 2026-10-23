@@ -13,7 +13,7 @@ import {
   CheckIcon,
   CoupesDrawing,
   PriceTagDrawing,
-  TennisRacketsDrawing,
+  TrainerAndCoffeeDrawing,
   VelvetRopeDrawing,
 } from "./icons";
 import { COMPANY, CONTACT_EMAIL, EXTERNAL_LINKS, REGISTERED_OFFICE } from "./links";
@@ -299,13 +299,15 @@ function OpenInvite() {
           <StepRow steps={OPEN_INVITE_STEPS} className="mt-4 md:hidden" />
         </div>
 
-        {/* The rackets sit on the card's top right corner, inside the
-            column (right-0), so they never pass the window's edge. */}
+        {/* The trainer and the cup stand on the card's top edge: `top` is
+            minus the box height times 189.5/200, the ink's bottom, so it
+            sits on the 2px top border (RULE-07). They are inset 24px (48px
+            from 768) so they stand on the straight edge, clear of the 20px
+            corner radius. */}
         <div className="relative mt-[68px] min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_300px] md:pt-14 md:pr-6">
-          <TennisRacketsDrawing
-            clipId="open-invite-racket-strings"
-            size={140}
-            className="absolute top-[-46px] right-0 z-10 block size-[84px] rotate-[14deg] md:top-[-40px] md:size-[140px]"
+          <TrainerAndCoffeeDrawing
+            size={168}
+            className="absolute top-[-91px] right-6 z-10 block size-[96px] md:top-[-103.2px] md:right-12 md:size-[168px]"
           />
           {/* An example invite, not a real one: the "I'm in" pill is part
               of the picture, so it isn't a button. It is the small 44px
