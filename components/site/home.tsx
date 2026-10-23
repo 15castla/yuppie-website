@@ -3,7 +3,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";
 import { almarai, instrumentSerif } from "@/components/templates/creative-studio/fonts";
@@ -236,6 +236,15 @@ function Perks() {
   );
 }
 
+// The example invite card's rows, in order, as [label, value] (Albert,
+// 23 Oct). Times in the 24-hour house style. Change a value here to swap
+// it; the card is an example, which its figure's aria-label says.
+const OPEN_INVITE_EXAMPLE: [label: string, value: string][] = [
+  ["When", "Saturday, 10:00"],
+  ["Where", "Psycle, Oxford Circus"],
+  ["Posted by", "Jasmin"],
+];
+
 function OpenInvite() {
   return (
     <section id="open-invite" className="border-y-[3px] border-foreground bg-cream">
@@ -303,12 +312,12 @@ function OpenInvite() {
               Saturday morning class + brunch
             </h3>
             <dl className="m-0 mb-5 grid grid-cols-[96px_1fr] gap-x-0 gap-y-2 text-[15px] md:mb-0 md:grid-cols-[auto_1fr] md:gap-x-5 md:gap-y-2.5 md:text-[15px]">
-              <dt className="font-bold">When</dt>
-              <dd className="m-0">Saturday morning</dd>
-              <dt className="font-bold">Posted by</dt>
-              <dd className="m-0">A Club Yuppie member</dd>
-              <dt className="font-bold">Looking for</dt>
-              <dd className="m-0">2 more people</dd>
+              {OPEN_INVITE_EXAMPLE.map(([label, value]) => (
+                <Fragment key={label}>
+                  <dt className="font-bold">{label}</dt>
+                  <dd className="m-0">{value}</dd>
+                </Fragment>
+              ))}
             </dl>
             <span
               aria-hidden
