@@ -127,12 +127,12 @@ export function TrainerAndCoffeeDrawing(props: DrawingProps) {
       <path d="M58,142 L68,150" />
       <path d="M66,133 L76,141" />
       <path d="M74,124 L84,132" />
-      <path d="M16,164 C26,160 34,160 42,164" />
-      <path d="M12,180 L120,180" />
+      <path d="M17.5,164 C26,160 34,160 42,164" />
+      <path d="M13.6,180 L120.6,180" />
       {/* cup on its saucer, three lines of steam */}
       <path d="M126,182 C130,190 186,190 190,182 Z" fill={YELLOW} />
       <path d="M128,132 L132,170 C133,178 140,182 148,182 L162,182 C170,182 177,178 178,170 L182,132 Z" fill={YELLOW} />
-      <path d="M180,142 C194,142 194,164 176,164" />
+      <path d="M180.9,142 C194,142 194,164 178.6,164" />
       <path d="M142,118 C138,110 146,104 142,96" />
       <path d="M155,118 C151,110 159,104 155,96" />
       <path d="M168,118 C164,110 172,104 168,96" />

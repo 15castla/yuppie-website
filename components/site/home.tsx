@@ -264,12 +264,14 @@ function OpenInvite() {
       <div
         className={cn(
           SITE_CONTAINER_CLASS,
-          "flex flex-col pt-16 pb-[72px] md:flex-row md:flex-nowrap md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:py-[clamp(72px,9vw,128px)]",
+          "flex flex-col pt-[61px] pb-[72px] md:flex-row md:flex-nowrap md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:py-[clamp(72px,9vw,128px)]",
         )}
       >
         {/* Desktop: the words and the example card side by side at every
             width from 768 (never wrapped, so the card never falls under
-            the words and leaves half the band empty). */}
+            the words and leaves half the band empty). Phones: 61px above
+            the title, so the gap from the top rule to its ink equals the
+            gap from the card's shadow to the bottom rule (RULE-10). */}
         <div className="flex min-w-0 flex-col gap-[18px] md:flex-[1_1_360px] md:gap-7">
           <h2
             className={cn(
@@ -301,13 +303,18 @@ function OpenInvite() {
 
         {/* The trainer and the cup stand on the card's top edge: `top` is
             minus the box height times 189.5/200, the ink's bottom, so it
-            sits on the 2px top border (RULE-07). They are inset 24px (48px
-            from 768) so they stand on the straight edge, clear of the 20px
-            corner radius. */}
-        <div className="relative mt-[68px] min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_300px] md:pt-14 md:pr-6">
+            sits on the 2px top border (RULE-07; from 768 the column's 72px
+            top padding is added). They are inset 24px (48px from 768) so
+            they stand on the straight edge, clear of the 20px corner
+            radius. The stroke (grid units) gives the perk drawings' line:
+            1.68px on phones, growing with --perk-slot's clamp from 768.
+            pointer-events-none: the transparent box overlaps the step row
+            on phones and must never catch a tap. From 768 the 72px top
+            padding also makes the band's gaps equal (RULE-10). */}
+        <div className="relative mt-[68px] min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_300px] md:pt-[72px] md:pr-6">
           <TrainerAndCoffeeDrawing
             size={168}
-            className="absolute top-[-91px] right-6 z-10 block size-[96px] md:top-[-103.2px] md:right-12 md:size-[168px]"
+            className="pointer-events-none absolute top-[-91px] right-6 z-10 block size-[96px] [stroke-width:3.5] md:top-[-87.2px] md:right-12 md:size-[168px] md:[stroke-width:calc(clamp(96px,9.5vw,137px)*0.020833)]"
           />
           {/* An example invite, not a real one: the "I'm in" pill is part
               of the picture, so it isn't a button. It is the small 44px
