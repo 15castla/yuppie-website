@@ -34,12 +34,19 @@ type DrawingComponent = typeof CoupesDrawing;
 // Each perk drawing's ink box in its 200-unit grid, strokes included
 // (rendered and pixel-scanned at the desktop stroke width of 3), as
 // [x, y, width, height]. Used as the drawing's viewBox here so its ink
-// starts exactly on the title's left edge and ends on the box's bottom;
-// the drawings' own 200x200 boxes have different empty margins.
+// fills its box exactly and ends on the box's bottom; the drawings' own
+// 200x200 boxes have different empty margins.
 type InkBox = [number, number, number, number];
 
+// How each drawing fills the one square slot every perk drawing gets
+// (design/specs/round2-home.md, H2): its width and height as shares of the
+// slot, chosen so all four have the same ink area (only the tall brick
+// phone is capped by the slot's height), and its stroke in grid units, so
+// every line renders at the same weight (1.68px on phones, 2.39px at 1440).
+type PerkFit = { w: number; h: number; stroke: number };
+
 // Each perk's copy is shorter on mobile (the boards differ).
-const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingComponent; ink: InkBox }[] = [
+const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingComponent; ink: InkBox; fit: PerkFit }[] = [
   {
     title: "Events",
     desktop:
@@ -47,6 +54,7 @@ const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingC
     mobile: "Supper clubs, Padel & Pints and nights out. Run by us, at cost.",
     Drawing: CoupesDrawing,
     ink: [15.25, 22.5, 169.5, 147.5],
+    fit: { w: 0.9259, h: 0.8057, stroke: 3.204 },
   },
   {
     title: "Discounts",
@@ -54,6 +62,7 @@ const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingC
     mobile: "Money off at restaurants, bars, gyms and clubs.",
     Drawing: PriceTagDrawing,
     ink: [30.25, 28.5, 140.875, 125.875],
+    fit: { w: 0.9136, h: 0.8164, stroke: 2.698 },
   },
   {
     title: "Access",
@@ -61,6 +70,7 @@ const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingC
     mobile: "Members’ clubs, guest lists and first dibs.",
     Drawing: VelvetRopeDrawing,
     ink: [16.5, 52.5, 167, 125],
+    fit: { w: 0.9983, h: 0.7472, stroke: 2.927 },
   },
   {
     title: "Concierge",
@@ -68,6 +78,7 @@ const PERKS: { title: string; desktop: string; mobile: string; Drawing: DrawingC
     mobile: "A top hotel concierge’s black book. It learns your taste.",
     Drawing: BrickPhoneDrawing,
     ink: [66.5, 10.5, 67, 177],
+    fit: { w: 0.3785, h: 1, stroke: 3.098 },
   },
 ];
 
@@ -161,19 +172,20 @@ function Hero() {
   );
 }
 
-// The drawings' smallest scale: 112px per 200 units (their desktop size
-// before round 2), applied to the cropped ink box. It is the floor of the
-// clamp() in the drawing's class (0.56px per unit, up to 0.8px from 1440
-// wide); here it only sets the SVG's width and height attributes.
-const PERK_MIN_SCALE = 112 / 200;
+// The perk drawing slot on phones (the drawing column before round 3); it
+// grows to 137px at 1440 (--perk-slot below). Here it only sets the SVG's
+// width and height attributes, before the CSS sizes it.
+const PERK_SLOT_MIN = 96;
 
 // Four ruled rows: the words on the container's left edge, each drawing
-// on the right edge with its ink bottom standing on the row's 1.5px rule
-// (RULE-07: the drawing box's negative bottom margin equals the row's
-// bottom padding). Phones: one column, the words centred in the row.
-// Desktop: two columns where two 420px columns fit (about 975px wide and
-// up), one below that, never three; the words hang from the top so the
-// titles share one line. Every row takes the tallest row's height.
+// in one square slot on the right edge (--perk-slot: 96px on phones,
+// growing to 137px at 1440), centred on the slot's centre line, with its
+// ink bottom standing on the row's 1.5px rule (RULE-07: the drawing box's
+// negative bottom margin equals the row's bottom padding). Phones: one
+// column, the words centred in the row. Desktop: two columns where two
+// 420px columns fit (about 975px wide and up), one below that, never
+// three; the words hang from the top so the titles share one line. Every
+// row takes the tallest row's height.
 function Perks() {
   return (
     <section
@@ -190,29 +202,31 @@ function Perks() {
       <h2 className="m-0 text-[40px] font-extrabold leading-none tracking-[-0.025em] md:mb-[clamp(48px,6vw,74px)] md:text-[clamp(40px,4.6vw,64px)]">
         Four reasons to <span className={SERIF_ACCENT_CLASS}>leave the office.</span>
       </h2>
-      <div className="mt-9 grid grid-cols-1 auto-rows-fr border-t-[1.5px] border-foreground md:mt-0 md:grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] md:gap-x-[clamp(40px,5.5vw,80px)] md:border-t-0">
-        {PERKS.map(({ title, desktop, mobile, Drawing, ink }) => (
+      <div className="mt-9 grid grid-cols-1 auto-rows-fr border-t-[1.5px] border-foreground [--perk-slot:clamp(96px,9.5vw,137px)] md:mt-0 md:grid-cols-[repeat(auto-fit,minmax(min(100%,420px),1fr))] md:gap-x-[clamp(40px,5.5vw,80px)] md:border-t-0">
+        {PERKS.map(({ title, desktop, mobile, Drawing, ink, fit }) => (
           <article
             key={title}
-            className="grid min-w-0 grid-cols-[minmax(0,1fr)_96px] grid-rows-[1fr_auto_auto_1fr] gap-x-4 border-b-[1.5px] border-foreground py-6 md:grid-cols-[minmax(0,1fr)_auto] md:grid-rows-[auto_auto_1fr] md:gap-x-8 md:py-10"
+            className="grid min-w-0 grid-cols-[minmax(0,1fr)_var(--perk-slot)] grid-rows-[1fr_auto_auto_1fr] gap-x-4 border-b-[1.5px] border-foreground py-6 md:grid-rows-[auto_auto_1fr] md:gap-x-8 md:py-10"
           >
-            <div className="col-start-2 row-span-full -mb-6 flex items-end justify-end self-end md:-mb-10">
-              {/* Sized from the ink box in 200-unit grid units (unitless
-                  --ink-w and --ink-h) times one scale: 0.56px per unit up
-                  to 1007px wide, growing to 0.8px at 1440 and above. */}
+            <div className="col-start-2 row-span-full -mb-6 flex w-[var(--perk-slot)] items-end justify-center self-end md:-mb-10">
+              {/* The slot times this drawing's fit shares (unitless
+                  --fit-w and --fit-h); its own stroke (--fit-stroke, grid
+                  units) gives every drawing the same rendered line. */}
               <Drawing
-                size={ink[2] * PERK_MIN_SCALE}
+                size={PERK_SLOT_MIN * fit.w}
                 viewBox={ink.join(" ")}
-                width={ink[2] * PERK_MIN_SCALE}
-                height={ink[3] * PERK_MIN_SCALE}
-                className="block h-[calc(var(--ink-h)*clamp(0.56px,0.0556vw,0.8px))] w-[calc(var(--ink-w)*clamp(0.56px,0.0556vw,0.8px))] overflow-visible stroke-[3]"
-                style={{ "--ink-w": ink[2], "--ink-h": ink[3] } as CSSProperties}
+                width={PERK_SLOT_MIN * fit.w}
+                height={PERK_SLOT_MIN * fit.h}
+                className="block h-[calc(var(--perk-slot)*var(--fit-h))] w-[calc(var(--perk-slot)*var(--fit-w))] overflow-visible [stroke-width:var(--fit-stroke)]"
+                style={{ "--fit-w": fit.w, "--fit-h": fit.h, "--fit-stroke": fit.stroke } as CSSProperties}
               />
             </div>
             <h3 className="m-0 col-start-1 row-start-2 mb-1.5 self-end text-2xl leading-[1.2] font-extrabold tracking-[-0.01em] md:row-start-1 md:mb-2.5 md:self-auto">
               {title}
             </h3>
-            <p className="m-0 col-start-1 row-start-3 self-start text-base leading-[1.45] md:row-start-2 md:max-w-[420px] md:leading-[1.55]">
+            {/* Phones: text-wrap: pretty, so no description ends on one
+                word; a browser without it wraps as before. */}
+            <p className="m-0 col-start-1 row-start-3 self-start text-base leading-[1.45] max-md:[text-wrap:pretty] md:row-start-2 md:max-w-[420px] md:leading-[1.55]">
               <span className="md:hidden">{mobile}</span>
               <span className="hidden md:inline">{desktop}</span>
             </p>
