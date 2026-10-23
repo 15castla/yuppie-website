@@ -354,7 +354,8 @@ function OpenInvite() {
 // shadow ending on the container's right edge. The card is the section's
 // first and last ink, so the bottom padding is the top padding plus the
 // shadow: equal gaps above the card and below its shadow (RULE-10).
-// Phones: 72px above the headline and 72px below the card's 6px shadow;
+// Phones: 72px above the headline's box (its ink starts about 4px lower)
+// and 76px below the card's 6px shadow, so the ink gaps match (RULE-10);
 // the headline shrinks below 375 so "One membership." stays one line, and
 // the card stops at 460px and centres (from 506px wide).
 function Membership() {
@@ -363,7 +364,7 @@ function Membership() {
       id="membership"
       className={cn(
         SITE_CONTAINER_CLASS,
-        "flex flex-col items-center gap-3.5 pt-[72px] pb-[78px] text-center md:grid md:grid-cols-2 md:grid-rows-[auto_auto] md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:gap-y-0 md:pt-[clamp(72px,9vw,128px)] md:pb-[calc(clamp(72px,9vw,128px)+8px)] md:text-left",
+        "flex flex-col items-center gap-3.5 pt-[72px] pb-[82px] text-center md:grid md:grid-cols-2 md:grid-rows-[auto_auto] md:items-center md:gap-x-[clamp(40px,5.5vw,80px)] md:gap-y-0 md:pt-[clamp(72px,9vw,128px)] md:pb-[calc(clamp(72px,9vw,128px)+8px)] md:text-left",
       )}
     >
       <h2 className="m-0 text-[clamp(32px,calc(11.9vw-4.8px),40px)] font-extrabold leading-none tracking-[-0.03em] md:col-start-1 md:row-start-1 md:self-end md:text-[clamp(40px,4.6vw,64px)] md:tracking-[-0.025em]">
