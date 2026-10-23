@@ -245,6 +245,19 @@ const OPEN_INVITE_EXAMPLE: [label: string, value: string][] = [
   ["Posted by", "Jasmin"],
 ];
 
+// A card value breaks only after a comma, never inside a name: where its
+// column is too narrow for one line (320 wide, and about 768 to 900) it
+// reads "Psycle," then "Oxford Circus", not "Psycle, Oxford" then "Circus".
+function CommaBreaks({ text }: { text: string }) {
+  const parts = text.split(", ");
+  return parts.map((part, i) => (
+    <Fragment key={part}>
+      {i > 0 && " "}
+      <span className="whitespace-nowrap">{i < parts.length - 1 ? `${part},` : part}</span>
+    </Fragment>
+  ));
+}
+
 function OpenInvite() {
   return (
     <section id="open-invite" className="border-y-[3px] border-foreground bg-cream">
@@ -315,7 +328,9 @@ function OpenInvite() {
               {OPEN_INVITE_EXAMPLE.map(([label, value]) => (
                 <Fragment key={label}>
                   <dt className="font-bold">{label}</dt>
-                  <dd className="m-0">{value}</dd>
+                  <dd className="m-0">
+                    <CommaBreaks text={value} />
+                  </dd>
                 </Fragment>
               ))}
             </dl>
