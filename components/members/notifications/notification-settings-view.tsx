@@ -1,0 +1,345 @@
+"use client";
+
+// Notification settings (/members/you/notifications): what a member hears about
+// (Open Invite, Reminders, Club events) and how (Push, Email, Text).
+//
+// Eight switches at most, none nested. Every switch is 56 x 32, the whole row is
+// its tap target (a label) unless the row holds a link, and the switch is always
+// the row's last child so nothing moves when it is flipped. On a phone the
+// channels are a section after the three groups; from 768px they are a card
+// under them, and from 1024px the kit's right-hand rail.
+//
+// Local state only: a switch flips at once, and (as the spec says of the real
+// save) when the save fails the switch goes back and the row says so. Here the
+// save "fails" when the browser is offline, so the state is reachable by hand.
+// The backend saves each switch as it flips (see NotificationPreferences in
+// lib/members/messages/types.ts).
+//
+// Not designed, so inert here: the number step ("Change number", "Add a
+// number", a tap on the Text row with no number) and the phone's settings
+// hand-off ("Open Settings"). Pass onNumberStep / onOpenSettings when they exist.
+//
+// Kit counterparts: pages_notif.settings_main(), topic_sections(),
+// channels_block(), srow(), sw().
+
+import { useId, useState, type ReactNode } from "react";
+
+import { BackLink, BackRow, Button, Card, Icon, Main, Pill, Rows, SectionTitle, TitleBlock } from "@/components/members/kit";
+import type {
+  NotificationChannel,
+  NotificationPreferences,
+  NotificationTopic,
+} from "@/lib/members/messages/types";
+import { ROUTES } from "@/lib/members/routes";
+import { cn } from "@/lib/utils";
+import "./notifications.css";
+
+type SettingKey = NotificationTopic | NotificationChannel;
+
+export type NotificationSettingsViewProps = {
+  preferences: NotificationPreferences;
+  /** Preview only: the row whose save failed (the switch stays where it was, the row says so). */
+  failedKey?: SettingKey | null;
+  /** The number step: "Change number", "Add a number", a tap on the Text row with no number. Not designed yet. */
+  onNumberStep?: () => void;
+  /** The phone's own notification settings (app only). Not designed yet. */
+  onOpenSettings?: () => void;
+};
+
+function Switch({
+  on,
+  label,
+  describedBy,
+  onToggle,
+}: {
+  on: boolean;
+  label: string;
+  describedBy?: string;
+  onToggle?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      className="ntf-sw"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      aria-describedby={describedBy}
+      onClick={onToggle}
+    />
+  );
+}
+
+function SettingRow({
+  id,
+  title,
+  meta,
+  end,
+  extra,
+  fixed = false,
+  interactive = false,
+  onActivate,
+}: {
+  id: string;
+  title: string;
+  meta: ReactNode;
+  /** What sits at the end: the switch, or a pill. */
+  end: (describedBy: string) => ReactNode;
+  /** Under the text: a tick line, a link, an error. The switch then lines up with the title. */
+  extra?: ReactNode;
+  /** A row with nothing to switch (a pill). */
+  fixed?: boolean;
+  /** The row holds a link, so it is not a label. */
+  interactive?: boolean;
+  onActivate?: () => void;
+}) {
+  const metaId = `${id}-meta`;
+  const className = cn("mk-row ntf-row", extra ? "has-x" : null, fixed && "is-fixed");
+  const inner = (
+    <>
+      <span className="mk-body">
+        <span className="mk-title">{title}</span>
+        <span className="mk-meta" id={metaId}>
+          {meta}
+        </span>
+        {extra}
+      </span>
+      <span className="mk-end">{end(metaId)}</span>
+    </>
+  );
+  if (fixed || interactive) {
+    return (
+      <div className={className} onClick={onActivate}>
+        {inner}
+      </div>
+    );
+  }
+  return <label className={className}>{inner}</label>;
+}
+
+function SaveError() {
+  return (
+    <p className="ntf-e" role="alert">
+      <Icon name="circle-alert" size={15} />
+      <span>
+        <b>Couldn’t save that.</b> Check your connection and try again.
+      </span>
+    </p>
+  );
+}
+
+export function NotificationSettingsView({
+  preferences,
+  failedKey = null,
+  onNumberStep,
+  onOpenSettings,
+}: NotificationSettingsViewProps) {
+  const base = useId();
+  const [topics, setTopics] = useState(preferences.topics);
+  const [channels, setChannels] = useState(preferences.channels);
+  const [textCheck, setTextCheck] = useState(preferences.textCheck);
+  const [failed, setFailed] = useState<SettingKey | null>(failedKey);
+
+  const number = preferences.mobileNumber;
+  const permission = preferences.pushPermission;
+
+  // A switch flips at once. If the save cannot go (offline here), it stays where it was and its row says so.
+  function flip(key: SettingKey, kind: "topic" | "channel") {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      setFailed(key);
+      return;
+    }
+    setFailed(null);
+    if (kind === "topic") {
+      const topic = key as NotificationTopic;
+      setTopics((previous) => ({ ...previous, [topic]: !previous[topic] }));
+      return;
+    }
+    const channel = key as NotificationChannel;
+    const next = !channels[channel];
+    setChannels((previous) => ({ ...previous, [channel]: next }));
+    // Switching Text on sends one check text; off clears the tick line.
+    if (channel === "text") setTextCheck(next ? "sent" : "none");
+  }
+
+  function topicRow(scope: string, key: NotificationTopic, title: string, meta: string) {
+    const id = `${base}-${scope}-${key}`;
+    return (
+      <SettingRow
+        id={id}
+        title={title}
+        meta={meta}
+        extra={failed === key ? <SaveError /> : null}
+        end={(describedBy) => (
+          <Switch on={topics[key]} label={title} describedBy={describedBy} onToggle={() => flip(key, "topic")} />
+        )}
+      />
+    );
+  }
+
+  function channelRows(scope: string) {
+    const id = (key: string) => `${base}-${scope}-${key}`;
+    const pushSwitchable = permission !== "unavailable";
+    const pushOff = permission === "denied";
+    return (
+      <Rows>
+        {pushSwitchable ? (
+          <SettingRow
+            id={id("push")}
+            title="Push"
+            meta={pushOff ? "Off in your iPhone’s settings." : "On this iPhone."}
+            extra={failed === "push" ? <SaveError /> : null}
+            end={(describedBy) => (
+              <Switch
+                on={!pushOff && channels.push}
+                label="Push"
+                describedBy={describedBy}
+                onToggle={pushOff ? undefined : () => flip("push", "channel")}
+              />
+            )}
+          />
+        ) : (
+          <SettingRow
+            id={id("push")}
+            title="Push"
+            meta="Needs our app, which isn’t out yet. Email and text work now."
+            fixed
+            end={() => <Pill>App only</Pill>}
+          />
+        )}
+        <SettingRow
+          id={id("email")}
+          title="Email"
+          meta={`Reminders, bookings and chat nudges, to ${preferences.email}.`}
+          extra={failed === "email" ? <SaveError /> : null}
+          end={(describedBy) => (
+            <Switch on={channels.email} label="Email" describedBy={describedBy} onToggle={() => flip("email", "channel")} />
+          )}
+        />
+        {number ? (
+          <SettingRow
+            id={id("text")}
+            title="Text"
+            meta={`Reminders only, to ${number}.`}
+            interactive
+            extra={
+              <>
+                {channels.text && textCheck === "sent" ? (
+                  <p className="ntf-ok">
+                    <Icon name="check" size={15} />
+                    <span>We sent a text to check it’s you.</span>
+                  </p>
+                ) : null}
+                <span className="ntf-link">
+                  <Button variant="quiet" onClick={onNumberStep}>
+                    Change number
+                  </Button>
+                </span>
+                {failed === "text" ? <SaveError /> : null}
+              </>
+            }
+            end={(describedBy) => (
+              <Switch on={channels.text} label="Text" describedBy={describedBy} onToggle={() => flip("text", "channel")} />
+            )}
+          />
+        ) : (
+          // No number on file: the switch stays off, and a tap on the row opens the number step.
+          <SettingRow
+            id={id("text")}
+            title="Text"
+            meta="Add a mobile number to get reminders by text."
+            interactive
+            onActivate={onNumberStep}
+            extra={
+              <span className="ntf-link">
+                <Button variant="quiet">Add a number</Button>
+              </span>
+            }
+            end={(describedBy) => <Switch on={false} label="Text" describedBy={describedBy} />}
+          />
+        )}
+      </Rows>
+    );
+  }
+
+  function channelsBlock(scope: string, card: boolean) {
+    const banner =
+      permission === "denied" ? (
+        <div className="ntf-banner">
+          <Icon name="bell-off" size={22} />
+          <div>
+            <p>
+              <b>Notifications are off for Club Yuppie on this iPhone.</b> Turn them on in Settings to get push.
+            </p>
+            <Button variant="quiet" onClick={onOpenSettings}>
+              Open Settings
+            </Button>
+          </div>
+        </div>
+      ) : null;
+    const foot =
+      permission === "granted" || permission === "not_asked" ? (
+        <p className="ntf-foot">You can also change push in your phone’s settings.</p>
+      ) : null;
+    const inner = (
+      <>
+        <SectionTitle title="How we tell you" />
+        <p className="ntf-intro">Pick as many as you like. Text is off until you turn it on.</p>
+        {banner}
+        {channelRows(scope)}
+        {foot}
+      </>
+    );
+    return card ? <Card className="ntf-card">{inner}</Card> : <section className="mk-section">{inner}</section>;
+  }
+
+  return (
+    <>
+      <BackRow href={ROUTES.you} label="You" />
+      <Main className="ntf-sub">
+        <div className="mk-wrap ntf-crumb">
+          <div style={{ paddingTop: 32 }}>
+            <BackLink href={ROUTES.you} label="You" />
+          </div>
+        </div>
+        <TitleBlock title="Notifications." sub="Only what you need." actions={null} />
+        <div className="mk-wrap">
+          <div className="mk-cols">
+            <div className="ntf-main-col">
+              <section className="mk-section">
+                <SectionTitle title="Open Invite" />
+                <Rows>
+                  {topicRow("t", "host", "Plans you host", "People joining or leaving, questions, messages and payments.")}
+                  {topicRow("t", "in", "Plans you’re in", "Messages, replies, and changes or cancellations from the host.")}
+                </Rows>
+              </section>
+              <section className="mk-section">
+                <SectionTitle title="Reminders" />
+                <p className="ntf-intro">For Open Invite plans and Club events you’re booked on.</p>
+                <Rows>
+                  {topicRow("t", "reminder24", "24 hours before", "The day before, with the time and place.")}
+                  {topicRow("t", "reminder2", "2 hours before", "A last nudge on the day.")}
+                </Rows>
+              </section>
+              <section className="mk-section">
+                <SectionTitle title="Club events" />
+                <Rows>
+                  <SettingRow
+                    id={`${base}-t-booked`}
+                    title="Booking confirmed"
+                    meta="We always email your booking and the exact address."
+                    fixed
+                    end={() => <Pill>Always on</Pill>}
+                  />
+                  {topicRow("t", "clubChanges", "Changes", "If a date, time or place changes.")}
+                </Rows>
+              </section>
+              <div className="mk-show-phone">{channelsBlock("p", false)}</div>
+            </div>
+            <aside className="mk-rail mk-show-desk">{channelsBlock("d", true)}</aside>
+          </div>
+        </div>
+      </Main>
+    </>
+  );
+}

@@ -4,6 +4,7 @@
 // harness's ?shell= and the viewport width, so each state below is one drawing at every width.
 
 import { InboxView, type InboxState, type InboxTab } from "@/components/members/messages/inbox-view";
+import { NotificationSettingsView } from "@/components/members/notifications/notification-settings-view";
 import type { Overlay, ThreadPreview } from "@/components/members/messages/overlay-types";
 import { ThreadView } from "@/components/members/messages/thread-view";
 import {
@@ -15,13 +16,17 @@ import {
   EXAMPLE_DRAFT_NUMBER,
   EXAMPLE_DRAFT_TYPING,
   EXAMPLE_NOW,
+  EXAMPLE_PREFERENCES_APP,
+  EXAMPLE_PREFERENCES_VARIANTS,
+  EXAMPLE_PREFERENCES_WEB,
   EXAMPLE_THREADS,
   EXAMPLE_THREAD_VARIANTS,
   EXAMPLE_UPDATES,
   EXAMPLE_YOU,
 } from "@/lib/members/mock/messages";
-import type { ChatThread } from "@/lib/members/messages/types";
+import type { ChatThread, NotificationPreferences } from "@/lib/members/messages/types";
 import { ROUTES } from "@/lib/members/routes";
+import type { ShellMode } from "@/components/members/shell/types";
 import type { PreviewParams, PreviewScreen } from "./types";
 
 const FLAGS = ["openInvite", "messages", "notifications"] as const;
@@ -166,6 +171,57 @@ function threadScreen(id: string, title: string, states: Record<string, ThreadSt
 
 const threadStates = (keys: string[]) => Object.fromEntries(keys.map((key) => [key, THREAD_STATES[key]]));
 
+// ---- notification settings ---------------------------------------------------------------------------
+
+// A You sub page: no tab lit, the photo is the current page, no messages icon.
+const YOU_SUB_FRAME = {
+  tab: null,
+  showMessages: false,
+  messagesCurrent: false,
+  youCurrent: true,
+};
+
+type NotificationState = { preferences: (shell: ShellMode) => NotificationPreferences; failedKey?: "reminder24" };
+
+const NOTIFICATION_STATES: Record<string, NotificationState> = {
+  // the defaults: on the web push is "App only", in the app it is a switch
+  default: { preferences: (shell) => (shell === "app" ? EXAMPLE_PREFERENCES_APP : EXAMPLE_PREFERENCES_WEB) },
+  // Text switched on: the check text was sent
+  "text-on": { preferences: (shell) => withPush(EXAMPLE_PREFERENCES_VARIANTS.textOn, shell) },
+  // no mobile number on file: the switch stays off
+  "no-number": { preferences: (shell) => withPush(EXAMPLE_PREFERENCES_VARIANTS.noNumber, shell) },
+  // a switch that failed to save: the row says so, the switch stays where it was
+  error: { preferences: (shell) => withPush(EXAMPLE_PREFERENCES_VARIANTS.failed, shell), failedKey: "reminder24" },
+  // the app, with notifications off in the phone's settings (on the web there is no push to be off)
+  denied: { preferences: (shell) => (shell === "app" ? EXAMPLE_PREFERENCES_VARIANTS.denied : EXAMPLE_PREFERENCES_WEB) },
+  // host updates off, 2 hours off, text on
+  mixed: { preferences: (shell) => withPush(EXAMPLE_PREFERENCES_VARIANTS.mixed, shell) },
+};
+
+// Push follows the shell: a switch in the app, an "App only" row on the web.
+function withPush(preferences: NotificationPreferences, shell: ShellMode): NotificationPreferences {
+  return { ...preferences, pushPermission: shell === "app" ? "granted" : "unavailable" };
+}
+
+const notificationsScreen: PreviewScreen = {
+  id: "notif-settings",
+  title: "Notification settings",
+  states: Object.keys(NOTIFICATION_STATES),
+  defaultFlags: FLAGS,
+  ...YOU_SUB_FRAME,
+  render: (params) => {
+    const state = NOTIFICATION_STATES[params.state] ?? NOTIFICATION_STATES.default;
+    return (
+      <NotificationSettingsView
+        // a new state is a new page: the local switches start from its saved values
+        key={`${params.shell}-${params.state}`}
+        preferences={state.preferences(params.shell)}
+        failedKey={state.failedKey ?? null}
+      />
+    );
+  },
+};
+
 export const messagesScreens: PreviewScreen[] = [
   inboxScreen,
   updatesScreen,
@@ -195,4 +251,5 @@ export const messagesScreens: PreviewScreen[] = [
       "select",
     ]),
   ),
+  notificationsScreen,
 ];

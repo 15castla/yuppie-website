@@ -553,6 +553,32 @@ export const EXAMPLE_PREFERENCES_APP: NotificationPreferences = {
   pushPermission: "granted",
 };
 
+/** The settings page's other drawn states (specs/notifications.md 3.1). */
+export const EXAMPLE_PREFERENCES_VARIANTS = {
+  /** Text switched on: the check text was sent. */
+  textOn: {
+    ...EXAMPLE_PREFERENCES_WEB,
+    channels: { ...DEFAULT_CHANNELS, text: true },
+    textCheck: "sent",
+  } satisfies NotificationPreferences,
+  /** No mobile number on file: the Text switch stays off. */
+  noNumber: { ...EXAMPLE_PREFERENCES_WEB, mobileNumber: null } satisfies NotificationPreferences,
+  /** A switch whose save failed (the page marks the row; the switch is where it was). */
+  failed: {
+    ...EXAMPLE_PREFERENCES_WEB,
+    topics: { ...DEFAULT_TOPICS, reminder24: false },
+  } satisfies NotificationPreferences,
+  /** In the app, with notifications off for Club Yuppie in the phone's settings. */
+  denied: { ...EXAMPLE_PREFERENCES_APP, pushPermission: "denied" } satisfies NotificationPreferences,
+  /** A mixed set: host updates off, 2 hours off, text on. */
+  mixed: {
+    ...EXAMPLE_PREFERENCES_APP,
+    topics: { ...DEFAULT_TOPICS, host: false, reminder2: false },
+    channels: { ...DEFAULT_CHANNELS, text: true },
+    textCheck: "verified",
+  } satisfies NotificationPreferences,
+};
+
 // ---------------------------------------------------------------------------
 // The adapter (what the pages call; the backend will replace each function)
 
