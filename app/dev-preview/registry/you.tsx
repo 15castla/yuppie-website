@@ -53,7 +53,6 @@ type YouState =
   | "cancelled"
   | "legal-long"
   | "settings-warn"
-  | "settings-two-line"
   | "dialog-logout"
   | "dialog-cancel"
   | "dialog-cancel-reason"
@@ -74,7 +73,6 @@ const YOU_STATES: YouState[] = [
   "cancelled",
   "legal-long",
   "settings-warn",
-  "settings-two-line",
   "dialog-logout",
   "dialog-cancel",
   "dialog-cancel-reason",
@@ -93,15 +91,13 @@ function summariesFor(state: YouState, app: boolean): SettingsSummaries {
       blocked: 2,
     };
   }
-  if (state === "settings-two-line") {
-    return {
-      notifications: { summary: "Push, email, text" },
-      payments: { lines: ["Paid £22 for Comedy night", "Get paid: not set up"] },
-      blocked: 1,
-    };
-  }
   // The web has no push, so its row says "Email".
-  return { notifications: { summary: app ? "Push, email" : "Email" }, payments: { lines: ["Get paid: not set up"] }, blocked: 0 };
+  // The default is the approved design's example: a paid event on the first line of Payments, two blocked members.
+  return {
+    notifications: { summary: app ? "Push, email" : "Email" },
+    payments: { lines: ["Paid £22 for Comedy night", "Get paid: not set up"] },
+    blocked: 2,
+  };
 }
 
 const MEMBERSHIPS: Partial<Record<YouState, MembershipCardData>> = {
@@ -291,6 +287,9 @@ function pick<T extends string>(state: string, states: readonly T[]): T {
   return (states as readonly string[]).includes(state) ? (state as T) : states[0];
 }
 
+// The tab bar and desktop nav show every tab, as the approved design does (other areas' flags only decide their tabs).
+const SHELL_FLAGS = ["openInvite", "concierge"] as const;
+
 export const youScreens: PreviewScreen[] = [
   {
     id: "you-home",
@@ -298,7 +297,7 @@ export const youScreens: PreviewScreen[] = [
     states: YOU_STATES,
     tab: null,
     youCurrent: true,
-    defaultFlags: ["photoGate", "notifications", "paidPlans", "messages"],
+    defaultFlags: [...SHELL_FLAGS, "photoGate", "notifications", "paidPlans", "messages"],
     render: (params) => <YouView {...youProps(params, pick(params.state, YOU_STATES))} />,
   },
   {
@@ -307,6 +306,7 @@ export const youScreens: PreviewScreen[] = [
     states: EDIT_STATES,
     tab: null,
     youCurrent: true,
+    defaultFlags: SHELL_FLAGS,
     render: (params) => {
       const state = pick(params.state, EDIT_STATES);
       return (
@@ -331,6 +331,7 @@ export const youScreens: PreviewScreen[] = [
     states: ["default"],
     tab: null,
     youCurrent: true,
+    defaultFlags: SHELL_FLAGS,
     render: () => <HelpIndexView />,
   },
   {
@@ -339,6 +340,7 @@ export const youScreens: PreviewScreen[] = [
     states: ["default", "second-open", "photo-open", "all-closed", "launch"],
     tab: null,
     youCurrent: true,
+    defaultFlags: SHELL_FLAGS,
     render: ({ state }) => {
       const all = helpFaqGroups({ photoGate: true, openInvite: true });
       if (state === "launch") return <FaqView groups={helpFaqGroups(noFlags())} />;
@@ -354,6 +356,7 @@ export const youScreens: PreviewScreen[] = [
     states: ["default"],
     tab: null,
     youCurrent: true,
+    defaultFlags: SHELL_FLAGS,
     render: () => <ContactView />,
   },
   {
@@ -362,6 +365,7 @@ export const youScreens: PreviewScreen[] = [
     states: ["default"],
     tab: null,
     youCurrent: true,
+    defaultFlags: SHELL_FLAGS,
     render: () => <PrivacyView intro={policyIntro()} lastUpdated={policyLastUpdated()} sections={POLICY_SECTIONS} />,
   },
   {
@@ -402,7 +406,7 @@ export const youScreens: PreviewScreen[] = [
     states: SHEET_STATES,
     tab: null,
     youCurrent: true,
-    defaultFlags: ["photoGate", "notifications", "paidPlans", "messages"],
+    defaultFlags: [...SHELL_FLAGS, "photoGate", "notifications", "paidPlans", "messages"],
     render: (params) => {
       const sheet = pick(params.state, SHEET_STATES);
       return (

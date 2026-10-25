@@ -134,6 +134,7 @@
 .yu-phone .PhoneInputCountrySelect{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:1}
 .yu-phone .PhoneInputCountryIcon{width:24px;height:16px;box-shadow:none;background:transparent}
 .yu-phone .PhoneInputCountryIcon--border{box-shadow:0 0 0 1px rgba(27,21,18,.4)}
+.yu-phone.yu-phone-gb .PhoneInputCountry{display:none}
 .yu-phone .PhoneInputCountrySelectArrow{display:block;width:7px;height:7px;margin-left:8px;border:0;border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);transform:rotate(45deg) translateY(-2px);opacity:1}
 /* the photo row, shown only while the photo gate is off (Edit keeps today's upload and remove until the gate exists) */
 .yu-photo-edit{display:flex;align-items:center;gap:16px;padding-bottom:4px}
@@ -142,6 +143,7 @@
 
 /* 4. dialogs: a bottom sheet on phones, a centred modal from 768. A native <dialog>, so focus is trapped, Escape closes it and the page behind is inert. */
 .yu-dialog{position:fixed;inset:auto 0 0 0;margin:0;width:100%;max-width:none;max-height:calc(100dvh - 24px);overflow:auto;padding:0;border:2px solid var(--ink);border-bottom:0;border-radius:24px 24px 0 0;background:var(--pale);color:var(--ink);font-family:var(--font-body)}
+.yu-dialog:focus{outline:none}
 .yu-dialog::backdrop{background:rgba(245,243,231,.86)}
 .yu-dialog-body{padding:22px 20px calc(20px + var(--safe-bottom))}
 .yu-dialog .yu-grab{width:44px;height:5px;border-radius:3px;background:var(--ink);opacity:.35;margin:-10px auto 14px}

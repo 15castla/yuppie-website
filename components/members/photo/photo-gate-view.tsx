@@ -537,7 +537,7 @@ export function PhotoGateView({
         sub={demo?.variant === "existing" ? "Every member has one now, so people know who they’re meeting." : "So people know who they’re meeting."}
         wordsExtra={
           <>
-            {removed ? <NoteBox top title="We removed your last photo." text="It wasn’t a clear photo of you. Please add a new one." /> : null}
+            {removed ? <NoteBox top title="We removed your last photo." text="It wasn’t a clear photo of you. Add a new one." /> : null}
             {below}
           </>
         }

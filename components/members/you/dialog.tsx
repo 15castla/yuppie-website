@@ -33,7 +33,12 @@ export function Dialog({
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
+    if (open && !dialog.open) {
+      dialog.showModal();
+      // Start on the dialog itself, so its heading is read first and no button, least of all a destructive one, is
+      // the thing a keypress would hit. Tab goes on to the first button.
+      dialog.focus({ preventScroll: true });
+    }
     if (!open && dialog.open) dialog.close();
   }, [open]);
 
@@ -42,6 +47,7 @@ export function Dialog({
       ref={ref}
       className={cn("yu-dialog", wide && "yu-wide")}
       aria-labelledby={labelledBy}
+      tabIndex={-1}
       data-needs-device-check="true"
       onClose={onClose}
       onClick={(event) => {

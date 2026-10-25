@@ -53,8 +53,10 @@ export function EmailChangeVerify({
 
   const inputRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
+    // The preview draws the wrong-code state unfocused, as designed.
+    if (demo?.error) return;
     inputRef.current?.focus({ preventScroll: true });
-  }, [sentTo]);
+  }, [sentTo, demo?.error]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -127,7 +129,7 @@ export function EmailChangeVerify({
           aria-describedby="email-code-error"
           value={code}
           onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
-          placeholder="123456"
+          placeholder="······"
           className={cn("mk-input yu-code", error && "mk-invalid")}
         />
         <p className="mk-error-text" id="email-code-error" role={error ? "alert" : undefined} aria-live="polite">

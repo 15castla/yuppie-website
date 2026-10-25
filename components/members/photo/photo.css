@@ -154,13 +154,8 @@
 .ph-sheet-acts{margin-top:16px}
 
 
-/* a drop zone that is also a button for keyboards */
-.ph-drop:focus-within{outline:2px solid var(--ink);outline-offset:4px}
-.ph-file{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 /* Change photo: the options in the sheet are buttons, not links */
 .ph-opt{width:100%;padding:0;border-top:0;border-left:0;border-right:0;background:transparent;text-align:left;cursor:pointer}
-.yu-dialog.ph-tall .yu-p{margin-bottom:14px}
-.ph-sheet-acts{margin-top:16px}
 @media (min-width:768px){ .yu-dialog .ph-crop-wrap{max-width:360px;margin:0 auto} }
 .ph-ring-btn{display:inline-flex;padding:0;border:0;border-radius:50%;background:transparent;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .ph-ring-btn:focus-visible{outline:2px solid var(--ink);outline-offset:4px}

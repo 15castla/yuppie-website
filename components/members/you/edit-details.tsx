@@ -14,8 +14,8 @@ import "./you.css";
 
 import { forwardRef, useRef, useState, useTransition, type ChangeEvent, type ComponentProps, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
-import { isValidPhoneNumber } from "libphonenumber-js";
-import PhoneInput from "react-phone-number-input";
+import { isValidPhoneNumber, parsePhoneNumberFromString } from "libphonenumber-js";
+import PhoneInput, { type FlagProps } from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
 import { Avatar, Button, Card, FormField, Icon, Main } from "@/components/members/kit";
@@ -67,6 +67,14 @@ const PhoneTextInput = forwardRef<HTMLInputElement, ComponentProps<"input">>((pr
 ));
 PhoneTextInput.displayName = "PhoneTextInput";
 
+// The picker's flag, as the library draws it, except that a UK number (the picker is hidden for it, see yu-phone-gb
+// in you.css) never fetches one.
+function PhoneFlag({ country, countryName, flagUrl }: FlagProps) {
+  if (country === "GB" || !flagUrl) return <span />;
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img className="PhoneInputCountryIconImg" alt={countryName} src={flagUrl.replace("{XX}", country)} />;
+}
+
 function errorLine(message: string | null | undefined) {
   if (!message) return null;
   return (
@@ -93,6 +101,12 @@ export function EditDetailsView({
 
   const [name, setName] = useState(demo?.values?.name ?? member.full_name ?? "");
   const [phone, setPhone] = useState<string | undefined>(demo?.values?.phone ?? member.phone ?? undefined);
+  // The picker is for members who are not on a UK number. A UK number (the usual case) reads as the design's plain
+  // "07700 900123" field; typing a "+" and another country's number brings the picker back.
+  const [country, setCountry] = useState<string | undefined>(() => {
+    const saved = demo?.values?.phone ?? member.phone;
+    return (saved && parsePhoneNumberFromString(saved)?.country) || "GB";
+  });
   // Controlled, because a form action resets uncontrolled inputs once it
   // finishes, which would wipe a typed new address when it is rejected.
   const [email, setEmail] = useState(demo?.values?.email ?? member.email);
@@ -309,14 +323,15 @@ export function EditDetailsView({
                 />
                 <div className={cn("mk-field yu-f-phone", busy && "yu-locked")}>
                   <label htmlFor="phone">Phone</label>
-                  <div className={cn("yu-phone", phoneError && "yu-invalid")}>
+                  <div className={cn("yu-phone", phoneError && "yu-invalid", (!country || country === "GB") && "yu-phone-gb")}>
                     <PhoneInput
                       id="phone"
                       name="phone"
                       value={phone}
                       onChange={setPhone}
                       defaultCountry="GB"
-                      international
+                      onCountryChange={setCountry}
+                      flagComponent={PhoneFlag}
                       inputComponent={PhoneTextInput}
                       aria-invalid={phoneError ? true : undefined}
                       aria-describedby={phoneError ? "phone-error" : undefined}
