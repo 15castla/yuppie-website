@@ -102,6 +102,8 @@
 .ph-drop.is-over{background:var(--pale);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);margin:-1px 8px -1px -1px}
 .ph-drop .ph-err{text-align:left;width:100%}
 .ph-drop-sm{padding:28px 24px 24px;margin-top:20px}
+.ph-drop.mk-show-desk{display:none}
+@media (min-width:768px){ .ph-drop.mk-show-desk{display:flex} }
 .ph-drop-sm .ph-ring{margin-bottom:8px}
 .ph-drop-sm .mk-h3{margin:0}
 

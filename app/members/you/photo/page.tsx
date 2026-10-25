@@ -12,5 +12,5 @@ export default async function MembersChangePhotoPage() {
   requireFlag("photoGate");
   const [props, mode] = await Promise.all([loadYou(), detectShellMode()]);
 
-  return <YouView {...props} sheet={<ChangePhotoSheet mode={mode} upload={updateAvatar} firstName={props.firstName} />} />;
+  return <YouView {...props} sheet={<ChangePhotoSheet key="change-photo" mode={mode} upload={updateAvatar} firstName={props.firstName} />} />;
 }

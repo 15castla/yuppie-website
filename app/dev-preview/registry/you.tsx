@@ -22,7 +22,7 @@ import { ContactView, HelpIndexView, PrivacyView } from "@/components/members/yo
 import { YouView, type YouDemo, type YouViewProps } from "@/components/members/you/you-view";
 import { POLICY_SECTIONS, policyIntro, policyLastUpdated } from "@/components/site/privacy-data";
 import { noFlags } from "@/lib/members/flags";
-import { EXAMPLE_PHOTO_CROP, EXAMPLE_PHOTO_WIDE } from "@/lib/members/mock/photo-examples";
+import { EXAMPLE_PHOTO_CROP, EXAMPLE_PHOTO_NOFACE, EXAMPLE_PHOTO_WIDE } from "@/lib/members/mock/photo-examples";
 import {
   previewCancel,
   previewRemovePhoto,
@@ -130,8 +130,8 @@ function youProps(params: PreviewParams, state: YouState): YouViewProps {
     firstName,
     photoUrl: state === "no-photo" ? null : (params.member?.photoUrl ?? null),
     details: longName
-      ? { fullName: "Bartholomew-Alexander Montgomery-Featherstonehaugh", email: "bartholomew-alexander.montgomery-featherstonehaugh@example.com", phone: "07700 900123" }
-      : { fullName: "Sam Taylor", email: "sam@example.com", phone: "07700 900123" },
+      ? { fullName: "Bartholomew-Alexander Montgomery-Featherstonehaugh", email: "bartholomew-alexander.montgomery-featherstonehaugh@example.com", phone: "07912 345678" }
+      : { fullName: "Sam Taylor", email: "sam@example.com", phone: "07912 345678" },
     memberSince: "Sep 2026",
     membership: MEMBERSHIPS[state] ?? { state: "active", renews: "12 Nov", action: launch ? undefined : { label: "Manage" } },
     settingsRows: buildSettingsRows(flags, summariesFor(state, app)),
@@ -206,7 +206,7 @@ const EDIT_DEMOS: Partial<Record<EditState, EditDemo>> = {
 };
 
 function editMember() {
-  return { full_name: "Sam Taylor", email: "sam@example.com", phone: "+447700900123", employer: null, role_title: null, avatar_url: null };
+  return { full_name: "Sam Taylor", email: "sam@example.com", phone: "+447912345678", employer: null, role_title: null, avatar_url: null };
 }
 
 // ---------------------------------------------------------------- the photo gate and Change photo
@@ -266,7 +266,7 @@ const GATE_DEMOS: Record<GateState, GateDemo> = {
   preview: { screen: "preview", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP },
   saving: { screen: "saving", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP },
   failed: { screen: "failed", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP, error: "upload" },
-  noface: { screen: "noface", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP },
+  noface: { screen: "noface", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_NOFACE },
   saved: { screen: "saved", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP, savedUrl: EXAMPLE_PHOTO_CROP },
 };
 
@@ -414,6 +414,7 @@ export const youScreens: PreviewScreen[] = [
           {...youProps(params, "default")}
           sheet={
             <ChangePhotoSheet
+              key="change-photo"
               mode={params.shell}
               firstName="Sam"
               upload={sheet === "failed" ? previewUploadFails : previewUpload}

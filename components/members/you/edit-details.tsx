@@ -330,6 +330,7 @@ export function EditDetailsView({
                       value={phone}
                       onChange={setPhone}
                       defaultCountry="GB"
+                      initialValueFormat="national"
                       onCountryChange={setCountry}
                       flagComponent={PhoneFlag}
                       inputComponent={PhoneTextInput}
