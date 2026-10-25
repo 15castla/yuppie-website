@@ -13,6 +13,7 @@ import { notFound } from "next/navigation";
 import type { CSSProperties } from "react";
 
 import { MembersFrame } from "@/components/members/shell/members-frame";
+import { MembersShell } from "@/components/members/shell/members-shell";
 import { tabsFor } from "@/components/members/shell/tabs";
 import type { ShellMode } from "@/components/members/shell/types";
 import { FLAG_NAMES, noFlags, type FlagName, type Flags } from "@/lib/members/flags";
@@ -44,7 +45,8 @@ function Index() {
         Screens rendered inside the real members shell, with no login and no database. Add{" "}
         <code>?shell=app</code> for the app, <code>?state=&lt;state&gt;</code>,{" "}
         <code>?member=&lt;fixture&gt;</code> ({MEMBER_KEYS.join(", ")}), <code>?flags=openInvite,concierge</code>{" "}
-        and <code>?unread=3</code>.
+        <code>?unread=3</code> and <code>?route=/members/open-invite</code> (draw it in the shell the real
+        route table gives that path).
       </p>
       <ul>
         {PREVIEW_SCREENS.map((screen) => (
@@ -106,6 +108,34 @@ export default async function DevPreviewPage({
   const frame = { ...screen, ...screen.frame?.(previewParams) };
   const tabs = tabsFor({ mode: shell, flags });
   const device = shell === "app" && first(query.device) !== "0";
+  // The phone's own insets, simulated (the real app injects them): the
+  // status area (59px) and the home indicator (34px).
+  const insets =
+    shell === "app"
+      ? ({ "--safe-top": "59px", "--safe-bottom": "34px" } as CSSProperties)
+      : undefined;
+
+  // ?route=/members/open-invite renders the screen in the REAL layout's shell
+  // (MembersShell), which works out the lit tab, the messages icon, the dock
+  // and the chrome from lib/members/routes.ts, as the live layout does. Without
+  // it the screen's own frame fields decide (see registry/types.ts).
+  const route = first(query.route);
+  if (route) {
+    return (
+      <MembersShell
+        mode={shell}
+        tabs={tabs}
+        member={memberValue}
+        messagesEnabled={flags.messages}
+        unread={unread}
+        pathname={route}
+        style={insets}
+      >
+        {device ? <StatusBarMock /> : null}
+        {screen.render(previewParams)}
+      </MembersShell>
+    );
+  }
 
   return (
     <MembersFrame
@@ -119,13 +149,7 @@ export default async function DevPreviewPage({
       youCurrent={frame.youCurrent ?? false}
       dock={frame.dock ?? "tabs"}
       chrome={frame.chrome ?? "full"}
-      // The phone's own insets, simulated (the real app injects them): the
-      // status area (59px) and the home indicator (34px).
-      style={
-        shell === "app"
-          ? ({ "--safe-top": "59px", "--safe-bottom": "34px" } as CSSProperties)
-          : undefined
-      }
+      style={insets}
     >
       {device ? <StatusBarMock /> : null}
       {screen.render(previewParams)}

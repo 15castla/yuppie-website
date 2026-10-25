@@ -7,7 +7,7 @@
 // in lib/members/routes.ts, so adding a route there is all a builder does.
 
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import {
   activeTabFor,
@@ -26,17 +26,24 @@ export function MembersShell({
   member,
   messagesEnabled,
   unread = 0,
+  pathname: pathnameOverride,
+  style,
   children,
 }: {
   mode: ShellMode;
   tabs: TabSpec[];
-  member: Promise<MemberSummary | null>;
+  member: MemberSummary | null | Promise<MemberSummary | null>;
   /** flags.messages: the messages icon opens a flagged route, so it only shows when that is on. */
   messagesEnabled: boolean;
   unread?: number;
+  /** The preview harness only (?route=/members/open-invite): pretend the page is at this path. The real layout never passes it. */
+  pathname?: string;
+  /** The preview harness only: simulated safe insets. */
+  style?: CSSProperties;
   children: ReactNode;
 }) {
-  const pathname = usePathname();
+  const livePathname = usePathname();
+  const pathname = pathnameOverride ?? livePathname;
   const messages = messagesIconFor(pathname);
   const lit = activeTabFor(pathname);
   return (
@@ -51,6 +58,7 @@ export function MembersShell({
       youCurrent={isYouPath(pathname)}
       dock={dockFor(pathname)}
       chrome={chromeFor(pathname)}
+      style={style}
     >
       {children}
     </MembersFrame>
