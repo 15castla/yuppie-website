@@ -613,7 +613,9 @@ function threadFromInvite(chatId: string): ChatThread | null {
   if (!hit) return null;
   const { invite, kind, from, text: asked } = hit;
   const host = toRef(invite.host);
-  const going = invite.going.map(toRef);
+  const listed = invite.going.map(toRef);
+  // Opening a plan chat means Sam is in (or hosts): the plan page's local demo adds Sam only on screen.
+  const going = kind === "plan" && host.id !== SAM.id && !listed.some((m) => m.id === SAM.id) ? [...listed, SAM] : listed;
   const status = invite.status === "cancelled" ? "cancelled" : invite.status === "finished" ? "finished" : "open";
   const plan: ChatPlan = {
     id: invite.id,

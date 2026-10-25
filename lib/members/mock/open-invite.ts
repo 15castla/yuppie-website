@@ -427,6 +427,10 @@ export function findInviteByThreadId(
     const asked = entry.you.questions.find((q) => q.threadId === threadId);
     if (asked) return { invite: entry, kind: "question", from: asked.from, text: asked.text };
   }
+  // The plan page's local demo ("I'm in", Pay and join) opens chat-<plan id>.
+  for (const entry of ALL) {
+    if (threadId === `chat-${entry.id}`) return { invite: entry, kind: "plan", from: null, text: null };
+  }
   return null;
 }
 
