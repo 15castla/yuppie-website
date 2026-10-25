@@ -1,163 +1,297 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { X } from "lucide-react";
+// The redeem card: what a member shows to staff at a till or a door. Rebuilt
+// on the members kit from the approved design (v3 specs/discounts-access.md,
+// section D, shots disc-board-redeem and access-redeem-*).
+//
+// Two parts, so the preview harness can draw every state:
+//   RedeemCardView  the dialog and its states (loading, active, ended, other,
+//                   error). A pure component of props, plus the dialog's
+//                   keyboard behaviour (Escape, Tab kept inside, scroll lock,
+//                   focus returned to the row that opened it).
+//   RedeemCard      the real card: re-reads the membership every time it opens
+//                   (getRedemptionStatus, app/members/redemption-actions.ts)
+//                   and hands the answer to the view.
+//
+// A trust display for venue staff, not a redemption system: no QR code, no
+// logging, nothing tracked. Membership status is re-fetched fresh every time
+// this opens rather than trusting whatever was true when the page first
+// loaded, since a static card is trivially screenshotted and handed to someone
+// who isn't a member. "Checked 09:41" is the time of that fresh read, so an
+// old screenshot gives itself away.
+//
+// A membership that is not active sees plain words and nothing that looks like
+// a pass: no photo, no green dot, no offer, and the raw status value
+// ("cancelled", "paused", "Unknown") is never printed.
+
+import { useCallback, useEffect, useId, useRef, useState } from "react";
+import Image from "next/image";
 
 import { getRedemptionStatus, type RedemptionStatus } from "@/app/members/redemption-actions";
-import { CARD_CLASS, PRICE_PILL_BASE_CLASS, initialsFor } from "@/components/members/ui";
-import { cn } from "@/lib/utils";
+import { Avatar, Button, Icon, Pill, Status } from "@/components/members/kit";
+import { CARD_HELP_HREF, REJOIN_HREF, type RedeemPerk } from "@/components/members/discounts/perk-model";
+import "@/components/members/discounts/discounts.css";
 
-type RedeemCardBase = {
-  isOpen: boolean;
-  onClose: () => void;
-  name: string;
-  headline: string;
-};
+export type RedeemPhase =
+  | { kind: "loading" }
+  | { kind: "active"; name: string; photoUrl: string | null; checked: string }
+  // The membership has ended (cancelled): "Your membership has ended."
+  | { kind: "ended" }
+  // Paused, or no member row: "We can’t show your card right now."
+  | { kind: "other" }
+  // The check itself failed (a lost connection): the same words, and a way to try again.
+  | { kind: "error" };
 
-export type RedeemCardProps = RedeemCardBase &
-  (
-    | {
-        kind: "discount";
-        category: string | null;
-        area: string;
-        badge: string | null;
-      }
-    | {
-        kind: "access";
-        sectionLabel: string;
-      }
-  );
+const CHECKED_ZONE = "Europe/London";
 
-// A trust display for venue staff, not a redemption system: no QR code,
-// no logging, nothing tracked. Membership status is re-fetched fresh
-// every time this opens (getRedemptionStatus, see
-// app/members/redemption-actions.ts) rather than trusting whatever was
-// true when the page first loaded, since a static card is trivially
-// screenshotted and handed to someone who isn't a member.
-export function RedeemCard(props: RedeemCardProps) {
-  const { isOpen, onClose, name, headline } = props;
-  const [status, setStatus] = useState<RedemptionStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+// "09:41": 24-hour, leading zero, the club's own time zone (events and the
+// card agree), from the server's clock.
+export function formatChecked(iso: string): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: CHECKED_ZONE,
+  }).formatToParts(date);
+  const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
+  const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
+  return `${hour}:${minute}`;
+}
 
+export function phaseFor(status: RedemptionStatus | null): RedeemPhase {
+  if (!status) return { kind: "other" };
+  if (status.membership_status === "active") {
+    return {
+      kind: "active",
+      name: status.full_name?.trim() || "Member",
+      photoUrl: status.avatar_url,
+      checked: formatChecked(status.checked_at),
+    };
+  }
+  if (status.membership_status === "cancelled") return { kind: "ended" };
+  return { kind: "other" };
+}
+
+// The card's content for each state. Plain words for anything that is not an
+// active membership; the status value itself is never printed.
+function RedeemBody({
+  phase,
+  perk,
+  titleId,
+  onRetry,
+}: {
+  phase: RedeemPhase;
+  perk: RedeemPerk;
+  titleId: string;
+  onRetry?: () => void;
+}) {
+  switch (phase.kind) {
+    case "loading":
+      return (
+        <>
+          <div className="dc-who" aria-hidden="true">
+            <i className="mk-sk dc-sk-photo" />
+            <i className="mk-sk dc-sk-name2" />
+            <i className="mk-sk dc-sk-status" />
+          </div>
+          <p className="dc-load" id={titleId}>
+            Checking your membership.
+          </p>
+        </>
+      );
+    case "active":
+      return (
+        <>
+          <div className="dc-who">
+            <Avatar photoUrl={phase.photoUrl} name={phase.name} size={144} />
+            <h2 className="dc-who-name" id={titleId}>
+              {phase.name}
+            </h2>
+            <Status>Active member</Status>
+            {phase.checked ? <p className="dc-checked">Checked {phase.checked}</p> : null}
+          </div>
+          <div className="dc-perk">
+            <h3 className="dc-perk-name">{perk.name}</h3>
+            {perk.meta ? <p className="dc-perk-meta">{perk.meta}</p> : null}
+            <p className="dc-perk-line">{perk.headline}</p>
+            {perk.badge ? (
+              <div className="dc-card-badge">
+                <Pill kind="ink">{perk.badge}</Pill>
+              </div>
+            ) : null}
+          </div>
+        </>
+      );
+    case "ended":
+      return (
+        <div className="dc-gone">
+          <h2 className="dc-gone-h" id={titleId}>
+            Your membership has ended.
+          </h2>
+          <p className="mk-lead">Get in touch to rejoin.</p>
+          <div className="dc-gone-act">
+            <Button href={REJOIN_HREF} block>
+              Get in touch
+            </Button>
+          </div>
+        </div>
+      );
+    case "other":
+    case "error":
+      return (
+        <div className="dc-gone">
+          <h2 className="dc-gone-h" id={titleId}>
+            We can’t show your card right now.
+          </h2>
+          <p className="mk-lead">Get in touch and we’ll sort it.</p>
+          <div className="dc-gone-act">
+            <Button href={CARD_HELP_HREF} block>
+              Get in touch
+            </Button>
+            {phase.kind === "error" ? (
+              <Button variant="quiet" onClick={onRetry}>
+                Try again
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      );
+  }
+}
+
+const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+const noop = () => {};
+
+export function RedeemCardView({
+  phase,
+  perk,
+  onClose = noop,
+  onRetry,
+}: {
+  phase: RedeemPhase;
+  perk: RedeemPerk;
+  /** Always given by the real card. Left out only by the preview harness, which draws a static card from the server and cannot pass a function. */
+  onClose?: () => void;
+  /** The error state's "Try again". */
+  onRetry?: () => void;
+}) {
+  const titleId = useId();
+  const cardRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
   useEffect(() => {
-    if (!isOpen) return;
+    closeRef.current = onClose;
+  });
 
-    setLoading(true);
-    setStatus(null);
+  // Dialog behaviour: focus moves into the card (and back to the row that
+  // opened it), Escape closes, Tab stays inside, the page behind does not scroll.
+  useEffect(() => {
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    cardRef.current?.focus();
 
-    let cancelled = false;
-    getRedemptionStatus().then((result) => {
-      if (!cancelled) {
-        setStatus(result);
-        setLoading(false);
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeRef.current();
+        return;
       }
-    });
+      if (event.key !== "Tab") return;
+      const card = cardRef.current;
+      if (!card) return;
+      const focusable = Array.from(card.querySelectorAll<HTMLElement>(FOCUSABLE));
+      if (focusable.length === 0) {
+        event.preventDefault();
+        card.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (!card.contains(active) || (event.shiftKey && (active === first || active === card))) {
+        event.preventDefault();
+        (event.shiftKey ? last : first).focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = overflow;
+      if (opener?.isConnected) opener.focus();
+    };
+  }, []);
 
+  const loading = phase.kind === "loading";
+
+  return (
+    <>
+      <div className="mk-scrim" aria-hidden="true" onClick={onClose} />
+      <div
+        className="dc-modal"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) onClose();
+        }}
+      >
+        <div
+          ref={cardRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby={titleId}
+          aria-busy={loading || undefined}
+          tabIndex={-1}
+          className={loading ? "dc-card dc-is-load" : "dc-card"}
+        >
+          <div className="dc-card-top">
+            <Image
+              src="/yuppie_logo_forte_forward.png"
+              alt="Club Yuppie"
+              width={1942}
+              height={641}
+              sizes="96px"
+              className="mk-wm"
+            />
+            <button type="button" className="mk-icon-btn dc-x" aria-label="Close" onClick={onClose}>
+              <Icon name="x" size={22} />
+            </button>
+          </div>
+          <div aria-live="polite">
+            <RedeemBody phase={phase} perk={perk} titleId={titleId} onRetry={onRetry} />
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+export function RedeemCard({ perk, onClose }: { perk: RedeemPerk; onClose: () => void }) {
+  const [phase, setPhase] = useState<RedeemPhase>({ kind: "loading" });
+  const [attempt, setAttempt] = useState(0);
+
+  // A fresh read every time the card opens (and on "Try again").
+  useEffect(() => {
+    let cancelled = false;
+    getRedemptionStatus()
+      .then((status) => {
+        if (!cancelled) setPhase(phaseFor(status));
+      })
+      .catch(() => {
+        if (!cancelled) setPhase({ kind: "error" });
+      });
     return () => {
       cancelled = true;
     };
-  }, [isOpen]);
+  }, [attempt]);
 
-  useEffect(() => {
-    if (!isOpen) return;
+  const retry = useCallback(() => {
+    setPhase({ kind: "loading" });
+    setAttempt((value) => value + 1);
+  }, []);
 
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onClose]);
-
-  const isActive = status?.membership_status === "active";
-
-  return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={onClose}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            transition={{ duration: 0.2 }}
-            onClick={(event) => event.stopPropagation()}
-            className={cn(CARD_CLASS, "relative w-full max-w-sm p-6")}
-          >
-            <button
-              type="button"
-              onClick={onClose}
-              aria-label="Close"
-              className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full text-foreground/50 outline-none transition-colors hover:text-foreground focus-visible:text-foreground focus-visible:ring-2 focus-visible:ring-foreground/40"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            {loading ? (
-              <div className="flex flex-col items-center gap-3 py-6">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-foreground/20 border-t-foreground" />
-                <p className="text-sm text-foreground-muted">Checking your membership</p>
-              </div>
-            ) : (
-              <div className="flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  {status?.avatar_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={status.avatar_url}
-                      alt={status.full_name ?? "Member"}
-                      className="h-12 w-12 shrink-0 rounded-full object-cover"
-                    />
-                  ) : (
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-foreground text-base font-bold text-background">
-                      {initialsFor(status?.full_name ?? null)}
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-base font-bold text-foreground">
-                      {status?.full_name || "Member"}
-                    </p>
-                    {isActive ? (
-                      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#2F6B3A]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#2F6B3A]" />
-                        Active member
-                      </span>
-                    ) : (
-                      <span className="text-xs font-semibold text-foreground-muted">
-                        {status?.membership_status ?? "Unknown"}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="h-px bg-foreground/10" />
-
-                <div className="flex flex-col gap-1.5">
-                  <p className="text-base font-bold text-foreground">{name}</p>
-                  <p className="text-sm text-foreground-muted">
-                    {props.kind === "discount"
-                      ? [props.category, props.area].filter(Boolean).join(" · ")
-                      : props.sectionLabel}
-                  </p>
-                  <p className="text-sm text-foreground">{headline}</p>
-                  {props.kind === "discount" && props.badge && (
-                    <span className={cn(PRICE_PILL_BASE_CLASS, "mt-1 w-fit border-transparent bg-foreground text-background")}>
-                      {props.badge}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
-  );
+  return <RedeemCardView phase={phase} perk={perk} onClose={onClose} onRetry={retry} />;
 }

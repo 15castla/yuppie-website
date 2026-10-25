@@ -6,6 +6,10 @@ export type RedemptionStatus = {
   full_name: string | null;
   avatar_url: string | null;
   membership_status: string;
+  // When this read happened (ISO, the server's clock). The redeem card prints
+  // it as "Checked 09:41" so an old screenshot gives itself away, and a member
+  // cannot change it by changing their phone's clock.
+  checked_at: string;
 };
 
 // Backs RedeemCard.tsx, shown to venue staff as proof of current
@@ -30,5 +34,6 @@ export async function getRedemptionStatus(): Promise<RedemptionStatus | null> {
     .eq("id", user.id)
     .maybeSingle();
 
-  return (member as RedemptionStatus | null) ?? null;
+  if (!member) return null;
+  return { ...(member as Omit<RedemptionStatus, "checked_at">), checked_at: new Date().toISOString() };
 }

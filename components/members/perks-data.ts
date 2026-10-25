@@ -20,6 +20,11 @@ export const getCachedPerks = unstable_cache(
 
     if (error) {
       console.error("Failed to load partner perks:", error);
+      // Not an empty list: the pages would say "No offers yet" (the honest
+      // state when no partner is signed) for a fetch that simply failed, and
+      // the cache would keep saying it for a minute. A throw is not cached and
+      // lands on the members error page (app/members/error.tsx), with a retry.
+      throw new Error("Failed to load partner perks");
     }
 
     return (data ?? []) as PartnerPerk[];
