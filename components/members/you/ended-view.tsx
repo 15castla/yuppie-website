@@ -107,7 +107,7 @@ export function MembershipEndedView({
                       <h3>{reason.title}</h3>
                       <p>{reason.text}</p>
                     </span>
-                    <span className="pk-art mk-art">
+                    <span className="pk-art">
                       <PerkDrawing name={reason.art} />
                     </span>
                   </div>

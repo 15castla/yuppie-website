@@ -1,10 +1,10 @@
 // The privacy policy's text, shared by the public page (app/privacy) and the
 // in-app Help page (app/members/you/help/privacy), so the two can never drift.
 // Moved here unchanged from app/privacy/page.tsx (a Next page file cannot
-// export data). The registered office and company come from
-// components/site/links.ts, the one place for them.
+// export data). The registered office comes from components/site/links.ts,
+// the one place for it.
 
-import { COMPANY, REGISTERED_OFFICE } from "./links";
+import { REGISTERED_OFFICE } from "./links";
 
 export type PolicySection = { heading: string; paragraphs: string[] };
 
@@ -55,16 +55,10 @@ export const POLICY_SECTIONS: PolicySection[] = [
 ];
 
 // The paragraph above the sections: what the policy covers and who runs the
-// club. Before the company details are set in links.ts it reads as it always
-// has; once they are, it names the company, its number and its office.
+// club. The live wording, unchanged; only the address now comes from links.ts
+// (REGISTERED_OFFICE, the one place for it), which reads the same today.
 export function policyIntro(): string {
-  const covers =
-    "This policy explains what personal data Yuppie (“we”, “us”) collects through clubyuppie.com and the Yuppie app, why, and what rights you have over it.";
-  const operator =
-    COMPANY.name && COMPANY.number
-      ? `Yuppie is operated by ${COMPANY.name}, registered in England and Wales (company number ${COMPANY.number}), with its registered office at ${REGISTERED_OFFICE}.`
-      : `Yuppie is operated by Club Yuppie, registered at ${REGISTERED_OFFICE}.`;
-  return `${covers} ${operator}`;
+  return `This policy explains what personal data Yuppie (“we”, “us”) collects through clubyuppie.com and the Yuppie app, why, and what rights you have over it. Yuppie is operated by Club Yuppie, registered at ${REGISTERED_OFFICE}.`;
 }
 
 // "Last updated": today's date, as the public page has always shown it

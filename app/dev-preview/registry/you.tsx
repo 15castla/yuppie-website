@@ -53,6 +53,9 @@ type YouState =
   | "cancelled"
   | "legal-long"
   | "settings-warn"
+  | "ending-warn"
+  | "host"
+  | "problem-none"
   | "dialog-logout"
   | "dialog-cancel"
   | "dialog-cancel-reason"
@@ -73,6 +76,9 @@ const YOU_STATES: YouState[] = [
   "cancelled",
   "legal-long",
   "settings-warn",
+  "ending-warn",
+  "host",
+  "problem-none",
   "dialog-logout",
   "dialog-cancel",
   "dialog-cancel-reason",
@@ -84,12 +90,21 @@ const YOU_STATES: YouState[] = [
 ];
 
 function summariesFor(state: YouState, app: boolean): SettingsSummaries {
-  if (state === "settings-warn") {
+  // Amber: something needs the member. Blocked members reads "None".
+  if (state === "settings-warn" || state === "ending-warn") {
     return {
       notifications: { summary: "Off. You may miss reminders.", warn: true },
       payments: { lines: ["Get paid: needs more info"], warn: true },
-      blocked: 2,
+      blocked: 0,
     };
+  }
+  // A host who has been paid out (the design's "Payments as a host").
+  if (state === "host") {
+    return { notifications: { summary: app ? "Push, email" : "Email" }, payments: { lines: ["Get paid: ready", "£40 from Tom, paid out Tue 17 Nov"] }, blocked: 1 };
+  }
+  // The design's default summaries with nothing blocked.
+  if (state === "problem-none") {
+    return { notifications: { summary: app ? "Push, email" : "Email" }, payments: { lines: ["Get paid: not set up"] }, blocked: 0 };
   }
   // The web has no push, so its row says "Email".
   // The default is the approved design's example: a paid event on the first line of Payments, two blocked members.
@@ -104,6 +119,8 @@ const MEMBERSHIPS: Partial<Record<YouState, MembershipCardData>> = {
   launch: { state: "active", renews: "12 Nov" },
   ending: { state: "ending", endsOn: "12 Nov", action: { label: "Keep my membership" } },
   problem: { state: "problem", failedOn: "12 Nov", updateBy: "15 Nov", action: { label: "Update card" } },
+  "problem-none": { state: "problem", failedOn: "12 Nov", updateBy: "15 Nov", action: { label: "Update card" } },
+  "ending-warn": { state: "ending", endsOn: "12 Nov", action: { label: "Keep my membership" } },
   paused: { state: "paused" },
   cancelled: { state: "cancelled" },
 };
@@ -344,7 +361,7 @@ export const youScreens: PreviewScreen[] = [
     render: ({ state }) => {
       const all = helpFaqGroups({ photoGate: true, openInvite: true });
       if (state === "launch") return <FaqView groups={helpFaqGroups(noFlags())} />;
-      if (state === "second-open") return <FaqView groups={all} initialOpen={all[1].items[0].id} />;
+      if (state === "second-open") return <FaqView groups={all} initialOpen={all[1].items[1].id} />;
       if (state === "photo-open") return <FaqView groups={all} initialOpen="photo" />;
       if (state === "all-closed") return <FaqView groups={all} initialOpen={null} />;
       return <FaqView groups={all} />;

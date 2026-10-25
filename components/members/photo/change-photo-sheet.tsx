@@ -100,7 +100,7 @@ export function ChangePhotoSheet({
           <h2 className="mk-h2" id="ph-sheet-title">
             Move and zoom
           </h2>
-          <p className="yu-p">Fit your face in the circle.</p>
+          <p className="yu-p ph-sheet-p">Fit your face in the circle.</p>
           <PhotoCropper source={flow.source} crop={flow.crop} onChange={flow.setCrop} hint={false} />
           {flow.step === "failed" ? <PhotoError kind="upload" /> : null}
           <div className="yu-acts ph-sheet-acts">

@@ -228,7 +228,7 @@ html:has(dialog.yu-dialog[open]){overflow:hidden}
 @media (max-width:359px){ .yu-gate-h1{font-size:34px} }
 @media (max-width:339px){ .yu-gate-h1{font-size:30px} }
 .yu-gate-grid{display:flex;flex-direction:column}
-.yu-gate-lead{margin-top:14px;max-width:32ch}
+.yu-gate-hero .mk-head .yu-gate-lead{margin-top:14px;max-width:32ch}
 .yu-gate-acts{display:flex;flex-direction:column;gap:4px;margin-top:24px;align-items:stretch}
 .yu-gate-acts .mk-link{justify-content:center}
 .yu-gate-art{display:flex;justify-content:center;align-items:flex-end;margin-top:32px}

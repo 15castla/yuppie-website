@@ -8,7 +8,8 @@
 
 export const CIRCLE_RATIO = 0.8;
 export const MIN_ZOOM = 1;
-export const MAX_ZOOM = 3;
+// 2.4 puts the design's example crop (zoom 1.555) at the 40% mark on the slider, as drawn.
+export const MAX_ZOOM = 2.4;
 const OUTPUT_MAX = 800;
 
 export type CropState = { zoom: number; x: number; y: number };
