@@ -29,17 +29,20 @@ export function accessKindIcon(kind: PartnerPerk["access_kind"]): IconName {
 }
 
 // Access perks grouped by kind, in the page's order, empty kinds left out.
-// A perk with no kind (the database allows it for a perk saved as access
-// without one) would otherwise appear nowhere, so it joins the last section.
+// A perk saved as access without a kind (the database allows it) would appear
+// nowhere, so it gets a last section of its own, "More", that exists only
+// while there is one.
 export function groupAccessByKind<T extends Pick<PartnerPerk, "access_kind">>(perks: T[]) {
-  const known = new Set<string>(ACCESS_KINDS.map((entry) => entry.kind));
-  const groups = ACCESS_KINDS.map((entry) => ({
-    ...entry,
-    perks: perks.filter((perk) =>
-      perk.access_kind === entry.kind ||
-      (entry.kind === "invite_only" && (!perk.access_kind || !known.has(perk.access_kind))),
-    ),
-  }));
+  const known = new Set<string | null>(ACCESS_KINDS.map((entry) => entry.kind));
+  const groups: { kind: AccessKind | "none"; label: string; icon: IconName; perks: T[] }[] = ACCESS_KINDS.map(
+    (entry) => ({ ...entry, perks: perks.filter((perk) => perk.access_kind === entry.kind) }),
+  );
+  groups.push({
+    kind: "none",
+    label: "More",
+    icon: "key",
+    perks: perks.filter((perk) => !known.has(perk.access_kind)),
+  });
   return groups.filter((group) => group.perks.length > 0);
 }
 
