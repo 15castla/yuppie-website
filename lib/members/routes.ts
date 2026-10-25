@@ -31,6 +31,11 @@ export const ROUTES = {
   youNotifications: "/members/you/notifications",
   youPayments: "/members/you/payments",
   youBlocked: "/members/you/blocked",
+  /** In-app Help (the native app redirects the public /faq, /contact and /privacy out of the app). */
+  youHelp: "/members/you/help",
+  youHelpFaq: "/members/you/help/faq",
+  youHelpContact: "/members/you/help/contact",
+  youHelpPrivacy: "/members/you/help/privacy",
   /** Change photo (from You). */
   youPhoto: "/members/you/photo",
   /** The photo gate: full screen, no tabs, shown until a photo is saved. */
@@ -83,6 +88,10 @@ export const ROUTE_TABLE: readonly RouteDef[] = [
   { id: "youNotifications", pattern: ROUTES.youNotifications, flag: "notifications", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youPayments", pattern: ROUTES.youPayments, flag: "paidPlans", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youBlocked", pattern: ROUTES.youBlocked, flag: "messages", tab: null, messages: "none", dock: "tabs", you: true },
+  { id: "youHelp", pattern: ROUTES.youHelp, tab: null, messages: "none", dock: "tabs", you: true },
+  { id: "youHelpFaq", pattern: ROUTES.youHelpFaq, tab: null, messages: "none", dock: "tabs", you: true },
+  { id: "youHelpContact", pattern: ROUTES.youHelpContact, tab: null, messages: "none", dock: "tabs", you: true },
+  { id: "youHelpPrivacy", pattern: ROUTES.youHelpPrivacy, tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youPhoto", pattern: ROUTES.youPhoto, flag: "photoGate", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "photo", pattern: ROUTES.photo, flag: "photoGate", tab: null, messages: "none", dock: "own", chrome: "bare" },
   { id: "profileEdit", pattern: ROUTES.profileEdit, tab: null, messages: "none", dock: "tabs", you: true },
