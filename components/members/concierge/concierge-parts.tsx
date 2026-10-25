@@ -35,7 +35,7 @@ export function bindTail(text: string): string {
   if (words.length < 3) return text;
   const glue = words[words.length - 2] === "&" ? 3 : 2;
   const head = words.slice(0, words.length - glue).join(" ");
-  const tail = words.slice(words.length - glue).join(" ");
+  const tail = words.slice(words.length - glue).join("\u00a0");
   return `${head} ${tail}`;
 }
 
