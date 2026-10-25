@@ -1,24 +1,45 @@
 "use client";
 
+// Access (/members/access), rebuilt on the members kit from the approved
+// design (v3 specs/discounts-access.md, section B). A pure component of props
+// (the page fetches and resolves the feature card), so the preview harness can
+// draw it.
+//
+// Title block, one line on how it works, the spotlight card (optional: the
+// admin's feature card, with the public drawing for its type standing on it),
+// then sections by kind in a fixed order (Skip the queue, Members’ clubs, First
+// dibs, Invite only), each hidden when empty, then a closing line with a mail
+// link. The grouping reads `access_kind`, a real column of `partner_perks`.
+
 import { useState } from "react";
-import Link from "next/link";
-import { Zap, Building2, Sparkles, Lock, type LucideIcon } from "lucide-react";
 
+import {
+  Button,
+  Card,
+  ClosingBand,
+  EmptyState,
+  Icon,
+  Main,
+  PerkDrawing,
+  Pill,
+  SectionHead,
+  TitleBlock,
+  type PerkDrawingName,
+} from "@/components/members/kit";
+import { PartnerList, PartnerRow } from "@/components/members/discounts/partner-row";
+import { ACCESS_TITLE } from "@/components/members/discounts/loading-views";
+import {
+  SUGGEST_DOOR_HREF,
+  accessMeta,
+  discountMeta,
+  groupAccessByKind,
+  redeemPerkFor,
+} from "@/components/members/discounts/perk-model";
 import type { PartnerPerk } from "@/components/members/mock-perks";
-import { CARD_CLASS, EYEBROW_CLASS, MEMBERS_MAIN_CLASS } from "@/components/members/ui";
 import { RedeemCard } from "@/components/members/RedeemCard";
+import { ROUTES, eventHref } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
-
-// Every access_kind the database allows (see the partner_perks check
-// constraint) needs a section here. "invite_only" was previously missing,
-// which meant a perk saved with that access_kind from /admin/discounts
-// would silently never appear anywhere on this page.
-const SECTIONS: { kind: PartnerPerk["access_kind"]; label: string; Icon: LucideIcon }[] = [
-  { kind: "skip_queue", label: "Skip the queue", Icon: Zap },
-  { kind: "members_club", label: "Members' clubs", Icon: Building2 },
-  { kind: "first_dibs", label: "First dibs", Icon: Sparkles },
-  { kind: "invite_only", label: "Invite only", Icon: Lock },
-];
+import "@/components/members/discounts/discounts.css";
 
 // featureCard is whichever single event, discount, or access perk is
 // currently spotlighted (set from the single dropdown on /admin/access,
@@ -27,14 +48,65 @@ const SECTIONS: { kind: PartnerPerk["access_kind"]; label: string; Icon: LucideI
 // a flat title/subtitle shape, so tapping the card can do the right
 // thing for whichever kind of content it is: open the event page, or
 // open the redemption modal for the perk. Null when nothing is
-// currently featured, in which case the card is hidden entirely rather
-// than showing stale or placeholder copy.
+// currently featured, in which case the card is hidden entirely (and so is
+// its drawing, and no gap is left) rather than showing stale or placeholder copy.
 export type ResolvedFeatureCard =
-  | { kind: "event"; slug: string; title: string; subtitle: string; label: string }
+  | {
+      kind: "event";
+      slug: string;
+      title: string;
+      /** "Fri 30 Oct, 19:00 · The Mews Terrace" */
+      meta: string;
+      /** One line about the event (the first sentence of its description), when it has one. */
+      line: string | null;
+      /** "Included", or the price. */
+      badge: string | null;
+      label: string;
+    }
   | { kind: "perk"; perk: PartnerPerk; label: string };
 
-const FEATURE_CARD_CLASSES =
-  "block w-full rounded-2xl bg-foreground p-6 text-left outline-none transition-transform duration-150 cursor-pointer hover:scale-[1.01] active:scale-[0.99] focus-visible:ring-2 focus-visible:ring-background/60 focus-visible:ring-offset-2 focus-visible:ring-offset-foreground";
+function Spotlight({
+  card,
+  onOpenPerk,
+}: {
+  card: ResolvedFeatureCard;
+  onOpenPerk: (perk: PartnerPerk) => void;
+}) {
+  const isEvent = card.kind === "event";
+  const perk = card.kind === "perk" ? card.perk : null;
+  // The public drawing for the type: coupes for an event, the tag for a discount, the rope for access.
+  const drawing: PerkDrawingName = isEvent ? "coupes" : perk?.type === "discount" ? "tag" : "rope";
+  const name = isEvent ? card.title : perk!.name;
+  const meta = isEvent ? card.meta : perk!.type === "discount" ? discountMeta(perk!) : accessMeta(perk!);
+  const line = isEvent ? card.line : perk!.headline;
+  const badge = isEvent ? card.badge : perk!.badge;
+
+  return (
+    <div className="dc-spot-wrap">
+      <div className="mk-art dc-spot-stand" aria-hidden="true">
+        <PerkDrawing name={drawing} />
+      </div>
+      <Card as="article" className="dc-spot" aria-label={card.label}>
+        <div className="dc-spot-top">
+          <Pill kind="ink">{card.label}</Pill>
+          {badge ? <Pill kind={isEvent ? "outline" : "ink"}>{badge}</Pill> : null}
+        </div>
+        <h2 className="dc-spot-h">{name}</h2>
+        <p className="dc-spot-meta">{meta}</p>
+        {line ? <p className={cn("dc-spot-line", isEvent && "dc-clamp")}>{line}</p> : null}
+        {card.kind === "event" ? (
+          <Button href={eventHref(card.slug)} size="sm">
+            See event
+          </Button>
+        ) : (
+          <Button size="sm" onClick={() => onOpenPerk(card.perk)}>
+            Show my card
+          </Button>
+        )}
+      </Card>
+    </div>
+  );
+}
 
 export function AccessView({
   perks,
@@ -43,144 +115,87 @@ export function AccessView({
   perks: PartnerPerk[];
   featureCard: ResolvedFeatureCard | null;
 }) {
+  const [selected, setSelected] = useState<PartnerPerk | null>(null);
+  const groups = groupAccessByKind(perks);
 
-  const [selectedPerkId, setSelectedPerkId] = useState<string | null>(null);
-  const selectedPerk = perks.find((perk) => perk.id === selectedPerkId) ?? null;
-  const selectedSection = selectedPerk
-    ? SECTIONS.find((section) => section.kind === selectedPerk.access_kind) ?? null
-    : null;
-
-  const [featureCardOpen, setFeatureCardOpen] = useState(false);
-  const featurePerk = featureCard?.kind === "perk" ? featureCard.perk : null;
-  const featureSection = featurePerk
-    ? SECTIONS.find((section) => section.kind === featurePerk.access_kind) ?? null
-    : null;
+  // Nothing at all (no doors and no spotlight): the title stays, the how-it-works line goes, the honest band.
+  if (groups.length === 0 && !featureCard) {
+    return (
+      <Main fill className="dc-main">
+        <TitleBlock title={ACCESS_TITLE.title} sub={ACCESS_TITLE.sub} />
+        <div className="dc-gap" />
+        <EmptyState
+          label="No access yet"
+          title="Nothing here"
+          accent="yet."
+          lead="We’re lining up the first doors. They’ll appear here."
+          action={
+            <Button href={ROUTES.events} blockPhone>
+              See events
+            </Button>
+          }
+          drawing="rope"
+        />
+      </Main>
+    );
+  }
 
   return (
     <>
-      <main className={MEMBERS_MAIN_CLASS}>
-        <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
-          <div className="flex flex-col gap-3">
-            <span className={EYEBROW_CLASS}>MEMBERS&apos; ACCESS</span>
-            <h1 className="text-2xl font-extrabold leading-[1.1] text-foreground sm:text-3xl optical-trim">
-              The doors that
-              <br />
-              <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
-                aren&apos;t open to the public.
-              </em>
-            </h1>
+      <Main fill className="dc-main">
+        <div className="mk-wrap">
+          <div className={cn("dc-acc-top", featureCard && "dc-has-spot")}>
+            <div className="dc-acc-head">
+              <TitleBlock {...ACCESS_TITLE} />
+            </div>
+            {featureCard ? (
+              <div className="dc-acc-spot">
+                <Spotlight card={featureCard} onOpenPerk={setSelected} />
+              </div>
+            ) : null}
           </div>
-
-          {featureCard && featureCard.kind === "event" && (
-            <div>
-              <Link href={`/members/events/${featureCard.slug}`} className={FEATURE_CARD_CLASSES}>
-                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
-                  {featureCard.label}
-                </span>
-                <p className="mt-2 text-lg font-extrabold text-background">
-                  {featureCard.title}
-                </p>
-                <p className="mt-1 text-sm text-background/60">
-                  {featureCard.subtitle}
-                </p>
-              </Link>
-            </div>
-          )}
-
-          {featureCard && featureCard.kind === "perk" && (
-            <div>
-              <button
-                type="button"
-                onClick={() => setFeatureCardOpen(true)}
-                className={FEATURE_CARD_CLASSES}
-              >
-                <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-background/70">
-                  {featureCard.label}
-                </span>
-                <p className="mt-2 text-lg font-extrabold text-background">
-                  {featureCard.perk.name}
-                </p>
-                <p className="mt-1 text-sm text-background/60">
-                  {featureCard.perk.headline}
-                </p>
-              </button>
-            </div>
-          )}
-
-          {SECTIONS.map((section) => {
-            const sectionPerks = perks.filter((perk) => perk.access_kind === section.kind);
-            if (sectionPerks.length === 0) return null;
-
-            return (
-              <section
-                key={section.kind}
-                className="flex flex-col gap-3"
-              >
-                <span className="text-xs font-bold uppercase tracking-wider text-foreground-muted">
-                  {section.label}
-                </span>
-                <div className="flex flex-col gap-3">
-                  {sectionPerks.map((perk) => (
-                    <button
-                      key={perk.id}
-                      type="button"
-                      onClick={() => setSelectedPerkId(perk.id)}
-                      className={cn(CARD_CLASS, "flex w-full items-center gap-4 p-4 text-left cursor-pointer")}
-                    >
-                      <div className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl bg-background">
-                        <section.Icon className="h-5 w-5 text-foreground" />
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <p className="truncate text-[13.5px] font-bold text-foreground">
-                          {perk.name}
-                        </p>
-                        <p className="mt-1 text-xs text-foreground-muted">
-                          {perk.headline}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
         </div>
-      </main>
 
-      {selectedPerk && (
-        <RedeemCard
-          isOpen={selectedPerk !== null}
-          onClose={() => setSelectedPerkId(null)}
-          kind="access"
-          name={selectedPerk.name}
-          headline={selectedPerk.headline}
-          sectionLabel={selectedSection?.label ?? "Access"}
-        />
-      )}
+        {groups.length > 0 ? (
+          <div className="mk-wrap">
+            <div className="dc-ksecs">
+              {groups.map((group) => (
+                <section key={group.kind} className="dc-ksec" aria-label={group.label}>
+                  <SectionHead title={group.label} />
+                  <PartnerList>
+                    {group.perks.map((perk) => (
+                      <PartnerRow
+                        key={perk.id}
+                        name={perk.name}
+                        offer={perk.headline}
+                        meta={perk.area}
+                        badge={perk.badge}
+                        icon={<Icon name={group.icon} size={24} />}
+                        onOpen={() => setSelected(perk)}
+                      />
+                    ))}
+                  </PartnerList>
+                </section>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
-      {featurePerk && featurePerk.type === "discount" && (
-        <RedeemCard
-          isOpen={featureCardOpen}
-          onClose={() => setFeatureCardOpen(false)}
-          kind="discount"
-          name={featurePerk.name}
-          headline={featurePerk.headline}
-          category={featurePerk.category}
-          area={featurePerk.area}
-          badge={featurePerk.badge}
+        <ClosingBand
+          label="Suggest a place"
+          title="Know a door we should try?"
+          accent="Tell us."
+          lead="Send us a name and we’ll see if they’ll have us."
+          action={
+            <Button href={SUGGEST_DOOR_HREF} blockPhone>
+              Suggest a place
+            </Button>
+          }
+          drawing="rope"
         />
-      )}
+      </Main>
 
-      {featurePerk && featurePerk.type === "access" && (
-        <RedeemCard
-          isOpen={featureCardOpen}
-          onClose={() => setFeatureCardOpen(false)}
-          kind="access"
-          name={featurePerk.name}
-          headline={featurePerk.headline}
-          sectionLabel={featureSection?.label ?? "Access"}
-        />
-      )}
+      {selected ? <RedeemCard perk={redeemPerkFor(selected)} onClose={() => setSelected(null)} /> : null}
     </>
   );
 }

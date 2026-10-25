@@ -19,9 +19,9 @@ export type FeatureCard = {
 // see what they'll get by leaving it blank) and app/members/access/page.tsx
 // (to resolve the final label before it reaches AccessView.tsx).
 export const DEFAULT_FEATURE_LABEL: Record<FeatureCard["content_type"], string> = {
-  event: "INVITE ONLY",
-  discount: "FEATURED DISCOUNT",
-  access: "EXCLUSIVE ACCESS",
+  event: "Featured event",
+  discount: "Featured discount",
+  access: "Featured access",
 };
 
 // Mirrors components/members/events-data.ts / perks-data.ts exactly:
