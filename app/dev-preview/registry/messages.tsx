@@ -3,7 +3,9 @@
 // Every screen draws on the example data adapter (lib/members/mock/messages.ts); web, app and computer are the
 // harness's ?shell= and the viewport width, so each state below is one drawing at every width.
 
+import { ChatEntryButtons, type ChatEntry } from "@/components/members/messages/chat-entry-buttons";
 import { InboxView, type InboxState, type InboxTab } from "@/components/members/messages/inbox-view";
+import { AvatarStack, Button, Card, DateColumn, Main } from "@/components/members/kit";
 import { NotificationSettingsView } from "@/components/members/notifications/notification-settings-view";
 import type { Overlay, ThreadPreview } from "@/components/members/messages/overlay-types";
 import { ThreadView } from "@/components/members/messages/thread-view";
@@ -23,6 +25,10 @@ import {
   EXAMPLE_THREAD_VARIANTS,
   EXAMPLE_UPDATES,
   EXAMPLE_YOU,
+  JASMIN,
+  OLLIE,
+  PRIYA,
+  TOM,
 } from "@/lib/members/mock/messages";
 import type { ChatThread, NotificationPreferences } from "@/lib/members/messages/types";
 import { ROUTES } from "@/lib/members/routes";
@@ -142,6 +148,43 @@ export const THREAD_STATES: Record<string, ThreadState> = {
   select: { thread: EXAMPLE_THREADS["c-walk"], preview: overlayOf({ kind: "select", pickedId: "c-walk-m3" }) },
 };
 
+// Sheets and dialogs over a thread. On a phone they are fixed over a scrim; from 768px the info sheet is the
+// right-hand drawer inside the card and the dialogs sit in the middle of it.
+export const OVERLAY_STATES: Record<string, ThreadState> = {
+  // chat info, a plan chat: three people, mute, the four report and block rows, leave
+  info: { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "info" }) },
+  // chat info, a question: the other person is named in the rows
+  "info-question": { thread: EXAMPLE_THREADS["c-tom"], preview: overlayOf({ kind: "info" }) },
+  // a plan chat asks who before it reports or blocks (not in the design)
+  "pick-member": { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "pick", purpose: "member" }) },
+  // report a message: the quote, six reasons, one chosen
+  "report-message": {
+    thread: EXAMPLE_THREADS["c-walk"],
+    preview: overlayOf({ kind: "report", what: "message", memberId: OLLIE.id, messageId: "c-walk-m3", reason: "pay_outside" }),
+  },
+  // report a member: seven reasons
+  "report-member": {
+    thread: EXAMPLE_THREADS["c-walk"],
+    preview: overlayOf({ kind: "report", what: "member", memberId: OLLIE.id, reason: "pay_outside" }),
+  },
+  // report a photo: the photo at 64px, three reasons
+  "report-photo": {
+    thread: EXAMPLE_THREADS["c-tom"],
+    preview: overlayOf({ kind: "report", what: "photo", memberId: TOM.id, reason: "not_them" }),
+  },
+  // nothing chosen yet: Send report waits
+  "report-empty": {
+    thread: EXAMPLE_THREADS["c-walk"],
+    preview: overlayOf({ kind: "report", what: "message", memberId: OLLIE.id, messageId: "c-walk-m3", reason: null }),
+  },
+  // report sent, with the offer to block too
+  "report-sent": { thread: EXAMPLE_THREADS["c-walk"], preview: overlayOf({ kind: "sent", what: "message", memberId: OLLIE.id }) },
+  // block, the dialog
+  block: { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "block", memberId: PRIYA.id, from: "info" }) },
+  // leave, the dialog
+  leave: { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "leave", from: "info" }) },
+};
+
 function threadScreen(id: string, title: string, states: Record<string, ThreadState>): PreviewScreen {
   const keys = Object.keys(states);
   return {
@@ -222,6 +265,67 @@ const notificationsScreen: PreviewScreen = {
   },
 };
 
+// ---- where an invite hands over to chat ---------------------------------------------------------------
+
+// A stand-in for the Open Invite page's card (that page is another builder's): just enough of it to show where the
+// chat buttons sit. "I'm in" is drawn as the invite page's own button.
+const HANDOVER: Record<string, { entry: ChatEntry; going: string; plan: "class" | "climb"; join?: boolean }> = {
+  // the member is in: Open chat, with the chats that have news
+  in: { entry: { kind: "in", href: ROUTES.messages, unread: 2 }, going: "3 going, 1 place left", plan: "class" },
+  // the member has not said yes: I'm in, and Ask Jasmin a question under it
+  ask: {
+    entry: { kind: "ask", href: ROUTES.messages, hostName: "Jasmin" },
+    going: "3 going, 1 place left",
+    plan: "class",
+    join: true,
+  },
+  // the host, someone asked a question
+  host: { entry: { kind: "host", href: ROUTES.messages, questions: 2 }, going: "1 going, 3 places left", plan: "climb" },
+};
+
+const handoverScreen: PreviewScreen = {
+  id: "msg-handover",
+  title: "Messages: hand-over from an invite",
+  states: Object.keys(HANDOVER),
+  defaultFlags: FLAGS,
+  tab: "invite",
+  showMessages: true,
+  render: (params) => {
+    const state = HANDOVER[params.state] ?? HANDOVER.in;
+    const [people, date, title, meta] =
+      state.plan === "class"
+        ? [[JASMIN, PRIYA, EXAMPLE_YOU], { weekday: "Sat", day: "24" }, "Saturday morning class + brunch", "10:00 · Psycle, Oxford Circus"]
+        : [[EXAMPLE_YOU], { weekday: "Wed", day: "4" }, "Climbing and a pint", "18:30 · The Boulder Yard"];
+    return (
+      <Main>
+        <div className="mk-wrap" style={{ paddingTop: 24 }}>
+          <Card>
+            <div style={{ display: "flex", gap: 14, alignItems: "center" }}>
+              <DateColumn weekday={date.weekday} day={date.day} />
+              <div style={{ minWidth: 0 }}>
+                <div className="mk-h3">{title}</div>
+                <div className="mk-meta-line">{meta}</div>
+              </div>
+            </div>
+            <div style={{ margin: "14px 0 16px", display: "flex", alignItems: "center", gap: 10 }}>
+              <AvatarStack
+                people={people.map((person) => ({ photoUrl: person.photoUrl, name: person.firstName }))}
+                ring="var(--pale)"
+              />
+              <span style={{ font: "400 14px/1.35 var(--font-body)" }}>{state.going}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {/* the Open Invite page's own "I'm in" button, for the picture only */}
+              {state.join ? <Button block>I’m in</Button> : null}
+              <ChatEntryButtons entry={state.entry} />
+            </div>
+          </Card>
+        </div>
+      </Main>
+    );
+  },
+};
+
 export const messagesScreens: PreviewScreen[] = [
   inboxScreen,
   updatesScreen,
@@ -251,5 +355,16 @@ export const messagesScreens: PreviewScreen[] = [
       "select",
     ]),
   ),
+  threadScreen(
+    "msg-sheet",
+    "Messages: chat info and reports",
+    Object.fromEntries(
+      ["info", "info-question", "pick-member", "report-message", "report-member", "report-photo", "report-empty", "report-sent"].map(
+        (key) => [key, OVERLAY_STATES[key]],
+      ),
+    ),
+  ),
+  threadScreen("msg-dialog", "Messages: block and leave", Object.fromEntries(["block", "leave"].map((key) => [key, OVERLAY_STATES[key]]))),
+  handoverScreen,
   notificationsScreen,
 ];

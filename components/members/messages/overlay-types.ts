@@ -13,11 +13,12 @@ export type Overlay =
   /** Picking a message to report: the ink banner is up and others' bubbles can be tapped. */
   | { kind: "select"; pickedId?: string | null }
   /** A plan chat has several people: pick who (report a member, report a photo, block). Not in the design: see thread-overlays. */
-  | { kind: "pick"; purpose: ReportKind | "block" }
+  | { kind: "pick"; purpose: "member" | "photo" | "block" }
   | { kind: "report"; what: ReportKind; memberId: string; messageId?: string; reason: string | null }
   | { kind: "sent"; what: ReportKind; memberId: string }
-  | { kind: "block"; memberId: string; afterReport?: boolean }
-  | { kind: "leave" };
+  /** `from: "info"`: opened from chat info, so Cancel goes back there (and on a computer the drawer stays beside it). */
+  | { kind: "block"; memberId: string; afterReport?: boolean; from?: "info" }
+  | { kind: "leave"; from?: "info" };
 
 /** Preview only: the state a screen starts in when it is a transient one (typing, a failed send, the keyboard up). */
 export type ThreadPreview = {

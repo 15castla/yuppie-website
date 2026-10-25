@@ -56,6 +56,11 @@ export function dateAndTime(iso: string): string {
   return `${shortDate(iso)}, ${clock(iso)}`;
 }
 
+/** "Wed 18:20": when a message was sent, in a report. */
+export function weekdayTime(iso: string): string {
+  return `${partsOf(iso).weekday} ${clock(iso)}`;
+}
+
 /** The date tile: weekday and day number ("Sat", "24"). */
 export function dateTile(iso: string): { weekday: string; day: string } {
   const p = partsOf(iso);

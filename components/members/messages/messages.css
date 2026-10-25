@@ -409,6 +409,7 @@ button.msg-li:last-child,a.msg-li:last-child{border-bottom:0}
   /* the info panel: a drawer inside the card's right edge */
   .msg-sheet{position:absolute;left:auto;z-index:40;top:0;right:0;bottom:0;width:min(392px,80%);max-height:none;background:var(--yellow);border:0;border-left:2px solid var(--ink);border-radius:0;padding:14px 20px 12px}
   .msg-sheet .msg-grab{display:none}
+  .msg-sheet .mk-btn.mk-sm{width:auto}
   .msg-sheet .msg-li{min-height:52px;padding:8px 0}
   .msg-sheet .msg-who-row{margin-top:10px}
   .msg-sheet .msg-sheet-hd .mk-h2{font-size:20px}
@@ -417,6 +418,9 @@ button.msg-li:last-child,a.msg-li:last-child{border-bottom:0}
 }
 .msg-sheet{background:var(--pale)}
 @media (min-width:768px){ .msg-sheet{background:var(--yellow)} }
+/* the info drawer kept in view behind a dialog opened from it: a computer only */
+.msg-sheet.is-under{display:none}
+@media (min-width:768px){ .msg-sheet.is-under{display:block} }
 
 /* the long-press menu is fixed to the viewport, placed from the pressed bubble's own rectangle */
 .msg-menu{position:fixed;z-index:81}
