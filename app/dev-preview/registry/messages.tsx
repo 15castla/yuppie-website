@@ -3,6 +3,7 @@
 // Every screen draws on the example data adapter (lib/members/mock/messages.ts); web, app and computer are the
 // harness's ?shell= and the viewport width, so each state below is one drawing at every width.
 
+import { BlockedView } from "@/components/members/messages/blocked-view";
 import { ChatEntryButtons, type ChatEntry } from "@/components/members/messages/chat-entry-buttons";
 import { InboxView, type InboxState, type InboxTab } from "@/components/members/messages/inbox-view";
 import { AvatarStack, Button, Card, DateColumn, Main } from "@/components/members/kit";
@@ -10,6 +11,7 @@ import { NotificationSettingsView } from "@/components/members/notifications/not
 import type { Overlay, ThreadPreview } from "@/components/members/messages/overlay-types";
 import { ThreadView } from "@/components/members/messages/thread-view";
 import {
+  EXAMPLE_BLOCKED,
   EXAMPLE_CHATS,
   EXAMPLE_DRAFT_488,
   EXAMPLE_DRAFT_500,
@@ -326,6 +328,24 @@ const handoverScreen: PreviewScreen = {
   },
 };
 
+// ---- blocked members ----------------------------------------------------------------------------------
+
+const blockedScreen: PreviewScreen = {
+  id: "blocked-members",
+  title: "Blocked members",
+  states: ["list", "empty", "unblock"],
+  defaultFlags: FLAGS,
+  ...YOU_SUB_FRAME,
+  render: (params) => (
+    <BlockedView
+      // a new state is a new page: the local list starts from its saved values
+      key={`${params.shell}-${params.state}`}
+      members={params.state === "empty" ? [] : EXAMPLE_BLOCKED}
+      initialConfirmId={params.state === "unblock" ? EXAMPLE_BLOCKED[0].member.id : null}
+    />
+  ),
+};
+
 export const messagesScreens: PreviewScreen[] = [
   inboxScreen,
   updatesScreen,
@@ -367,4 +387,5 @@ export const messagesScreens: PreviewScreen[] = [
   threadScreen("msg-dialog", "Messages: block and leave", Object.fromEntries(["block", "leave"].map((key) => [key, OVERLAY_STATES[key]]))),
   handoverScreen,
   notificationsScreen,
+  blockedScreen,
 ];

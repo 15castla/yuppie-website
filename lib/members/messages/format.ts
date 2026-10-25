@@ -56,6 +56,12 @@ export function dateAndTime(iso: string): string {
   return `${shortDate(iso)}, ${clock(iso)}`;
 }
 
+/** "24 Oct": the day a member was blocked. */
+export function dayMonth(iso: string): string {
+  const p = partsOf(iso);
+  return `${p.day} ${p.month}`;
+}
+
 /** "Wed 18:20": when a message was sent, in a report. */
 export function weekdayTime(iso: string): string {
   return `${partsOf(iso).weekday} ${clock(iso)}`;
