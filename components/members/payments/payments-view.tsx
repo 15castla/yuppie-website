@@ -153,7 +153,7 @@ export function PaymentsView({
     <>
       <BackRow href={ROUTES.you} label="You" />
       <Crumb label="You" />
-      <TitleBlock title="Payments." sub="Money from your paid plans." />
+      <TitleBlock title="Payments." sub="Money from your paid plans." actions={null} />
     </>
   );
 
