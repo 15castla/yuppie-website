@@ -1,0 +1,39 @@
+/* Club Yuppie Blocked members (/members/you/blocked). Ported from the You designer's approved page
+   (/home/claude/rebrand/v3/cyp.css: .yu-blk*, .pk-stand, .yu-sheet, .yu-modal, round 3, 25 Oct 2026) with the kit's
+   class names (mk- prefix) and container queries as media queries. Every class added here starts with msg-blk or
+   msg-stand. The sheet is the kit's (.mk-sheet over .mk-scrim); from 768px it is a modal in the middle of the page.
+   Tokens come from .mk-screen; the kit (app/members/members.css) is not changed. */
+
+/* a sub page under You: the back row is in the bar on phones, above the title on a computer */
+.msg-blk-crumb{display:none}
+@media (min-width:768px){ .msg-blk-crumb{display:block} }
+.mk-screen .mk-main.msg-blk-main .mk-head{padding-top:20px}
+@media (min-width:768px){ .mk-screen .mk-main.msg-blk-main .mk-head{padding-top:12px} }
+
+/* the list: a photo, the name, when, and a 44px Unblock */
+.msg-blk-list{margin-top:28px}
+.msg-blk-row{min-height:80px;gap:14px}
+.msg-blk-row .mk-btn{min-width:96px}
+@media (min-width:768px){ .msg-blk-wrap > .msg-blk-list, .msg-blk-wrap > .msg-blk-empty{max-width:760px} }
+
+/* empty: "No one blocked." with the rope standing on a 3px rule (RULE-07) */
+.msg-blk-empty{margin-top:40px}
+@media (min-width:768px){ .msg-blk-empty{margin-top:56px} }
+.msg-stand{display:flex;flex-direction:column;align-items:stretch;gap:0;border-bottom:3px solid var(--ink)}
+.msg-stand .msg-stand-txt{padding-bottom:28px;min-width:0}
+.msg-stand .msg-stand-txt p{margin-top:6px;max-width:28ch;font:400 16px/1.45 var(--font-body)}
+.msg-stand .msg-stand-art{display:block;align-self:flex-end;padding-right:8px}
+.msg-stand .msg-art{display:block;overflow:visible}
+.msg-stand .msg-stand-txt h2:focus{outline:none}
+
+/* the unblock confirm: the kit's sheet on a phone, a modal from 768px */
+.msg-blk-sheet h2{margin-bottom:8px;text-wrap:balance}
+.msg-blk-sheet p{font:400 16px/1.45 var(--font-body);text-wrap:pretty}
+.msg-blk-acts{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+.msg-blk-acts .mk-btn{width:100%}
+@media (min-width:768px){
+  .mk-sheet.msg-blk-sheet{left:50%;right:auto;top:50%;bottom:auto;transform:translate(-50%,-50%);width:min(520px,calc(100% - 48px));border:2px solid var(--ink);border-radius:24px;padding:32px;box-shadow:8px 8px 0 var(--ink)}
+  .msg-blk-sheet .mk-grab{display:none}
+  .msg-blk-acts{flex-direction:row;flex-wrap:wrap}
+  .msg-blk-acts .mk-btn{width:auto;flex:1 1 200px}
+}
