@@ -54,6 +54,49 @@ export async function getCachedEvents() {
   return (await getCachedAllEvents()).filter((event) => !hasEventStarted(event, now));
 }
 
+// Which upcoming events have no spots left, for the "Fully booked" pill on the
+// Events list. A head count of confirmed bookings per event (an aggregate
+// across all members, so the service-role client, same as bookedCount on the
+// event page), compared with the event's capacity. Cached for the same 60s as
+// the list: the pill is a hint, and the event page and the booking itself
+// re-check capacity live (see booking-capacity.ts). One count per upcoming
+// event, inside the cache, so it costs a handful of light queries a minute,
+// not per page view. Never throws: if it fails, no pill is drawn and the
+// list is unchanged.
+const getCachedFullEventIds = unstable_cache(
+  async () => {
+    try {
+      const adminClient = createAdminSupabaseClient();
+      const { data: upcoming } = await adminClient
+        .from("events")
+        .select("id, capacity")
+        .gte("start_time", new Date().toISOString());
+      const checked = await Promise.all(
+        (upcoming ?? []).map(async (event) => {
+          if (!event.capacity || event.capacity <= 0) return null;
+          const { count, error } = await adminClient
+            .from("bookings")
+            .select("*", { count: "exact", head: true })
+            .eq("event_id", event.id)
+            .eq("status", "confirmed");
+          if (error) return null;
+          return (count ?? 0) >= event.capacity ? (event.id as string) : null;
+        }),
+      );
+      return checked.filter((id): id is string => id !== null);
+    } catch (error) {
+      console.error("Failed to work out which events are full:", error);
+      return [] as string[];
+    }
+  },
+  ["events-full-ids"],
+  { tags: ["events"], revalidate: 60 },
+);
+
+export function getFullEventIds() {
+  return getCachedFullEventIds();
+}
+
 export const getCachedEventBySlug = unstable_cache(
   async (slug: string) => {
     const adminClient = createAdminSupabaseClient();

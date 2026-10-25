@@ -1,26 +1,14 @@
-import { MEMBERS_MAIN_CLASS } from "@/components/members/ui";
+import { LoadingShapes, Main, TitleBlock } from "@/components/members/kit";
 
+// Events while the list loads: the real title block, then pale shapes where
+// the chips and rows will be. A real <main aria-busy="true"> (the iOS app's
+// splash hides once a <main> that is not aria-busy exists and no
+// "animate-spin" element is on the page), static shapes, no spinner. It shows
+// inside the shell, so the tab bar and photo are already drawn around it.
 export default function EventsLoading() {
   return (
-    <>
-      {/* The events list's own plain-background loading state, same as
-          app/members/loading.tsx: an empty <main> until the list arrives.
-          The iOS app's splash (mobile/ios/App/App/SceneDelegate.swift)
-          hides once a <main> exists and no "animate-spin" element is
-          present, so it hides onto this plain yellow, the same colour as
-          the splash. */}
-      <main className={MEMBERS_MAIN_CLASS} aria-busy="true">
-        <span className="sr-only">Loading</span>
-      </main>
-
-      {/* Same strip, for the same reason, as app/members/loading.tsx: this
-          file now shows instead of that one on a cold navigation straight
-          into /members/events, before MembersBottomBar has rendered, which
-          is when Safari's white-bar bug appears. */}
-      <div
-        aria-hidden
-        className="fixed inset-x-0 bottom-0 z-20 h-[max(1rem,env(safe-area-inset-bottom))] bg-background md:hidden"
-      />
-    </>
+    <Main busy>
+      <LoadingShapes chips title={<TitleBlock title="Events." sub="Run by us, at cost." />} />
+    </Main>
   );
 }
