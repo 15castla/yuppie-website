@@ -1,0 +1,444 @@
+/* Club Yuppie members area: the kit, ported from the approved designs
+   (/home/claude/rebrand/v3/kit2.css, kit v3, 25 Oct 2026). Same measurements,
+   same selectors, every class renamed with an mk- prefix: kit `.pill` is
+   `.mk-pill`, kit `.screen.app` is `.mk-screen.mk-app`, and so on. Imported
+   once, by app/members/layout.tsx (and by app/dev-preview/layout.tsx).
+
+   What differs from the mockup kit, on purpose (the product is a real page,
+   not a framed picture):
+   1. @container (min-width:768px) is @media (min-width:768px), and cqw is vw.
+      The mockup frame was the container; in the product the viewport is.
+      A container-type on a wrapper would also trap position:fixed children
+      (the tab bar, the event bar, sheets) inside the wrapper, so none is
+      used. Area CSS must do the same.
+   2. The tab bar (.mk-dock) is position:fixed with its own background-color,
+      not sticky, so Safari 26 tints its toolbar from it (see the notes in
+      components/members/shell/dock-bar.tsx). An in-flow spacer
+      (.mk-dock-spacer) keeps the page's bottom padding as drawn.
+   3. Sheets and the scrim are fixed to the viewport, not absolute to a frame.
+   4. The desktop header's scrolled state is the public site's: a 1.5px rule
+      and no change of height (RULE-22). The kit's shrinking .stuck is not used.
+   5. Left out: the board chrome, the fake status bar and home indicator, the
+      floating-pill tab bar and the iPad guess. The preview harness draws its
+      own status bar (app/dev-preview/preview.css).
+   6. Fonts come from next/font (--font-almarai, --font-instrument-serif).
+
+   768px is the one phone/desktop switch (RULE-45). */
+
+/* 0. tokens ------------------------------------------------------------ */
+.mk-screen{
+  /* mapped onto app/globals.css: --background yellow, --foreground ink,
+     --background-muted pale, --site-muted muted. --cream is the global one. */
+  --yellow:var(--background); --ink:var(--foreground); --pale:var(--background-muted); --muted:var(--site-muted);
+  --error:#B3261E; --success:#2F6B3A; --warning:#7A4F00;
+  --font-body:var(--font-almarai),'Helvetica Neue',ui-sans-serif,system-ui,sans-serif;
+  --font-accent:var(--font-instrument-serif),Georgia,serif;
+  /* The top inset is the global --safe-top (globals.css; the iOS app injects
+     the real value). The bottom inset: the same idea, env() with a hook for
+     the preview harness. */
+  --safe-bottom:var(--native-safe-area-inset-bottom,env(safe-area-inset-bottom,0px));
+  --tab-h:60px;
+  --dock-h:calc(var(--tab-h) + 3px + max(var(--safe-bottom) - 6px,0px));
+}
+
+.mk-screen{
+  position:relative; display:flex; flex-direction:column; flex:1 0 auto;
+  background:var(--yellow); color:var(--ink);
+  font-family:var(--font-body); font-size:16px; line-height:1.45; -webkit-font-smoothing:antialiased;
+  box-sizing:border-box; text-align:left;
+}
+.mk-screen *,.mk-screen *::before,.mk-screen *::after{box-sizing:border-box}
+.mk-page{
+  --gutter:20px; --gap-section:40px; --col-gap:40px;
+  position:relative; flex:1 0 auto; display:flex; flex-direction:column;
+}
+@media (min-width:768px){
+  .mk-page{ --gutter:clamp(20px,4vw,40px); --gap-section:64px; --col-gap:clamp(40px,5.5vw,80px); }
+}
+.mk-wrap{width:100%;max-width:1240px;margin:0 auto;padding-left:var(--gutter);padding-right:var(--gutter)}
+/* the page's <main> (components/members/kit Main): fills the height, so the dock sits at the foot */
+.mk-page > .mk-main{flex:1 0 auto;display:block}
+:where(.mk-screen) a{color:inherit}
+:where(.mk-screen) :where(h1,h2,h3,h4,p,ul,ol,dl,dd,figure){margin:0;padding:0}
+:where(.mk-screen) :where(ul,ol){list-style:none}
+.mk-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mk-nb{white-space:nowrap}
+.mk-show-desk{display:none} .mk-show-phone{display:block}
+@media (min-width:768px){ .mk-show-desk{display:block} .mk-show-phone{display:none} }
+.mk-flex-desk{display:none}
+@media (min-width:768px){ .mk-flex-desk{display:flex} .mk-flex-phone{display:none} }
+
+/* 1. type -------------------------------------------------------------- */
+.mk-h1{font-size:46px;font-weight:800;line-height:.95;letter-spacing:-.035em}
+@media (min-width:768px){ .mk-h1{font-size:clamp(48px,6vw,88px);letter-spacing:-.03em} }
+@media (max-width:359px){ .mk-h1{font-size:38px} }
+.mk-serif{font-family:var(--font-accent);font-style:italic;font-weight:400;letter-spacing:-.01em}
+.mk-h2{font-size:24px;font-weight:800;line-height:1.2;letter-spacing:-.02em}
+@media (min-width:768px){ .mk-h2{font-size:28px} }
+.mk-h3{font-size:18px;font-weight:800;line-height:1.25;letter-spacing:-.01em}
+.mk-sub-serif{font-family:var(--font-accent);font-style:italic;font-weight:400;font-size:26px;line-height:1.1;letter-spacing:-.01em;margin-top:6px}
+@media (min-width:768px){ .mk-sub-serif{font-size:clamp(30px,3.2vw,44px);margin-top:8px} }
+.mk-display-serif{font-family:var(--font-accent);font-style:italic;font-weight:400;font-size:64px;line-height:.92;letter-spacing:-.02em}
+@media (min-width:768px){ .mk-display-serif{font-size:clamp(72px,8.6vw,128px)} }
+.mk-lead{font-size:17px;line-height:1.45}
+@media (min-width:768px){ .mk-lead{font-size:19px;line-height:1.5} }
+.mk-muted{color:var(--muted)}
+.mk-term{font-size:13px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.mk-small{font-size:13px;line-height:1.35}
+.mk-meta-line{font:400 14px/1.35 var(--font-body);color:var(--muted)}
+
+/* 2. controls ----------------------------------------------------------- */
+.mk-btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:12px;min-height:56px;padding:0 28px;border:2px solid var(--ink);
+  border-radius:999px;background:var(--ink);color:var(--yellow);font:700 17px/1.2 var(--font-body);text-decoration:none;
+  white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.mk-btn.mk-block{display:flex;width:100%}
+.mk-btn.mk-sm{min-height:44px;padding:0 20px;font-size:15px}
+.mk-btn.mk-secondary{background:transparent;color:var(--ink)}
+.mk-btn.mk-is-hover,.mk-btn.mk-is-pressed{opacity:.85}
+.mk-btn.mk-is-focus{outline:2px solid var(--ink);outline-offset:3px}
+.mk-btn.mk-is-disabled{opacity:.6}
+.mk-link{
+  display:inline-flex;align-items:center;min-height:44px;font:700 15px/1.2 var(--font-body);color:var(--ink);
+  text-decoration:underline;text-underline-offset:3px;background:none;border:0;padding:0;white-space:nowrap;-webkit-tap-highlight-color:transparent;
+}
+.mk-link.mk-danger{color:var(--error)}
+.mk-link.mk-plain{text-decoration:none}
+.mk-inline-link{font-weight:700;text-decoration:underline;text-underline-offset:2px}
+
+.mk-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 var(--gutter);margin:0 calc(-1*var(--gutter))}
+.mk-chips::-webkit-scrollbar{display:none}
+@media (min-width:768px){ .mk-chips{flex-wrap:wrap;overflow:visible;padding:0;margin:0} }
+.mk-chip{
+  display:inline-flex;align-items:center;flex:none;min-height:44px;padding:0 18px;border:1.5px solid var(--ink);border-radius:999px;
+  background:transparent;color:var(--ink);font:700 14px/1.2 var(--font-body);white-space:nowrap;text-decoration:none;cursor:pointer;
+}
+.mk-chip.mk-is-active{background:var(--ink);color:var(--yellow)}
+.mk-seg{display:flex;width:100%;max-width:440px;padding:4px;border:2px solid var(--ink);border-radius:999px}
+.mk-seg a{flex:1 1 0;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border-radius:999px;font:700 15px/1.2 var(--font-body);color:var(--ink);text-decoration:none;white-space:nowrap}
+.mk-seg a[aria-current]{background:var(--ink);color:var(--yellow)}
+
+.mk-field{display:flex;flex-direction:column;gap:8px}
+.mk-field label{font:700 14px/1.2 var(--font-body)}
+.mk-input{display:flex;align-items:center;width:100%;min-height:50px;padding:0 14px;border:1.5px solid var(--ink);border-radius:12px;background:var(--cream);color:var(--ink);font:400 16px/1.2 var(--font-body)}
+.mk-input.mk-ph{color:var(--muted)}
+
+.mk-pill{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;height:22px;min-width:80px;padding:0 12px;border:1px solid var(--ink);
+  border-radius:999px;font:700 12px/16px var(--font-body);white-space:nowrap;color:var(--ink);background:transparent;
+}
+.mk-pill.mk-ink{background:var(--ink);color:var(--yellow);border-color:transparent}
+.mk-pill.mk-muted{color:var(--muted);border-color:var(--muted)}
+.mk-status{display:inline-flex;align-items:center;gap:8px;font:700 15px/1.3 var(--font-body)}
+.mk-status::before{content:"";width:10px;height:10px;flex:none;border-radius:50%;background:var(--c,var(--success))}
+.mk-status.mk-warn{--c:var(--warning)} .mk-status.mk-off{--c:var(--muted)}
+
+.mk-avatar{
+  display:inline-flex;align-items:center;justify-content:center;flex:none;width:var(--s,44px);height:var(--s,44px);border-radius:50%;
+  background:var(--ink);color:var(--yellow);border:1.5px solid var(--ink);font-weight:800;font-size:calc(var(--s,44px)*.38);line-height:1;text-decoration:none;
+}
+.mk-avatar.mk-ph{background:var(--cream);overflow:hidden;padding:0}
+.mk-avatar.mk-ph img{display:block;width:100%;height:100%;object-fit:cover}
+.mk-avatar.mk-cream{background:var(--cream);color:var(--ink)}
+.mk-avatar.mk-pale{background:var(--pale);color:var(--ink)}
+.mk-avatars{display:inline-flex;align-items:center}
+.mk-avatars .mk-avatar{--s:28px;border-width:1.5px;box-shadow:0 0 0 2px var(--ring,var(--yellow))}
+.mk-avatars .mk-avatar+.mk-avatar{margin-left:-6px}
+.mk-avatars .mk-more{font:700 12px/1 var(--font-body);margin-left:10px;color:var(--ink)}
+.mk-ico{display:block;flex:none;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* round icon button + unread badge (the messages icon) */
+.mk-icon-btn{
+  position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;border-radius:50%;
+  border:2px solid var(--ink);background:transparent;color:var(--ink);padding:0;text-decoration:none;-webkit-tap-highlight-color:transparent;
+}
+.mk-icon-btn.mk-ink{background:var(--ink);color:var(--yellow)}
+.mk-icon-btn.mk-bare{border-color:transparent}
+.mk-icon-btn[aria-current]{background:var(--ink);color:var(--yellow)}
+.mk-badge{
+  position:absolute;top:-6px;right:-6px;min-width:22px;height:22px;padding:0 5px;border-radius:999px;background:var(--ink);color:var(--yellow);
+  border:2px solid var(--ring,var(--yellow));font:800 12px/18px var(--font-body);text-align:center;letter-spacing:0;
+}
+.mk-dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--ink)}
+
+/* keyboard focus (RULE-35): the house 2px ink outline, offset 2, drawn outside so nothing changes size.
+   Added for the product (a mockup has no focus); it is the kit's own .mk-is-focus state. Kit controls only:
+   the old Tailwind views keep their own rings until a builder replaces them. */
+:is(.mk-btn,.mk-link,.mk-chip,.mk-icon-btn,.mk-me-btn,.mk-back,.mk-seg a,.mk-hdr nav a,.mk-hdr .mk-me,.mk-wm-link,.mk-inline-link,.mk-send):focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+.mk-btn:focus-visible{outline-offset:3px}
+.mk-row:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.mk-tab:focus-visible{outline:none}
+.mk-tab:focus-visible .mk-in{outline:2px solid var(--ink);outline-offset:2px}
+.mk-input:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+:is(.mk-btn,.mk-link,.mk-chip,.mk-row,.mk-icon-btn,.mk-me-btn,.mk-tab):focus:not(:focus-visible){outline:none}
+
+/* 3. cards, rows ----------------------------------------------------------- */
+.mk-card{background:var(--pale);border:2px solid var(--ink);border-radius:20px;padding:22px 20px;box-shadow:6px 6px 0 var(--ink);margin-right:6px}
+@media (min-width:768px){ .mk-card{padding:clamp(28px,3vw,40px);box-shadow:8px 8px 0 var(--ink);margin-right:8px} }
+.mk-card.mk-yellow{background:var(--yellow)}
+.mk-card.mk-cream{background:var(--cream)}
+.mk-card.mk-tight{padding:16px 18px}
+.mk-tile{background:var(--pale);border:2px solid var(--ink);border-radius:20px;padding:16px 18px}
+
+.mk-rows{border-top:1.5px solid var(--ink)}
+.mk-rows>.mk-row{border-bottom:1.5px solid var(--ink)}
+.mk-row{display:flex;align-items:center;gap:14px;min-height:76px;padding:14px 0;color:var(--ink);text-decoration:none;-webkit-tap-highlight-color:transparent}
+.mk-row .mk-body{flex:1 1 auto;min-width:0}
+.mk-row .mk-title{display:block;font:700 16px/1.25 var(--font-body)}
+.mk-row .mk-meta{display:block;margin-top:3px;font:400 14px/1.3 var(--font-body);color:var(--muted)}
+.mk-row .mk-end{flex:none;display:flex;align-items:center;gap:8px}
+@media (min-width:768px){ .mk-row .mk-title{font-size:17px} .mk-row .mk-meta{font-size:15px} }
+.mk-date{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center}
+.mk-date .mk-wd{font:700 11px/1 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.mk-date .mk-dn{font:800 24px/1 var(--font-body)}
+.mk-logo-tile,.mk-icon-tile{width:48px;height:48px;flex:none;border-radius:12px;border:1.5px solid var(--ink);background:var(--cream);display:flex;align-items:center;justify-content:center;font:800 20px/1 var(--font-body)}
+
+.mk-sh{display:flex;align-items:center;justify-content:space-between;gap:16px;min-height:44px;margin-bottom:8px}
+.mk-sh .mk-link{margin-right:0}
+.mk-month{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin-bottom:10px}
+.mk-month h2{font-family:var(--font-accent);font-style:italic;font-weight:400;font-size:32px;line-height:1;letter-spacing:-.01em}
+.mk-month span{font-size:14px;color:var(--muted)}
+@media (min-width:768px){ .mk-month h2{font-size:38px} }
+
+/* loading shapes (not in the kit: the area designs draw them as pale shapes,
+   static, no shimmer and no spinner; the native splash waits on this) */
+.mk-sk{display:block;background:var(--pale);border-radius:8px}
+.mk-sk.mk-sk-pill{border-radius:999px}
+.mk-sk.mk-sk-disc{border-radius:50%}
+.mk-sk.mk-sk-tile{border-radius:12px}
+
+/* bands (public site: 3px ink rules, cream for Open Invite) */
+.mk-band{background:var(--cream);border-top:3px solid var(--ink);border-bottom:3px solid var(--ink)}
+.mk-band.mk-yellow{background:var(--yellow)}
+.mk-band .mk-inner{padding-top:48px;padding-bottom:56px}
+@media (min-width:768px){ .mk-band .mk-inner{padding-top:clamp(64px,7vw,104px);padding-bottom:clamp(72px,8vw,112px)} }
+.mk-rule3{border:0;border-top:3px solid var(--ink);margin:0}
+.mk-stand{display:flex;justify-content:center;border-bottom:3px solid var(--ink)}
+
+/* 4. shell ------------------------------------------------------------------ */
+/* app: the phone's own status area is the only bar; the page title row sits straight under it
+   (its padding-top carries the safe area: see .mk-head and .mk-subbar) */
+
+/* web phone header: 56px, wordmark left, messages and your photo right */
+.mk-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;height:calc(56px + var(--safe-top));padding:var(--safe-top) var(--gutter) 0;border-bottom:1.5px solid var(--ink)}
+.mk-bar .mk-r{display:flex;align-items:center;gap:8px}
+.mk-wm-link{display:flex;align-items:center;min-height:44px;text-decoration:none}
+.mk-wm{display:block;height:30px;width:auto;aspect-ratio:1942/641}
+.mk-back{display:inline-flex;align-items:center;gap:4px;min-height:44px;font:700 15px/1.2 var(--font-body);color:var(--ink);text-decoration:none;margin-left:-8px;padding-right:8px}
+.mk-screen.mk-app .mk-bar{display:none}
+@media (min-width:768px){ .mk-bar{display:none} }
+
+/* title row (every tab page): headline left; in the app, the messages icon (Open Invite pages only) and your photo right */
+.mk-head{padding-top:28px}
+.mk-screen.mk-app .mk-head{padding-top:calc(var(--safe-top) + 10px)}
+.mk-head .mk-row1{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.mk-head .mk-row1 .mk-actions{display:flex;align-items:center;gap:8px;margin-top:-2px;margin-right:-2px}
+.mk-screen:not(.mk-app) .mk-head .mk-actions{display:none}
+/* from 768 the computer header carries the photo (web and the app on an iPad), so the title row draws none */
+@media (min-width:768px){ .mk-head .mk-row1 .mk-actions{display:none} }
+.mk-me-btn{display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;border-radius:50%;text-decoration:none;-webkit-tap-highlight-color:transparent}
+.mk-me-btn .mk-avatar{border:2px solid var(--ink)}
+.mk-me-btn[aria-current] .mk-avatar{box-shadow:0 0 0 2px var(--yellow),0 0 0 4px var(--ink)}
+@media (min-width:768px){
+  .mk-head{padding-top:clamp(40px,5vw,72px)}
+  .mk-screen.mk-app .mk-head{padding-top:clamp(40px,5vw,72px)}
+}
+.mk-head .mk-lead{margin-top:14px;max-width:560px}
+
+/* sub-page title bar (thread, detail, back row): back, title, actions. On the web phone it is the 56px bar. */
+.mk-subbar{display:flex;align-items:center;gap:8px;padding:calc(var(--safe-top) + 6px) var(--gutter) 6px;min-height:calc(56px + var(--safe-top));border-bottom:1.5px solid var(--ink)}
+.mk-subbar .mk-mid{flex:1;min-width:0}
+.mk-subbar .mk-mid b{display:block;font:800 17px/1.2 var(--font-body);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-subbar .mk-mid span{display:block;font:400 13px/1.3 var(--font-body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-screen.mk-web .mk-subbar{padding-top:6px;min-height:56px}
+@media (min-width:768px){ .mk-subbar{display:none} }
+/* a page that draws a sub-page bar replaces the shell's wordmark bar (web phone) */
+.mk-page:has(.mk-subbar) > .mk-bar{display:none}
+
+/* desktop header: the public header's grammar. 3 columns, wordmark 46px, links 15px/700 */
+.mk-hdr{display:none;position:sticky;top:0;z-index:30;background-color:var(--yellow)}
+@media (min-width:768px){ .mk-hdr{display:block} }
+.mk-hdr .mk-wrap{padding-top:20px;padding-bottom:20px}
+.mk-hdr .mk-grid{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr);align-items:center;gap:24px}
+.mk-hdr nav{display:flex;align-items:center;gap:32px}
+.mk-hdr nav a,.mk-hdr .mk-me{display:inline-flex;align-items:center;min-height:44px;color:var(--ink);text-decoration:none;font:700 15px/1.2 var(--font-body)}
+.mk-hdr nav a[aria-current]{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:6px}
+.mk-hdr .mk-right{display:flex;align-items:center;justify-content:flex-end;gap:14px}
+.mk-hdr .mk-me{gap:10px}
+.mk-hdr .mk-me .mk-avatar{--s:40px}
+.mk-hdr .mk-wm{height:46px}
+/* scrolled: the public site's rule (a shadow, so the height never changes: RULE-22) */
+.mk-hdr.mk-stuck{box-shadow:0 1.5px 0 var(--ink)}
+@media (max-width:899px){ .mk-hdr nav{gap:22px} }
+
+/* tab bar: docked, full width, solid yellow, 3px ink rule above.
+   position:fixed with its own background-color (not only a background on a child): the solid fixed element at the
+   bottom edge is what tints Safari 26's toolbar. The old bar's compositor hints are kept.
+   Height = 60px + the 3px rule + the safe area (less the 6px the home indicator already clears). */
+.mk-dock{position:fixed;left:0;right:0;bottom:0;z-index:50;background-color:var(--yellow);transform:translateZ(0);will-change:transform}
+.mk-dock-spacer{flex:none;height:var(--dock-h);margin-top:auto}
+.mk-tabbar{
+  display:flex;align-items:stretch;background:var(--yellow);border-top:3px solid var(--ink);
+  padding:0 8px calc(var(--safe-bottom) - 6px);height:var(--dock-h);
+}
+.mk-tab{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;color:var(--ink);text-decoration:none;-webkit-tap-highlight-color:transparent}
+.mk-tab .mk-in{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;width:100%;max-width:84px;height:48px;border-radius:16px;position:relative}
+.mk-tab .mk-ico{width:23px;height:23px}
+.mk-tab .mk-lb{font:700 11px/12px var(--font-body);white-space:nowrap}
+.mk-tab[aria-current] .mk-in{background:var(--ink);color:var(--yellow)}
+.mk-tab .mk-badge{top:-2px;right:calc(50% - 26px);min-width:18px;height:18px;font-size:11px;line-height:14px;padding:0 4px}
+@media (min-width:768px){ .mk-dock,.mk-dock-spacer,.mk-tint{display:none} }
+/* the bottom tint strip: drawn when the shell has no dock (a page with its own docked bar, the photo gate), so a
+   solid yellow fixed element is always at the bottom edge. Height as the old strips: the safe area, 1rem minimum. */
+.mk-tint{position:fixed;left:0;right:0;bottom:0;z-index:20;height:max(1rem,var(--safe-bottom));background-color:var(--yellow);pointer-events:none}
+.mk-main-pad{padding-bottom:40px}
+/* a page that wants no shell chrome (the membership-ended gate) renders <BareChrome />. The tab bar goes but the fixed
+   dock stays as an empty yellow strip, so Safari 26 still has a solid element at the bottom edge to tint from. */
+.mk-page:has(.mk-bare-marker) > :is(.mk-bar,.mk-hdr,.mk-dock-spacer){display:none}
+.mk-page:has(.mk-bare-marker) > .mk-dock{height:max(1rem,var(--safe-bottom))}
+.mk-page:has(.mk-bare-marker) > .mk-dock > .mk-tabbar{display:none}
+
+/* 5. sheets and dialogs -------------------------------------------------------- */
+.mk-scrim{position:fixed;inset:0;background:rgba(245,243,231,.86);z-index:70}
+.mk-sheet{position:fixed;left:0;right:0;bottom:0;z-index:71;background:var(--pale);border:2px solid var(--ink);border-bottom:0;border-radius:24px 24px 0 0;padding:22px 20px calc(20px + var(--safe-bottom))}
+.mk-sheet .mk-grab{width:44px;height:5px;border-radius:3px;background:var(--ink);opacity:.35;margin:-10px auto 14px}
+
+/* 6. messages (member to member) and concierge ---------------------------------- */
+.mk-thread{display:flex;flex-direction:column;gap:6px;padding:16px var(--gutter) 12px}
+.mk-day{align-self:center;font:700 12px/1 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:10px 0 6px}
+.mk-sysmsg{align-self:center;max-width:86%;text-align:center;font:400 13px/1.35 var(--font-body);color:var(--muted);margin:4px 0}
+.mk-msg{display:flex;flex-direction:column;max-width:80%;gap:3px}
+.mk-msg .mk-who{font:700 12px/1 var(--font-body);margin:8px 0 1px 12px;color:var(--ink)}
+.mk-msg .mk-b{padding:10px 14px;border:1.5px solid var(--ink);border-radius:18px;background:var(--cream);font:400 16px/1.35 var(--font-body);word-wrap:break-word}
+.mk-msg.mk-them{align-self:flex-start}
+.mk-msg.mk-them .mk-b{border-bottom-left-radius:6px}
+.mk-msg.mk-me{align-self:flex-end}
+.mk-msg.mk-me .mk-b{background:var(--ink);color:var(--yellow);border-bottom-right-radius:6px}
+.mk-msg .mk-t{font:400 11px/1 var(--font-body);color:var(--muted);margin:2px 12px 0}
+.mk-msg.mk-me .mk-t{align-self:flex-end}
+.mk-composer{display:flex;align-items:center;gap:10px;padding:10px var(--gutter) calc(10px + var(--safe-bottom) - 6px);background:var(--yellow);border-top:3px solid var(--ink)}
+.mk-composer .mk-input{border-radius:999px;min-height:48px;padding:0 18px}
+.mk-send{width:48px;height:48px;flex:none;border-radius:50%;background:var(--ink);color:var(--yellow);display:flex;align-items:center;justify-content:center}
+.mk-send.mk-off{background:transparent;color:var(--muted);border:1.5px solid var(--muted)}
+
+/* 8. layouts and shared pieces ------------------------------------------ */
+.mk-cols{display:block}
+@media (min-width:768px){
+  .mk-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,400px);column-gap:var(--col-gap);align-items:start}
+  .mk-rail{position:sticky;top:112px;display:flex;flex-direction:column;gap:40px;margin-top:48px}
+}
+.mk-section{margin-top:var(--gap-section)}
+.mk-section.mk-first{margin-top:28px}
+@media (min-width:768px){ .mk-section.mk-first{margin-top:48px} }
+.mk-plans-card .mk-rows{border-top:0}
+.mk-plans-card .mk-rows>.mk-row:last-child{border-bottom:0}
+.mk-plans-card .mk-rows>.mk-row{border-bottom:1.5px solid var(--ink)}
+.mk-plans-card .mk-sh{margin-bottom:4px}
+
+.mk-invite-wrap{position:relative}
+.mk-invite{background:var(--yellow);border:2px solid var(--ink);border-radius:20px;padding:24px 22px 22px;box-shadow:6px 6px 0 var(--ink);margin-right:6px;display:flex;flex-direction:column;align-items:flex-start}
+@media (min-width:768px){ .mk-invite{padding:clamp(28px,3vw,40px);box-shadow:8px 8px 0 var(--ink);margin-right:8px} }
+.mk-invite h3{margin:14px 0 16px;font-size:24px;font-weight:800;line-height:1.1;letter-spacing:-.015em}
+@media (min-width:768px){ .mk-invite h3{font-size:28px} }
+.mk-invite dl{display:grid;grid-template-columns:96px 1fr;gap:8px 0;margin:0 0 20px;font-size:15px;width:100%}
+.mk-invite dt{font-weight:700}
+.mk-invite dd{margin:0}
+.mk-invite-art{position:absolute;right:24px;top:-91px;width:96px;height:96px;pointer-events:none;z-index:2;stroke-width:3.5}
+@media (min-width:768px){ .mk-invite-art{right:48px;top:-159.2px;width:168px;height:168px;stroke-width:3} }
+.mk-band-grid{display:block}
+.mk-band-words .mk-lead{margin-top:14px}
+.mk-band-card{margin-top:76px}
+.mk-band-actions{display:flex;flex-direction:column;gap:4px;margin-top:24px;align-items:stretch}
+.mk-band-actions .mk-link{justify-content:center}
+@media (min-width:768px){
+  .mk-band-grid{display:flex;align-items:center;gap:var(--col-gap)}
+  .mk-band-words{flex:1 1 360px;min-width:0}
+  .mk-band-card{flex:0 1 440px;margin-top:90px;min-width:0;width:100%}
+  .mk-band-actions{flex-direction:row;align-items:center;gap:24px;margin-top:28px}
+}
+.mk-band-actions.mk-in-card{display:none}
+.mk-mt-section{margin-top:var(--gap-section)}
+
+.mk-btn.mk-block-phone{display:flex;width:100%}
+@media (min-width:768px){ .mk-btn.mk-block-phone{display:inline-flex;width:auto} }
+.mk-band-actions .mk-btn{align-self:stretch}
+@media (min-width:768px){ .mk-band-actions .mk-btn{align-self:auto} }
+@media (max-width:359px){ .mk-tab .mk-lb{font-size:10px} .mk-tabbar{padding-left:2px;padding-right:2px} }
+
+/* v3 kit fixes (25 Oct): four-link computer header at tablet width, no island on a 320 phone */
+.mk-hdr nav a{white-space:nowrap}
+@media (max-width:899px){
+  .mk-hdr .mk-grid{gap:16px}
+  .mk-hdr nav{gap:16px}
+  .mk-hdr nav a,.mk-hdr .mk-me{font-size:14px}
+  .mk-hdr .mk-wm{height:36px}
+  .mk-hdr .mk-me > span:not(.mk-avatar){display:none}
+}
+
+/* the photo is the current page on You: the phone's double ring on the photo, and the name underlined like a current tab link (the kit draws neither on the computer header) */
+.mk-hdr .mk-me[aria-current] .mk-avatar{box-shadow:0 0 0 2px var(--yellow),0 0 0 4px var(--ink)}
+.mk-hdr .mk-me[aria-current] > span:not(.mk-avatar){text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:6px}
+
+/* 9. additions for the product (small, additive; the area designs draw these in their own files) ---------- */
+/* a button that cannot be used yet: outlined and quiet, never a faded ink button (RULE-38). Saving is the full ink button, aria-busy. */
+.mk-btn.mk-is-off{background:transparent;color:var(--muted);border-color:var(--muted);cursor:default}
+.mk-btn.mk-is-pending{cursor:progress}
+
+/* form fields: label, input, one help or error line */
+.mk-field .mk-help{font:400 13px/1.35 var(--font-body);color:var(--muted)}
+.mk-field .mk-error-text{font:400 13px/1.35 var(--font-body);color:var(--error)}
+.mk-field .mk-error-text:empty{margin-top:-8px}   /* the live region stays in the page, but takes no room until it has a message */
+.mk-input.mk-invalid{border-color:var(--error)}
+textarea.mk-input{display:block;min-height:120px;padding:12px 14px;line-height:1.35;resize:vertical}
+.mk-field .mk-input::placeholder{color:var(--muted);opacity:1}
+
+/* the public drawings standing on a rule: sized by --slot, the public Perks fit (PerkDrawing) */
+.mk-art{--slot:120px;display:flex}
+@media (min-width:768px){ .mk-art{--slot:176px} }
+.mk-art svg.mk-perk-svg{display:block;overflow:visible;width:calc(var(--slot)*var(--fw));height:calc(var(--slot)*var(--fh));stroke-width:var(--fs)}
+
+/* a page whose <main> is a column, so a closing band or empty state fills down to the tab bar's rule */
+.mk-page > .mk-main.mk-main-fill{display:flex;flex-direction:column}
+.mk-main-fill.mk-main-pad{padding-bottom:0}
+.mk-main-fill > .mk-wrap{flex:none}
+
+/* closing band: one line, one button, a public drawing on the rule (the public site's closing move) */
+.mk-close{background:var(--yellow);border-top:3px solid var(--ink);margin-top:48px;flex:1 0 auto;display:flex;flex-direction:column}
+.mk-close>.mk-wrap{flex:1 0 auto;display:flex;flex-direction:column}
+.mk-close-in{flex:1 0 auto;display:flex;flex-direction:column;padding-top:48px}
+.mk-close-h{font-size:36px;line-height:1.02;font-weight:800;letter-spacing:-.035em;text-wrap:balance}
+.mk-close-h .mk-serif{font-size:1.1em;letter-spacing:-.01em}
+.mk-close .mk-lead{margin-top:16px;max-width:34ch}
+.mk-close-act{margin-top:24px}
+.mk-close-art{justify-content:center;margin-top:auto;padding-top:40px}
+@media (min-width:768px){
+  .mk-close{margin-top:64px;border-bottom:3px solid var(--ink);flex:0 0 auto}
+  .mk-close-in{flex-direction:row;align-items:flex-end;justify-content:space-between;gap:var(--col-gap);padding-top:64px}
+  .mk-close-words{padding-bottom:64px;max-width:640px}
+  .mk-close .mk-lead{max-width:44ch}
+  .mk-close-h{font-size:clamp(44px,4.6vw,64px)}
+  .mk-close-art{margin:0 8px 0 0;padding-top:0}
+  .mk-close-art,.mk-empty-art{--slot:clamp(200px,20vw,280px)}
+}
+
+/* empty state: cream band, a line, one action, a drawing standing on the rule */
+.mk-empty{flex:1 1 auto;display:flex;flex-direction:column;border-bottom:0;background:var(--cream);border-top:3px solid var(--ink)}
+.mk-empty>.mk-wrap{flex:1 1 auto;display:flex;flex-direction:column}
+.mk-empty-in{flex:1 1 auto;display:flex;flex-direction:column;padding-top:40px}
+.mk-empty-h{font-size:36px;line-height:1.02;font-weight:800;letter-spacing:-.035em;text-wrap:balance}
+.mk-empty-h .mk-serif{font-size:1.1em;letter-spacing:-.01em}
+.mk-empty-words .mk-lead{margin-top:16px;max-width:30ch}
+.mk-empty-act{display:flex;flex-direction:column;gap:4px;margin-top:24px}
+.mk-empty-act .mk-link{justify-content:center}
+.mk-empty-art{justify-content:center;margin-top:auto;padding-top:40px}
+@media (min-width:768px){
+  .mk-empty{flex:0 0 auto;border-bottom:3px solid var(--ink)}
+  .mk-empty>.mk-wrap{display:block}
+  .mk-empty-in{flex-direction:row;align-items:flex-end;justify-content:space-between;gap:var(--col-gap);padding-top:64px}
+  .mk-empty-words{padding-bottom:64px}
+  .mk-empty-h{font-size:clamp(44px,4.6vw,64px)}
+  .mk-empty-act{flex-direction:row;align-items:center;gap:24px}
+  .mk-empty-art{margin:0 8px 0 0;padding-top:0}
+  .mk-empty-words .mk-lead{max-width:36ch}
+}
