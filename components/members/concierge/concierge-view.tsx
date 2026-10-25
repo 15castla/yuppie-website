@@ -59,6 +59,8 @@ export type ConciergeViewProps = {
 const REPLY_DELAY_MS = 1100;
 /** How long an attempt with no connection takes to give up. */
 const OFFLINE_DELAY_MS = 700;
+/** How long after the composer loses focus the tab bar returns. */
+const TYPING_END_DELAY_MS = 250;
 
 function nowLabel(): string {
   return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date());
@@ -313,6 +315,28 @@ export function ConciergeView({
 
   const forgetAll = useCallback(() => setMemory([]), []);
 
+  // Focus in: the tab bar steps aside at once. Focus out: it comes back a moment later, because a tap on a
+  // button in the thread blurs the input first and the layout must not move before that tap has landed.
+  const typingTimer = useRef<number | null>(null);
+  const onTypingChange = useCallback((next: boolean) => {
+    if (typingTimer.current !== null) {
+      window.clearTimeout(typingTimer.current);
+      timers.current.delete(typingTimer.current);
+      typingTimer.current = null;
+    }
+    if (next) {
+      setTyping(true);
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      timers.current.delete(timer);
+      typingTimer.current = null;
+      setTyping(false);
+    }, TYPING_END_DELAY_MS);
+    typingTimer.current = timer;
+    timers.current.add(timer);
+  }, []);
+
   // ------------------------------------------------------------ draw
 
   const composer = (
@@ -322,7 +346,7 @@ export function ConciergeView({
       onSubmit={() => submit(draft)}
       canSend={canSend}
       placeholder={started && waiting ? "Ask a follow-up" : "Ask where to go"}
-      onTypingChange={setTyping}
+      onTypingChange={onTypingChange}
       autoFocus={autoFocusComposer}
       inert={sheetOpen}
     />
