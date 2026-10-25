@@ -19,6 +19,7 @@ import { PlanLoading, PlanView } from "@/components/members/invite/plan-view";
 import { PostedView, PostLoading, PostView, type PostErrors, type PostValues } from "@/components/members/invite/post-view";
 import type { Moment } from "@/components/members/invite/use-moments";
 import { YoursLoading, YoursView } from "@/components/members/invite/yours-view";
+import { COST_ERROR, type CostValues } from "@/lib/members/invite/cost";
 import { examplePhoto } from "@/lib/members/mock/example-photos";
 import {
   EXAMPLE_FEED,
@@ -94,6 +95,12 @@ const PLAN_CASES: Record<string, PlanCase> = {
   own: { invite: P.climbing },
   cancelled: { invite: P.galleryCancelled },
   past: { invite: P.spin },
+  // paid plans (the paid plans flag): the plan page in every money state
+  "paid-open": { invite: P.comedy },
+  "paid-in": { invite: P.comedyPaid },
+  "paid-full": { invite: P.comedyFull },
+  "paid-own": { invite: P.polo },
+  "paid-cancelled": { invite: P.comedyCancelled },
   // the "I'm in" moments (oi-moments)
   joined: sheetOn(P.saturdayClass, "joined"),
   withdraw: sheetOn(P.saturdayClass, "withdraw"),
@@ -121,6 +128,40 @@ const ERRORS: PostErrors = {
   date: "Pick a date from today.",
   where: "Say where you’re meeting.",
 };
+
+// ---- the post form with a cost (the paid polo example of oi-post-cost)
+const PAID_FILLED: Partial<PostValues> = {
+  title: "Polo match, two spare tickets",
+  type: "Sport",
+  date: "2026-11-14",
+  time: "14:00",
+  where: "Hartley Polo Grounds",
+  places: 2,
+  hostGoing: false,
+  note: "Two seats together, at face value. Tickets are on your phone.",
+};
+const costOn = (patch: Partial<CostValues> = {}): Partial<PostValues> => ({
+  ...PAID_FILLED,
+  cost: { on: true, price: "40", tick: true, ...patch },
+});
+const getPaidContext = (status: "not-set-up" | "needs-info" | "in-review" | "ready"): NewOpenInviteContext => ({
+  ...CONTEXT,
+  getPaid: { status, accountEnding: status === "ready" ? "4321" : null, paused: null },
+});
+const POST_COST_STATES = [
+  "cost-off",
+  "cost-new",
+  "cost-ready",
+  "cost-needs-info",
+  "cost-review",
+  "cost-blank",
+  "cost-zero",
+  "cost-high",
+  "cost-untick",
+  "cost-getpaid",
+  "getpaid-sheet",
+  "getpaid-stripe",
+] as const;
 
 export const inviteScreens: PreviewScreen[] = [
   {
@@ -211,26 +252,60 @@ export const inviteScreens: PreviewScreen[] = [
   {
     id: "invite-post",
     title: "Open Invite: post a plan",
-    states: ["empty", "filled", "errors", "pending", "done", "loading"],
+    states: ["empty", "filled", "errors", "pending", "done", "loading", "done-paid", ...POST_COST_STATES],
     tab: "invite",
     showMessages: false,
     dock: "own",
     defaultFlags: FLAGS,
-    frame: ({ state }) => (state === "done" ? { dock: "tabs" } : {}),
-    render: ({ state }) => {
+    frame: ({ state }) => (state === "done" || state === "done-paid" ? { dock: "tabs" } : {}),
+    render: ({ state, flags }) => {
       switch (state) {
         case "filled":
-          return <PostView context={CONTEXT} initial={FILLED} />;
+          return <PostView context={CONTEXT} paidPlans={flags.paidPlans} initial={FILLED} />;
         case "errors":
-          return <PostView context={CONTEXT} initialErrors={ERRORS} />;
+          return <PostView context={CONTEXT} paidPlans={flags.paidPlans} initialErrors={ERRORS} />;
         case "pending":
-          return <PostView context={CONTEXT} initial={FILLED} initialPosting />;
+          return <PostView context={CONTEXT} paidPlans={flags.paidPlans} initial={FILLED} initialPosting />;
         case "done":
           return <PostedView invite={P.climbing} me={SAM} />;
+        case "done-paid":
+          return <PostedView invite={P.polo} me={SAM} />;
         case "loading":
           return <PostLoading />;
+        // the cost option (paid plans are on in all of these)
+        case "cost-off":
+          return <PostView context={CONTEXT} paidPlans initial={PAID_FILLED} />;
+        case "cost-new":
+          return <PostView context={getPaidContext("not-set-up")} paidPlans initial={costOn()} />;
+        case "cost-ready":
+          return <PostView context={CONTEXT} paidPlans initial={costOn()} />;
+        case "cost-needs-info":
+          return <PostView context={getPaidContext("needs-info")} paidPlans initial={costOn()} />;
+        case "cost-review":
+          return <PostView context={getPaidContext("in-review")} paidPlans initial={costOn()} />;
+        case "cost-blank":
+          return <PostView context={CONTEXT} paidPlans initial={costOn({ price: "" })} initialErrors={{ price: COST_ERROR.blank }} />;
+        case "cost-zero":
+          return <PostView context={CONTEXT} paidPlans initial={costOn({ price: "0" })} initialErrors={{ price: COST_ERROR.zero }} />;
+        case "cost-high":
+          return <PostView context={CONTEXT} paidPlans initial={costOn({ price: "400" })} initialErrors={{ price: COST_ERROR.high }} />;
+        case "cost-untick":
+          return <PostView context={CONTEXT} paidPlans initial={costOn({ tick: false })} initialErrors={{ faceValue: COST_ERROR.untick }} />;
+        case "cost-getpaid":
+          return (
+            <PostView
+              context={getPaidContext("not-set-up")}
+              paidPlans
+              initial={costOn()}
+              initialErrors={{ getPaid: COST_ERROR.getPaid }}
+            />
+          );
+        case "getpaid-sheet":
+          return <PostView context={getPaidContext("not-set-up")} paidPlans initial={costOn()} initialMode="intro" />;
+        case "getpaid-stripe":
+          return <PostView context={getPaidContext("not-set-up")} paidPlans initial={costOn()} initialMode="stripe" />;
         default:
-          return <PostView context={CONTEXT} />;
+          return <PostView context={CONTEXT} paidPlans={flags.paidPlans} />;
       }
     },
   },

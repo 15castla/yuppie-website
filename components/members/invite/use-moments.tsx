@@ -59,6 +59,8 @@ export type MomentsOptions = {
   /** The harness opens a screen with a sheet already up, or a card already "Joining…". */
   initialMoment?: Moment | null;
   initialPendingId?: string | null;
+  /** flags.paidPlans: the report sheet lists "Price above what it cost". */
+  paidPlans?: boolean;
 };
 
 export function useMoments({
@@ -68,6 +70,7 @@ export function useMoments({
   seeOtherHref,
   initialMoment = null,
   initialPendingId = null,
+  paidPlans = false,
 }: MomentsOptions) {
   const [plans, setPlans] = useState(initialPlans);
   const [moment, setMoment] = useState<Moment | null>(initialMoment);
@@ -121,7 +124,7 @@ export function useMoments({
         );
         break;
       case "report":
-        sheet = <ReportSheet invite={current} onClose={close} onSend={() => setMoment({ kind: "report-sent", id: current.id })} />;
+        sheet = <ReportSheet invite={current} withPrice={paidPlans} onClose={close} onSend={() => setMoment({ kind: "report-sent", id: current.id })} />;
         break;
       case "report-sent":
         sheet = <ReportSentSheet onClose={close} />;

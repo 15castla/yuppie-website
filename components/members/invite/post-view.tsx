@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 
 import { BackRow, Button, Icon, Main, Shape } from "@/components/members/kit";
 import { GetPaidHandOff, type GetPaidMode } from "@/components/members/payments/get-paid";
+import { EMPTY_COST, usablePence, validateCost, type CostValues } from "@/lib/members/invite/cost";
 import { formatDateInput, isPaid, londonLocalToIso } from "@/lib/members/invite/format";
 import {
   INVITE_TYPES,
@@ -33,7 +34,7 @@ import {
 } from "@/lib/members/invite/types";
 import { ROUTES } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
-import { CostBlock, EMPTY_COST, usablePence, validateCost, type CostValues } from "./cost-block";
+import { CostBlock } from "./cost-block";
 import { DEMO_POSTED_ID, savePosted } from "./demo-posted";
 import { CheckRow, FieldError, Lab } from "./form-parts";
 import { InkDrawing } from "./ink-drawing";

@@ -509,7 +509,7 @@
 .oi-in:focus-within{outline:2px solid var(--ink);outline-offset:2px}
 .oi-in.is-error:focus-within{outline-color:var(--error)}
 .oi-ta{padding:12px 14px}
-.oi-ta textarea{min-height:68px;resize:vertical;line-height:1.4;padding:0;text-overflow:clip}
+.oi-ta textarea{min-height:68px;resize:none;line-height:1.4;padding:0;text-overflow:clip}
 .oi-in.is-off input,.oi-in.is-off textarea{cursor:progress}
 /* a date or time: the field draws the words in 24-hour London form, the native control sits invisibly on top so the phone's own picker opens */
 .oi-pick .oi-native{position:absolute;inset:0;width:100%;height:100%;min-height:0;opacity:0;cursor:pointer;z-index:1}
@@ -527,3 +527,6 @@
 /* ---- P3. loading shapes in the Open Invite grammar ------------------------------------------------------------------ */
 .oi-sk-chips{display:flex;gap:8px;overflow:hidden}
 .oi-sk-card{width:100%;border-radius:20px}
+
+/* The post form on a computer keeps the kit's 40px under the form (the page has no docked bar there). */
+@media (min-width:768px){ .oi-postmain{padding-bottom:40px} }

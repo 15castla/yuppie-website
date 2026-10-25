@@ -263,6 +263,7 @@ export function PlanView({
     seeOtherHref: ROUTES.openInvite,
     initialMoment,
     initialPendingId,
+    paidPlans,
   });
   const invite = moments.plans[0];
   const pending = moments.pendingId === invite.id;
