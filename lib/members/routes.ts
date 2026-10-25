@@ -19,6 +19,8 @@ export const ROUTES = {
   root: "/members",
   openInvite: "/members/open-invite",
   openInviteNew: "/members/open-invite/new",
+  /** "Posted.": the page after posting, so the tab bar comes back (the form has its own docked button). */
+  openInviteDone: "/members/open-invite/new/done",
   openInviteYours: "/members/open-invite/yours",
   events: "/members/events",
   /** Your plans: the club events you have booked. A sub page of Events. */
@@ -48,6 +50,10 @@ export const ROUTES = {
 
 // Dynamic routes.
 export const openInviteHref = (id: string) => `${ROUTES.openInvite}/${encodeURIComponent(id)}`;
+/** A paid plan's receipt (paid plans flag). A sub page of the plan. */
+export const openInviteReceiptHref = (id: string) => `${openInviteHref(id)}/receipt`;
+/** One paid plan's payments, for its host (You > Payments > a plan). */
+export const youPaymentsPlanHref = (id: string) => `${ROUTES.youPayments}/${encodeURIComponent(id)}`;
 export const eventHref = (slug: string) => `${ROUTES.events}/${encodeURIComponent(slug)}`;
 export const messageThreadHref = (chatId: string) =>
   `${ROUTES.messages}/${encodeURIComponent(chatId)}`;
@@ -74,8 +80,10 @@ export type RouteDef = {
 export const ROUTE_TABLE: readonly RouteDef[] = [
   { id: "openInvite", pattern: ROUTES.openInvite, flag: "openInvite", tab: "invite", messages: "show", dock: "tabs" },
   { id: "openInviteNew", pattern: ROUTES.openInviteNew, flag: "openInvite", tab: "invite", messages: "none", dock: "own" },
+  { id: "openInviteDone", pattern: ROUTES.openInviteDone, flag: "openInvite", tab: "invite", messages: "none", dock: "tabs" },
   { id: "openInviteYours", pattern: ROUTES.openInviteYours, flag: "openInvite", tab: "invite", messages: "show", dock: "tabs" },
   { id: "openInviteDetail", pattern: `${ROUTES.openInvite}/[id]`, flag: "openInvite", tab: "invite", messages: "show", dock: "own" },
+  { id: "openInviteReceipt", pattern: `${ROUTES.openInvite}/[id]/receipt`, flag: "paidPlans", tab: "invite", messages: "show", dock: "tabs" },
   { id: "events", pattern: ROUTES.events, tab: "events", messages: "none", dock: "tabs" },
   { id: "eventDetail", pattern: `${ROUTES.events}/[slug]`, tab: "events", messages: "none", dock: "own" },
   { id: "plans", pattern: ROUTES.plans, tab: "events", messages: "none", dock: "tabs" },
@@ -87,6 +95,7 @@ export const ROUTE_TABLE: readonly RouteDef[] = [
   { id: "you", pattern: ROUTES.you, tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youNotifications", pattern: ROUTES.youNotifications, flag: "notifications", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youPayments", pattern: ROUTES.youPayments, flag: "paidPlans", tab: null, messages: "none", dock: "tabs", you: true },
+  { id: "youPaymentsPlan", pattern: `${ROUTES.youPayments}/[id]`, flag: "paidPlans", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youBlocked", pattern: ROUTES.youBlocked, flag: "messages", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youHelp", pattern: ROUTES.youHelp, tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youHelpFaq", pattern: ROUTES.youHelpFaq, tab: null, messages: "none", dock: "tabs", you: true },
