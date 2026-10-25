@@ -19,7 +19,7 @@
 //
 // needs_device_check: the hand-off sheet (web, app) and the Stripe screen (app).
 
-import { useId, type ReactNode } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 import { Button, Card, Icon } from "@/components/members/kit";
 import { Sheet } from "@/components/members/invite/sheet";
@@ -214,4 +214,26 @@ export function GetPaidHandOff({
     );
   }
   return null;
+}
+
+/** The four entry cards and the quiet line together (the preview harness draws them on one page; the product shows one at a time). */
+export function GetPaidBoard() {
+  const [mode, setMode] = useState<GetPaidMode>(null);
+  const cards: GetPaid[] = [
+    { status: "not-set-up", accountEnding: null, paused: null },
+    { status: "needs-info", accountEnding: null, paused: { amountPence: 3500, dueOn: "2026-10-27T09:00:00Z" } },
+    { status: "in-review", accountEnding: null, paused: null },
+    { status: "ready", accountEnding: "4321", paused: null },
+  ];
+  return (
+    <main className="mk-main mk-main-pad">
+      <div className="mk-wrap" style={{ display: "grid", gap: 32, paddingTop: 32 }}>
+        {cards.map((card) => (
+          <GetPaidCard key={card.status} getPaid={card} onMode={setMode} />
+        ))}
+        <GetPaidSlim onManage={() => setMode("stripe")} />
+      </div>
+      <GetPaidHandOff mode={mode} onMode={setMode} onDone={() => setMode(null)} />
+    </main>
+  );
 }

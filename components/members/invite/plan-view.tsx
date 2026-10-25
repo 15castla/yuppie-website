@@ -271,6 +271,8 @@ export function PlanView({
   const host = invite.host;
   const poster = host.firstName;
   const mine = state === "own";
+  // the host, also once the plan is cancelled or over (then it is no longer "own")
+  const isHost = invite.you.role === "host";
   const dead = state === "cancelled" || state === "past";
   const paid = paidPlans && isPaid(invite);
   const amount = invite.cost ? gbp(invite.cost.pricePence) : "";
@@ -297,7 +299,8 @@ export function PlanView({
   // ---- notice
   let notice: ReactNode = null;
   if (state === "cancelled") {
-    if (mine) {
+    // the host who just cancelled sees "You cancelled" (the plan is "cancelled", no longer "own")
+    if (isHost) {
       notice = (
         <div className="oi-notice">
           <Icon name="info" size={20} />
@@ -312,7 +315,10 @@ export function PlanView({
         <div className="oi-notice">
           <Icon name="banknote" size={20} />
           <div>
-            <b>{poster} cancelled this plan.</b> {amount} refunded to your card, back in 5 to 10 working days.
+            <b>{poster} cancelled this plan.</b> {amount} refunded to your card, back in 5 to 10 working days.{" "}
+            <KitLink className="mk-inline-link" href={openInviteReceiptHref(invite.id)}>
+              See receipt
+            </KitLink>
           </div>
         </div>
       );
@@ -365,9 +371,9 @@ export function PlanView({
       ) : null}
       <dt className="oi-host-dt">Posted by</dt>
       <dd className="oi-host">
-        <Avatar photoUrl={(mine ? me : host).photoUrl} name={(mine ? me : host).firstName} size={44} />
+        <Avatar photoUrl={(isHost ? me : host).photoUrl} name={(isHost ? me : host).firstName} size={44} />
         <span className="oi-ell" title={poster}>
-          {mine ? "You" : poster}
+          {isHost ? "You" : poster}
         </span>
       </dd>
     </dl>
@@ -620,7 +626,7 @@ export function PlanView({
               <h1 className="oi-h1">{invite.title}</h1>
               {notice}
               {facts}
-              <Note invite={invite} mine={mine} className="mk-show-desk oi-hero-note" />
+              <Note invite={invite} mine={isHost} className="mk-show-desk oi-hero-note" />
             </div>
             {card}
           </div>
@@ -641,7 +647,7 @@ export function PlanView({
                   <Rows>{questionRows}</Rows>
                 </div>
               ) : null}
-              <Note invite={invite} mine={mine} className="mk-show-phone" />
+              <Note invite={invite} mine={isHost} className="mk-show-phone" />
               {paid && (state === "open" || state === "in") ? <MoneyTile invite={invite} state={state} /> : null}
               {state !== "cancelled" ? (
                 <div className="oi-sec">

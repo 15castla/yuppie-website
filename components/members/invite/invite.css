@@ -530,3 +530,4 @@
 
 /* The post form on a computer keeps the kit's 40px under the form (the page has no docked bar there). */
 @media (min-width:768px){ .oi-postmain{padding-bottom:40px} }
+.oi-notice .mk-inline-link{display:inline-block;padding:14px 0;margin:-14px 0;line-height:1.4}

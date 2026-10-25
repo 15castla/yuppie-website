@@ -20,6 +20,7 @@ import { PlanLoading, PlanView } from "@/components/members/invite/plan-view";
 import { PostedView, PostLoading, PostView, type PostErrors, type PostValues } from "@/components/members/invite/post-view";
 import type { Moment } from "@/components/members/invite/use-moments";
 import { YoursLoading, YoursView } from "@/components/members/invite/yours-view";
+import { GetPaidBoard } from "@/components/members/payments/get-paid";
 import { PaymentsView } from "@/components/members/payments/payments-view";
 import { PlanPaymentsView } from "@/components/members/payments/plan-payments-view";
 import { ReceiptView } from "@/components/members/payments/receipt-view";
@@ -507,6 +508,16 @@ export const inviteScreens: PreviewScreen[] = [
           return <PaymentsView payments={EXAMPLE_HOST_PAYMENTS.full} />;
       }
     },
+  },
+  {
+    id: "pay-getpaid",
+    title: "Paid plans: Get paid, the four entry cards and the quiet line",
+    states: ["cards"],
+    tab: null,
+    youCurrent: true,
+    showMessages: false,
+    defaultFlags: PAY_PAGE_FLAGS,
+    render: () => <GetPaidBoard />,
   },
   {
     id: "pay-plan",
