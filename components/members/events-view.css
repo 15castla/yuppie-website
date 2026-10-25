@@ -1,0 +1,22 @@
+/* Events (and the Open Invite band at its foot). The page is built from the kit
+   (app/members/members.css); this file holds only what the approved Events design
+   draws on top of it. Prefix ev-. Measurements are the design's (v3 pages_events.py).
+   The design's @container queries are @media queries here (see members.css, point 1). */
+
+/* the filter chips sit between "What's on" and the first month */
+.ev-chips{margin:4px 0 28px}
+
+/* "Your plans" when the member has plans but none are coming up: one quiet line between the rules the rows would have */
+.ev-quiet{display:flex;align-items:center;min-height:76px;border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink);font:400 15px/1.35 var(--font-body);color:var(--muted)}
+.mk-plans-card .ev-quiet{border:0;min-height:68px}
+
+/* a filter that matches nothing: one line and a way back, under the chips */
+.ev-miss{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border-top:1.5px solid var(--ink);padding-top:20px}
+.ev-miss p{font:400 16px/1.4 var(--font-body)}
+
+/* the Open Invite band: the public site's cream band, a card on the right (below the words on a phone) */
+.ev-band{margin-top:56px}
+
+/* tablet widths (768 to 1023): a 320px rail keeps the list column readable (the kit's 400px max leaves it about 270px wide).
+   The same fix the Your plans design made for its own page (cyp.css, "tablet widths"). */
+@media (min-width:768px) and (max-width:1023px){ .ev-page .mk-cols{grid-template-columns:minmax(0,1fr) 320px} }

@@ -1,0 +1,43 @@
+/* Your plans (/members/plans). Built from the kit (app/members/members.css); this file is what the approved design
+   (v3 pages_plans.py, cyp.css section 3) draws on top of it. Prefix pl-. @container queries are @media queries here. */
+
+/* sub page: the bar already carries the back link (and in the app the status area), so the head starts close under it */
+.pl-page .mk-head,.mk-screen.mk-app .pl-page .mk-head{padding-top:20px}
+@media (min-width:768px){ .pl-page .mk-head,.mk-screen.mk-app .pl-page .mk-head{padding-top:12px} }
+
+/* the web phone's bar is the kit's 56px (back link, 6px above, 4.5px below, 1.5px rule). The kit's .mk-subbar is 57.5px there
+   (its bottom padding is 6px), which would move this page 1.5px against the Events page the member just left. */
+.mk-screen.mk-web .pl-page .mk-subbar{padding-bottom:4.5px}
+
+/* computers draw the back link above the title; phones have it in the bar */
+.pl-crumb{display:none}
+@media (min-width:768px){ .pl-crumb{display:block} .pl-crumb>div{padding-top:32px} }
+
+/* Upcoming | Past, then the filter chips */
+.pl-tools{display:flex;flex-direction:column;gap:16px;margin-top:24px}
+.pl-list{margin-top:28px}
+
+/* past rows are muted */
+.mk-row.pl-past .mk-title,.mk-row.pl-past .mk-meta{color:var(--muted)}
+.mk-row.pl-past .mk-dn{color:var(--muted)}
+
+/* a filter that matches nothing */
+.pl-miss{display:flex;flex-direction:column;align-items:flex-start;gap:2px;border-top:1.5px solid var(--ink);padding-top:20px}
+.pl-miss p{font:400 16px/1.4 var(--font-body)}
+
+/* nothing yet: a line, the coupes standing on a 3px rule, then the way forward */
+.pl-stand-wrap{margin-top:40px}
+.pl-stand{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;border-bottom:3px solid var(--ink)}
+.pl-stand-txt{padding-bottom:28px;min-width:0}
+.pl-stand-txt p{margin-top:6px;max-width:26ch}
+.pl-stand .mk-art{--slot:146.5px;padding-right:8px}
+.pl-stand .mk-art svg.mk-perk-svg{stroke-width:2.625}
+.pl-stand-acts{display:flex;flex-direction:column;gap:4px;margin-top:24px}
+.pl-stand-acts .mk-link{justify-content:center}
+
+/* the right rail (computers): list left, a card right; a 320px rail from 768 to 1023 keeps the list readable */
+.pl-rail{margin-top:24px}
+.pl-postcard{display:flex;flex-direction:column;align-items:flex-start;gap:12px}
+.pl-postcard h2{font:800 24px/1.2 var(--font-body);letter-spacing:-.02em}
+.pl-postcard p{font:400 15px/1.45 var(--font-body)}
+@media (min-width:768px) and (max-width:1023px){ .pl-page .mk-cols{grid-template-columns:minmax(0,1fr) 320px} }
