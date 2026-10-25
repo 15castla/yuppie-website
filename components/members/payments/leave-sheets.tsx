@@ -119,7 +119,7 @@ export function LeftSheet({ invite, onClose }: { invite: OpenInvite; onClose: ()
             icon: "mail",
             text: (
               <>
-                Receipt sent to sam@example.com.{" "}
+                Receipt sent to {invite.you.receiptEmail}.{" "}
                 <KitLink className="mk-inline-link" href={openInviteReceiptHref(invite.id)}>
                   See receipt
                 </KitLink>

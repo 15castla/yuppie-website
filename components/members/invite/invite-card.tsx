@@ -1,3 +1,5 @@
+"use client";
+
 // The Open Invite card: the public site's yellow invite card (2px ink border,
 // hard shadow) with a feed's footer of two 44px buttons. Kit counterpart:
 // pages_oi.oi_card(). One component for every state the design draws:

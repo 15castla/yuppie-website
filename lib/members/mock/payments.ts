@@ -9,7 +9,7 @@
 // designs' payments.md section 7 lists the added ones). The example "now" is
 // Sun 25 Oct 2026, 09:41.
 
-import { EXAMPLE_INVITES, EXAMPLE_PEOPLE, TOM_POLO_PAYMENT } from "./open-invite";
+import { EXAMPLE_INVITES, EXAMPLE_NOW, EXAMPLE_PEOPLE, TOM_POLO_PAYMENT } from "./open-invite";
 import type {
   GetPaid,
   HostPaidPlan,
@@ -140,11 +140,12 @@ const POLO_PAGE: HostPlanPayments["invite"] = {
 };
 
 const PLAN_PAYMENTS: Record<string, HostPlanPayments> = {
-  "polo-match": { invite: POLO_PAGE, payments: [TOM_POLO_PAYMENT], payoutOn: "2026-11-17T09:00:00Z" },
+  "polo-match": { invite: POLO_PAGE, payments: [TOM_POLO_PAYMENT], payoutOn: "2026-11-17T09:00:00Z", now: EXAMPLE_NOW },
   "polo-match-asked": {
     invite: { ...POLO_PAGE, id: "polo-match-asked" },
     payments: [TOM_POLO_ASKED],
     payoutOn: "2026-11-17T09:00:00Z",
+    now: EXAMPLE_NOW,
   },
   "pottery-class": {
     invite: {
@@ -157,6 +158,7 @@ const PLAN_PAYMENTS: Record<string, HostPlanPayments> = {
     },
     payments: [payment("pay-0391", "0391", "pottery-class", AISHA, 3500, "2026-10-17T14:12:00+01:00", "Visa ending 1881")],
     payoutOn: "2026-10-27T09:00:00Z",
+    now: EXAMPLE_NOW,
   },
   "gig-night": {
     invite: {
@@ -172,6 +174,7 @@ const PLAN_PAYMENTS: Record<string, HostPlanPayments> = {
       { ...payment("pay-0375", "0375", "gig-night", MARCUS, 1800, "2026-10-04T18:02:00+01:00", "Visa ending 4242"), status: "paid-out" },
     ],
     payoutOn: null,
+    now: EXAMPLE_NOW,
   },
   "padel-doubles": {
     invite: {
@@ -195,8 +198,12 @@ const PLAN_PAYMENTS: Record<string, HostPlanPayments> = {
       },
     ],
     payoutOn: null,
+    now: EXAMPLE_NOW,
   },
 };
+
+/** The plans' payments by id, ready-made for the preview harness. */
+export const EXAMPLE_PLAN_PAYMENTS = PLAN_PAYMENTS;
 
 export async function getHostPlanPayments(inviteId: string): Promise<HostPlanPayments | null> {
   return PLAN_PAYMENTS[inviteId] ?? null;
@@ -204,17 +211,10 @@ export async function getHostPlanPayments(inviteId: string): Promise<HostPlanPay
 
 // ---------------------------------------------------------------- receipts
 
-const RECEIPT_INVITES: OpenInvite[] = [
-  EXAMPLE_INVITES.comedyPaid,
-  EXAMPLE_INVITES.comedyCancelled,
-  EXAMPLE_INVITES.comedyLeft,
-];
-
-/** A member's receipt for a paid plan, or null (the page then 404s). */
-export async function getReceipt(inviteId: string): Promise<Receipt | null> {
-  const invite = RECEIPT_INVITES.find((entry) => entry.id === inviteId);
-  const paid = invite?.you.payment;
-  if (!invite || !paid) return null;
+/** A receipt for a plan the member paid for, or null (the plan has no payment of theirs). */
+function receiptFor(invite: OpenInvite): Receipt | null {
+  const paid = invite.you.payment;
+  if (!paid) return null;
   return {
     payment: paid,
     invite: {
@@ -225,9 +225,28 @@ export async function getReceipt(inviteId: string): Promise<Receipt | null> {
       host: invite.host,
       status: invite.status,
     },
-    email: "sam@example.com",
+    email: invite.you.receiptEmail,
     paidBy: "Sam Taylor",
   };
+}
+
+const RECEIPT_INVITES: OpenInvite[] = [
+  EXAMPLE_INVITES.comedyPaid,
+  EXAMPLE_INVITES.comedyCancelled,
+  EXAMPLE_INVITES.comedyLeft,
+];
+
+/** The receipts the designs draw, ready-made for the preview harness. */
+export const EXAMPLE_RECEIPTS = {
+  paid: receiptFor(EXAMPLE_INVITES.comedyPaid) as Receipt,
+  left: receiptFor(EXAMPLE_INVITES.comedyLeft) as Receipt,
+  cancelled: receiptFor(EXAMPLE_INVITES.comedyCancelled) as Receipt,
+};
+
+/** A member's receipt for a paid plan, or null (the page then 404s). */
+export async function getReceipt(inviteId: string): Promise<Receipt | null> {
+  const invite = RECEIPT_INVITES.find((entry) => entry.id === inviteId);
+  return invite ? receiptFor(invite) : null;
 }
 
 export const EXAMPLE_RECEIPT_IDS = {

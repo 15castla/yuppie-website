@@ -137,6 +137,7 @@ function previewInvite(values: PostValues, me: InviteMember): OpenInvite {
       chatPreview: null,
       askThreadId: "ask-preview",
       hostReply: null,
+      receiptEmail: "", // the preview card never shows it
       questions: [],
       payment: null,
       hostMoney: null,

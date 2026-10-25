@@ -372,7 +372,7 @@ export function PaySheet({
                 icon: "mail",
                 text: (
                   <>
-                    Receipt sent to sam@example.com.{" "}
+                    Receipt sent to {invite.you.receiptEmail}.{" "}
                     <KitLink className="mk-inline-link" href={receiptHref}>
                       See receipt
                     </KitLink>

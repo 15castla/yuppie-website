@@ -66,6 +66,8 @@ export type InviteViewer = {
   payment: InvitePayment | null;
   /** Host only, paid plan: the money so far (null on a free plan). */
   hostMoney: HostPlanMoney | null;
+  /** The signed-in member's own email address: where payment receipts go ("Receipt sent to ..."). Never another member's. */
+  receiptEmail: string;
 };
 
 export type OpenInvite = {
@@ -249,13 +251,15 @@ export type HostPlanPayments = {
   invite: Pick<OpenInvite, "id" | "title" | "startsAt" | "where" | "places" | "cost">;
   payments: InvitePayment[];
   payoutOn: string | null;
+  /** The server's clock (ISO): the page tells a plan still to come from one that is over, and stamps an answer, from it. */
+  now: string;
 };
 
 /** A receipt, for the member who paid. */
 export type Receipt = {
   payment: InvitePayment;
   invite: Pick<OpenInvite, "id" | "title" | "startsAt" | "where" | "host" | "status">;
-  /** Receipts are sent to this address. */
+  /** The member's own email address: "Email me a copy" sends the receipt here. */
   email: string;
   /** The member's full name, as on their account. */
   paidBy: string;

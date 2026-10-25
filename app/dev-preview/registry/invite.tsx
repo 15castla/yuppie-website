@@ -15,10 +15,14 @@ import {
   OpenInviteView,
 } from "@/components/members/invite/browse-view";
 import { InviteCard } from "@/components/members/invite/invite-card";
+import { askedForRefund, cancelled } from "@/components/members/invite/demo-state";
 import { PlanLoading, PlanView } from "@/components/members/invite/plan-view";
 import { PostedView, PostLoading, PostView, type PostErrors, type PostValues } from "@/components/members/invite/post-view";
 import type { Moment } from "@/components/members/invite/use-moments";
 import { YoursLoading, YoursView } from "@/components/members/invite/yours-view";
+import { PaymentsView } from "@/components/members/payments/payments-view";
+import { PlanPaymentsView } from "@/components/members/payments/plan-payments-view";
+import { ReceiptView } from "@/components/members/payments/receipt-view";
 import { COST_ERROR, type CostValues } from "@/lib/members/invite/cost";
 import { examplePhoto } from "@/lib/members/mock/example-photos";
 import {
@@ -28,7 +32,9 @@ import {
   EXAMPLE_PEOPLE,
   EXAMPLE_YOURS,
   SAM,
+  TOM_POLO_PAYMENT,
 } from "@/lib/members/mock/open-invite";
+import { EXAMPLE_HOST_PAYMENTS, EXAMPLE_PLAN_PAYMENTS, EXAMPLE_RECEIPTS } from "@/lib/members/mock/payments";
 import type { InviteMember, NewOpenInviteContext, OpenInvite, OpenInvitePage } from "@/lib/members/invite/types";
 import type { PreviewScreen } from "./types";
 
@@ -79,6 +85,26 @@ const LONG_PLANS: OpenInvite[] = [
   },
 ];
 
+// the longest paid card: £149.50, a two-line title, a 40-character name, 12 places (oi-cards-paid-long)
+const LONG_PAID: OpenInvite = {
+  ...P.fiveKm,
+  id: "long-paid",
+  title: LONG_TITLE,
+  where: "Calder Park",
+  places: 12,
+  host: longHost,
+  going: [longHost, EXAMPLE_PEOPLE.PRIYA, EXAMPLE_PEOPLE.TOM, EXAMPLE_PEOPLE.MARCUS, EXAMPLE_PEOPLE.AISHA, EXAMPLE_PEOPLE.DAN, EXAMPLE_PEOPLE.CHLOE],
+  cost: { pricePence: 14950, faceValueConfirmed: true },
+};
+// the plan page with the longest title and name (oi-edge-long-invite)
+const LONG_PAGE_PLAN: OpenInvite = {
+  ...P.fiveKm,
+  id: "long-page",
+  title: LONG_TITLE,
+  host: longHost,
+  going: [longHost, EXAMPLE_PEOPLE.OLLIE, EXAMPLE_PEOPLE.PRIYA, EXAMPLE_PEOPLE.DAN],
+};
+
 // ---- the plan page: one plan per state
 type PlanCase = { invite: OpenInvite; moment?: Moment; pending?: boolean };
 const sheetOn = (invite: OpenInvite, kind: Moment["kind"]): PlanCase => ({
@@ -95,6 +121,7 @@ const PLAN_CASES: Record<string, PlanCase> = {
   own: { invite: P.climbing },
   cancelled: { invite: P.galleryCancelled },
   past: { invite: P.spin },
+  long: { invite: LONG_PAGE_PLAN },
   // paid plans (the paid plans flag): the plan page in every money state
   "paid-open": { invite: P.comedy },
   "paid-in": { invite: P.comedyPaid },
@@ -163,11 +190,48 @@ const POST_COST_STATES = [
   "getpaid-stripe",
 ] as const;
 
+// ---- paid plans: the plan page with a pay, leave or cancel sheet open (the underlay is the real plan page)
+const PAY_FLAGS = ["openInvite", "messages", "paidPlans"] as const;
+const PAY_PAGE_FLAGS = ["openInvite", "paidPlans"] as const;
+const PRIYA_POLO_PAYMENT = {
+  ...TOM_POLO_PAYMENT,
+  id: "pay-0418",
+  receiptNumber: "0418",
+  payer: EXAMPLE_PEOPLE.PRIYA,
+  paidAt: "2026-10-25T10:05:00Z",
+};
+const POLO_TWO: OpenInvite = {
+  ...P.polo,
+  id: "polo-match-two",
+  going: [EXAMPLE_PEOPLE.TOM, EXAMPLE_PEOPLE.PRIYA],
+  you: {
+    ...P.polo.you,
+    hostMoney: { payments: [TOM_POLO_PAYMENT, PRIYA_POLO_PAYMENT], payoutOn: "2026-11-17T09:00:00Z", getPaid: "ready" },
+  },
+};
+const POLO_CANCELLED: OpenInvite = cancelled(P.polo, EXAMPLE_NOW);
+const POLO_TWO_CANCELLED: OpenInvite = cancelled(POLO_TWO, EXAMPLE_NOW);
+const PAY_STATES = ["ready", "paying", "declined", "bank", "bank-screen", "full", "full-refunded", "price", "hold-expired", "success", "load-error"] as const;
+type PayStateName = (typeof PAY_STATES)[number];
+const LEAVE_CASES: Record<string, PlanCase> = {
+  full: { invite: P.comedyPaid, moment: { kind: "leave", id: P.comedyPaid.id, timing: "full" } },
+  late: { invite: P.comedyPaid, moment: { kind: "leave", id: P.comedyPaid.id, timing: "late" } },
+  left: { invite: P.comedyLeft, moment: { kind: "left", id: P.comedyLeft.id } },
+  asked: { invite: askedForRefund(P.comedyPaid, EXAMPLE_NOW), moment: { kind: "asked", id: P.comedyPaid.id } },
+  "cancel-one": { invite: P.polo, moment: { kind: "cancel", id: P.polo.id } },
+  "cancel-two": { invite: POLO_TWO, moment: { kind: "cancel", id: POLO_TWO.id } },
+  "cancel-done": { invite: POLO_CANCELLED, moment: { kind: "cancelled", id: POLO_CANCELLED.id } },
+  "cancel-done-two": { invite: POLO_TWO_CANCELLED, moment: { kind: "cancelled", id: POLO_TWO_CANCELLED.id } },
+};
+const planWith = (entry: PlanCase) => (
+  <PlanView page={page(entry.invite)} paidPlans initialMoment={entry.moment ?? null} initialPendingId={entry.pending ? entry.invite.id : null} />
+);
+
 export const inviteScreens: PreviewScreen[] = [
   {
     id: "invite-browse",
     title: "Open Invite: browse",
-    states: ["default", "pending", "filter", "empty", "loading", "error", "long", "joined", "taken"],
+    states: ["default", "pending", "filter", "empty", "loading", "error", "long", "long-paid", "joined", "taken"],
     tab: "invite",
     showMessages: true,
     defaultFlags: FLAGS,
@@ -186,6 +250,8 @@ export const inviteScreens: PreviewScreen[] = [
           return <OpenInviteError />;
         case "long":
           return <OpenInviteView feed={{ ...EXAMPLE_FEED, invites: LONG_PLANS }} paidPlans={paidPlans} />;
+        case "long-paid":
+          return <OpenInviteView feed={{ ...EXAMPLE_FEED, invites: [LONG_PAID, ...LONG_PLANS] }} paidPlans />;
         case "joined":
           return (
             <OpenInviteView
@@ -325,6 +391,7 @@ export const inviteScreens: PreviewScreen[] = [
               { key: "paid-full", invite: P.comedyFull },
               { key: "paid-own", invite: P.polo },
               { key: "paid-cancelled", invite: P.comedyCancelled },
+              { key: "paid-past", invite: { ...P.comedyFull, id: "comedy-night-past", status: "finished" } },
               { key: "paid-posted", invite: P.polo, mode: "posted" },
             ]
           : [
@@ -350,6 +417,120 @@ export const inviteScreens: PreviewScreen[] = [
           </section>
         </main>
       );
+    },
+  },
+  // ---- paid plans: every payment screen and state (flag: paidPlans)
+  {
+    id: "pay-sheet",
+    title: "Paid plans: the pay sheet",
+    states: PAY_STATES,
+    tab: "invite",
+    showMessages: true,
+    dock: "own",
+    defaultFlags: PAY_FLAGS,
+    render: ({ state }) => {
+      const kind = (PAY_STATES as readonly string[]).includes(state) ? (state as PayStateName) : "ready";
+      return planWith({
+        invite: P.comedy,
+        moment: { kind: "pay", id: P.comedy.id, state: kind, newPricePence: kind === "price" ? 2500 : undefined },
+      });
+    },
+  },
+  {
+    id: "pay-leave",
+    title: "Paid plans: leave, refund and cancel",
+    states: Object.keys(LEAVE_CASES),
+    tab: "invite",
+    showMessages: true,
+    dock: "own",
+    defaultFlags: PAY_FLAGS,
+    render: ({ state }) => planWith(LEAVE_CASES[state] ?? LEAVE_CASES.full),
+  },
+  {
+    id: "pay-receipt",
+    title: "Paid plans: a receipt",
+    states: ["paid", "refunded-left", "refunded-cancelled", "refund-asked", "paid-out"],
+    tab: "invite",
+    showMessages: true,
+    defaultFlags: PAY_FLAGS,
+    render: ({ state }) => {
+      switch (state) {
+        case "refunded-left":
+          return <ReceiptView receipt={EXAMPLE_RECEIPTS.left} />;
+        case "refunded-cancelled":
+          return <ReceiptView receipt={EXAMPLE_RECEIPTS.cancelled} />;
+        case "refund-asked":
+          return (
+            <ReceiptView
+              receipt={{
+                ...EXAMPLE_RECEIPTS.paid,
+                payment: { ...EXAMPLE_RECEIPTS.paid.payment, status: "refund-asked", refundAskedAt: "2026-10-29T20:30:00Z" },
+              }}
+            />
+          );
+        case "paid-out":
+          return (
+            <ReceiptView
+              receipt={{ ...EXAMPLE_RECEIPTS.paid, payment: { ...EXAMPLE_RECEIPTS.paid.payment, status: "paid-out" } }}
+            />
+          );
+        default:
+          return <ReceiptView receipt={EXAMPLE_RECEIPTS.paid} />;
+      }
+    },
+  },
+  {
+    id: "pay-payments",
+    title: "Paid plans: You > Payments (the host's money)",
+    states: ["full", "attention", "new", "review", "empty", "getpaid-sheet", "getpaid-stripe", "attention-stripe"],
+    tab: null,
+    youCurrent: true,
+    showMessages: false,
+    defaultFlags: PAY_PAGE_FLAGS,
+    render: ({ state }) => {
+      switch (state) {
+        case "attention":
+          return <PaymentsView payments={EXAMPLE_HOST_PAYMENTS.attention} />;
+        case "new":
+          return <PaymentsView payments={EXAMPLE_HOST_PAYMENTS.new} />;
+        case "review":
+          return <PaymentsView payments={EXAMPLE_HOST_PAYMENTS.review} />;
+        case "empty":
+          return <PaymentsView payments={EXAMPLE_HOST_PAYMENTS.empty} />;
+        case "getpaid-sheet":
+          return <PaymentsView payments={EXAMPLE_HOST_PAYMENTS.new} initialMode="intro" />;
+        case "getpaid-stripe":
+          return <PaymentsView payments={EXAMPLE_HOST_PAYMENTS.new} initialMode="stripe" />;
+        case "attention-stripe":
+          return <PaymentsView payments={EXAMPLE_HOST_PAYMENTS.attention} initialMode="stripe" />;
+        default:
+          return <PaymentsView payments={EXAMPLE_HOST_PAYMENTS.full} />;
+      }
+    },
+  },
+  {
+    id: "pay-plan",
+    title: "Paid plans: You > Payments > one plan",
+    states: ["held", "request", "refund", "on-its-way", "paid-out", "refunded"],
+    tab: null,
+    youCurrent: true,
+    showMessages: false,
+    defaultFlags: PAY_PAGE_FLAGS,
+    render: ({ state }) => {
+      switch (state) {
+        case "request":
+          return <PlanPaymentsView plan={EXAMPLE_PLAN_PAYMENTS["polo-match-asked"]} />;
+        case "refund":
+          return <PlanPaymentsView plan={EXAMPLE_PLAN_PAYMENTS["polo-match-asked"]} initialRefund />;
+        case "on-its-way":
+          return <PlanPaymentsView plan={EXAMPLE_PLAN_PAYMENTS["pottery-class"]} />;
+        case "paid-out":
+          return <PlanPaymentsView plan={EXAMPLE_PLAN_PAYMENTS["gig-night"]} />;
+        case "refunded":
+          return <PlanPaymentsView plan={EXAMPLE_PLAN_PAYMENTS["padel-doubles"]} />;
+        default:
+          return <PlanPaymentsView plan={EXAMPLE_PLAN_PAYMENTS["polo-match"]} />;
+      }
     },
   },
 ];

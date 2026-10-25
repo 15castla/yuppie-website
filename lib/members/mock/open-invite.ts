@@ -53,6 +53,7 @@ const GUEST = (id: string): OpenInvite["you"] => ({
   chatPreview: null,
   askThreadId: `ask-${id}`,
   hostReply: null,
+  receiptEmail: "sam@example.com",
   questions: [],
   payment: null,
   hostMoney: null,
