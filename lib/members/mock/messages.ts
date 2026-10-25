@@ -11,6 +11,7 @@
 // the screens (send, report, block, leave, mute, a switch) is client state.
 
 import { examplePhoto, type ExamplePhotoKey } from "./example-photos";
+import { findInviteByThreadId } from "./open-invite";
 import type {
   BlockedMember,
   Chat,
@@ -62,7 +63,7 @@ export const EXAMPLE_PEOPLE: Record<string, MemberRef> = {
 // The plans the chats belong to (clocks go back on Sun 25 Oct: +01:00 before, +00:00 after)
 
 const BRUNCH: ChatPlan = {
-  id: "saturday-morning-class",
+  id: "saturday-class",
   title: "Saturday morning class + brunch",
   startsAt: "2026-10-24T10:00:00+01:00",
   place: "Psycle, Oxford Circus",
@@ -74,7 +75,7 @@ const BRUNCH: ChatPlan = {
 };
 
 const WALK: ChatPlan = {
-  id: "sunday-walk-and-coffee",
+  id: "sunday-walk",
   title: "Sunday walk and coffee",
   startsAt: "2026-10-25T11:00:00+00:00",
   place: "Calder Park",
@@ -86,7 +87,7 @@ const WALK: ChatPlan = {
 };
 
 const PADEL: ChatPlan = {
-  id: "padel-then-pizza",
+  id: "padel-pizza",
   title: "Padel, then pizza",
   startsAt: "2026-10-29T19:00:00+00:00",
   place: "Northgate Courts",
@@ -98,7 +99,7 @@ const PADEL: ChatPlan = {
 };
 
 const RIVER_RUN: ChatPlan = {
-  id: "5km-by-the-river",
+  id: "five-km-river",
   title: "5km by the river, then breakfast",
   startsAt: "2026-10-31T08:00:00+00:00",
   place: "Calder Park",
@@ -110,7 +111,7 @@ const RIVER_RUN: ChatPlan = {
 };
 
 const COMEDY: ChatPlan = {
-  id: "comedy-night-two-spare-tickets",
+  id: "comedy-night-paid",
   title: "Comedy night, two spare tickets",
   startsAt: "2026-10-30T20:00:00+00:00",
   place: "The Bell Room",
@@ -121,7 +122,7 @@ const COMEDY: ChatPlan = {
   status: "open",
 };
 
-const COMEDY_CANCELLED: ChatPlan = { ...COMEDY, status: "cancelled" };
+const COMEDY_CANCELLED: ChatPlan = { ...COMEDY, id: "comedy-night-cancelled", status: "cancelled" };
 
 const SPIN: ChatPlan = {
   id: "saturday-spin",
@@ -137,7 +138,7 @@ const SPIN: ChatPlan = {
 
 /** Sam's own plan (the Yours view of Open Invite): Wed 4 Nov, full at 4 of 4 once Priya joined. */
 const MINE_CLIMBING: ChatPlan = {
-  id: "climbing-and-a-pint",
+  id: "climbing-pint",
   title: "Climbing and a pint",
   startsAt: "2026-11-04T18:30:00+00:00",
   place: "The Boulder Yard",
@@ -586,8 +587,75 @@ export async function listChats(): Promise<Chat[]> {
   return EXAMPLE_CHATS;
 }
 
+// ---------------------------------------------------------------------------
+// The Open Invite hand-over. The invite example data (mock/open-invite.ts)
+// names its chats its own way ("chat-saturday-class", "ask-sunday-walk"), and
+// plan pages link here with messageThreadHref(). Each id opens the matching
+// example thread above where there is one, else a thread built from the plan
+// itself, so a link on an invite never lands on a 404 in a preview.
+
+const INVITE_CHAT_ALIASES: Record<string, string> = {
+  "chat-saturday-class": "c-brunch",
+  "chat-climbing-pint": "c-climbing",
+  "chat-comedy-night": "c-comedy",
+  "chat-saturday-spin": "c-spin",
+  "ask-padel-pizza": "c-tom-new",
+};
+
+const toRef = (m: { id: string; firstName: string; photoUrl: string | null }): MemberRef => ({
+  id: m.id,
+  firstName: m.firstName,
+  photoUrl: m.photoUrl,
+});
+
+function threadFromInvite(chatId: string): ChatThread | null {
+  const hit = findInviteByThreadId(chatId);
+  if (!hit) return null;
+  const { invite, kind, from, text: asked } = hit;
+  const host = toRef(invite.host);
+  const going = invite.going.map(toRef);
+  const status = invite.status === "cancelled" ? "cancelled" : invite.status === "finished" ? "finished" : "open";
+  const plan: ChatPlan = {
+    id: invite.id,
+    title: invite.title,
+    startsAt: invite.startsAt,
+    place: invite.where,
+    host,
+    going,
+    placesLeft: Math.max(0, invite.places - going.length),
+    priceMinor: invite.cost?.pricePence ?? null,
+    status,
+  };
+  const other = kind === "plan" ? null : kind === "ask" ? host : from ? toRef(from) : null;
+  const participants =
+    kind === "plan"
+      ? [host, ...going.filter((m) => m.id !== host.id)].map((m) => participant(m, m.id === host.id ? "host" : "member"))
+      : [participant(host, "host"), participant(kind === "ask" ? SAM : (other ?? SAM), "member")];
+  const closed = status !== "open";
+  const chat: Chat = {
+    id: chatId,
+    kind: kind === "plan" ? "plan" : "question",
+    plan,
+    other,
+    participants,
+    status: closed ? "closed" : "open",
+    closedReason: closed ? (status === "cancelled" ? "host_cancelled" : "plan_finished") : null,
+    muted: false,
+    unreadCount: kind === "question" ? 1 : 0,
+    lastMessage: null,
+    lastActivityAt: "2026-10-23T10:32:00+01:00",
+  };
+  const items: ChatItem[] =
+    kind === "plan"
+      ? [system(chatId, 1, "opened", host, "2026-10-21T18:00:00+01:00")]
+      : kind === "question" && other && asked
+        ? [text(chatId, 1, other, asked, "2026-10-23T10:20:00+01:00")]
+        : [];
+  return thread(chat, items, kind === "question" ? `${chatId}-m1` : null);
+}
+
 export async function getThread(chatId: string): Promise<ChatThread | null> {
-  return EXAMPLE_THREADS[chatId] ?? null;
+  return EXAMPLE_THREADS[INVITE_CHAT_ALIASES[chatId] ?? chatId] ?? threadFromInvite(chatId);
 }
 
 export async function listUpdates(): Promise<UpdateItem[]> {

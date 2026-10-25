@@ -251,7 +251,7 @@ const PADEL_FULL = invite({
 const PADEL_ASKED = invite({
   ...PADEL_PIZZA,
   id: "padel-pizza-asked",
-  you: { askThreadId: "ask-padel-pizza", hostReply: "Totally. Doubles, all levels, I’ll bring spare rackets." },
+  you: { askThreadId: "c-tom", hostReply: "Totally. Doubles, all levels, I’ll bring spare rackets." },
 });
 
 const GALLERY_CANCELLED = invite({
@@ -411,6 +411,23 @@ export async function listYours(): Promise<OpenInviteYours> {
 export async function getOpenInvite(id: string): Promise<OpenInvitePage | null> {
   const invite = byId.get(id);
   return invite ? { invite, me: SAM, now: EXAMPLE_NOW } : null;
+}
+
+/**
+ * Which plan a chat or question id belongs to, and how (the Messages example
+ * adapter builds a thread from it when it has none of its own, so every
+ * "Open chat", "Ask ..." and host question on an invite opens a screen).
+ */
+export function findInviteByThreadId(
+  threadId: string,
+): { invite: OpenInvite; kind: "plan" | "ask" | "question"; from: InviteMember | null; text: string | null } | null {
+  for (const entry of ALL) {
+    if (entry.you.chatId === threadId) return { invite: entry, kind: "plan", from: null, text: null };
+    if (entry.you.askThreadId === threadId) return { invite: entry, kind: "ask", from: null, text: null };
+    const asked = entry.you.questions.find((q) => q.threadId === threadId);
+    if (asked) return { invite: entry, kind: "question", from: asked.from, text: asked.text };
+  }
+  return null;
 }
 
 /** What the post form needs: Sam, whether Get paid is finished, and today. */
