@@ -1,3 +1,4 @@
+import { requireMember } from "@/app/members/require-member";
 import { getCachedPerks } from "@/components/members/perks-data";
 import { getCachedEvents } from "@/components/members/events-data";
 import { getCachedFeatureCard, DEFAULT_FEATURE_LABEL } from "@/components/members/feature-card-data";
@@ -5,7 +6,11 @@ import { formatEventDayTime } from "@/components/members/ui";
 import { AccessView, type ResolvedFeatureCard } from "@/components/members/access-view";
 
 export default async function MembersAccessPage() {
-  const [perks, events, featureCard] = await Promise.all([
+  // requireMember() is cached with the layout's login check (one fetch) and
+  // runs alongside the data fetches. It is here so the photo gate
+  // (flags.photoGate, see require-member.ts) sees this page too.
+  const [, perks, events, featureCard] = await Promise.all([
+    requireMember(),
     getCachedPerks(),
     getCachedEvents(),
     getCachedFeatureCard(),

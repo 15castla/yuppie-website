@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Pencil } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/lib/members/routes";
 import type { Member } from "@/app/members/require-member";
 import { cancelMembership, signOutMember } from "@/app/members/profile/actions";
 import {
@@ -160,7 +161,7 @@ export function ProfileView({
             </div>
 
             <Link
-              href="/members/profile/edit"
+              href={ROUTES.profileEdit}
               aria-label="Edit profile"
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-background-muted text-foreground transition-colors hover:bg-foreground hover:text-background"
             >
@@ -277,7 +278,7 @@ export function ProfileView({
             onClick={() => setSignOutDialogOpen(true)}
             className="text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline"
           >
-            Sign out
+            Log out
           </button>
         </div>
       </div>
@@ -285,9 +286,9 @@ export function ProfileView({
       {signOutDialogOpen && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-foreground/40 p-4">
           <div className="w-full max-w-sm rounded-2xl bg-background-muted p-6 shadow-[0_24px_48px_-16px_rgba(27,21,18,0.5)]">
-            <h3 className="text-base font-bold text-foreground">Sign out?</h3>
+            <h3 className="text-base font-bold text-foreground">Log out?</h3>
             <p className="mt-2 text-sm text-foreground-muted">
-              You&apos;ll be signed out and sent back to the main site. You can
+              You&apos;ll be logged out and sent back to the main site. You can
               log back in whenever you like.
             </p>
             <div className="mt-6 flex items-center justify-end gap-4">
@@ -303,7 +304,7 @@ export function ProfileView({
                   type="submit"
                   className="rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background"
                 >
-                  Sign out
+                  Log out
                 </button>
               </form>
             </div>

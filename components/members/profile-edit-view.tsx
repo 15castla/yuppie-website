@@ -8,6 +8,7 @@ import PhoneInput from "react-phone-number-input";
 import "react-phone-number-input/style.css";
 
 import { cn } from "@/lib/utils";
+import { ROUTES } from "@/lib/members/routes";
 import { PhoneNumberField } from "@/components/PhoneNumberField";
 import type { Member } from "@/app/members/require-member";
 import {
@@ -108,7 +109,7 @@ export function ProfileEditView({ member }: { member: Member }) {
         return;
       }
 
-      router.push("/members/profile");
+      router.push(ROUTES.you);
     });
   }
 
@@ -128,10 +129,10 @@ export function ProfileEditView({ member }: { member: Member }) {
                   changes are saved too.
                 </p>
                 <Link
-                  href="/members/profile"
+                  href={ROUTES.you}
                   className="w-fit rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background"
                 >
-                  Back to profile
+                  Back to You
                 </Link>
               </>
             ) : (
@@ -145,7 +146,7 @@ export function ProfileEditView({ member }: { member: Member }) {
                   setChangedEmail(email);
                   router.refresh();
                 }}
-                onCancel={() => router.push("/members/profile")}
+                onCancel={() => router.push(ROUTES.you)}
               />
             )}
           </div>
@@ -159,11 +160,11 @@ export function ProfileEditView({ member }: { member: Member }) {
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
         <div>
           <Link
-            href="/members/profile"
+            href={ROUTES.you}
             className="flex w-fit items-center gap-1 text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline"
           >
             <ChevronLeft className="h-4 w-4" />
-            Back to profile
+            Back to You
           </Link>
         </div>
 
@@ -318,7 +319,7 @@ export function ProfileEditView({ member }: { member: Member }) {
               {isSaving ? "Saving…" : "Save changes"}
             </button>
             <Link
-              href="/members/profile"
+              href={ROUTES.you}
               className="text-sm font-medium text-foreground/50 hover:text-foreground hover:underline"
             >
               Cancel

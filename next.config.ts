@@ -1,6 +1,23 @@
 import type { NextConfig } from "next";
 
+// Where /members goes: Open Invite once its flag is on, else Events. The same
+// rule as landingPath() in lib/members/routes.ts, spelled out here because
+// the config cannot import app code that touches next/navigation.
+const MEMBERS_LANDING =
+  process.env.NEXT_PUBLIC_MEMBERS_OPEN_INVITE === "on"
+    ? "/members/open-invite"
+    : "/members/events";
+
 const nextConfig: NextConfig = {
+  // There is no members Home page. Redirected before anything renders, so a
+  // cold load or the app's launch (which opens /members) goes straight to the
+  // landing page with no shell flash. The old profile page is now You.
+  async redirects() {
+    return [
+      { source: "/members", destination: MEMBERS_LANDING, permanent: false },
+      { source: "/members/profile", destination: "/members/you", permanent: false },
+    ];
+  },
   images: {
     // Event photos uploaded at /admin/events live in Supabase Storage's
     // public bucket. Listing it lets next/image (EventThumbnail in

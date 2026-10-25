@@ -235,7 +235,9 @@ export async function verifyEmailChange(
 export async function updateAvatar(
   formData: FormData,
 ): Promise<{ success: boolean; error?: string; url?: string }> {
-  const member = await requireMember();
+  // allowMissingPhoto: this is the action that gives a member their first
+  // photo, so the photo gate (require-member.ts) must not turn it away.
+  const member = await requireMember({ allowMissingPhoto: true });
 
   const photo = formData.get("photo");
   if (!(photo instanceof File)) {
@@ -269,7 +271,9 @@ export async function updateAvatar(
 // deletion helper, and an orphaned file only costs storage space, not
 // correctness.
 export async function removeAvatar(): Promise<{ success: boolean; error?: string }> {
-  const member = await requireMember();
+  // allowMissingPhoto: it leaves the member without a photo, and a retry or a
+  // second tab must not be bounced to the gate halfway through.
+  const member = await requireMember({ allowMissingPhoto: true });
 
   const supabase = await createClient();
   const { error } = await supabase

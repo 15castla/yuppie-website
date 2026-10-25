@@ -14,7 +14,13 @@ import { motion, useReducedMotion } from "framer-motion";
 const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 
 function isMembersRoute(pathname: string): boolean {
-  return pathname === "/members" || pathname.startsWith("/members/");
+  return (
+    pathname === "/members" ||
+    pathname.startsWith("/members/") ||
+    // The members preview harness (app/dev-preview): no entrance animation.
+    pathname === "/dev-preview" ||
+    pathname.startsWith("/dev-preview/")
+  );
 }
 
 export default function Template({ children }: { children: ReactNode }) {
