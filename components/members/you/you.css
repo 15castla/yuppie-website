@@ -1,0 +1,259 @@
+/* You, its sub pages (Edit details, Help), the dialogs and the membership-ended gate.
+   Ported from the approved design's cyp.css (v3, 25 Oct 2026) with /home/claude/build/mkcss.py: kit classes carry the mk- prefix,
+   @container is @media, cqw is vw (the screen is the viewport; see members.css). Area classes keep the design's yu- and pk- names.
+   Imported by components/members/you/you-view.tsx and the other views in this folder.
+   Spacing steps: 4 8 12 16 20 24 32 40 48 64. */
+
+/* 1. You ------------------------------------------------------------------ */
+/* one DOM: phone order is photo, membership card, then the lists. From 768 the photo and lists sit left and the card sits right, sticky. */
+.yu-cols{display:flex;flex-direction:column}
+.yu-photo-slot{margin-top:28px}
+.yu-card-slot{margin-top:28px}
+.yu-first{margin-top:var(--gap-section)}
+.yu-main-col{min-width:0}
+@media (min-width:768px){
+  .yu-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,400px);column-gap:var(--col-gap);align-items:start}
+  .yu-photo-slot{grid-column:1;grid-row:1;margin-top:48px}
+  .yu-card-slot{grid-column:2;grid-row:1 / span 2;position:sticky;top:112px;margin-top:48px}
+  .yu-main-col{grid-column:1;grid-row:2}
+  .yu-first{margin-top:56px}
+}
+@media (min-width:768px) and (max-width:1023px){ .yu-cols{grid-template-columns:minmax(0,1fr) 320px} }
+/* the greeting can be long (a long first name): it wraps, and never pushes the photo out of the app's title row */
+.yu-title .mk-row1 > div:first-child{min-width:0}
+.yu-title .mk-h1{overflow-wrap:anywhere}
+.yu-main{padding-bottom:0}
+
+/* the photo block: 96px photo, who can see it, Change photo */
+.yu-photo{display:flex;align-items:center;gap:20px}
+.yu-photo .mk-avatar{border-width:2px}
+.yu-photo-txt{display:flex;flex-direction:column;align-items:flex-start;gap:10px;min-width:0}
+.yu-photo-txt p{font:400 15px/1.35 var(--font-body);max-width:26ch;text-wrap:balance}
+.yu-photo-txt .mk-btn{min-width:150px}
+@media (min-width:768px){ .yu-photo{gap:28px} .yu-photo-txt p{font-size:16px} }
+
+/* membership card */
+.yu-mem{display:flex;flex-direction:column}
+.yu-mem-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:22px}
+.yu-price{display:flex;align-items:baseline;gap:10px;margin-top:12px}
+.yu-amt{font:800 64px/1 var(--font-body);letter-spacing:-.045em}
+.yu-per{font:400 17px/1.2 var(--font-body);color:var(--muted)}
+@media (min-width:768px){ .yu-amt{font-size:72px} .yu-per{font-size:19px} }
+.yu-mem-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:18px;padding-top:16px;border-top:1.5px solid var(--ink)}
+.yu-mem-foot p{font:400 15px/1.35 var(--font-body)}
+.yu-mem-foot p b{font-weight:700}
+.yu-mem-foot.yu-col{flex-direction:column;align-items:stretch;gap:14px}
+.yu-mem-foot.yu-col .mk-btn{width:100%}
+.mk-status.yu-bad{--c:var(--error)}
+
+/* detail rows (label over value) and Settings and Help rows */
+.yu-kv{min-height:68px}
+.yu-kv .mk-body{display:flex;flex-direction:column;gap:2px}
+.yu-kv .yu-k{font:400 13px/1.25 var(--font-body);color:var(--muted)}
+.yu-kv .yu-v{font:700 16px/1.3 var(--font-body);overflow-wrap:anywhere}
+.yu-kv .yu-v.yu-none{font-weight:400;color:var(--muted)}
+@media (min-width:1024px){
+  .yu-kv .mk-body{flex-direction:row;align-items:baseline;gap:0}
+  .yu-kv .yu-k{width:200px;flex:none;font-size:15px}
+  .yu-kv .yu-v{font-size:17px}
+}
+.yu-nav{min-height:64px}
+.yu-nav .mk-end{color:var(--ink)}
+.yu-nav .mk-meta{margin-top:2px}
+.mk-row .mk-meta .yu-warn{color:var(--warning);font-weight:700}
+/* "Edit" in a section head keeps a 44px-wide target */
+.yu-first .mk-sh .mk-link{min-width:44px;justify-content:flex-end}
+
+/* account actions */
+.yu-acct{display:flex;flex-direction:column;gap:12px;align-items:stretch}
+.yu-acct .mk-btn{width:100%}
+.yu-quiet-row{display:flex;flex-wrap:wrap;justify-content:center;gap:0 28px;margin-top:4px}
+.yu-quiet{font-weight:700;font-size:15px;color:var(--muted);justify-content:center}
+.yu-quiet.mk-danger{color:var(--error)}
+@media (min-width:768px){
+  .yu-acct{flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px 28px}
+  .yu-acct .mk-btn{width:auto;min-width:200px}
+  .yu-quiet-row{margin-top:0;gap:0 28px}
+}
+
+/* the giant wordmark standing on a 3px rule, the legal line below (the public footer's drawing) */
+.yu-foot{margin-top:56px}
+@media (min-width:768px){ .yu-foot{margin-top:96px} }
+.yu-wm{position:relative;display:block;width:100%;overflow:hidden}
+.yu-wm img{position:absolute;display:block;max-width:none;height:auto}
+.yu-rule{border:0;border-top:3px solid var(--ink);margin:0}
+.yu-legal{padding:16px 0 4px;font:400 13px/1.45 var(--font-body);color:var(--muted)}
+.yu-legal span{display:block}
+@media (min-width:768px){ .yu-legal{padding:20px 0 8px;display:flex;justify-content:space-between;gap:24px} .yu-legal span{display:inline} }
+
+/* the "Photo changed" confirmation */
+.yu-toast{position:fixed;left:50%;bottom:calc(var(--dock-h) + 14px);transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:999px;background:var(--ink);color:var(--yellow);font:700 15px/1.2 var(--font-body);white-space:nowrap}
+@media (min-width:768px){ .yu-toast{bottom:32px} }
+
+/* 2. sub pages (Edit details, Help): the back row carries the way back on phones, a crumb above the title from 768 ------------------ */
+.yu-subpage .mk-head,.mk-screen.mk-app .yu-subpage .mk-head{padding-top:20px}
+.yu-subhead{display:none}
+.yu-crumb{padding-top:32px}
+@media (min-width:768px){
+  .yu-subhead{display:block}
+  .yu-subpage .mk-head,.mk-screen.mk-app .yu-subpage .mk-head{padding-top:12px}
+}
+
+/* 3. Edit details ------------------------------------------------------------------------------------------------------------ */
+.yu-formwrap{margin-top:20px}
+.yu-formcard{padding-bottom:22px}
+.yu-form{display:flex;flex-direction:column;gap:18px}
+.yu-fgrid{display:flex;flex-direction:column;gap:20px}
+.yu-form .mk-field{gap:8px}
+.yu-form .mk-help{margin-top:0}
+.yu-form .mk-error-text{display:flex;align-items:flex-start;gap:6px}
+.yu-form .mk-error-text .mk-ico{margin-top:1px}
+.yu-form .mk-field.yu-locked .mk-input,.yu-form .mk-field.yu-locked .yu-phone{opacity:.6}
+.yu-form .mk-field.yu-locked{pointer-events:none}
+.yu-form-err{display:flex;align-items:flex-start;gap:6px;font:400 14px/1.4 var(--font-body);color:var(--error)}
+.yu-form-err .mk-ico{margin-top:2px}
+.yu-save{min-width:170px}
+.yu-below{display:flex;justify-content:center;margin-top:12px}
+.yu-links{display:flex;flex-direction:column;align-items:center;gap:0;margin-top:4px}
+.yu-code{letter-spacing:.38em;font-weight:800;font-size:28px;text-align:center;padding-left:.38em}
+.yu-code::placeholder{font-weight:400;font-size:16px;letter-spacing:.38em;color:var(--muted)}
+.yu-form .yu-notice{font:400 14px/1.4 var(--font-body);color:var(--muted)}
+@media (min-width:768px){
+  .yu-formwrap{max-width:720px;margin-top:36px}
+  .yu-fgrid{display:grid;grid-template-columns:1fr 1fr;gap:20px 24px;grid-template-areas:"n p" "e e"}
+  .yu-fgrid>.yu-f-name{grid-area:n} .yu-fgrid>.yu-f-phone{grid-area:p} .yu-fgrid>.yu-f-email{grid-area:e}
+  .yu-form .yu-save{align-self:flex-start;width:auto;min-width:220px}
+  .yu-formcard.yu-narrow,.yu-formcard-code{max-width:560px}
+}
+/* the phone field: react-phone-number-input's own markup, drawn as a kit input (country select, then the number) */
+.yu-phone .PhoneInput{display:flex;align-items:center;gap:8px;min-height:50px;padding:0 14px;border:1.5px solid var(--ink);border-radius:12px;background:var(--cream);color:var(--ink)}
+.yu-phone .PhoneInput:focus-within{outline:2px solid var(--ink);outline-offset:2px}
+.yu-phone.yu-invalid .PhoneInput{border-color:var(--error)}
+.yu-phone .PhoneInputInput{flex:1 1 auto;min-width:0;border:0;outline:0;background:transparent;color:var(--ink);font:400 16px/1.2 var(--font-body);padding:0;min-height:48px}
+.yu-phone .PhoneInputCountry{flex:none;position:relative;display:flex;align-items:center;margin:0}
+.yu-phone .PhoneInputCountrySelect{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;z-index:1}
+.yu-phone .PhoneInputCountryIcon{width:24px;height:16px;box-shadow:none;background:transparent}
+.yu-phone .PhoneInputCountryIcon--border{box-shadow:0 0 0 1px rgba(27,21,18,.4)}
+.yu-phone .PhoneInputCountrySelectArrow{display:block;width:7px;height:7px;margin-left:8px;border:0;border-right:2px solid var(--ink);border-bottom:2px solid var(--ink);transform:rotate(45deg) translateY(-2px);opacity:1}
+/* the photo row, shown only while the photo gate is off (Edit keeps today's upload and remove until the gate exists) */
+.yu-photo-edit{display:flex;align-items:center;gap:16px;padding-bottom:4px}
+.yu-photo-edit .yu-photo-btns{display:flex;flex-direction:column;align-items:flex-start;gap:0;min-width:0}
+.yu-photo-edit label.mk-link{cursor:pointer}
+
+/* 4. dialogs: a bottom sheet on phones, a centred modal from 768. A native <dialog>, so focus is trapped, Escape closes it and the page behind is inert. */
+.yu-dialog{position:fixed;inset:auto 0 0 0;margin:0;width:100%;max-width:none;max-height:calc(100dvh - 24px);overflow:auto;padding:0;border:2px solid var(--ink);border-bottom:0;border-radius:24px 24px 0 0;background:var(--pale);color:var(--ink);font-family:var(--font-body)}
+.yu-dialog::backdrop{background:rgba(245,243,231,.86)}
+.yu-dialog-body{padding:22px 20px calc(20px + var(--safe-bottom))}
+.yu-dialog .yu-grab{width:44px;height:5px;border-radius:3px;background:var(--ink);opacity:.35;margin:-10px auto 14px}
+@media (min-width:768px){
+  .yu-dialog{inset:0;margin:auto;width:min(520px,calc(100% - 48px));height:fit-content;border:2px solid var(--ink);border-radius:24px;box-shadow:8px 8px 0 var(--ink)}
+  .yu-dialog.yu-wide{width:min(560px,calc(100% - 48px))}
+  .yu-dialog-body{padding:32px}
+  .yu-dialog .yu-grab{display:none}
+}
+html:has(dialog.yu-dialog[open]){overflow:hidden}
+.yu-dialog h2{margin-bottom:8px;text-wrap:balance}
+.yu-dialog .mk-term{display:block;margin-bottom:8px}
+.yu-p{font:400 16px/1.45 var(--font-body);text-wrap:pretty}
+.yu-acts{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+.yu-acts .mk-btn{width:100%}
+@media (min-width:768px){ .yu-acts{flex-direction:row;flex-wrap:wrap} .yu-acts .mk-btn{width:auto;flex:1 1 200px} }
+.yu-list{margin:16px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:12px}
+.yu-list li{display:flex;gap:12px;align-items:flex-start;font:400 15px/1.4 var(--font-body)}
+.yu-list .mk-ico{margin-top:2px;flex:none}
+.mk-btn.yu-danger{background:var(--error);border-color:var(--error);color:#fff}
+.mk-btn.yu-danger[aria-disabled="true"]{opacity:.6;cursor:default}
+.yu-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.yu-chips .mk-chip{background:transparent}
+.yu-chips .mk-chip.mk-is-active{background:var(--ink);color:var(--yellow)}
+.yu-dialog .mk-field{margin-top:16px}
+.yu-dialog-err{display:flex;align-items:flex-start;gap:6px;margin-top:14px;font:400 14px/1.4 var(--font-body);color:var(--error)}
+.yu-dialog-err .mk-ico{margin-top:2px}
+
+/* 5. Help: one in-app page pattern. Ruled rows with a 36px toggle (the public FAQ), a "Still stuck?" card, whole-row contact links, the policy in a readable measure */
+.yu-help-cols{margin-top:28px}
+.yu-faq-col{display:flex;flex-direction:column;gap:32px}
+.yu-faq-group .mk-term{display:block;margin-bottom:12px}
+.yu-faqs{border-top:1.5px solid var(--ink)}
+.yu-faq{border-bottom:1.5px solid var(--ink)}
+.yu-faq h3{margin:0}
+.yu-faq button{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:72px;padding:14px 0;border:0;background:transparent;color:var(--ink);text-align:left;font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.yu-faq button:focus-visible .yu-q{text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:6px}
+.yu-faq .yu-q{font:700 17px/1.3 var(--font-body)}
+.yu-faq .yu-t{width:36px;height:36px;flex:none;border-radius:50%;border:1.5px solid var(--ink);display:flex;align-items:center;justify-content:center}
+.yu-faq.yu-open .yu-t{background:var(--ink);color:var(--yellow)}
+.yu-faq .yu-a{padding:0 0 20px}
+.yu-faq .yu-a p{font:400 16px/1.5 var(--font-body);max-width:60ch;padding-right:52px}
+.yu-stuck{display:flex;flex-direction:column;align-items:flex-start;gap:10px}
+.yu-stuck p{font:400 16px/1.45 var(--font-body)}
+.yu-stuck .mk-btn{margin-top:6px}
+.yu-stuck-phone{margin-top:40px}
+@media (min-width:768px){
+  .yu-help-cols{margin-top:40px}
+  .yu-help-rail{margin-top:0;top:96px}
+  .yu-faq .yu-q{font-size:clamp(18px,1.8vw,22px)}
+  .yu-faq button{min-height:80px}
+}
+.yu-ctrows{border-top:1.5px solid var(--ink);margin-top:28px}
+.yu-ct{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:6px 16px;min-height:68px;padding:18px 0 20px;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none}
+.yu-ct:focus-visible .yu-v{text-decoration:underline;text-decoration-thickness:3px;text-underline-offset:6px}
+.yu-ct .yu-v{grid-column:1 / -1;font:800 26px/1.25 var(--font-body);letter-spacing:-.02em;overflow-wrap:anywhere}
+.yu-ct .yu-ar{display:flex}
+@media (max-width:359px){ .yu-ct .yu-v{font-size:22px} }
+@media (min-width:768px){
+  .yu-ctrows{margin-top:44px;max-width:900px}
+  .yu-ct{display:flex;align-items:baseline;gap:32px;padding:28px 0}
+  .yu-ct .mk-term{flex:0 0 140px}
+  .yu-ct .yu-v{order:2;font-size:clamp(24px,2.4vw,32px)}
+  .yu-ct .yu-ar{order:3;margin-left:auto;align-self:center}
+}
+.yu-pol-date{margin-top:24px}
+.yu-pol-intro{margin-top:20px;font:400 16px/1.55 var(--font-body);max-width:64ch}
+.yu-pols{display:flex;flex-direction:column;gap:32px;margin-top:20px;padding-top:28px;border-top:1.5px solid var(--ink)}
+.yu-pol h2{font-size:22px}
+.yu-pol p{font:400 16px/1.55 var(--font-body);margin-top:8px;max-width:64ch}
+.yu-pol a{font-weight:700;text-decoration:underline;text-underline-offset:2px}
+@media (min-width:768px){ .yu-pol-date{margin-top:36px} }
+
+/* 6. the membership-ended gate: hero, a cream band of reasons (3px rules, the public site's rhythm), then the quiet exits and the wordmark */
+.yu-gate-bar{height:56px;border-bottom:1.5px solid var(--ink)}
+.yu-gate-bar .yu-in{display:flex;align-items:center;justify-content:space-between;gap:12px;height:54px}
+.mk-screen.mk-app .yu-gate-bar{display:none}
+.yu-gate-hero .mk-head{padding-top:28px}
+.mk-screen.mk-app .yu-gate-hero .mk-head{padding-top:calc(var(--safe-top) + 10px)}
+.yu-gate-h1{font-size:40px;line-height:.95;font-weight:800;letter-spacing:-.035em}
+.yu-gate-h1 .mk-serif{display:block}
+@media (max-width:359px){ .yu-gate-h1{font-size:34px} }
+@media (max-width:339px){ .yu-gate-h1{font-size:30px} }
+.yu-gate-grid{display:flex;flex-direction:column}
+.yu-gate-lead{margin-top:14px;max-width:32ch}
+.yu-gate-acts{display:flex;flex-direction:column;gap:4px;margin-top:24px;align-items:stretch}
+.yu-gate-acts .mk-link{justify-content:center}
+.yu-gate-art{display:flex;justify-content:center;align-items:flex-end;margin-top:32px}
+@media (min-width:768px){
+  .yu-gate-hero .mk-head,.mk-screen.mk-app .yu-gate-hero .mk-head{padding-top:clamp(40px,5vw,72px)}
+  .yu-gate-h1{font-size:clamp(48px,6vw,88px);letter-spacing:-.03em}
+  .yu-gate-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:var(--col-gap);align-items:end}
+  .yu-gate-words{padding-bottom:56px}
+  .yu-gate-acts{flex-direction:row;align-items:center;gap:24px}
+  .yu-gate-acts .mk-btn{min-width:220px}
+  .yu-gate-art{margin-top:0;padding-right:clamp(0px,6vw,80px)}
+}
+.yu-gate-band .mk-inner{padding-top:40px;padding-bottom:48px}
+.pk-list{border-top:1.5px solid var(--ink);--slot:96px}
+@media (min-width:768px){ .pk-list{--slot:clamp(96px,9.5vw,137px)} }
+.pk-row{display:grid;grid-template-columns:minmax(0,1fr) var(--slot);column-gap:16px;padding:24px 0;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none}
+.pk-txt{grid-column:1;display:flex;flex-direction:column;justify-content:center;min-width:0}
+.pk-row .pk-art{grid-column:2;grid-row:1;display:flex;align-items:flex-end;justify-content:center;align-self:end;width:var(--slot);margin-bottom:-24px}
+.pk-row .pk-art svg.mk-perk-svg{display:block;overflow:visible;width:calc(var(--slot)*var(--fw));height:calc(var(--slot)*var(--fh));stroke-width:var(--fs)}
+.pk-row h3{margin:0 0 6px;font-size:24px;font-weight:800;line-height:1.2;letter-spacing:-.01em}
+.pk-row p{font-size:16px;line-height:1.45}
+@media (min-width:768px){ .pk-row{padding:40px 0} .pk-row .pk-art{margin-bottom:-40px} }
+@media (min-width:768px){
+  .yu-reasons{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));column-gap:var(--col-gap);border-top:0}
+  .yu-reasons .pk-row{border-top:1.5px solid var(--ink);padding:32px 0}
+  .yu-reasons .pk-row .pk-art{margin-bottom:-32px}
+  .yu-reasons .pk-txt{justify-content:flex-start}
+}
+.yu-gatemain .mk-head{padding-top:28px}
+.mk-screen.mk-app .yu-gatemain{padding-bottom:calc(var(--safe-bottom) + 12px)}

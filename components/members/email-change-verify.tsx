@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 
+import { Button, Icon } from "@/components/members/kit";
 import { cn } from "@/lib/utils";
 import type { verifyEmailChange } from "@/app/members/profile/actions";
 
@@ -16,10 +17,15 @@ import type { verifyEmailChange } from "@/app/members/profile/actions";
 // with it off, the first code finishes the change.
 //
 // The actions come in as props so the states can be exercised with
-// stubs; ProfileEditView passes the real server actions.
+// stubs; the Edit details view passes the real server actions. Drawn on the
+// members kit (the "you-edit" design); the behaviour is unchanged.
 
-const inputClasses =
-  "h-14 w-full rounded-xl border-2 border-foreground/20 bg-cream px-4 text-center text-lg tracking-[0.5em] text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
+// What the preview sets on the first draw. Nothing live passes it.
+export type EmailChangeDemo = {
+  code?: string;
+  error?: string;
+  sentTo?: "new" | "current";
+};
 
 export function EmailChangeVerify({
   currentEmail,
@@ -28,6 +34,7 @@ export function EmailChangeVerify({
   resend,
   onDone,
   onCancel,
+  demo,
 }: {
   currentEmail: string;
   newEmail: string;
@@ -35,10 +42,11 @@ export function EmailChangeVerify({
   resend: () => Promise<{ success: boolean; error?: string }>;
   onDone: (email: string) => void;
   onCancel: () => void;
+  demo?: EmailChangeDemo;
 }) {
-  const [sentTo, setSentTo] = useState<"new" | "current">("new");
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [sentTo, setSentTo] = useState<"new" | "current">(demo?.sentTo ?? "new");
+  const [code, setCode] = useState(demo?.code ?? "");
+  const [error, setError] = useState<string | null>(demo?.error ?? null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isVerifying, startVerifying] = useTransition();
   const [isResending, startResending] = useTransition();
@@ -77,78 +85,73 @@ export function EmailChangeVerify({
     startResending(async () => {
       const result = await resend();
       if (!result.success) {
-        setError(result.error ?? "Something went wrong sending the code.");
+        setError(result.error ?? "We couldn’t send the code. Try again.");
         return;
       }
       setCode("");
       setSentTo("new");
-      setNotice("We've sent a new code.");
+      setNotice("We’ve sent a new code.");
     });
   }
 
   const helper =
-    sentTo === "new"
-      ? `Enter the 6-digit code we sent to ${newEmail}.`
-      : `One more step: enter the 6-digit code we sent to your current address, ${currentEmail}.`;
+    sentTo === "new" ? (
+      <>
+        We sent a 6-digit code to <b>{newEmail}</b>.
+      </>
+    ) : (
+      <>
+        One more step: enter the 6-digit code we sent to your current address, <b>{currentEmail}</b>.
+      </>
+    );
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="flex flex-col gap-4">
-      <div className="flex flex-col gap-2">
-        <h2 className="text-base font-bold text-foreground">
-          Confirm your new email
-        </h2>
-        <p aria-live="polite" className="text-sm text-foreground-muted">
+    <form onSubmit={handleSubmit} noValidate className="yu-form">
+      <div>
+        <h2 className="mk-h2">Confirm your new email</h2>
+        <p className="yu-p" style={{ marginTop: 8 }} aria-live="polite">
           {helper}
         </p>
       </div>
 
-      <input
-        ref={inputRef}
-        type="text"
-        inputMode="numeric"
-        autoComplete="one-time-code"
-        maxLength={6}
-        aria-label="6-digit code"
-        aria-invalid={error ? true : undefined}
-        value={code}
-        onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
-        placeholder="123456"
-        className={cn(inputClasses, error && "border-red-700!")}
-      />
-
-      {error && (
-        <p role="alert" className="text-sm font-medium text-red-700">
-          {error}
+      <div className="mk-field">
+        <label htmlFor="email-code">6-digit code</label>
+        <input
+          id="email-code"
+          ref={inputRef}
+          type="text"
+          inputMode="numeric"
+          autoComplete="one-time-code"
+          maxLength={6}
+          aria-invalid={error ? true : undefined}
+          aria-describedby="email-code-error"
+          value={code}
+          onChange={(event) => setCode(event.target.value.replace(/\D/g, ""))}
+          placeholder="123456"
+          className={cn("mk-input yu-code", error && "mk-invalid")}
+        />
+        <p className="mk-error-text" id="email-code-error" role={error ? "alert" : undefined} aria-live="polite">
+          {error ? (
+            <>
+              <Icon name="circle-alert" size={14} />
+              <span>{error}</span>
+            </>
+          ) : null}
         </p>
-      )}
-      {notice && !error && (
-        <p className="text-sm text-foreground-muted">{notice}</p>
-      )}
+        {notice && !error ? <p className="yu-notice">{notice}</p> : null}
+      </div>
 
-      <div className="flex flex-wrap items-center gap-4">
-        <button
-          type="submit"
-          disabled={isVerifying}
-          className="rounded-full bg-foreground px-6 py-2.5 text-sm font-bold text-background disabled:opacity-60"
-        >
-          {isVerifying ? "Verifying…" : "Verify code"}
-        </button>
-        <button
-          type="button"
-          onClick={handleResend}
-          disabled={isResending || isVerifying}
-          className="text-sm font-medium text-foreground/50 hover:text-foreground hover:underline disabled:opacity-60"
-        >
+      <Button type="submit" block className="yu-save" pending={isVerifying}>
+        {isVerifying ? "Verifying…" : "Verify code"}
+      </Button>
+
+      <div className="yu-links">
+        <Button variant="quiet" onClick={handleResend} disabled={isResending || isVerifying}>
           {isResending ? "Sending…" : "Send a new code"}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          disabled={isVerifying}
-          className="text-sm font-medium text-foreground/50 hover:text-foreground hover:underline disabled:opacity-60"
-        >
+        </Button>
+        <Button variant="quiet" onClick={onCancel} disabled={isVerifying}>
           Keep my current email
-        </button>
+        </Button>
       </div>
     </form>
   );

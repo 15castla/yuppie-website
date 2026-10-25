@@ -30,11 +30,11 @@ export async function updateProfile(
   const roleTitle = formData.get("role_title");
 
   if (typeof fullName !== "string" || !fullName.trim()) {
-    return { success: false, error: "Full name is required." };
+    return { success: false, error: "Enter your name." };
   }
 
   if (typeof phone !== "string" || !isValidPhoneNumber(phone)) {
-    return { success: false, error: "Please enter a valid phone number." };
+    return { success: false, error: "Enter a mobile number, like 07700 900123." };
   }
 
   // bio is intentionally not part of this form. Leave the column alone
@@ -52,7 +52,7 @@ export async function updateProfile(
 
   if (error) {
     console.error(`updateProfile failed for member ${member.id}:`, error);
-    return { success: false, error: "Something went wrong saving your details." };
+    return { success: false, error: "Your details didn’t save. Try again." };
   }
 
   // Every /members page, so nothing in the client router cache
@@ -62,15 +62,15 @@ export async function updateProfile(
 }
 
 const EMAIL_CHANGE_ERRORS = {
-  invalid: "That doesn't look like a valid email address.",
-  unchanged: "That's already your email address.",
-  inUse: "That email is already used by another account.",
-  rateLimited: "Too many attempts. Please wait a few minutes and try again.",
-  mfaRequired: "For security, please complete two-factor verification before changing your email.",
-  generic: "Something went wrong sending the code. Please try again.",
-  incorrect: "That code is incorrect or has expired. Please try again.",
-  noPending: "There's no email change waiting to be confirmed. Please start again.",
-  syncFailed: "Your email was changed, but we couldn't update your profile. Please contact us.",
+  invalid: "That email address doesn’t look right. Check it and try again.",
+  unchanged: "That’s already your email address. Enter a different one.",
+  inUse: "That email is already used by another account. Enter a different one.",
+  rateLimited: "Too many tries. Wait a few minutes, then try again.",
+  mfaRequired: "For security, complete two-factor verification before changing your email.",
+  generic: "We couldn’t send the code. Try again.",
+  incorrect: "That code is wrong or has expired. Send a new code.",
+  noPending: "There’s no email change waiting to be confirmed. Start again.",
+  syncFailed: "Your email was changed, but we couldn’t update your profile. Contact us.",
 };
 
 // Starts a login-email change through Supabase Auth's own flow rather
@@ -241,7 +241,7 @@ export async function updateAvatar(
 
   const photo = formData.get("photo");
   if (!(photo instanceof File)) {
-    return { success: false, error: "Please choose an image to upload." };
+    return { success: false, error: "Choose a photo to upload." };
   }
 
   const uploaded = await uploadMemberMedia("avatars", member.id, photo);
@@ -257,7 +257,7 @@ export async function updateAvatar(
 
   if (error) {
     console.error(`updateAvatar failed for member ${member.id}:`, error);
-    return { success: false, error: "Uploaded, but saving your photo failed." };
+    return { success: false, error: "Your photo uploaded but didn’t save. Try again." };
   }
 
   revalidatePath("/members", "layout");
@@ -283,7 +283,7 @@ export async function removeAvatar(): Promise<{ success: boolean; error?: string
 
   if (error) {
     console.error(`removeAvatar failed for member ${member.id}:`, error);
-    return { success: false, error: "Something went wrong removing your photo." };
+    return { success: false, error: "Your photo wasn’t removed. Try again." };
   }
 
   revalidatePath("/members", "layout");
@@ -301,7 +301,7 @@ export async function cancelMembership(): Promise<{ success: boolean; error?: st
   const member = await requireMember();
 
   if (!member.stripe_subscription_id) {
-    return { success: false, error: "No active subscription found for this account." };
+    return { success: false, error: "We couldn’t find a subscription on your account. Contact us." };
   }
 
   try {
@@ -312,7 +312,7 @@ export async function cancelMembership(): Promise<{ success: boolean; error?: st
     console.error(`cancelMembership failed for member ${member.id}:`, err);
     return {
       success: false,
-      error: "Something went wrong cancelling your membership. Please try again.",
+      error: "Your membership wasn’t cancelled. Try again.",
     };
   }
 
