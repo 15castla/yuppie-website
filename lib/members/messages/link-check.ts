@@ -25,11 +25,12 @@
 // What it leaves alone: phone numbers, email addresses, times, prices and
 // ordinary sentences, including one typed without a space after its full stop
 // ("See you there.Bring a towel").
-// Known limits (the server rule has the same ones, decide there): a name that
-// is also a domain ending in capitals ("Dan.Com") is read as a domain and
-// blocked, because a pasted "Example.Com" looks the same; letters spelled out
-// one by one ("e x a m p l e . c o m") and links in another script are not
-// caught.
+// Known limits (decide them again on the server): a name that ends like a
+// common domain ("Dan.Com") is read as a domain and blocked, because a pasted
+// "Example.Com" looks the same; a word-like ending with a capital ("Sam.Studio",
+// "there.Club") is read as the next sentence and let through; letters spelled
+// out one by one ("e x a m p l e . c o m") and links in another script are
+// not caught.
 
 // An address: kept out of the domain checks ("sam@example.co.uk" goes through). The local part cannot hold "/" or
 // ":", so "instagram.com/@sam.jones" is a link with an @ in it, not an email.
