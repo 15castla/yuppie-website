@@ -1,6 +1,6 @@
 // The Concierge, as a backend has to supply it. No backend exists yet: the
 // screen runs on the example-data adapter (lib/members/mock/concierge.ts), is
-// switched off by flags.concierge, and 404s in production (assertMockAllowed).
+// switched off by flags.concierge, and 404s in production unless MEMBERS_SHOW_EXAMPLES=on (assertMockAllowed).
 // This file is the build spec for the real one: every type below is what the
 // screen needs, nothing more.
 //

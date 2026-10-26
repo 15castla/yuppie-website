@@ -1,4 +1,4 @@
-// EXAMPLE DATA: invented people and places, never shown to real members (flag off, 404 in production)
+// EXAMPLE DATA: invented people and places. A 404 on the live site unless MEMBERS_SHOW_EXAMPLES=on is set there (guard.ts), and then every screen that uses it says it is an example (kit/example-note.tsx).
 //
 // The fake adapter for Open Invite. It returns exactly the types in
 // lib/members/invite/types.ts, so the screens do not change when a real

@@ -2,9 +2,9 @@
 // area that is switched off at launch (Notifications, Payments, Messages),
 // so a row appears only when its flag is on. The summaries need those areas'
 // data, which has no backend yet: until it does they come from the example
-// adapter (lib/members/mock/you-settings.ts), which is never used on the
-// live site (Vercel production), so a flag set there by mistake shows no
-// rows rather than made-up ones.
+// adapter (lib/members/mock/you-settings.ts), which is not used on the
+// live site (Vercel production) unless MEMBERS_SHOW_EXAMPLES=on, so a flag
+// set there by mistake shows no rows rather than made-up ones.
 
 import type { Flags } from "@/lib/members/flags";
 import { isMockAllowed } from "@/lib/members/mock/guard";

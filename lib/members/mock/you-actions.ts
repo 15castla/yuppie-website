@@ -1,6 +1,6 @@
 "use server";
 
-// EXAMPLE DATA: invented people and places, never shown to real members (flag off, 404 in production)
+// EXAMPLE DATA: invented people and places, for the preview harness only (assertNotProduction: a 404 on the live site, always)
 //
 // Stand-ins for the real server actions (app/members/profile/actions.ts),
 // used by the preview harness only so a screen can be clicked through with no

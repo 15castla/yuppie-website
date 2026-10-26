@@ -1,4 +1,4 @@
-// EXAMPLE DATA: invented people and places, never shown to real members (flag off, 404 in production)
+// EXAMPLE DATA: invented people and places. A 404 on the live site unless MEMBERS_SHOW_EXAMPLES=on is set there (guard.ts), and then every screen that uses it says it is an example (kit/example-note.tsx).
 //
 // The summaries on You's Settings rows (Notifications, Payments, Blocked
 // members), standing in for the real notification channels, Get paid status
