@@ -374,6 +374,9 @@
   .mk-hdr nav a,.mk-hdr .mk-me{font-size:14px}
   .mk-hdr .mk-wm{height:36px}
   .mk-hdr .mk-me > span:not(.mk-avatar){display:none}
+  /* with the name hidden the You link is the 40px photo alone: a 44px target (QA ED-03, YM-13, IP-11). The negative
+     margin keeps the layout footprint at 40px, so the photo, the messages icon and the wordmark do not move. */
+  .mk-hdr .mk-me{min-width:44px;justify-content:center;margin-inline:-2px}
 }
 
 /* five links (the app on an iPad with Concierge on, QA ED-01): half the header is too narrow for them below about
@@ -382,9 +385,9 @@
 .mk-hdr.mk-hdr-5 .mk-grid{grid-template-columns:minmax(max-content,1fr) auto minmax(0,1fr)}
 @media (min-width:900px) and (max-width:1199px){ .mk-hdr.mk-hdr-5 nav{gap:20px} }
 
-/* the photo is the current page on You: the phone's double ring on the photo, and the name underlined like a current tab link (the kit draws neither on the computer header) */
+/* the photo is the current page on You: the phone's double ring on the photo (the kit draws no current state on the computer header).
+   The name is not underlined: the approved You boards draw no underline there (QA YM-08); aria-current="page" stays on the link. */
 .mk-hdr .mk-me[aria-current] .mk-avatar{box-shadow:0 0 0 2px var(--yellow),0 0 0 4px var(--ink)}
-.mk-hdr .mk-me[aria-current] > span:not(.mk-avatar){text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:6px}
 
 /* 9. additions for the product (small, additive; the area designs draw these in their own files) ---------- */
 /* a button that cannot be used yet: outlined and quiet, never a faded ink button (RULE-38). Saving is the full ink button, aria-busy. */
