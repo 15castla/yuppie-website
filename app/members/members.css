@@ -373,7 +373,11 @@
 @media (min-width:768px){ .mk-band-actions .mk-btn{align-self:auto} }
 @media (max-width:359px){ .mk-tab .mk-lb{font-size:10px} .mk-tabbar{padding-left:2px;padding-right:2px} }
 
-/* v3 kit fixes (25 Oct): four-link computer header at tablet width, no island on a 320 phone */
+/* v3 kit fixes (25 Oct): four-link computer header at tablet width, no island on a 320 phone.
+   QA ED-04 (26 Oct), left as built: below 900px the nav gap is 16px, the grid gap 16px, links 14px and the wordmark 36px,
+   as kit2.css and the approved 768 boards for Events, Open Invite, Messages and Notifications measure. Only the Discounts
+   and Access boards (disc.css:17, a page-level tightening the kit's own fix superseded) draw 14px and 12px, which puts
+   Events, Discounts and Access 2, 4 and 6px left of here at 768. The kit value is the shell's, so the pages match each other. */
 .mk-hdr nav a{white-space:nowrap}
 @media (max-width:899px){
   .mk-hdr .mk-grid{gap:16px}
