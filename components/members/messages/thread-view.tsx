@@ -143,6 +143,7 @@ export function ThreadView({
   const streamRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const lastBubbleRef = useRef<HTMLElement | null>(null);
+  const fromBubbleRef = useRef(false);
   const timersRef = useRef<number[]>([]);
   const counterRef = useRef(0);
   const startedRef = useRef<{ wall: number } | null>(null);
@@ -297,6 +298,7 @@ export function ThreadView({
 
   function openMenu(target: HTMLElement, messageId: string) {
     lastBubbleRef.current = target;
+    fromBubbleRef.current = true;
     setOverlay({ kind: "menu", messageId });
   }
   // The menu sits next to the pressed bubble, placed from its own rectangle.
@@ -322,10 +324,18 @@ export function ThreadView({
   }, [menuOpen]);
 
   function closeOverlay() {
-    const back = overlay.kind === "menu" ? lastBubbleRef.current : null;
     setOverlay({ kind: "none" });
-    if (back) back.focus({ preventScroll: true });
   }
+
+  // Whatever started at a bubble's menu (the menu itself, Copy, and the report sheets reached from "Report
+  // message") hands focus back to that bubble when it closes, by any route: Escape, a tap on the scrim, the
+  // close button, Done. Without it focus falls to <body> and a keyboard user starts again from the top.
+  useEffect(() => {
+    if (overlay.kind !== "none" || !fromBubbleRef.current) return;
+    fromBubbleRef.current = false;
+    const bubble = lastBubbleRef.current;
+    if (bubble?.isConnected) bubble.focus({ preventScroll: true });
+  }, [overlay.kind]);
 
   // Escape closes whatever is open.
   useEffect(() => {
