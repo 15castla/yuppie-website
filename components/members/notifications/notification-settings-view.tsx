@@ -51,14 +51,18 @@ function Switch({
   label,
   describedBy,
   onToggle,
+  id,
 }: {
   on: boolean;
   label: string;
   describedBy?: string;
   onToggle?: () => void;
+  /** Set when the row's words are a label for this switch (the Text row, which also holds a link). */
+  id?: string;
 }) {
   return (
     <button
+      id={id}
       type="button"
       className="ntf-sw"
       role="switch"
@@ -79,6 +83,7 @@ function SettingRow({
   fixed = false,
   interactive = false,
   onActivate,
+  labelFor,
 }: {
   id: string;
   title: string;
@@ -89,19 +94,32 @@ function SettingRow({
   extra?: ReactNode;
   /** A row with nothing to switch (a pill). */
   fixed?: boolean;
-  /** The row holds a link, so it is not a label. */
+  /** The row holds a link, so the row itself is not a label. */
   interactive?: boolean;
   onActivate?: () => void;
+  /** The id of the row's switch: the title and detail become a label for it, so a tap on the words flips it. The link stays outside the label. */
+  labelFor?: string;
 }) {
   const metaId = `${id}-meta`;
-  const className = cn("mk-row ntf-row", extra ? "has-x" : null, fixed && "is-fixed");
+  const className = cn("mk-row ntf-row", extra ? "has-x" : null, fixed && "is-fixed", labelFor && "is-labelled");
+  const words = (
+    <>
+      <span className="mk-title">{title}</span>
+      <span className="mk-meta" id={metaId}>
+        {meta}
+      </span>
+    </>
+  );
   const inner = (
     <>
       <span className="mk-body">
-        <span className="mk-title">{title}</span>
-        <span className="mk-meta" id={metaId}>
-          {meta}
-        </span>
+        {labelFor ? (
+          <label className="ntf-lab" htmlFor={labelFor}>
+            {words}
+          </label>
+        ) : (
+          words
+        )}
         {extra}
       </span>
       <span className="mk-end">{end(metaId)}</span>
@@ -222,6 +240,7 @@ export function NotificationSettingsView({
             title="Text"
             meta={`Reminders only, to ${number}.`}
             interactive
+            labelFor={id("text-switch")}
             extra={
               <>
                 {channels.text && textCheck === "sent" ? (
@@ -239,7 +258,13 @@ export function NotificationSettingsView({
               </>
             }
             end={(describedBy) => (
-              <Switch on={channels.text} label="Text" describedBy={describedBy} onToggle={() => flip("text", "channel")} />
+              <Switch
+                id={id("text-switch")}
+                on={channels.text}
+                label="Text"
+                describedBy={describedBy}
+                onToggle={() => flip("text", "channel")}
+              />
             )}
           />
         ) : (
