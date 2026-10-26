@@ -22,13 +22,15 @@ import { examplePhoto } from "@/lib/members/mock/example-photos";
 import type { PreviewScreen } from "./types";
 
 // ---- example logos (data URIs, so nothing is fetched) ---------------------------------------------------------------
-const svg = (body: string) =>
+// Stroke widths are the approved art's (v3 pages_disc.py LOGOS): 3.2 for the chevrons, 3 for the sun.
+const svg = (body: string, stroke: number) =>
   `data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#1B1512" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="#1B1512" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`,
   )}`;
-const LOGO_FORGE = svg('<path d="M5 15 16 6l11 9"/><path d="M5 26 16 17l11 9"/>');
+const LOGO_FORGE = svg('<path d="M5 15 16 6l11 9"/><path d="M5 26 16 17l11 9"/>', 3.2);
 const LOGO_LUMEN = svg(
   '<circle cx="16" cy="16" r="5.5" fill="#1B1512"/><path d="M16 3v4M16 25v4M3 16h4M25 16h4M6.8 6.8l2.8 2.8M22.4 22.4l2.8 2.8M25.2 6.8l-2.8 2.8M9.6 22.4l-2.8 2.8"/>',
+  3,
 );
 
 // ---- example discounts ---------------------------------------------------------------------------------------------
