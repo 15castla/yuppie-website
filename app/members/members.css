@@ -289,6 +289,13 @@
 .mk-tab[aria-current] .mk-in{background:var(--ink);color:var(--yellow)}
 .mk-tab .mk-badge{top:-2px;right:calc(50% - 26px);min-width:18px;height:18px;font-size:11px;line-height:14px;padding:0 4px}
 @media (min-width:768px){ .mk-dock,.mk-dock-spacer,.mk-tint{display:none} }
+/* Keyboard focus (and scrollIntoView, and #anchors) must not leave the focused element under the fixed tab bar (QA YM-07).
+   The page scrolls on the root, so the room is reserved there: the dock's height (60px + the 3px rule + the safe area less
+   the 6px the home indicator already clears, the --dock-h sum written out because the root cannot read .mk-screen's
+   variables) plus 16px, so the 2px focus ring and a little air show too. Only a page that draws the dock, only on a phone. */
+@media (max-width:767px){
+  html:has(.mk-dock){scroll-padding-bottom:calc(63px + max(var(--native-safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) - 6px,0px) + 16px)}
+}
 /* the bottom tint strip: drawn when the shell has no dock (a page with its own docked bar, the photo gate), so a
    solid yellow fixed element is always at the bottom edge. Height as the old strips: the safe area, 1rem minimum. */
 .mk-tint{position:fixed;left:0;right:0;bottom:0;z-index:20;height:max(1rem,var(--safe-bottom));background-color:var(--yellow);pointer-events:none}
