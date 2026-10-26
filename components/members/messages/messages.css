@@ -1,0 +1,533 @@
+/* Club Yuppie Messages: the inbox (Chats | Updates), the thread, the sheets, and Blocked members.
+   Ported from the approved design (/home/claude/rebrand/v3/msg.css, round 3, 25 Oct 2026) with the kit's
+   class names (mk- prefix), container queries as media queries and cqw as vw (see FOUNDATION_NOTES section 3).
+   Every class added here starts with msg-. Tokens (--ink, --yellow, --pale ...) come from .mk-screen; the
+   kit (app/members/members.css) is not changed.
+
+   What differs from the mockup, on purpose (the product is a page, not a framed picture):
+   - the frame plumbing (.msg-page, is-frame, is-auto) is gone; section "A" below holds the layout the
+     product needs: a thread is exactly one viewport tall on a phone and its stream scrolls inside it;
+   - sheets, dialogs and the scrim are position:fixed on a phone (as the kit's .mk-sheet is) and sit inside the
+     thread card from 768px (the info panel and the dialogs of the desktop design);
+   - lock screens, the admin queue, the iOS keyboard and the board furniture are design documentation: not here.
+   768px is the one phone/desktop switch (RULE-45); 1024px is the design's one annotated exception: two panes
+   need 380 plus a usable thread, so from 768 to 1023 the desktop shows one pane at a time. */
+
+/* A. layout the product needs -------------------------------------------------------------- */
+/* a phone's own top bar is replaced by the page's own back row or thread header */
+.mk-page:has(.msg-top,.msg-thead) > .mk-bar{display:none}
+
+/* the inbox: a normal page */
+.mk-page > .mk-main.msg-main{display:flex;flex-direction:column}
+.msg-wrap{flex:1 0 auto;display:flex;flex-direction:column;width:100%;max-width:1240px;margin:0 auto}
+.msg-split{flex:1 0 auto;display:flex;flex-direction:column}
+.msg-list-col,.msg-pane-col{min-width:0}
+.msg-list-col{padding:0 var(--gutter)}
+@media (min-width:768px){ .msg-list-col{padding:0} }
+@media (max-width:1023px){
+  .msg-split.is-inbox .msg-pane-col{display:none}
+  .msg-split.is-thread .msg-list-col{display:none}
+}
+@media (min-width:768px){ .msg-wrap{padding:40px var(--gutter) 64px} }
+/* From 768 the wrap carries the page's bottom space (64px, as drawn: the design's <main> has no .main-pad), so the kit's
+   40px under <main> is not added on top. Inbox and Updates were 40px taller than approved (1,128 against 1,088 at 1280). */
+@media (min-width:768px){ .mk-page > .mk-main.msg-main{padding-bottom:0} }
+@media (min-width:1024px){
+  .msg-split{display:grid;grid-template-columns:380px minmax(0,1fr);column-gap:clamp(32px,4vw,56px);align-items:start;flex:none}
+}
+@media (min-width:768px) and (max-width:1023px){
+  .msg-pane-col,.msg-list-col{max-width:720px;margin:0 auto;width:100%}
+}
+
+/* the thread: on a phone the page is exactly one viewport tall (or what the keyboard leaves), the stream
+   scrolls inside it and the composer is docked at the foot. From 768 it is a card in a normal page. */
+.mk-page > .mk-main.msg-main.is-thread{height:var(--msg-vh,100dvh);min-height:0;overflow:hidden;padding-bottom:0}
+.msg-main.is-thread .msg-wrap,.msg-main.is-thread .msg-split{flex:1 1 0;min-height:0}
+.msg-pane-col{display:flex;flex-direction:column}
+.msg-main.is-thread .msg-pane-col{flex:1 1 0;min-height:0}
+@media (min-width:768px){
+  .mk-page > .mk-main.msg-main.is-thread{height:auto;overflow:visible}
+  .msg-main.is-thread .msg-wrap,.msg-main.is-thread .msg-split{flex:1 0 auto;min-height:auto}
+  .msg-main.is-thread .msg-pane-col{flex:none;min-height:0}
+}
+@media (min-width:1024px){ .msg-main.is-thread .msg-split{flex:none} }
+
+/* 1. phone top row of the inbox (back only) ------------------------------------- */
+.msg-top{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:calc(var(--safe-top) + 6px) var(--gutter) 0;min-height:calc(var(--safe-top) + 56px)}
+.mk-screen.mk-web .msg-top{border-bottom:1.5px solid var(--ink);padding-top:0;min-height:56px;align-items:center}
+.mk-screen.mk-app .msg-top{align-items:flex-end;padding-bottom:0;min-height:calc(var(--safe-top) + 50px)}
+@media (min-width:768px){ .msg-top{display:none} }
+.msg-head{padding-top:20px}
+.mk-screen.mk-app .msg-head{padding-top:12px}
+.msg-head .mk-h1{margin:0}
+@media (min-width:768px){
+  .msg-head{padding-top:0}
+  .msg-head .mk-h1{font-size:clamp(48px,5vw,64px)}
+  .msg-head .mk-sub-serif{font-size:clamp(28px,2.6vw,34px)}
+}
+.msg-body{padding-top:20px}
+@media (min-width:768px){ .msg-body{padding-top:32px} }
+
+/* 2. inbox rows ------------------------------------------------------------------ */
+.msg-rows{border-top:1.5px solid var(--ink)}
+.msg-row{display:flex;align-items:flex-start;gap:14px;min-height:88px;padding:14px 0;color:var(--ink);text-decoration:none;border-bottom:1.5px solid var(--ink);-webkit-tap-highlight-color:transparent}
+.msg-row .mk-date{padding-top:1px}
+.msg-row .mk-avatar{margin-top:0}
+.msg-row .msg-bd{flex:1 1 auto;min-width:0}
+.msg-title{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;font:700 16px/1.25 var(--font-body)}
+.msg-r2{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:2px}
+.msg-time{flex:none;font:400 13px/1.35 var(--font-body);color:var(--muted)}
+.msg-meta{display:block;min-width:0;font:400 13px/1.35 var(--font-body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-r3{display:flex;align-items:center;gap:10px;margin-top:4px;min-height:20px}
+.msg-last{flex:1 1 auto;min-width:0;font:400 14px/1.35 var(--font-body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-last b{font-weight:700}
+.msg-dot{flex:none;width:10px;height:10px;border-radius:50%;background:var(--ink)}
+.msg-row.is-unread .msg-title{font-weight:800}
+.msg-row.is-unread .msg-time{color:var(--ink);font-weight:700}
+.msg-row.is-unread .msg-last{color:var(--ink);font-weight:700}
+.msg-row.is-closed .msg-title{font-weight:700}
+.msg-row.is-closed .mk-date .mk-dn{color:var(--muted)}
+.msg-row.is-selected{background:var(--pale);margin:0 -14px;padding-left:14px;padding-right:14px;border-radius:0}
+.msg-group-label{display:flex;align-items:center;justify-content:space-between;min-height:36px;margin-top:20px}
+.msg-note{display:flex;gap:12px;align-items:flex-start;margin-top:28px;color:var(--muted)}
+.msg-note .mk-ico{margin-top:2px;color:var(--ink)}
+.msg-note p{font:400 14px/1.5 var(--font-body);max-width:44ch}
+.msg-note p b{color:var(--ink)}
+/* a link inside a sentence stays inline; its tap area is grown to 44px high with a pseudo-element (nothing around it moves) */
+.msg-note .mk-inline-link{position:relative}
+.msg-note .mk-inline-link::after{content:"";position:absolute;left:-6px;right:-6px;top:-14px;bottom:-14px}
+@media (min-width:768px){ .msg-title{font-size:17px} .msg-meta{font-size:14px} .msg-last{font-size:15px} }
+
+/* 3. thread header, pin, stream ------------------------------------------------------ */
+.msg-card{display:flex;flex-direction:column;flex:1 1 0;min-height:0;position:relative;background:var(--yellow)}
+@media (min-width:768px){
+  .msg-card{flex:none;height:740px;background:var(--pale);border:2px solid var(--ink);border-radius:20px;box-shadow:8px 8px 0 var(--ink);margin-right:8px;overflow:hidden}
+}
+@media (min-width:768px) and (max-width:1023px){ .msg-card{height:680px} }
+.msg-thead{display:flex;align-items:center;gap:4px;flex:none;padding:calc(var(--safe-top) + 6px) 8px 6px 8px;min-height:calc(var(--safe-top) + 56px);border-bottom:1.5px solid var(--ink);background:var(--yellow)}
+.msg-thead .msg-back{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;flex:none;color:var(--ink);text-decoration:none}
+.msg-thead .msg-mid{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:10px}
+.msg-thead .msg-mid .mk-avatar{--s:36px}
+.msg-thead .msg-tt{min-width:0}
+.msg-thead .msg-tt b{display:block;font:800 17px/1.2 var(--font-body);letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-thead .msg-tt span{display:block;margin-top:1px;font:400 13px/1.3 var(--font-body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-thead .mk-icon-btn{flex:none}
+.msg-thead .mk-icon-btn.mk-bare{border-color:transparent}
+.msg-thead .msg-end{display:flex;align-items:center;gap:0;flex:none}
+@media (min-width:768px){
+  .msg-thead{padding:10px 12px 10px 14px;min-height:72px;background:var(--pale);border-bottom:2px solid var(--ink)}
+  .msg-thead .msg-tt b{font-size:18px}
+  .msg-thead .msg-tt span{font-size:14px}
+}
+@media (min-width:1024px){ .msg-thead .msg-back{display:none} .msg-thead{padding-left:20px} }
+.msg-pin{display:flex;align-items:center;gap:12px;flex:none;min-height:64px;padding:8px var(--gutter);background:var(--cream);border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none;-webkit-tap-highlight-color:transparent}
+.msg-pin .msg-lead{flex:none;display:flex;align-items:center;justify-content:center;min-width:44px}
+.msg-pin .msg-pb{flex:1 1 auto;min-width:0}
+.msg-pin .msg-pb b{display:block;font:700 15px/1.25 var(--font-body);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-pin .msg-pb span{display:block;margin-top:1px;font:400 13px/1.3 var(--font-body);color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.msg-pin .mk-ico{flex:none}
+.msg-pin.is-compact{min-height:40px;padding-top:0;padding-bottom:0}
+.msg-pin.is-compact .msg-pb{display:flex;align-items:center;gap:8px}
+.msg-pin.is-compact .msg-pb b{font-size:14px;flex:none}
+.msg-pin.is-compact .msg-pb span{margin:0}
+@media (min-width:768px){ .msg-pin{padding:8px 20px} }
+
+.msg-stream{flex:1 1 0;min-height:0;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:8px var(--gutter) 12px}
+@media (min-width:768px){ .msg-stream{padding:12px 20px 14px} }
+.msg-day{align-self:stretch;display:flex;align-items:center;gap:12px;margin:20px 0 10px;font:700 12px/1 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.msg-day::before,.msg-day::after{content:"";flex:1 1 0;border-top:1.5px solid var(--ink);opacity:.35}
+.msg-sys{align-self:center;max-width:88%;text-align:center;margin:6px 0 2px;font:400 13px/1.4 var(--font-body);color:var(--muted)}
+.msg-sys b{font-weight:700;color:var(--ink)}
+.msg-new{align-self:stretch;display:flex;align-items:center;gap:12px;margin:16px 0 4px}
+.msg-new::before,.msg-new::after{content:"";flex:1 1 0;border-top:1.5px solid var(--ink)}
+.msg-grp{display:flex;align-items:flex-end;gap:8px;margin-top:14px;width:100%}
+.msg-grp.is-them{align-self:flex-start}
+.msg-grp.is-me{justify-content:flex-end}
+.msg-grp .mk-avatar{--s:32px;margin-bottom:22px;flex:none}
+.msg-col{display:flex;flex-direction:column;gap:2px;min-width:0}
+.msg-grp.is-them .msg-col{align-items:flex-start;max-width:calc(100% - 40px - 36px)}
+.msg-grp.is-me .msg-col{align-items:flex-end;max-width:min(80%,520px)}
+.msg-grp.is-them.no-av .msg-col{max-width:min(80%,520px)}
+.msg-who{font:700 12px/16px var(--font-body);margin:0 0 3px 14px;color:var(--ink)}
+.msg-b{min-height:44px;padding:9px 14px 10px;border:1.5px solid var(--ink);border-radius:20px;background:var(--cream);font:400 16px/1.38 var(--font-body);overflow-wrap:anywhere}  /* min-height: a one-line bubble opens the menu, so it is a 44px target (it was 43.1) */
+.msg-grp.is-them .msg-b{border-bottom-left-radius:6px}
+.msg-grp.is-them .msg-b + .msg-b{border-top-left-radius:6px}
+.msg-grp.is-me .msg-b{background:var(--ink);color:var(--yellow);border-bottom-right-radius:6px}
+.msg-grp.is-me .msg-b + .msg-b{border-top-right-radius:6px}
+.msg-t{font:400 12px/16px var(--font-body);color:var(--muted);margin:3px 14px 0}
+.msg-grp.is-me .msg-t{margin-right:4px}
+.msg-b.is-sending,.msg-grp.is-me .msg-b.is-sending{background:transparent;color:var(--ink);border:1.5px dashed var(--ink)}
+.msg-b.is-removed{background:transparent;border-style:dashed;color:var(--muted)}
+.msg-b.is-lift{position:relative;z-index:80;box-shadow:0 0 0 3px var(--yellow)}
+.msg-b.is-pick{outline:3px solid var(--ink);outline-offset:3px}
+.msg-state{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end;margin-top:2px;font:700 13px/1.3 var(--font-body)}
+.msg-state .msg-err{display:inline-flex;align-items:center;gap:6px;color:var(--error)}
+.msg-state .msg-sendmuted{color:var(--muted);font-weight:400}
+.msg-state .mk-link{min-height:44px;padding:0 6px;font-size:14px}
+.msg-state.is-tight{margin-top:0}
+
+/* empty thread: the prompt that fills the stream */
+.msg-empty-thread{align-self:center;text-align:center;max-width:300px;padding:24px 0 12px}
+.msg-empty-thread .mk-h3{margin-bottom:8px}
+.msg-empty-thread p{font:400 15px/1.45 var(--font-body);color:var(--ink)}
+
+/* first-time safety note */
+.msg-safety{display:flex;gap:14px;align-items:flex-start;margin:12px 0 6px;padding:16px;background:var(--pale);border:2px solid var(--ink);border-radius:20px}
+.msg-safety .ic{flex:none;width:40px;height:40px;border-radius:50%;background:var(--ink);color:var(--yellow);display:flex;align-items:center;justify-content:center}
+.msg-safety .tx{flex:1 1 auto;min-width:0}
+.msg-safety b{display:block;font:800 16px/1.25 var(--font-body);letter-spacing:-.01em}
+.msg-safety p{margin-top:4px;font:400 14px/1.45 var(--font-body)}
+.msg-safety .act{display:flex;justify-content:flex-end;margin-top:12px}
+
+/* 4. composer ------------------------------------------------------------------------ */
+.msg-comp{flex:none;position:relative;z-index:50;background:var(--yellow);border-top:3px solid var(--ink);padding:10px var(--gutter) max(10px,calc(var(--safe-bottom) - 6px))}
+@media (min-width:768px){ .msg-comp{padding:12px 20px;background:var(--pale);border-top:2px solid var(--ink)} }
+.msg-comp-row{display:flex;align-items:flex-end;gap:10px}
+.msg-input{flex:1 1 auto;min-width:0;display:flex;align-items:center;min-height:48px;padding:12px 18px;border:1.5px solid var(--ink);border-radius:24px;background:var(--cream);color:var(--ink);font:400 16px/1.35 var(--font-body);overflow-wrap:anywhere}
+.msg-input.is-ph{color:var(--muted)}
+.msg-input.is-multi{align-items:flex-start;padding:11px 18px 12px}
+.msg-input.mk-is-focus{border-width:2px;padding-left:17.5px}
+.msg-input.is-multi{align-items:flex-end;min-height:48px}
+.msg-comp.has-kb{padding-bottom:10px;border-bottom:0}
+.msg-stream.is-top{justify-content:flex-start}
+.msg-stream.is-over{overflow:visible}
+.msg-caret{display:inline-block;width:2px;height:1.15em;background:var(--ink);vertical-align:text-bottom;margin-left:1px}
+.msg-send{flex:none;width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:var(--ink);color:var(--yellow);border:2px solid var(--ink);padding:0}
+.msg-send .mk-ico{stroke-width:2.5}
+.msg-send.is-off{background:transparent;color:var(--muted);border:2px solid var(--muted)}
+.msg-send.is-busy{background:transparent;color:var(--ink);border-color:var(--ink)}
+.msg-comp-line{display:flex;align-items:flex-start;gap:10px;margin:0 0 10px;padding:10px 12px;background:var(--pale);border:1.5px solid var(--ink);border-radius:14px;font:400 14px/1.4 var(--font-body)}
+.msg-comp-line .mk-ico{margin-top:1px;flex:none}
+.msg-comp-line b{font-weight:700}
+.msg-count{display:flex;justify-content:flex-end;gap:6px;margin:0 6px 6px;font:700 13px/16px var(--font-body);color:var(--muted)}
+.msg-count.is-near{color:var(--ink)}
+.msg-count.is-max{color:var(--error)}
+.msg-comp.is-closed{display:flex;align-items:center;gap:12px;padding-top:14px;padding-bottom:max(14px,calc(var(--safe-bottom) - 6px))}
+.msg-comp.is-closed .ic{flex:none;width:44px;height:44px;border-radius:50%;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center}
+.msg-comp.is-closed b{display:block;font:800 15px/1.25 var(--font-body)}
+.msg-comp.is-closed span{display:block;margin-top:1px;font:400 13px/1.35 var(--font-body);color:var(--muted)}
+
+/* 5. sheets, dialogs, menus ---------------------------------------------------------------- */
+.msg-sheet{position:absolute;left:0;right:0;bottom:0;z-index:71;background:var(--pale);border:2px solid var(--ink);border-bottom:0;border-radius:24px 24px 0 0;padding:14px 20px calc(18px + var(--safe-bottom) - 6px);max-height:calc(100% - 70px);overflow:hidden}
+.msg-sheet .msg-grab{width:44px;height:5px;border-radius:3px;background:var(--ink);opacity:.35;margin:0 auto 12px}
+.msg-sheet-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.msg-sheet-hd .mk-h2{font-size:22px}
+.msg-sheet-hd p{margin-top:2px;font:400 14px/1.35 var(--font-body);color:var(--muted)}
+.msg-sheet-hd .mk-icon-btn{margin:-6px -8px 0 0}
+.msg-sec{margin-top:18px}
+.msg-sec-t{font:700 13px/1 var(--font-body);letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:10px}
+.msg-who-row{display:flex;gap:6px;flex-wrap:wrap}
+.msg-person{display:flex;flex-direction:column;align-items:center;gap:6px;width:68px;min-height:44px;font:700 13px/1.2 var(--font-body);text-align:center;color:var(--ink);text-decoration:none}
+.msg-person .mk-avatar{--s:48px}
+.msg-person small{display:block;font-weight:400;color:var(--muted);font-size:12px;line-height:1.2}
+.msg-list{border-top:1.5px solid var(--ink);margin-top:18px}
+.msg-li{display:flex;align-items:center;gap:14px;min-height:56px;padding:10px 0;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none;background:none;width:100%;text-align:left;font-family:var(--font-body);cursor:pointer}
+.msg-li:last-child{border-bottom:0}
+.msg-li .mk-ico{flex:none}
+.msg-li .tx{flex:1 1 auto;min-width:0}
+.msg-li .tx b{display:block;font:700 16px/1.25 var(--font-body)}
+.msg-li .tx span{display:block;margin-top:1px;font:400 13px/1.35 var(--font-body);color:var(--muted)}
+.msg-li.is-danger .tx b,.msg-li.is-danger .mk-ico:first-child{color:var(--error)}
+.msg-switch{flex:none;width:56px;height:32px;border-radius:999px;border:2px solid var(--ink);background:var(--ink);position:relative}
+.msg-switch::after{content:"";position:absolute;top:3px;right:3px;width:22px;height:22px;border-radius:50%;background:var(--yellow)}
+.msg-switch.is-off{background:transparent}
+.msg-switch.is-off::after{right:auto;left:3px;background:var(--ink)}
+.msg-dialog{position:absolute;left:20px;right:20px;top:50%;transform:translateY(-50%);z-index:72;background:var(--pale);border:2px solid var(--ink);border-radius:20px;box-shadow:6px 6px 0 var(--ink);padding:24px 20px 20px;margin-right:6px}
+.msg-dialog .mk-h2{font-size:24px}
+.msg-dialog .mk-lead{margin-top:10px;font-size:16px}
+.msg-ul{margin-top:12px;display:flex;flex-direction:column;gap:10px}
+.msg-ul li{display:flex;gap:12px;align-items:flex-start;font:400 15px/1.4 var(--font-body)}
+.msg-ul li .mk-ico{flex:none;margin-top:2px}
+.msg-ul li b{font-weight:700}
+.msg-dialog .acts{display:flex;flex-direction:column;gap:10px;margin-top:20px}
+.msg-dialog .acts .mk-btn{width:100%}
+.msg-dialog .fine{margin-top:14px;font:400 13px/1.45 var(--font-body);color:var(--muted)}
+.msg-anchor{position:relative;height:0;z-index:82}
+.msg-anchor .msg-menu{top:8px;left:0}
+.msg-grp.is-me .msg-anchor .msg-menu{left:auto;right:0}
+.msg-menu{position:absolute;z-index:81;width:236px;background:var(--pale);border:2px solid var(--ink);border-radius:16px;box-shadow:4px 4px 0 var(--ink);padding:4px}
+.msg-menu .msg-li{min-height:48px;padding:0 12px;border-bottom:1.5px solid var(--ink)}
+.msg-menu .msg-li:last-child{border-bottom:0}
+.msg-menu .msg-li b{font-size:15px}
+.msg-radio{flex:none;width:24px;height:24px;border-radius:50%;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center}
+.msg-radio.is-on::after{content:"";width:12px;height:12px;border-radius:50%;background:var(--ink)}
+.msg-quote{display:flex;gap:10px;align-items:flex-start;margin-top:14px;padding:10px 12px;background:var(--cream);border:1.5px solid var(--ink);border-radius:14px;font:400 14px/1.4 var(--font-body)}
+.msg-quote b{display:block;font:700 12px/16px var(--font-body)}
+.msg-sheet .mk-btn{width:100%}
+.msg-sheet .msg-fine{margin-top:12px;font:400 13px/1.45 var(--font-body);color:var(--muted);text-align:center}
+.msg-banner{position:absolute;left:0;right:0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px var(--gutter);background:var(--ink);color:var(--yellow);font:700 14px/1.3 var(--font-body)}
+.msg-banner .mk-link{color:var(--yellow)}
+/* desktop side panel: sits inside the thread card, on its right edge */
+.msg-panel{position:absolute;z-index:40;top:0;right:0;bottom:0;width:min(392px,80%);background:var(--yellow);border-left:2px solid var(--ink);padding:14px 20px 12px;overflow:hidden}
+.msg-panel .msg-li{min-height:52px;padding:8px 0}
+.msg-panel .msg-who-row{margin-top:10px}
+.msg-panel .msg-sheet-hd .mk-h2{font-size:20px}
+.msg-panel .msg-list{margin-top:14px}
+.msg-scrim-card{position:absolute;inset:0;background:rgba(245,243,231,.86);z-index:39}
+.msg-dialog.mk-in-card{left:50%;right:auto;width:420px;max-width:calc(100% - 40px);transform:translate(-50%,-50%);margin-right:0}
+
+.msg-status{margin-top:28px;display:flex;gap:12px;align-items:flex-start;padding:16px;background:var(--pale);border:2px solid var(--ink);border-radius:20px}
+.msg-status .ic{flex:none;width:32px;height:32px;border-radius:50%;background:var(--ink);color:var(--yellow);display:flex;align-items:center;justify-content:center}
+.msg-status b{display:block;font:800 16px/1.3 var(--font-body)}
+.msg-status p{margin-top:2px;font:400 14px/1.45 var(--font-body)}
+.msg-status .mk-btn{margin-top:14px}
+.msg-loadline{margin-top:28px;font:400 16px/1.45 var(--font-body);color:var(--muted)}
+
+.mk-btn .msg-inbtn{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--yellow);color:var(--ink);font:800 12px/1 var(--font-body)}
+.mk-btn.mk-secondary .msg-inbtn{background:var(--ink);color:var(--yellow)}
+/* empty inbox band */
+.msg-empty{margin-top:32px;background:var(--cream);border-top:3px solid var(--ink);border-bottom:3px solid var(--ink)}
+.msg-empty-in{display:flex;flex-direction:column;padding-top:44px}
+.msg-empty-words .mk-h2{font-size:30px;line-height:1.1;letter-spacing:-.025em}
+.msg-empty-words p{margin-top:12px;font:400 17px/1.45 var(--font-body);max-width:34ch}
+.msg-empty-act{margin-top:24px}
+.msg-empty-art{display:flex;justify-content:center;margin-top:40px}
+.msg-empty-art svg{display:block}
+@media (min-width:768px){
+  .msg-empty{margin-top:56px}
+  .msg-empty-in{flex-direction:row;align-items:flex-end;justify-content:space-between;padding-top:72px;gap:48px}
+  .msg-empty-words{padding-bottom:72px;flex:0 1 520px}
+  .msg-empty-words .mk-h2{font-size:40px}
+  .msg-empty-words p{font-size:19px;max-width:46ch}
+  .msg-empty-art{margin-top:0;padding-right:min(8vw,96px)}
+}
+.msg-banner{position:static;flex:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:0 var(--gutter);background:var(--ink);color:var(--yellow);font:700 14px/1.3 var(--font-body)}
+.msg-banner .mk-link{color:var(--yellow)}
+.msg-tx{display:block;min-width:0;width:100%}
+.msg-host{font-weight:400;color:var(--muted);margin-left:4px}
+.msg-intro{align-self:center;display:flex;flex-direction:column;align-items:center;text-align:center;padding:28px 0 8px;gap:2px}
+.msg-intro .mk-avatar{margin-bottom:8px}
+.msg-intro b{font:800 20px/1.2 var(--font-body);letter-spacing:-.01em}
+.msg-intro small{font:400 14px/1.35 var(--font-body);color:var(--muted)}
+.msg-intro p{margin-top:8px;font:400 14px/1.45 var(--font-body);max-width:34ch}
+.msg-stream.is-center{justify-content:center}
+.msg-stream.is-center .msg-empty-thread{padding-bottom:60px}
+
+/* the pin's second line drops "Posted by" on the narrowest phones so "See the invite" is never cut */
+.msg-pin .msg-pb em{font-style:normal}
+@media (max-width:359px){ .msg-pin .msg-x{display:none} }
+
+/* the multi-line input shows four lines and clips cleanly at its text edge, never a sliver of a fifth */
+.msg-tx-in{display:block}
+.msg-input.is-multi .msg-tx{display:flex;flex-direction:column;justify-content:flex-end;max-height:calc(1.35em * 4);overflow:hidden}
+/* 12. Chats | Updates: the kit's segmented control, one count chip in each segment. The chip is 22px, ink on the idle segment, yellow on the ink one. */
+.msg-segwrap{margin-top:20px}
+.msg-seg{max-width:none}
+@media (min-width:768px){ .msg-segwrap{margin-top:24px} }
+.msg-seg a{gap:8px}
+.msg-segn{display:inline-flex;align-items:center;justify-content:center;flex:none;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--ink);color:var(--yellow);font:800 12px/1 var(--font-body)}
+.msg-seg a[aria-current] .msg-segn{background:var(--yellow);color:var(--ink)}
+.msg-segwrap + .msg-body{padding-top:8px}
+@media (min-width:768px){ .msg-segwrap + .msg-body{padding-top:12px} }
+
+/* 13. the Updates list: the chat row's grammar, two lines instead of three */
+.msg-upd{min-height:80px;align-items:flex-start}
+.msg-upd .msg-title{font-weight:700}
+.msg-upd.is-unread .msg-title{font-weight:800}
+.msg-upd .msg-r2{align-items:flex-start;margin-top:3px;gap:10px}
+.msg-upd .msg-meta{flex:1 1 auto;white-space:normal;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden}
+.msg-upd .msg-time{padding-top:0}
+.msg-dotslot{flex:none;width:10px;height:17px;display:flex;align-items:center}
+.msg-ic{display:inline-flex;align-items:center;justify-content:center;flex:none;width:44px;height:44px;border-radius:50%;border:1.5px solid var(--ink);background:var(--cream);color:var(--ink)}
+.msg-row.is-unread .msg-ic{background:var(--ink);color:var(--yellow)}
+.msg-group-label.is-first{margin-top:0}
+.msg-group-label .mk-link{margin-right:0}
+.msg-body > .msg-group-label:first-child{margin-top:4px}
+.msg-empty-link{margin-top:6px !important;max-width:none !important}
+.msg-empty-link .mk-link{margin-left:0}
+@media (min-width:768px){ .msg-empty-link{margin-top:8px !important} }
+
+/* desktop: the pane next to Updates previews the plan, because a tap leaves Messages for the plan */
+.msg-upd-card{background:var(--pale);border:2px solid var(--ink);border-radius:20px;box-shadow:8px 8px 0 var(--ink);margin-right:8px;padding:28px 28px 28px}
+.msg-upd-hd .mk-h2{margin-top:8px;font-size:32px;line-height:1.1;letter-spacing:-.025em}
+.msg-upd-plan{display:flex;gap:14px;align-items:center;margin-top:22px;padding:16px 0;border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink)}
+.msg-upd-list{display:flex;flex-direction:column;gap:0}
+.msg-upd-p{display:flex;align-items:center;gap:14px;min-height:60px;border-bottom:1.5px solid var(--ink)}
+.msg-upd-p:last-child{border-bottom:0}
+.msg-upd-p b{display:block;font:700 16px/1.25 var(--font-body)}
+.msg-upd-p small{display:block;font:400 13px/1.3 var(--font-body);color:var(--muted)}
+.msg-upd-acts{display:flex;gap:12px;flex-wrap:wrap;margin-top:24px}
+.msg-upd-acts .mk-btn{flex:1 1 180px}
+
+/* 14. paid-plan system lines: a small card icon in front of "Sam paid and is in" */
+.msg-sys .msg-sysico{display:inline-block;vertical-align:-3px;margin-right:6px;color:var(--ink)}
+
+/* 15. report sheets: a member's photo in the quote, and a photo report shows it larger */
+.msg-quote .mk-avatar{margin-top:1px}
+.msg-quote.is-photo{align-items:center;gap:14px}
+.msg-quote.is-photo > div{min-width:0}
+.msg-quote.is-photo b{font-size:14px;line-height:1.3;margin-bottom:2px}
+
+/* B. product overrides of the ported rules -------------------------------------------------- */
+/* controls: real buttons, links and a textarea, so they need their browser defaults taken off */
+button.msg-li,a.msg-li{font:inherit;color:var(--ink);background:none;border:0;border-bottom:1.5px solid var(--ink);border-radius:0;padding:10px 0;margin:0;width:100%;text-align:left}
+button.msg-li:last-child,a.msg-li:last-child{border-bottom:0}
+.msg-li:focus-visible,.msg-send:focus-visible,.msg-seg button:focus-visible,.msg-state .mk-link:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.msg-row:focus-visible,.msg-pin:focus-visible,.msg-back:focus-visible{outline:2px solid var(--ink);outline-offset:-2px}
+.msg-b[role="button"]{cursor:pointer}
+.msg-b:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.msg-b{-webkit-touch-callout:none;-webkit-user-select:text}
+.msg-send{cursor:pointer;-webkit-tap-highlight-color:transparent}
+.msg-send.is-off{cursor:default}
+
+/* the stream scrolls; short conversations sit at the bottom (a spacer, not justify-content:flex-end, which cannot scroll) */
+.msg-stream{overflow-y:auto;overflow-x:hidden;justify-content:flex-start;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+.msg-spacer{flex:1 0 0;min-height:0}
+.msg-stream.is-center{justify-content:center}
+.msg-stream.is-center .msg-spacer{display:none}
+
+/* the thread card keeps its colour in a normal page */
+.msg-card{background:var(--yellow)}
+@media (min-width:768px){ .msg-card{background:var(--pale)} }
+
+/* the segmented control: two real tab buttons */
+.msg-seg button{flex:1 1 0;display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border:0;border-radius:999px;background:transparent;font:700 15px/1.2 var(--font-body);color:var(--ink);white-space:nowrap;cursor:pointer;-webkit-tap-highlight-color:transparent;padding:0}
+.msg-seg button[aria-selected="true"]{background:var(--ink);color:var(--yellow)}
+.msg-seg button[aria-selected="true"] .msg-segn{background:var(--yellow);color:var(--ink)}
+
+/* a selected row (a computer: the open chat or update) reads as read, whatever the data says */
+.msg-row.is-selected{background:var(--pale);margin:0 -14px;padding-left:14px;padding-right:14px}
+@media (max-width:1023px){ .msg-row.is-selected{background:none;margin:0;padding-left:0;padding-right:0} }
+@media (min-width:1024px){
+  .msg-row.is-selected .msg-dot{display:none}
+  .msg-row.is-selected.is-unread .msg-title{font-weight:700}
+  .msg-row.is-selected.is-unread .msg-time{color:var(--muted);font-weight:400}
+  .msg-row.is-selected.is-unread .msg-last{color:var(--muted);font-weight:400}
+}
+
+/* sheets: fixed to the viewport on a phone (the kit's .mk-sheet does the same) */
+.msg-scrim-phone{position:fixed;inset:0;background:rgba(245,243,231,.86);z-index:70}
+.msg-scrim-card{display:none}
+.msg-sheet{position:fixed;max-height:calc(100dvh - 70px);overflow-y:auto;overscroll-behavior:contain}
+.msg-dialog{position:fixed;max-height:calc(100dvh - 40px);overflow-y:auto}
+.msg-dialog .acts .mk-btn{width:100%}
+.msg-sheet .mk-btn{width:100%}
+.msg-sheet-hd .mk-icon-btn{margin:-6px -8px 0 0}
+.msg-sheet .msg-sec-t:first-child{margin-top:0}
+/* the Report a ... pick list uses the same rows with a photo first */
+.msg-li .mk-avatar{--s:40px}
+@media (min-width:768px){
+  .msg-scrim-phone{display:none}
+  .msg-scrim-card{display:block;position:absolute;inset:0;background:rgba(245,243,231,.86);z-index:39}
+  /* the info panel: a drawer inside the card's right edge */
+  /* the drawer ends where the composer starts (--msg-comp-h is the composer's own height, set by the thread view; 75px is
+     the one-line composer): it used to run under the composer, which is drawn over it, so the bottom 75px could never be
+     scrolled clear at 768 to 1023 ("Leave chat", the report safety line). Its own overflow-y:auto now does the scrolling. */
+  .msg-sheet{position:absolute;left:auto;z-index:40;top:0;right:0;bottom:var(--msg-comp-h,75px);width:min(392px,80%);max-height:none;background:var(--yellow);border:0;border-left:2px solid var(--ink);border-radius:0;padding:14px 20px 12px}
+  .msg-sheet .msg-grab{display:none}
+  .msg-sheet .mk-btn.mk-sm{width:auto}
+  .msg-sheet .msg-li{min-height:52px;padding:8px 0}
+  .msg-sheet .msg-who-row{margin-top:10px}
+  .msg-sheet .msg-sheet-hd .mk-h2{font-size:20px}
+  .msg-sheet .msg-list{margin-top:14px}
+  .msg-dialog{position:absolute;left:50%;right:auto;width:420px;max-width:calc(100% - 40px);transform:translate(-50%,-50%);margin-right:0}
+}
+.msg-sheet{background:var(--pale)}
+@media (min-width:768px){ .msg-sheet{background:var(--yellow)} }
+/* the info drawer kept in view behind a dialog opened from it: a computer only */
+.msg-sheet.is-under{display:none}
+@media (min-width:768px){ .msg-sheet.is-under{display:block} }
+
+/* the long-press menu is fixed to the viewport, placed from the pressed bubble's own rectangle */
+.msg-menu{position:fixed;z-index:81}
+.msg-menu .msg-li{min-height:48px;padding:0 12px;border-bottom:1.5px solid var(--ink)}
+.msg-menu .msg-li:last-child{border-bottom:0}
+
+/* the banner under the header while picking a message to report */
+.msg-banner{position:static}
+.msg-banner .mk-link{color:var(--yellow)}
+
+/* the composer's textarea, drawn as the design's input */
+textarea.msg-input{display:block;width:100%;height:48.6px;min-height:48px;max-height:113.4px;resize:none;overflow-y:auto;font:400 16px/1.35 var(--font-body);-webkit-appearance:none;appearance:none;margin:0;padding:12px 18px;border:1.5px solid var(--ink);border-radius:24px;background:var(--cream);color:var(--ink)}
+textarea.msg-input::placeholder{color:var(--muted);opacity:1}
+textarea.msg-input:focus{outline:none;border-width:2px;padding-left:17.5px}
+textarea.msg-input:focus-visible{outline:none}
+.msg-comp-row{align-items:flex-end}
+.msg-comp-line{margin:0 0 10px}
+.msg-comp-line[hidden]{display:none}
+.msg-comp.is-closed{position:relative}
+
+/* the thread's invite pin is a link */
+.msg-pin{cursor:pointer}
+
+/* the first-time safety note is dismissed by "Got it" */
+.msg-safety .act .mk-btn{min-height:44px}
+
+/* the hand-over buttons placed on an invite (spec 3.9) */
+.msg-handover{display:flex;flex-direction:column;gap:10px}
+.msg-handover .mk-btn{width:100%}
+
+/* quiet link-buttons inside the list (Mark all as read is a real button) */
+.msg-group-label button.mk-link{cursor:pointer}
+
+/* empty states: a cream band between two 3px rules, the drawing standing on the lower rule (RULE-07) */
+.msg-main.is-empty .msg-wrap,.msg-main.is-empty .msg-split{flex:none}
+.msg-main.is-empty .msg-empty{margin-top:40px}
+.msg-empty.is-upd .msg-empty-in{padding-top:34px}
+.msg-empty.is-upd .msg-empty-art{margin-top:24px}
+.msg-main.is-empty .msg-empty.is-upd{margin-top:28px}
+.msg-empty-link{margin-top:6px !important;max-width:none !important}
+.msg-empty-link .mk-link{margin-left:0}
+@media (min-width:768px){
+  .msg-main.is-empty .msg-empty.is-upd{margin-top:56px}
+  .msg-empty.is-upd .msg-empty-in{padding-top:72px}
+  .msg-empty.is-upd .msg-empty-art{margin-top:0}
+  .msg-empty-link{margin-top:8px !important}
+}
+.msg-empty-art .msg-art{display:block;overflow:visible}
+
+/* blocked members (the You spec): the row is a photo, a name, a date and Unblock */
+.msg-blk-wrap .mk-section.mk-first{margin-top:28px}
+.msg-blk{min-height:80px;gap:14px}
+.msg-blk .mk-btn{min-width:96px}
+.msg-blk-empty{margin-top:40px}
+.msg-stand{display:flex;flex-direction:column;align-items:stretch;border-bottom:3px solid var(--ink)}
+.msg-stand .msg-stand-txt{padding-bottom:28px;min-width:0}
+.msg-stand .msg-stand-art{align-self:flex-end;padding-right:8px}
+.msg-stand .msg-stand-art svg{display:block}
+@media (min-width:768px){
+  .msg-blk-wrap>.mk-section,.msg-blk-wrap>.msg-blk-empty{max-width:760px}
+  .msg-blk-empty{margin-top:56px}
+  .msg-sub-crumb{display:block}
+}
+.msg-sub-crumb{display:none}
+.msg-blk-lead{margin-top:14px;max-width:560px}
+
+/* the screen-reader-only live text (a send, a block, a report) */
+.msg-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+
+/* reduce motion: nothing here moves, but the scroll to the newest message is instant */
+@media (prefers-reduced-motion:reduce){ .msg-stream{scroll-behavior:auto} }
+
+/* the drawings: one at a phone size, one at a computer size */
+.msg-art-p{display:block}
+.msg-art-d{display:none}
+@media (min-width:768px){ .msg-art-p{display:none} .msg-art-d{display:block} }
+
+/* a thread shown whole (the design's "full" state): no inner scroll, the page is as long as the conversation */
+.mk-page > .mk-main.msg-main.is-thread.is-auto{height:auto;overflow:visible}
+.msg-main.is-auto .msg-wrap,.msg-main.is-auto .msg-split,.msg-main.is-auto .msg-pane-col,.msg-main.is-auto .msg-card{flex:none;min-height:auto}
+.msg-main.is-auto .msg-stream{overflow:visible;flex:none}
+.msg-main.is-auto .msg-spacer{display:none}
+
+/* the stream: a column-reverse scroller starts at (and stays at) the newest message, also on the server-rendered
+   first paint, with no script. The single child keeps reading order. Its auto bottom margin is the safe version of
+   "bottom-anchored": a conversation that fits is read from the top (as the design draws a short one), and one that
+   overflows is anchored to the newest message. */
+.msg-stream{display:flex;flex-direction:column-reverse;justify-content:flex-start}
+.msg-stream-in{flex:none;display:flex;flex-direction:column;min-width:0;margin-bottom:auto}
+.msg-stream.is-top,.msg-stream.is-center{flex-direction:column}
+.msg-stream.is-center .msg-stream-in{margin-bottom:0}
+.msg-stream.is-center{justify-content:center}
+.msg-main.is-auto .msg-stream{flex-direction:column}
+.msg-b{white-space:pre-wrap}
+.msg-b.is-selectable{cursor:pointer}
+.msg-b.is-selectable:hover,.msg-b.is-selectable:focus-visible{outline:3px solid var(--ink);outline-offset:3px}
+
+/* preview only: the grey iOS keyboard the design draws (needs_device_check) */
+.msg-kb{position:relative;z-index:30;flex:none;height:336px;background:#CFD1D6;display:flex;align-items:center;justify-content:center;font:700 12px/1.4 var(--font-body);letter-spacing:.08em;text-transform:uppercase;color:#4B4D52;text-align:center;border-top:1px solid #B5B7BC}
+.msg-kb small{display:block;margin-top:4px;font-weight:400;letter-spacing:.02em;text-transform:none;font-size:12px}
+
+/* the list sits in the tab panel, so the design's sibling rule (.msg-segwrap + .msg-body) is spelled through it */
+.msg-segwrap + [role="tabpanel"] > .msg-body{padding-top:8px}
+@media (min-width:768px){ .msg-segwrap + [role="tabpanel"] > .msg-body{padding-top:12px} }

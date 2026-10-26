@@ -1,0 +1,298 @@
+/* Payments for paid Open Invites: the pay sheet, Get paid, leave and cancel, receipts and the host's Payments pages.
+   Ported from the approved design (pay.css, round 3 designer B) with /home/claude/build/mkcss.py: kit class names became mk-*, area classes keep pay-.
+   Dropped as mockup furniture: the trimmed plan page drawn behind the sheets, the board, chat and admin frames, the design's own desktop dialog
+   wrapper (the Sheet component is the dialog) and the post form's Charge for places block (the form uses the Open Invite cost block, invite.css).
+   Values are the kit's tokens; spacing stays on the scale (4 8 12 16 20 24 32 40 48 64). */
+
+/* ---- 0. small shared pieces */
+.pay-quiet{color:var(--muted);font-weight:400}
+.pay-n{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;padding:0 6px;border-radius:999px;background:var(--ink);color:var(--yellow);font:800 12px/20px var(--font-body)}
+.pay-meta{font:700 14px/1.2 var(--font-body)}
+.mk-btn.pay-danger{color:var(--error);border-color:var(--error)}
+
+/* ---- 2. the pay sheet (phone) and dialog (computer) --------------------------------------------- */
+/* a phone sheet; from 768 the dialog's own 32px (invite.css, P1) applies, whichever stylesheet loads last */
+@media (max-width:767px){ .mk-sheet.pay-sheet{padding-top:24px} }
+.pay-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-height:44px}
+.pay-h{font-size:28px;font-weight:800;line-height:1.1;letter-spacing:-.025em;text-wrap:balance;padding-top:2px}
+.pay-hd .pay-x{flex:none}
+.pay-hd .pay-x{margin:-8px -8px 0 0}
+.pay-sub{margin-top:4px;font:400 14px/1.4 var(--font-body);color:var(--muted)}
+.pay-sub b{font-weight:700;color:var(--ink)}
+.pay-p{margin-top:8px;font-size:16px;line-height:1.45}
+.pay-p b{font-weight:700}
+.pay-ic{display:flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:50%;background:var(--ink);color:var(--yellow);margin-bottom:16px}
+.pay-ic.is-line{background:transparent;color:var(--ink);border:2px solid var(--ink)}
+.pay-ic.is-bad{background:transparent;color:var(--error);border:2px solid var(--error)}
+
+/* the summary tile: what you are paying for, and the one price */
+.pay-sum{margin-top:16px;padding:14px 16px;border:1.5px solid var(--ink);border-radius:16px;background:var(--cream)}
+.pay-sum .hd{display:flex;align-items:center;gap:12px}
+.pay-sum .hd .tx{min-width:0}
+.pay-sum b.pay-t{display:block;font:700 16px/1.25 var(--font-body)}
+.pay-sum .m{display:block;margin-top:2px;font:400 14px/1.3 var(--font-body);color:var(--muted)}
+.pay-lines{margin-top:12px;padding-top:12px;border-top:1.5px solid var(--ink)}
+.pay-line{display:flex;align-items:baseline;justify-content:space-between;gap:12px;font:400 15px/1.5 var(--font-body)}
+.pay-line+.pay-line{margin-top:2px}
+.pay-line.is-total{align-items:center;font:700 17px/1.2 var(--font-body)}
+.pay-line.is-total b{font-size:26px;font-weight:800;letter-spacing:-.02em}
+.pay-line.is-total{margin-top:8px;padding-top:10px;border-top:1.5px solid var(--ink)}
+.pay-lines>.pay-line.is-total:first-child{margin-top:0;padding-top:0;border-top:0}
+.pay-line s{color:var(--muted)}
+.pay-line .pay-was{color:var(--muted)}
+.pay-lines.is-bare{margin-top:0;padding-top:0;border-top:0}
+
+/* the money lines: where the money is and when it moves, in plain words */
+.pay-money{display:flex;flex-direction:column;gap:12px;margin-top:16px;list-style:none;padding:0}
+.pay-money li{display:flex;gap:12px;align-items:flex-start;font:400 14px/1.4 var(--font-body)}
+.pay-money li .mk-ico{flex:none;margin-top:0}
+.pay-money li b{font-weight:700}
+.pay-money li span{text-wrap:pretty}
+
+/* apple pay (drawn by Apple and Stripe; shown here only so the sheet has its real shape) */
+.pay-apple{display:flex;align-items:center;justify-content:center;gap:4px;min-height:56px;margin-top:20px;border-radius:999px;background:#000;color:#fff;font:700 22px/1 var(--font-body);letter-spacing:-.01em;text-decoration:none}
+.pay-apple .pay-apple-g{margin-top:-3px}
+.pay-apple.is-off{background:var(--muted)}
+.pay-or{display:flex;align-items:center;gap:12px;margin-top:14px;font:400 13px/1 var(--font-body);color:var(--muted)}
+.pay-or::before,.pay-or::after{content:"";flex:1 1 0;border-top:1.5px solid var(--ink);opacity:.35}
+
+/* card fields: one box, number on top, expiry and security code under it */
+.pay-lab{margin-top:14px;margin-bottom:8px;font:700 14px/1.2 var(--font-body)}
+.pay-or+.pay-lab{margin-top:14px}
+/* The approved sheet's card box is 346 x 122 with the dividers inset from the edges and one tighter corner (bottom left): the design's stylesheet also
+   matched this class with its chat bubble rule (padding 9px 14px 10px, corners 20px with 6px at the bottom left), and the approved shots show the result. */
+.pay-cb{padding:9px 14px 10px;border:1.5px solid var(--ink);border-radius:20px 20px 20px 6px;background:var(--cream);overflow:hidden;color:var(--ink);font:400 16px/1.2 var(--font-body)}
+.pay-cb .r1{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:50px;padding:0 14px}
+.pay-cb .r2{display:grid;grid-template-columns:1fr 1fr;border-top:1.5px solid var(--ink)}
+.pay-cb .r2>div{display:flex;align-items:center;min-height:50px;padding:0 14px}
+.pay-cb .r2>div+div{border-left:1.5px solid var(--ink)}
+.pay-cb .mk-ph{color:var(--muted)}
+.pay-cb .mk-ico{color:var(--ink)}
+.pay-cb.is-error{border:2px solid var(--error)}
+.pay-cb.is-error .r2{border-top-width:2px;border-top-color:var(--error)}
+.pay-cb.is-error .r2>div+div{border-left-width:2px;border-left-color:var(--error)}
+.pay-cb.is-off{background:var(--cream);cursor:progress}
+.pay-cb.is-off .r1,.pay-cb.is-off .r2{color:var(--muted)}
+.pay-alert{display:flex;gap:8px;align-items:flex-start;margin-top:10px;font:400 14px/1.4 var(--font-body)}
+.pay-alert .mk-ico{flex:none;color:var(--error);margin-top:1px}
+.pay-alert b{font-weight:700;color:var(--error)}
+.pay-act2{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+.pay-act2 .mk-btn{width:100%}
+.pay-act2 .mk-link{justify-content:center}
+.pay-act2.is-tight{margin-top:16px}
+.pay-fine{margin-top:12px;font:400 13px/1.4 var(--font-body);color:var(--muted);text-align:center}
+.pay-fine a{color:var(--ink);font-weight:700}
+
+/* a note tile inside a sheet */
+.pay-tile{display:flex;gap:12px;align-items:flex-start;margin-top:16px;padding:14px 16px;border:2px solid var(--ink);border-radius:16px;background:var(--cream);font:400 14px/1.4 var(--font-body)}
+.pay-tile .mk-ico{flex:none;margin-top:1px}
+.pay-tile b{font-weight:700}
+
+/* steps (3D Secure hand-off) */
+.pay-steps{margin-top:16px;border-top:1.5px solid var(--ink)}
+.pay-step{display:flex;align-items:center;gap:16px;min-height:56px;padding:10px 0;border-bottom:1.5px solid var(--ink);font:700 15px/1.3 var(--font-body)}
+.pay-step .mk-serif{flex:none;width:20px;font-size:28px;line-height:1;text-align:center}
+
+
+/* ---- 3. someone else's screen, drawn as a neutral hand-off (the bank's 3D Secure screen, Stripe's own pages) ---- */
+.pay-ext:focus{outline:none}
+.pay-ext{position:fixed;left:0;right:0;bottom:0;top:64px;z-index:75;background:var(--cream);border:2px solid var(--ink);border-bottom:0;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
+.mk-screen.mk-app .pay-ext{top:calc(var(--safe-top) + 8px)}
+.pay-ext-bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;min-height:52px;padding:0 16px;border-bottom:1.5px solid var(--ink);font:700 15px/1 var(--font-body)}
+.pay-ext-bar .u{display:inline-flex;align-items:center;gap:6px;font-size:14px}
+.pay-ext-bar .l{justify-self:start;min-height:44px;padding:0 8px 0 0;border:0;background:none;color:inherit;font:inherit;cursor:pointer}
+.pay-ext-bar .r{justify-self:end}
+.pay-ext-body{flex:1 1 auto;display:flex;flex-direction:column;align-items:flex-start;gap:16px;padding:28px 20px calc(24px + var(--safe-bottom))}
+.pay-sk{display:block;border:1.5px dashed var(--ink);border-radius:10px;opacity:.5}
+.pay-sk.is-c{border-radius:50%}
+.pay-sk.is-pill{border-radius:999px}
+.pay-ext-cap{align-self:center;order:99;font:400 13px/1.3 var(--font-body);color:var(--muted)}
+
+.pay-feenote{display:block;font:400 13px/1.3 var(--font-body);color:var(--muted);margin-top:2px}
+.pay-ext.is-short{top:236px}
+.mk-screen.mk-app .pay-ext.is-short{top:260px}
+
+
+
+/* ---- 4. Get paid: the entry card, the slim line, the hand-off sheet, the cost block ----------------------- */
+.mk-status.pay-pending{--c:var(--ink)}
+.mk-pill.mk-warn{color:var(--warning);border-color:var(--warning)}
+.pay-gp{display:flex;flex-direction:column}
+.pay-gp-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:22px}
+.pay-gp-h{margin-top:14px;font-size:26px;font-weight:800;line-height:1.08;letter-spacing:-.025em;text-wrap:balance}
+.pay-gp-p{margin-top:8px;font:400 16px/1.45 var(--font-body)}
+.pay-gp-bank{display:flex;gap:10px;align-items:center;margin-top:16px;padding-top:14px;border-top:1.5px solid var(--ink);font:400 15px/1.3 var(--font-body)}
+.pay-gp-bank b{font-weight:700}
+.pay-gp-act{margin-top:20px}
+.pay-gp-act .mk-btn{width:100%}
+.pay-gp-act .mk-link{gap:6px}
+.pay-gp-fine{margin-top:12px;font:400 13px/1.4 var(--font-body);color:var(--muted);text-align:center}
+.pay-slim{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:6px 0;border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink)}
+.pay-slim .l{display:flex;align-items:center;gap:12px;font:700 16px/1.2 var(--font-body)}
+.pay-slim .l .mk-status{font-size:0;gap:0}
+.pay-slim .l .mk-status::before{width:12px;height:12px}
+.pay-slim .mk-link{gap:6px}
+
+.pay-need{margin-top:20px}
+.pay-need ul{margin-top:8px;border-top:1.5px solid var(--ink);list-style:none;padding:0}
+.pay-need li{display:flex;align-items:center;gap:16px;min-height:56px;padding:10px 0;border-bottom:1.5px solid var(--ink);font:700 15px/1.3 var(--font-body)}
+.pay-need li .mk-ico{flex:none}
+
+
+/* ---- 5. the Payments page ------------------------------------------------------------------------------ */
+.pay-subpage .mk-head,.mk-screen.mk-app .pay-subpage .mk-head{padding-top:20px}
+.pay-crumbwrap{display:none}
+@media (min-width:768px){ .pay-crumbwrap{display:block} .pay-subpage .mk-head,.mk-screen.mk-app .pay-subpage .mk-head{padding-top:12px} }
+.mk-screen .mk-main-pad.pay-subpage{padding-bottom:0}
+.pay-cols{display:flex;flex-direction:column}
+.pay-slot{order:-1;margin-top:28px}
+.pay-main-col{min-width:0}
+.pay-slot .mk-card{margin-right:6px}
+.pay-rail-how{margin-top:40px}
+@media (min-width:768px){
+  .pay-cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(320px,400px);column-gap:var(--col-gap);align-items:start}
+  .pay-slot{order:0;grid-column:2;grid-row:1;position:sticky;top:112px;margin-top:48px}
+  .pay-main-col{grid-column:1;grid-row:1}
+  .pay-main-col>.mk-section:first-child{margin-top:48px}
+}
+@media (min-width:768px) and (max-width:1023px){ .pay-cols{grid-template-columns:minmax(0,1fr) 320px} }
+.pay-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1.5px solid var(--ink);border-bottom:1.5px solid var(--ink)}
+.pay-stats .c{padding:14px 12px 14px 16px;border-left:1.5px solid var(--ink)}
+.pay-stats .c:first-child{border-left:0;padding-left:0}
+.pay-stats .k{font:700 11px/1.2 var(--font-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);white-space:nowrap}
+.pay-stats .v{margin-top:6px;font:800 30px/1 var(--font-body);letter-spacing:-.025em}
+.pay-stats .s{margin-top:4px;font:400 12px/1.3 var(--font-body);color:var(--muted)}
+@media (min-width:768px){ .pay-stats .k{font-size:12px;letter-spacing:.12em} .pay-stats .v{font-size:40px} .pay-stats .s{font-size:14px} .pay-stats .c{padding:18px 20px 18px 24px} }
+.pay-prow{align-items:flex-start;gap:14px;min-height:96px;padding:16px 0}
+.pay-prow .mk-date{margin-top:2px}
+.pay-prow .mk-body .mk-meta{margin-top:2px}
+.pay-prow .mk-body .mk-title+.mk-meta{margin-top:4px}
+.pay-prow .pay-when{color:var(--muted)}
+.pay-pend{flex-direction:column;align-items:flex-end;gap:6px;padding-top:2px}
+.pay-pend b{font:800 18px/1 var(--font-body);letter-spacing:-.01em}
+.pay-none{margin-top:8px;font:400 16px/1.45 var(--font-body);color:var(--muted);max-width:440px}
+.pay-how h2{margin-bottom:8px}
+.pay-how ol{list-style:none;padding:0;border-top:1.5px solid var(--ink)}
+.pay-how li{display:flex;align-items:center;gap:16px;min-height:60px;padding:10px 0;border-bottom:1.5px solid var(--ink);font:700 15px/1.3 var(--font-body)}
+.pay-how li .mk-serif{flex:none;width:20px;font-size:28px;line-height:1;text-align:center}
+.pay-how-phone{margin-top:var(--gap-section);padding-bottom:40px}
+.pay-eact{margin-top:24px}
+
+
+
+/* ---- 6. one plan's payments ---------------------------------------------------------------------------- */
+.pay-dh{padding-top:20px}
+.mk-screen.mk-app .pay-dh{padding-top:12px}
+.pay-dh1{margin-top:16px;font-size:34px;font-weight:800;line-height:1.02;letter-spacing:-.03em;text-wrap:balance}
+.pay-dmeta{margin-top:8px;font:400 16px/1.4 var(--font-body);color:var(--muted)}
+.pay-dgrid{margin-top:24px;display:flex;flex-direction:column}
+.pay-dgrid>div+div{margin-top:var(--gap-section)}
+.pay-dsum{padding:6px 20px}
+.pay-dsum .pay-r{display:flex;align-items:baseline;justify-content:space-between;gap:12px;min-height:52px;padding:14px 0;border-top:1.5px solid var(--ink);font:400 15px/1.3 var(--font-body)}
+.pay-dsum .pay-r:first-child{border-top:0}
+.pay-dsum .pay-r b{font:800 17px/1.2 var(--font-body);letter-spacing:-.01em;text-align:right}
+.pay-dmoney{margin-top:20px}
+.pay-prow2{display:flex;align-items:center;gap:14px;min-height:76px;padding:14px 0;color:var(--ink)}
+.pay-dgrid .mk-rows>.pay-prow2{border-bottom:1.5px solid var(--ink)}
+.pay-prow2.is-open .mk-meta{color:var(--muted)}
+.pay-seat.is-s{width:var(--s);height:var(--s);flex:none}
+.pay-ask{margin:-4px 0 0;padding:14px 16px 16px;border:2px solid var(--ink);border-radius:16px;background:var(--pale);margin-bottom:16px}
+.pay-ask p{font:400 15px/1.4 var(--font-body)}
+.pay-ask b{font-weight:700}
+.pay-ask .a{display:flex;gap:8px;margin-top:12px}
+.pay-ask .a .mk-btn{flex:1 1 0;min-width:0;padding:0 12px}
+@media (min-width:768px){
+  .pay-dh{padding-top:8px}
+  .pay-dh1{font-size:clamp(44px,5vw,64px);line-height:.98}
+  .pay-dgrid{display:grid;grid-template-columns:minmax(0,420px) minmax(0,1fr);column-gap:var(--col-gap);align-items:start;margin-top:40px}
+  .pay-dgrid>div+div{margin-top:0}
+  
+}
+
+.pay-prow .mk-title{text-wrap:balance}
+
+.pay-dgrid .mk-section{margin-top:0}
+.pay-slimwrap{margin-top:28px}
+.pay-subpage.is-fill{display:flex;flex-direction:column}
+.pay-eband{margin-top:28px;flex:1 0 auto;display:flex;flex-direction:column;border-bottom:0}
+.pay-eband>.mk-wrap{flex:1 1 auto;display:flex;flex-direction:column}
+.pay-ein{flex:1 1 auto;display:flex;flex-direction:column;padding-top:40px}
+.pay-ew .mk-lead{margin-top:16px;max-width:520px}
+.pay-ea{margin-top:auto;padding-top:32px;display:flex;justify-content:center}
+.pay-ea svg{display:block;overflow:visible}
+@media (min-width:768px){
+  .pay-eband{flex:0 0 auto;margin-top:48px;border-bottom:3px solid var(--ink)}
+  .pay-eband>.mk-wrap{display:block}
+  .pay-ein{flex-direction:row;align-items:flex-end;justify-content:space-between;gap:var(--col-gap);padding-top:64px}
+  .pay-ew{padding-bottom:64px}
+  .pay-ea{margin:0 8px 0 0;padding-top:0}
+  .pay-eact .mk-btn{width:auto}
+}
+
+
+/* ---- 7. leave, refund and cancel ---------------------------------------------------------------------- */
+.pay-line.is-who{align-items:center;min-height:36px}
+.pay-line .w{display:inline-flex;align-items:center;gap:10px;font-weight:700}
+.pay-line.is-who+.pay-line.is-who{margin-top:2px}
+.pay-sum .pay-lines.is-bare .pay-line.is-total{margin-top:8px}
+.pay-sum .pay-lines.is-bare>.pay-line.is-who:first-child{margin-top:0}
+
+/* ---- 8. receipts ----------------------------------------------------------------------------------------- */
+.pay-rc{display:flex;flex-direction:column;padding:20px}
+.pay-rc-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:22px}
+.pay-rc-h{margin-top:14px;font-size:24px;font-weight:800;line-height:1.1;letter-spacing:-.02em;text-wrap:balance}
+.pay-rc-m{margin-top:4px;font:400 15px/1.4 var(--font-body);color:var(--muted)}
+.pay-rc-rows{margin-top:16px;border-top:1.5px solid var(--ink)}
+.pay-rc .pay-r{display:flex;align-items:baseline;justify-content:space-between;gap:16px;min-height:48px;padding:12px 0;border-bottom:1.5px solid var(--ink);font:400 15px/1.3 var(--font-body)}
+.pay-rc .pay-r b{font:700 15px/1.3 var(--font-body);text-align:right}
+.pay-rc .pay-r.is-total{align-items:center;border-bottom:0;padding-bottom:0}
+.pay-rc .pay-r.is-total span{font:700 17px/1.2 var(--font-body)}
+.pay-rc .pay-r.is-total b{font:800 28px/1 var(--font-body);letter-spacing:-.02em}
+.pay-rrefund{margin-top:20px;padding-top:16px;border-top:3px solid var(--ink)}
+.pay-rrefund .mk-term{display:block;margin-bottom:4px}
+.pay-rrefund .pay-r:first-of-type{border-top:0}
+.pay-rmoney{margin-top:24px}
+.pay-ract{margin-top:24px}
+.pay-ract .mk-btn{width:100%}
+.pay-rfine{margin-top:16px}
+.pay-rgrid{display:flex;flex-direction:column;margin-top:28px;padding-bottom:40px}
+@media (min-width:768px){
+  .pay-rgrid{display:grid;grid-template-columns:minmax(0,520px) minmax(0,400px);column-gap:var(--col-gap);align-items:start;margin-top:48px;padding-bottom:96px}
+  .pay-rmoney{margin-top:0}
+  .pay-rfine{text-align:left}
+  .pay-ract .mk-btn{width:auto}
+}
+
+
+/* 13. text links inside a money line keep a 44px tap area without moving the lines */
+.pay-money .mk-inline-link,.pay-notice .mk-inline-link{display:inline-block;padding:14px 0;margin:-14px 0;line-height:1.4}
+/* ---- 14. product additions: the pieces a still design leaves to the build ------------------------------------ */
+.pay-x.is-off{color:var(--muted);border-color:var(--muted);cursor:not-allowed}
+button.pay-apple{width:100%;border:0;cursor:pointer}
+button.pay-apple:disabled{cursor:progress}
+.pay-steps{list-style:none;padding:0;margin-left:0}
+.pay-sheet .mk-sr{position:absolute}
+.pay-sheet ul.pay-money{padding-left:0}
+@media (min-width:768px){
+  /* the computer's dialog has its own corner button (Sheet draws it), so the phone's is hidden and the heading leaves room for it */
+  .pay-hd .pay-x{display:none}
+  .pay-sheet .pay-hd{padding-right:56px}
+  .pay-sheet .pay-h{font-size:32px}
+  /* NEW, not drawn: the bank's own screen as a centred 520px outline on a computer */
+  .pay-ext{left:50%;right:auto;top:50%;bottom:auto;width:520px;max-width:calc(100% - 40px);height:min(560px,calc(100dvh - 80px));transform:translate(-50%,-50%);border-bottom:2px solid var(--ink);border-radius:20px;box-shadow:8px 8px 0 var(--ink)}
+  .pay-ext.is-short{top:50%}
+}
+
+/* ---- 9. small pieces the ported sections leave out */
+.pay-pills{display:flex;flex-wrap:wrap;gap:8px}
+.pay-seat{display:block;width:56px;height:56px;border-radius:50%;border:1.5px dashed var(--ink)}
+.pay-crumb{padding-top:32px}
+.pay-eh{font-size:36px;line-height:1.02;font-weight:800;letter-spacing:-.035em;text-wrap:balance}
+.pay-eh .mk-serif{font-size:1.1em;letter-spacing:-.01em}
+@media (min-width:768px){ .pay-eh{font-size:clamp(44px,4.6vw,64px)} }
+.pay-dgrid .mk-rows>.pay-prow2.is-ask{border-bottom:0}
+.pay-fine a{text-decoration:underline}
+/* the payments design's web back bar is the shell's 56px bar (rule included); the kit's .mk-subbar is 57.5px there */
+.mk-screen.mk-web .pay-subpage>.mk-subbar{padding:5.5px var(--gutter) 5px}
+.pay-dh .pay-pills{margin-top:4px}
+.pay-subpage .mk-btn,.pay-sheet .mk-btn{white-space:nowrap}

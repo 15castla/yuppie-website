@@ -1,0 +1,67 @@
+/* Club Yuppie Notification settings (/members/you/notifications). Ported from the approved design
+   (/home/claude/rebrand/v3/notif.css, round 3, 25 Oct 2026, sections 0 and 1) with the kit's class names (mk- prefix),
+   container queries as media queries (the screen is the viewport now). Every class added here starts with ntf-.
+   Tokens come from .mk-screen; the kit (app/members/members.css) is not changed. The lock-screen, Android shade, text
+   preview and board furniture of the design file are documentation of what the backend sends, not part of this page. */
+
+/* 1. the Notifications page ----------------------------------------------------------- */
+/* sub page under You: the back row is in the bar on phones, above the title on desktop */
+.ntf-crumb{display:none}
+@media (min-width:768px){ .ntf-crumb{display:block} }
+.mk-screen .mk-main.ntf-sub .mk-head{padding-top:20px}
+@media (min-width:768px){ .mk-screen .mk-main.ntf-sub .mk-head{padding-top:8px} }
+.ntf-sub .mk-section:first-of-type{margin-top:28px}
+@media (min-width:768px){ .ntf-sub .mk-section:first-of-type{margin-top:44px} }
+.ntf-sub .mk-cols{margin-top:0}
+.ntf-sub .mk-rail{margin-top:44px}
+
+.ntf-intro{margin:-2px 0 8px;font:400 14px/1.45 var(--font-body);color:var(--muted);max-width:52ch}
+.ntf-row{min-height:84px;gap:16px;align-items:center}
+.ntf-row .mk-body{padding:2px 0}
+.ntf-row .mk-meta{margin-top:4px}
+.ntf-row.is-fixed .mk-end{align-self:center}
+.ntf-row .ntf-link{display:flex;margin:-2px 0 -12px}
+.ntf-row .ntf-link .mk-link{margin-left:0}
+/* the Text row holds a link, so only its words are a label for the switch: the label is stretched over the row (a tap on the
+   title, the detail or the space round them flips it), and the link and the switch sit above it so they take their own taps */
+.ntf-row.is-labelled{position:relative}
+.ntf-row .ntf-lab{display:block;cursor:pointer}
+.ntf-row .ntf-lab::after{content:"";position:absolute;inset:0}
+.ntf-row.is-labelled .ntf-link,.ntf-row.is-labelled .mk-end{position:relative;z-index:1}
+/* the link's wrapper spans the row, so it must not catch the taps beside the link: only the link inside it does (QA RG-C-02) */
+.ntf-row.is-labelled .ntf-link{pointer-events:none}
+.ntf-row.is-labelled .ntf-link > *{pointer-events:auto}
+/* a row with something under its text: the switch lines up with the title, not the middle of the block */
+.ntf-row.has-x{align-items:flex-start}
+.ntf-row.has-x .mk-end{margin-top:-4px}
+@media (min-width:768px){ .ntf-main-col{max-width:640px} }
+/* 768 to 1023: two columns leave the topics 264px and wrap every line three times, so the channels card stacks under them instead */
+@media (min-width:768px) and (max-width:1023px){
+  .ntf-sub .mk-cols{display:block}
+  .ntf-sub .mk-rail{position:static;max-width:640px;margin-top:44px;padding-bottom:8px}
+}
+
+/* the switch: one box, 56 x 32 border-box, in every state (the You spec's switch). The row is the tap target. */
+.ntf-sw{position:relative;display:block;flex:none;width:56px;height:32px;padding:0;border:2px solid var(--ink);border-radius:999px;background:transparent;-webkit-tap-highlight-color:transparent}
+.ntf-sw::after{content:"";position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;background:var(--ink)}
+.ntf-sw[aria-checked="true"]{background:var(--ink)}
+.ntf-sw[aria-checked="true"]::after{left:auto;right:3px;background:var(--yellow)}
+.ntf-sw.mk-is-focus{outline:2px solid var(--ink);outline-offset:3px}
+
+/* things that sit under a row's text */
+.ntf-ok,.ntf-e{display:flex;align-items:flex-start;gap:8px;margin-top:8px;font:400 13px/1.4 var(--font-body)}
+.ntf-ok .mk-ico,.ntf-e .mk-ico{margin-top:1px;flex:none}
+.ntf-e{color:var(--error)}
+.ntf-e b{font-weight:700}
+.ntf-banner{display:flex;gap:12px;align-items:flex-start;padding:16px;margin-bottom:12px;border:2px solid var(--ink);border-radius:16px;background:var(--cream)}
+.ntf-banner .mk-ico{margin-top:2px}
+.ntf-banner p{font:400 15px/1.4 var(--font-body)}
+.ntf-banner .mk-link{min-height:44px}
+.ntf-foot{margin-top:16px;font:400 13px/1.45 var(--font-body);color:var(--muted);max-width:46ch}
+
+/* desktop: the channels are a right-hand card (the kit's rail), on phones a section after the topics */
+.ntf-card.mk-card{padding:24px 28px 8px}
+.ntf-card .mk-sh{margin-bottom:0}
+.ntf-card .mk-rows{border-top:0}
+.ntf-card .mk-rows>.mk-row:last-child{border-bottom:0}
+.ntf-card .ntf-intro{margin-bottom:4px}

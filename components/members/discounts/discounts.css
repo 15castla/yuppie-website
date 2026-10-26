@@ -1,0 +1,162 @@
+/* Discounts and Access: the area stylesheet. Ported from the approved design (/home/claude/rebrand/v3/disc.css) with
+   /home/claude/build/mkcss.py: kit classes carry the mk- prefix, @container became @media (the viewport is the screen
+   now, so the numbers are the same), and the mockup furniture (frame, status bar, fold lines) is left out. The closing
+   band and the empty band are the kit's own (.mk-close, .mk-empty in app/members/members.css); nothing here redraws them.
+   Every class of this file is prefixed dc-. Spacing stays on the scale (4 8 12 16 20 24 32 40 48 64). */
+
+/* ---- 0. page frame ---------------------------------------------------------------------------------- */
+.dc-gap{height:28px;flex:none}
+.dc-main .mk-sub-serif,.dc-main .mk-head .mk-lead{text-wrap:balance}      /* at 320 the photo narrows the title row: no lone word on a line */
+@media (min-width:768px){ .dc-gap{height:40px} }
+
+/* ---- 1. filter chips ----------------------------------------------------------------------------------- */
+.dc-chips{margin-top:24px}
+.dc-chips .mk-chips{position:relative}                                    /* offsetParent of the chips, for scrolling the chosen one into view */
+@media (min-width:768px){ .dc-chips{margin-top:32px} }
+
+/* ---- 2. the list: ruled rows, a logo or letter tile, name, offer, category and area, badge ------------------- */
+.dc-sec{margin-top:28px}
+@media (min-width:768px){ .dc-sec{margin-top:40px} }
+.dc-list{border-top:1.5px solid var(--ink)}
+.dc-list>li{border-bottom:1.5px solid var(--ink)}
+.dc-row{
+  display:grid;grid-template-columns:62px minmax(0,1fr) auto;grid-template-areas:"tile name pill" "tile offer offer" "tile meta meta";
+  align-items:start;width:100%;min-height:76px;margin:0;padding:16px 0;border:0;border-radius:0;background:transparent;appearance:none;-webkit-appearance:none;
+  font:inherit;text-align:left;color:var(--ink);text-decoration:none;cursor:pointer;-webkit-tap-highlight-color:transparent;
+}
+.dc-tile{
+  grid-area:tile;width:48px;height:48px;display:flex;align-items:center;justify-content:center;overflow:hidden;
+  border:1.5px solid var(--ink);border-radius:12px;background:var(--cream);font:800 20px/1 var(--font-body);
+}
+.dc-tile img{display:block;width:30px;height:30px;object-fit:contain}   /* a partner's logo, any shape, contained in the approved 30px box (not tile-minus-padding: that is 31px where the 1.5px border draws as 1px) */
+.dc-name{grid-area:name;min-width:0;font:700 16px/1.25 var(--font-body);letter-spacing:-.005em;overflow-wrap:anywhere}
+.dc-pill{grid-area:pill;align-self:start;margin-left:12px;margin-top:-1px}
+.dc-offer{grid-area:offer;min-width:0;margin-top:2px;font:400 15px/1.35 var(--font-body);overflow-wrap:anywhere}
+.dc-meta{grid-area:meta;min-width:0;margin-top:3px;font:400 14px/1.3 var(--font-body);color:var(--muted);overflow-wrap:anywhere}
+@media (hover:hover){
+  .dc-row:hover .dc-name{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:3px}
+}
+.dc-row:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:6px}
+.dc-row:active{opacity:.85}
+@media (min-width:768px){
+  .dc-sec .mk-month{justify-content:flex-start;gap:20px}
+  .dc-name{font-size:17px} .dc-offer{font-size:16px} .dc-meta{font-size:15px}
+}
+/* two columns from 1000px, as the public site's four reasons: each cell keeps its own rules */
+@media (min-width:1000px){
+  .dc-list{border-top:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:var(--col-gap)}
+  .dc-list>li:nth-child(-n+2){border-top:1.5px solid var(--ink)}
+}
+@media (max-width:339px){ .dc-pill{margin-left:8px} }
+
+/* ---- 3. loading: pale shapes the size of what will arrive, two brand tones, no motion, no spinner --------------- */
+.dc-sk-chips{overflow:hidden}                                            /* with the kit's .mk-chips: runs to the screen edge, like the real row */
+.dc-sk-chips .mk-sk{flex:none;height:44px;border-radius:999px}
+.dc-sk-row{cursor:default;pointer-events:none}
+.dc-sk-row .dc-tile{border:0;background:var(--pale);border-radius:8px}
+.dc-sk-pill{grid-area:pill;align-self:start;margin-left:12px;width:80px;height:22px;border-radius:999px}
+.dc-sk-name{grid-area:name;height:16px;margin-top:2px}
+.dc-sk-offer{grid-area:offer;height:14px;margin-top:10px}
+.dc-sk-meta{grid-area:meta;height:12px;margin-top:10px}
+.dc-sk-h{width:132px;height:30px}
+.dc-sk-c{width:56px;height:14px}
+.dc-sk-month{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
+@media (min-width:768px){ .dc-sk-month{justify-content:flex-start;gap:20px} }
+@media (max-width:339px){ .dc-sk-pill{margin-left:8px} }
+
+/* ---- 4. access: the spotlight card, and the sections ------------------------------------------------------------- */
+.dc-acc-top{display:block}
+.dc-acc-head>.mk-wrap{max-width:none;padding-left:0;padding-right:0}   /* the title block brings its own gutters; the page's wrap already has them */
+.dc-acc-spot{margin-top:40px}
+.dc-spot-wrap{position:relative}
+.mk-art.dc-spot-stand{--slot:120px;justify-content:flex-end;padding-right:36px;margin-bottom:0;position:relative;z-index:2}
+.mk-card.dc-spot{padding:20px 20px 22px;display:flex;flex-direction:column;align-items:flex-start;margin-right:6px}
+.dc-spot-top{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%}
+.dc-spot-top .mk-pill{height:auto;min-height:22px;padding-top:2px;padding-bottom:2px;white-space:normal;text-align:center}   /* the admin's own label grows the pill to fit */
+.dc-spot-h{margin-top:16px;font-size:26px;font-weight:800;line-height:1.08;letter-spacing:-.02em;text-wrap:balance;overflow-wrap:anywhere}
+.dc-spot-meta{margin-top:6px;font:400 14px/1.3 var(--font-body);color:var(--muted);overflow-wrap:anywhere}
+.dc-spot-line{margin-top:10px;font:400 17px/1.4 var(--font-body);overflow-wrap:anywhere}
+.dc-spot-line.dc-clamp{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:3;overflow:hidden}   /* an event's description: the first sentence, three lines at most */
+.dc-spot .mk-btn{margin-top:20px}
+.dc-ksecs{margin-top:40px}
+.dc-ksec+.dc-ksec{margin-top:40px}
+.dc-ksec .mk-month h2{font-size:32px}
+@media (min-width:768px){
+  .mk-card.dc-spot{padding:28px 28px 30px;margin-right:8px}
+  .dc-spot-h{font-size:30px}
+  .dc-acc-spot{margin-top:56px;max-width:520px}
+  .mk-art.dc-spot-stand{--slot:144px;padding-right:48px}
+  .dc-ksecs{margin-top:56px}
+}
+@media (min-width:1000px){
+  .dc-acc-top.dc-has-spot{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,440px);column-gap:var(--col-gap);align-items:start}
+  .dc-acc-top.dc-has-spot .dc-acc-spot{margin-top:0;max-width:none;padding-top:clamp(40px,5vw,72px);padding-bottom:0}
+  .dc-ksecs{columns:2;column-gap:var(--col-gap);margin-top:64px}
+  .dc-ksec .dc-list{display:block;border-top:1.5px solid var(--ink)}
+  .dc-ksec .dc-list>li:nth-child(-n+2){border-top:0}
+  .dc-ksec{break-inside:avoid;padding-bottom:48px}
+  .dc-ksec+.dc-ksec{margin-top:0}
+  .dc-ksecs{margin-bottom:-48px}
+}
+/* the loading card keeps the spotlight's footprint, rope included, so nothing jumps when the card arrives */
+.mk-card.dc-sk-card{height:224px;gap:0}
+.dc-sk-card .mk-sk{background:var(--yellow)}
+.dc-sk-lab{width:108px;height:22px;border-radius:999px}
+.dc-sk-title{width:62%;height:28px;margin-top:18px}
+.dc-sk-line{width:84%;height:14px;margin-top:18px}
+.dc-sk-btn{width:144px;height:44px;margin-top:22px;border-radius:999px}
+.dc-sk-stand{--slot:120px;height:calc(var(--slot)*.7472)}                 /* the rope's height */
+@media (min-width:768px){ .dc-sk-stand{--slot:144px} }
+
+/* ---- 5. the redeem card ---------------------------------------------------------------------------------------- */
+/* the design draws the dialog over a frame; in the product it is the viewport: fixed, above the tab bar (50) and the
+   scrim (70). The scrim is the kit's own (.mk-scrim, cream at 86%). */
+.dc-modal{position:fixed;inset:0;z-index:71;display:flex;align-items:center;justify-content:center;padding:calc(var(--safe-top) + 12px) 20px calc(var(--safe-bottom) + 12px);overflow:auto;overscroll-behavior:contain;animation:dc-fade .2s ease-out}
+@keyframes dc-fade{from{opacity:0}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){ .dc-modal{animation:none} }
+.dc-card{
+  width:calc(100% - 6px);max-width:420px;margin:auto;background:var(--pale);border:2px solid var(--ink);border-radius:20px;box-shadow:6px 6px 0 var(--ink);
+  padding:12px 20px 0;overflow:hidden;position:relative;
+}
+.dc-card:focus{outline:none}
+.dc-card-top{display:flex;align-items:center;justify-content:space-between;min-height:44px;margin-right:-8px}
+.dc-card-top .mk-wm{height:28px}
+.dc-x{border-width:2px}
+.dc-who{display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 0 24px}
+.dc-who .mk-avatar{width:144px;height:144px;border:2px solid var(--ink);box-shadow:0 0 0 4px var(--cream);font-size:56px}
+.dc-who-name{margin-top:20px;font-size:30px;font-weight:800;line-height:1.05;letter-spacing:-.025em;text-wrap:balance;overflow-wrap:anywhere}
+.dc-who .mk-status{margin-top:10px;font-size:17px}
+.dc-who .mk-status::before{width:12px;height:12px}
+.dc-checked{margin-top:6px;font:400 13px/1.3 var(--font-body);color:var(--muted)}
+/* the perk: a yellow stub under the member, the card's own two tones */
+.dc-perk{margin:0 -20px;padding:22px 20px 24px;background:var(--yellow);border-top:2px solid var(--ink);text-align:center}
+.dc-perk-name{font-size:24px;font-weight:800;line-height:1.1;letter-spacing:-.02em;text-wrap:balance;overflow-wrap:anywhere}
+.dc-perk-meta{margin-top:6px;font:400 15px/1.3 var(--font-body);color:var(--muted);overflow-wrap:anywhere}
+.dc-perk-line{margin-top:12px;font:700 17px/1.35 var(--font-body);overflow-wrap:anywhere}
+.dc-card-badge{margin-top:14px;display:flex;justify-content:center}
+/* not active: plain words, nothing that looks like a pass */
+.dc-gone{padding:20px 0 24px}
+.dc-gone-h{font-size:30px;font-weight:800;line-height:1.05;letter-spacing:-.03em;text-wrap:balance}
+.dc-gone .mk-lead{margin-top:12px}
+.dc-gone-act{margin-top:24px}
+.dc-gone-act .mk-link{display:flex;justify-content:center;margin-top:4px}
+/* loading */
+.dc-card.dc-is-load .dc-who{padding-bottom:20px}
+.dc-card .mk-sk{background:var(--yellow)}
+.dc-sk-photo{width:144px;height:144px;border-radius:50%}
+.dc-sk-name2{width:176px;height:30px;margin-top:20px}
+.dc-sk-status{width:120px;height:18px;margin-top:14px}
+.dc-load{margin:0 -20px;padding:18px 20px 22px;border-top:2px solid var(--ink);background:var(--yellow);text-align:center;font:700 17px/1.35 var(--font-body)}
+@media (min-width:768px){
+  .dc-card{max-width:480px;box-shadow:8px 8px 0 var(--ink);padding:16px 32px 0;width:480px}
+  .dc-card-top .mk-wm{height:32px}
+  .dc-who{padding-bottom:28px}
+  .dc-who .mk-avatar{width:168px;height:168px;font-size:64px}
+  .dc-sk-photo{width:168px;height:168px}
+  .dc-who-name{font-size:34px}
+  .dc-perk,.dc-load{margin:0 -32px;padding-left:32px;padding-right:32px}
+  .dc-perk-name{font-size:28px}
+  .dc-gone-h{font-size:36px}
+  .dc-gone-act .mk-btn{display:inline-flex;width:auto}
+  .dc-gone-act .mk-link{display:inline-flex;margin-left:16px}
+}

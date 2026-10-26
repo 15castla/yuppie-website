@@ -25,10 +25,14 @@ import { almarai, instrumentSerif } from "./fonts";
 // like app/admin/(protected) don't appear in the URL, so a plain prefix
 // check already reaches everything under them.
 const NAV_EXCLUDED_PREFIXES = [
-  // Has its own MembersNav/MembersBottomBar (app/members/layout.tsx) —
+  // Has its own shell: phone bar, computer header and tab bar
+  // (components/members/shell, from app/members/layout.tsx) —
   // this nav rendering on top of it is exactly the collision reported
   // against the "Hey, {firstName}." header.
   "/members",
+  // The members preview harness (app/dev-preview, a 404 unless
+  // MEMBERS_PREVIEW=1) renders members screens inside the members shell.
+  "/dev-preview",
   // (/member-login is deliberately not listed: on the website it keeps
   // the public nav so visitors arriving via "Members Area" can get back.
   // Inside the native app, where it's the entry screen, SiteNav already

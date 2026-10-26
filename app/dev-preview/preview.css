@@ -1,0 +1,23 @@
+/* Preview harness furniture only (app/dev-preview). Not part of the product. */
+
+/* the phone's status area and home indicator, app mode, phone widths only */
+.pv-statusbar{
+  position:fixed;left:0;right:0;top:0;height:59px;z-index:90;pointer-events:none;
+  display:flex;align-items:center;justify-content:space-between;padding:6px 32px 0 34px;
+  font:800 16px/1 var(--font-almarai),sans-serif;color:#1B1512;letter-spacing:-.01em;
+}
+.pv-glyphs{display:flex;align-items:center;gap:6px}
+.pv-island{position:absolute;left:50%;top:11px;width:112px;height:32px;margin-left:-56px;border-radius:999px;background:#1B1512}
+.pv-home-ind{position:fixed;left:50%;bottom:8px;width:134px;height:5px;margin-left:-67px;border-radius:3px;background:#1B1512;z-index:95;pointer-events:none}
+@media (max-width:359px){ .pv-island{display:none} }
+@media (min-width:768px){ .pv-statusbar,.pv-home-ind{display:none} }
+
+/* the index page */
+.pv-index{max-width:880px;margin:0 auto;padding:40px 20px 96px;font-family:var(--font-almarai),sans-serif}
+.pv-index h1{font-size:30px;font-weight:800;margin:0 0 8px}
+.pv-index p{margin:0 0 16px;max-width:640px}
+.pv-index code{font-size:14px;background:#FFF3B0;padding:1px 6px;border-radius:6px}
+.pv-index ul{list-style:none;margin:0;padding:0;border-top:1.5px solid #1B1512}
+.pv-index li{padding:12px 0;border-bottom:1.5px solid #1B1512;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:baseline}
+.pv-index li b{min-width:220px}
+.pv-index a{color:#1B1512}
