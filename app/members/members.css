@@ -376,6 +376,12 @@
   .mk-hdr .mk-me > span:not(.mk-avatar){display:none}
 }
 
+/* five links (the app on an iPad with Concierge on, QA ED-01): half the header is too narrow for them below about
+   1190px, so the links column takes the room it needs and the wordmark sits right of centre until the header has room
+   again. Three and four links never reach these rules. */
+.mk-hdr.mk-hdr-5 .mk-grid{grid-template-columns:minmax(max-content,1fr) auto minmax(0,1fr)}
+@media (min-width:900px) and (max-width:1199px){ .mk-hdr.mk-hdr-5 nav{gap:20px} }
+
 /* the photo is the current page on You: the phone's double ring on the photo, and the name underlined like a current tab link (the kit draws neither on the computer header) */
 .mk-hdr .mk-me[aria-current] .mk-avatar{box-shadow:0 0 0 2px var(--yellow),0 0 0 4px var(--ink)}
 .mk-hdr .mk-me[aria-current] > span:not(.mk-avatar){text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:6px}
