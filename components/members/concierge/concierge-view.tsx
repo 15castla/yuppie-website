@@ -362,7 +362,8 @@ export function ConciergeView({
       )}
       {started ? (
         <div className="cn-thread-wrap" ref={threadRef} inert={sheetOpen}>
-          <div className="cn-thread" role="log" aria-label="Conversation with the concierge">
+          {/* aria-busy on the thread while the concierge is thinking (spec screen 3), never on <main>: the native splash waits on a <main> without it */}
+          <div className="cn-thread" role="log" aria-label="Conversation with the concierge" aria-busy={waiting}>
             {messages.map((message) => {
               if (message.role === "concierge") {
                 return (
