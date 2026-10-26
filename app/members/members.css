@@ -396,9 +396,14 @@
 .mk-hdr.mk-hdr-5 .mk-grid{grid-template-columns:minmax(max-content,1fr) auto minmax(0,1fr)}
 @media (min-width:900px) and (max-width:1199px){ .mk-hdr.mk-hdr-5 nav{gap:20px} }
 
-/* the photo is the current page on You: the phone's double ring on the photo (the kit draws no current state on the computer header).
-   The name is not underlined: the approved You boards draw no underline there (QA YM-08); aria-current="page" stays on the link. */
-.mk-hdr .mk-me[aria-current] .mk-avatar{box-shadow:0 0 0 2px var(--yellow),0 0 0 4px var(--ink)}
+/* the You link draws no current-page state on the computer header: the approved You boards show the photo with its
+   single ring and the name plain (QA YM-08, and the double ring the first fix left, checked 26 Oct against
+   v3/shots/you-desktop-1280.png). aria-current="page" stays on the link for assistive technology. */
+
+/* four links on the web header between 900 and 1023: the links column is narrower than the 32px-gap links (349px
+   against 320px at 900), so the last link touched the wordmark by about 5px from 900 to 912. 22px gaps fit (319px).
+   Five links (the app with Concierge) have their own rule above. */
+@media (min-width:900px) and (max-width:1023px){ .mk-hdr:not(.mk-hdr-5) nav{gap:22px} }
 
 /* 9. additions for the product (small, additive; the area designs draw these in their own files) ---------- */
 /* a button that cannot be used yet: outlined and quiet, never a faded ink button (RULE-38). Saving is the full ink button, aria-busy. */
