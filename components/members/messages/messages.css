@@ -29,6 +29,9 @@
   .msg-split.is-thread .msg-list-col{display:none}
 }
 @media (min-width:768px){ .msg-wrap{padding:40px var(--gutter) 64px} }
+/* From 768 the wrap carries the page's bottom space (64px, as drawn: the design's <main> has no .main-pad), so the kit's
+   40px under <main> is not added on top. Inbox and Updates were 40px taller than approved (1,128 against 1,088 at 1280). */
+@media (min-width:768px){ .mk-page > .mk-main.msg-main{padding-bottom:0} }
 @media (min-width:1024px){
   .msg-split{display:grid;grid-template-columns:380px minmax(0,1fr);column-gap:clamp(32px,4vw,56px);align-items:start;flex:none}
 }
