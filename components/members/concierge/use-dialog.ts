@@ -55,7 +55,9 @@ export function useDialog<T extends HTMLElement>({
     const first = stops[0];
     const last = stops[stops.length - 1];
     const active = document.activeElement;
-    if (event.shiftKey && (active === first || active === node)) {
+    // Shift+Tab from the dialog itself, its first stop, or a heading that took focus by script (the memory sheet
+    // moves focus there once the last item is removed) wraps to the end instead of leaving the dialog.
+    if (event.shiftKey && (active === first || active === node || !stops.includes(active as HTMLElement))) {
       event.preventDefault();
       last.focus();
     } else if (!event.shiftKey && active === last) {

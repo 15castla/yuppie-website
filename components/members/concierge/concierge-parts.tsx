@@ -356,6 +356,11 @@ export function MemorySheet({
   const { ref, onKeyDown } = useDialog<HTMLDivElement>({ onClose, lockScroll: true });
   const forgetLink = useRef<HTMLButtonElement>(null);
   const wasConfirming = useRef(startConfirming);
+  const list = useRef<HTMLUListElement>(null);
+  const heading = useRef<HTMLHeadingElement>(null);
+  // Where focus goes once a removed row is gone: the row's place in the list (so the next remove button, or the
+  // previous one when the last row went), or null when no removal is waiting on the new list.
+  const refocusAt = useRef<number | null>(null);
 
   // The confirm closed: focus goes back to the link that opened it, or to the sheet when that link is gone
   // (after Forget everything the list, and the link, are replaced by "Nothing yet").
@@ -363,6 +368,22 @@ export function MemorySheet({
     if (wasConfirming.current && !confirming) (forgetLink.current ?? ref.current)?.focus({ preventScroll: true });
     wasConfirming.current = confirming;
   }, [confirming, ref]);
+
+  // After removing a remembered item its button is gone, so focus would fall to <body> and a screen reader user
+  // would lose their place (QA ED-09). Move it to the next remove button, else the previous one, else the heading.
+  useEffect(() => {
+    const at = refocusAt.current;
+    if (at === null) return;
+    refocusAt.current = null;
+    const buttons = list.current?.querySelectorAll<HTMLButtonElement>(".cn-x") ?? [];
+    const next = buttons[Math.min(at, buttons.length - 1)];
+    (next ?? heading.current)?.focus({ preventScroll: true });
+  }, [memory]);
+
+  function remove(index: number, itemId: string) {
+    refocusAt.current = index;
+    onRemove(itemId);
+  }
 
   function forgetAll() {
     onForgetAll();
@@ -384,7 +405,7 @@ export function MemorySheet({
         data-needs-device-check="true"
       >
         <div className="mk-grab" aria-hidden="true" />
-        <h2 id={titleId} className="mk-h2">
+        <h2 id={titleId} ref={heading} tabIndex={-1} className="mk-h2">
           What the concierge remembers
         </h2>
         <p className="cn-p" style={{ marginTop: 4 }}>
@@ -392,15 +413,15 @@ export function MemorySheet({
         </p>
         {memory.length > 0 ? (
           <>
-            <ul className="cn-memlist">
-              {memory.map((item) => (
+            <ul ref={list} className="cn-memlist">
+              {memory.map((item, index) => (
                 <li key={item.id} className="cn-memrow">
                   <span>{item.text}</span>
                   <button
                     type="button"
                     className="cn-x"
                     aria-label={`Remove: ${item.text}`}
-                    onClick={() => onRemove(item.id)}
+                    onClick={() => remove(index, item.id)}
                   >
                     <Icon name="x" size={20} />
                   </button>
