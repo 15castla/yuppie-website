@@ -1,6 +1,7 @@
 import { requireMember } from "@/app/members/require-member";
 import { OpenInviteView } from "@/components/members/invite/browse-view";
 import { flags, requireFlag } from "@/lib/members/flags";
+import { ExampleScope } from "@/components/members/kit";
 import { assertMockAllowed } from "@/lib/members/mock/guard";
 import { listOpenInvites } from "@/lib/members/mock/open-invite";
 
@@ -10,5 +11,9 @@ export default async function OpenInvitePage() {
   requireFlag("openInvite");
   assertMockAllowed();
   const [, feed] = await Promise.all([requireMember(), listOpenInvites()]);
-  return <OpenInviteView feed={feed} paidPlans={flags.paidPlans} />;
+  return (
+    <ExampleScope>
+      <OpenInviteView feed={feed} paidPlans={flags.paidPlans} />
+    </ExampleScope>
+  );
 }

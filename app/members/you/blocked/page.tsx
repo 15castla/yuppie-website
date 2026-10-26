@@ -1,5 +1,6 @@
 import { BlockedView } from "@/components/members/messages/blocked-view";
 import { requireFlag } from "@/lib/members/flags";
+import { ExampleScope } from "@/components/members/kit";
 import { assertMockAllowed } from "@/lib/members/mock/guard";
 import { listBlockedMembers } from "@/lib/members/mock/messages";
 import type { BlockedMember } from "@/lib/members/messages/types";
@@ -18,5 +19,9 @@ export default async function BlockedMembersPage() {
     // A list that cannot load reads as empty here; the backend's page owns the error state.
     members = [];
   }
-  return <BlockedView members={members} />;
+  return (
+    <ExampleScope>
+      <BlockedView members={members} />
+    </ExampleScope>
+  );
 }

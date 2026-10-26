@@ -1,6 +1,7 @@
 import { requireMember } from "@/app/members/require-member";
 import { ConciergeView } from "@/components/members/concierge/concierge-view";
 import { requireFlag } from "@/lib/members/flags";
+import { ExampleScope } from "@/components/members/kit";
 import { assertMockAllowed } from "@/lib/members/mock/guard";
 import { getConciergeScript, getConciergeSnapshot } from "@/lib/members/mock/concierge";
 import { notFound } from "next/navigation";
@@ -19,5 +20,9 @@ export default async function MembersConciergePage() {
   if ((await detectShellMode()) !== "app") notFound();
 
   const [, snapshot] = await Promise.all([requireMember(), getConciergeSnapshot()]);
-  return <ConciergeView snapshot={snapshot} script={getConciergeScript()} />;
+  return (
+    <ExampleScope>
+      <ConciergeView snapshot={snapshot} script={getConciergeScript()} />
+    </ExampleScope>
+  );
 }

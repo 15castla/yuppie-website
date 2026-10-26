@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireMember } from "@/app/members/require-member";
 import { PlanPaymentsView } from "@/components/members/payments/plan-payments-view";
 import { requireFlag } from "@/lib/members/flags";
+import { ExampleScope } from "@/components/members/kit";
 import { assertMockAllowed } from "@/lib/members/mock/guard";
 import { getHostPlanPayments } from "@/lib/members/mock/payments";
 
@@ -14,5 +15,9 @@ export default async function YouPaymentsPlanPage({ params }: { params: Promise<
   const { id } = await params;
   const [, plan] = await Promise.all([requireMember(), getHostPlanPayments(id)]);
   if (!plan) notFound();
-  return <PlanPaymentsView plan={plan} />;
+  return (
+    <ExampleScope>
+      <PlanPaymentsView plan={plan} />
+    </ExampleScope>
+  );
 }

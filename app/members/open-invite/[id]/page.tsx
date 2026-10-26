@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { requireMember } from "@/app/members/require-member";
 import { PlanView } from "@/components/members/invite/plan-view";
 import { flags, requireFlag } from "@/lib/members/flags";
+import { ExampleScope } from "@/components/members/kit";
 import { assertMockAllowed } from "@/lib/members/mock/guard";
 import { getOpenInvite } from "@/lib/members/mock/open-invite";
 
@@ -13,5 +14,9 @@ export default async function OpenInvitePlanPage({ params }: { params: Promise<{
   const { id } = await params;
   const [, page] = await Promise.all([requireMember(), getOpenInvite(id)]);
   if (!page || (page.invite.cost && !flags.paidPlans)) notFound();
-  return <PlanView page={page} paidPlans={flags.paidPlans} />;
+  return (
+    <ExampleScope>
+      <PlanView page={page} paidPlans={flags.paidPlans} />
+    </ExampleScope>
+  );
 }

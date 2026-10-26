@@ -20,7 +20,7 @@ import "@/components/members/invite/invite.css";
 
 import { useId, useState, type ReactNode } from "react";
 
-import { Avatar, BackLink, BackRow, Button, Card, cssVars, Main, Pill } from "@/components/members/kit";
+import { Avatar, BackLink, BackRow, Button, Card, cssVars, ExampleNote, Main, Pill } from "@/components/members/kit";
 import { Sheet } from "@/components/members/invite/sheet";
 import { formatDay, formatWhen, gbp } from "@/lib/members/invite/format";
 import type { HostPlanPayments, InvitePayment, RefundAnswer } from "@/lib/members/invite/types";
@@ -278,6 +278,7 @@ export function PlanPaymentsView({
           <BackLink href={ROUTES.youPayments} label="Payments" />
         </div>
       </div>
+      <ExampleNote />
       <div className="mk-wrap pay-dh">
         <div className="pay-pills">
           <Pill kind={state.muted ? "muted" : state.ink ? "ink" : "outline"}>{state.label}</Pill>

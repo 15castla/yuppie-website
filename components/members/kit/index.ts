@@ -12,6 +12,7 @@ export { ClosingBand } from "./closing-band";
 export { cssVars } from "./css-vars";
 export { PerkDrawing, TrainerDrawing, type PerkDrawingName } from "./drawings";
 export { EmptyState } from "./empty-state";
+export { EXAMPLE_WORDS, ExampleNote, ExampleScope, useExample } from "./example-note";
 export { FormField, FormTextarea } from "./form-field";
 export { Icon, ICON_NAMES, type IconName } from "./icons";
 export { KitLink, type KitLinkProps } from "./link";
