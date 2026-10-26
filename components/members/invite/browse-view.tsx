@@ -14,7 +14,7 @@
 
 import "./invite.css";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Button, Chip, ChipRow, Main, Shape } from "@/components/members/kit";
@@ -69,6 +69,7 @@ export function OpenInviteView({
   initialPendingId?: string | null;
 }) {
   const [filter, setFilter] = useState<InviteFilter>(initialFilter);
+  const feedHeading = useId();
   const upcoming = useMemo(
     () => feed.invites.filter((invite) => paidPlans || invite.cost === null),
     [feed.invites, paidPlans],
@@ -131,8 +132,12 @@ export function OpenInviteView({
         />
       ) : (
         <>
-          <section className="mk-band oi-band" aria-label="Open Invites">
+          <section className="mk-band oi-band" aria-labelledby={feedHeading}>
             <div className="mk-wrap">
+              {/* The cards' titles are h3: this h2 is the list's own heading, so the page reads h1, h2, h3 (no visual change). */}
+              <h2 className="mk-sr" id={feedHeading}>
+                Open Invites
+              </h2>
               <div className="oi-feed">
                 {visible.map((invite) => (
                   <InviteCard

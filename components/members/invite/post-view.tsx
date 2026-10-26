@@ -488,6 +488,8 @@ export function PostView({
             <div className="oi-prev">
               <span className="mk-term">How it will look</span>
               <div className="oi-card-wrap" inert aria-hidden="true">
+                {/* The page's heading order for the card's h3 (the wrapper is hidden from screen readers and inert: this is for the outline only). */}
+                <h2 className="mk-sr">How it will look</h2>
                 <div className="oi-prev-art">
                   <InkDrawing name="trainer" w={152} line={2.5} />
                 </div>
@@ -538,7 +540,10 @@ export function PostedView({ invite, me }: { invite: OpenInvite; me: InviteMembe
             <h1 className="mk-h1">Posted.</h1>
             <p className="mk-sub-serif">Now, see who’s in.</p>
           </div>
-          <div className="oi-done-card">{card}</div>
+          <div className="oi-done-card">
+            <h2 className="mk-sr">Your invite</h2>
+            {card}
+          </div>
           <DoneNote paid={paid} />
           <div className="art">
             <InkDrawing name="coupes" h={136} line={1.9} />
@@ -556,6 +561,7 @@ export function PostedView({ invite, me }: { invite: OpenInvite; me: InviteMembe
           </div>
           <div className="oi-done-r">
             <div className="oi-card-wrap">
+              <h2 className="mk-sr">Your invite</h2>
               <div className="oi-prev-art">
                 <InkDrawing name="trainer" w={152} line={2.5} />
               </div>

@@ -415,8 +415,10 @@ export const inviteScreens: PreviewScreen[] = [
             ];
       return (
         <main className="mk-main">
+          <h1 className="mk-sr">Open Invite cards</h1>
           <section className="mk-band oi-band" aria-label="Open Invite cards">
             <div className="mk-wrap">
+              <h2 className="mk-sr">Every state</h2>
               <div className="oi-feed is-one">
                 {cards.map((card) => (
                   <InviteCard key={card.key} invite={card.invite} me={SAM} pending={card.pending} mode={card.mode} />
