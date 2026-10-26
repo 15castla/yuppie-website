@@ -267,6 +267,7 @@
 .mk-hdr .mk-right{display:flex;align-items:center;justify-content:flex-end;gap:14px}
 .mk-hdr .mk-me{gap:10px}
 .mk-hdr .mk-me .mk-avatar{--s:40px}
+.mk-hdr .mk-me{min-width:44px;justify-content:center}
 .mk-hdr .mk-wm{height:46px}
 /* scrolled: the public site's rule (a shadow, so the height never changes: RULE-22) */
 .mk-hdr.mk-stuck{box-shadow:0 1.5px 0 var(--ink)}
@@ -295,6 +296,8 @@
    variables) plus 16px, so the 2px focus ring and a little air show too. Only a page that draws the dock, only on a phone. */
 @media (max-width:767px){
   html:has(.mk-dock){scroll-padding-bottom:calc(63px + max(var(--native-safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) - 6px,0px) + 16px)}
+  /* a page with only the tint strip (no dock: the Messages pages, the photo gate): the strip's height plus 16px (QA RG-C-03) */
+  html:has(.mk-tint):not(:has(.mk-dock)){scroll-padding-bottom:calc(max(1rem,var(--native-safe-area-inset-bottom,env(safe-area-inset-bottom,0px))) + 16px)}
 }
 /* the bottom tint strip: drawn when the shell has no dock (a page with its own docked bar, the photo gate), so a
    solid yellow fixed element is always at the bottom edge. Height as the old strips: the safe area, 1rem minimum. */

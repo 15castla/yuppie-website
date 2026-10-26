@@ -158,9 +158,10 @@ export function formatDateInput(date: string): string {
   if (!match) return "";
   const at = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12));
   if (Number.isNaN(at.getTime())) return "";
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric", month: "short" }).formatToParts(at);
+  // the weekday and day from Intl, the month from the fixed list (en-GB spells September "Sept")
+  const parts = new Intl.DateTimeFormat("en-GB", { timeZone: "UTC", weekday: "short", day: "numeric" }).formatToParts(at);
   const pick = (type: string) => parts.find((part) => part.type === type)?.value ?? "";
-  return `${pick("weekday")} ${pick("day")} ${pick("month")}`;
+  return `${pick("weekday")} ${pick("day")} ${MONTHS_SHORT[Number(match[2]) - 1]}`;
 }
 
 /** London's offset from UTC, in minutes (0 in winter, 60 in summer), at an instant. */

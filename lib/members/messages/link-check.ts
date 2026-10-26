@@ -30,7 +30,8 @@
 // "Example.Com" looks the same; a word-like ending with a capital ("Sam.Studio",
 // "there.Club") is read as the next sentence and let through; letters spelled
 // out one by one ("e x a m p l e . c o m") and links in another script are
-// not caught.
+// not caught; a bare name on an everyday-word ending ("sam.fun", "sam.today", "sam.pub") without a path is read as
+// two words with a space missing and let through.
 
 // An address: kept out of the domain checks ("sam@example.co.uk" goes through). The local part cannot hold "/" or
 // ":", so "instagram.com/@sam.jones" is a link with an @ in it, not an email.
@@ -60,14 +61,17 @@ const STRONG_TLDS = new Set(
 );
 // Endings that are also ordinary words. A link is typed the way it is pasted, in lower case (or all capitals); a
 // Capital after a lower-case word is the start of the next sentence typed with no space ("See you there.Club night").
+// The words people most often type straight after a full stop with the space left out (fun, run, one, top, life,
+// today, work, plus, help, love, food, bar, pub) are not on this list: "ok.help me carry it" is a sentence, and a
+// link on those endings still goes through the checks above whenever it has a path or a scheme (QA RG-C-01).
 const WORD_TLDS = new Set(
   (
-    "shop store site online page club studio london agency live life world today news space tech digital social media " +
-    "group team network systems solutions email chat events party tickets fitness yoga bar pub cafe restaurant design art " +
-    "music photography photo gallery blog wiki website web click one fun pro work zone love wine beer coffee pizza " +
-    "kitchen food bio ink wales scot cymru nyc paris berlin casino loan help plus run games gym sport golf tennis " +
+    "shop store site online page club studio london agency live world news space tech digital social media " +
+    "group team network systems solutions email chat events party tickets fitness yoga cafe restaurant design art " +
+    "music photography photo gallery blog wiki website web click pro zone wine beer coffee pizza " +
+    "kitchen bio ink wales scot cymru nyc paris berlin casino loan games gym sport golf tennis " +
     "football boutique fashion academy company business ventures capital partners finance money market " +
-    "name top win cam bet lol wtf cloud"
+    "name win cam bet lol wtf cloud"
   ).split(" "),
 );
 // The endings a spelled-out or spaced dot is read against ("example dot com"): the strong ones only, so a sentence

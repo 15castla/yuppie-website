@@ -28,6 +28,9 @@
 .ntf-row .ntf-lab{display:block;cursor:pointer}
 .ntf-row .ntf-lab::after{content:"";position:absolute;inset:0}
 .ntf-row.is-labelled .ntf-link,.ntf-row.is-labelled .mk-end{position:relative;z-index:1}
+/* the link's wrapper spans the row, so it must not catch the taps beside the link: only the link inside it does (QA RG-C-02) */
+.ntf-row.is-labelled .ntf-link{pointer-events:none}
+.ntf-row.is-labelled .ntf-link > *{pointer-events:auto}
 /* a row with something under its text: the switch lines up with the title, not the middle of the block */
 .ntf-row.has-x{align-items:flex-start}
 .ntf-row.has-x .mk-end{margin-top:-4px}

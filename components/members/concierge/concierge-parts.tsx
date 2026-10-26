@@ -74,7 +74,10 @@ export function CompactBar({
         >
           <Icon name="book-open" size={22} />
         </button>
-        <TopActions />
+        {/* the computer header (768 up) draws its own photo link: one You link at a time (QA RG-B-02) */}
+        <span className="cn-top">
+          <TopActions />
+        </span>
       </div>
     </header>
   );
