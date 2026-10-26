@@ -32,7 +32,7 @@ import { Button, Icon, KitLink } from "@/components/members/kit";
 import { gbp } from "@/lib/members/invite/format";
 import type { OpenInvite } from "@/lib/members/invite/types";
 import { messageThreadHref, openInviteReceiptHref } from "@/lib/members/routes";
-import { Sheet } from "@/components/members/invite/sheet";
+import { Sheet, useModalFocus } from "@/components/members/invite/sheet";
 import { BACK_5_10, heldLine, MoneyList, PayActions, PayHead, PayMark, PlanTile, PriceLines, REFUND_RULE } from "./pay-parts";
 
 export type PayState =
@@ -88,7 +88,12 @@ function CardBox({ mode }: { mode: "empty" | "filled" | "error" | "off" }) {
   );
 }
 
-/** Someone else's screen (the bank's 3D Secure window), drawn as a neutral outline and never redrawn. */
+/**
+ * Someone else's screen (the bank's 3D Secure window), drawn as a neutral outline and never redrawn.
+ * It is a modal like the sheets (useModalFocus): focus moves in, Tab stays in, the page behind is inert,
+ * and Escape does what its one button does (steps back for the bank, closes for Stripe), because the
+ * real screens are an in-app browser that the member dismisses.
+ */
 export function HandOffScreen({
   who,
   address,
@@ -107,10 +112,20 @@ export function HandOffScreen({
   const sk = (width: string, height: number, extra = "", top?: number) => (
     <span className={`pay-sk ${extra}`.trim()} style={{ width, height, marginTop: top }} />
   );
+  const ref = useRef<HTMLDivElement>(null);
+  useModalFocus(ref, onCancel);
   return (
     <>
-      <div className="mk-scrim" aria-hidden="true" />
-      <div className={`pay-ext${kind === "bank" ? " is-short" : ""}`} role="dialog" aria-modal="true" aria-label={`${who}’s own screen`} data-needs-device-check="true">
+      <div className="mk-scrim" aria-hidden="true" data-keep-live="" />
+      <div
+        ref={ref}
+        className={`pay-ext${kind === "bank" ? " is-short" : ""}`}
+        role="dialog"
+        aria-modal="true"
+        aria-label={`${who}’s own screen`}
+        tabIndex={-1}
+        data-needs-device-check="true"
+      >
         <div className="pay-ext-bar">
           <button type="button" className="l" onClick={onCancel}>
             {cancel}
@@ -323,7 +338,7 @@ export function PaySheet({
           <PlanTile invite={invite} photoOf={invite.host}>
             <PriceLines lines={{ kind: "changed", wasPence: listed, nowPence: newPricePence }} />
           </PlanTile>
-          <MoneyList items={[{ icon: "banknote", text: heldLine(now, host) }]} />
+          <MoneyList items={[{ icon: "banknote", text: heldLine(now, host, "would") }]} />
           <PayActions>
             <Button block icon={<Icon name="lock" size={18} />} onClick={() => pay(newPricePence)}>
               {`Pay ${now} and join`}

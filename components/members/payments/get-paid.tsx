@@ -228,6 +228,8 @@ export function GetPaidBoard() {
   return (
     <main className="mk-main mk-main-pad">
       <div className="mk-wrap" style={{ display: "grid", gap: 32, paddingTop: 32 }}>
+        <h1 className="mk-sr">Get paid</h1>
+        <h2 className="mk-sr">The four entry cards</h2>
         {cards.map((card) => (
           <GetPaidCard key={card.status} getPaid={card} onMode={setMode} />
         ))}

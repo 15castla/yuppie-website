@@ -339,6 +339,11 @@
 /* the going cluster keeps to one line: three faces on a phone, two on a very narrow one */
 @media (max-width:767px){ .oi-going .mk-avatar:nth-child(n+4),.oi-going .mk-more{display:none} }
 @media (max-width:359px){ .oi-going .mk-avatar:nth-child(n+3){display:none} }
+/* A cluster of five faces (with or without "+N") is wider than the room beside the pill from 768 to 880: it ran 24px out of the card at 768.
+   It keeps to three faces and no "+N" until 900, like the phone; clusters of four faces or fewer are untouched. */
+@media (min-width:768px) and (max-width:899px){
+  .oi-going .mk-avatars:has(.mk-avatar:nth-child(5)) .mk-avatar:nth-child(n+4),.oi-going .mk-avatars:has(.mk-avatar:nth-child(5)) .mk-more{display:none}
+}
 /* empty bands run down to the tab bar on a phone, so the drawing stands on the bar's own 3px rule */
 .oi-emptyband{flex:1 1 auto;display:flex;flex-direction:column;border-bottom:0}
 .oi-emptyband>.mk-wrap{flex:1 1 auto;display:flex;flex-direction:column}
@@ -385,7 +390,9 @@
 .mk-screen.mk-app .oi-title .mk-head .mk-row1 .mk-actions{gap:10px}
 
 /* ---- R2. photos --------------------------------------------------------------------------------------------- */
-.mk-avatar.mk-ph{border-width:1.5px}
+/* Scoped to Open Invite's own content, at the old rule's specificity (:where adds none) so every oi- photo rule below still wins as before.
+   It used to match every photo on the page and outranked the shell's 2px ring on the header You photo and the redeem card's (ED-02). */
+:where(.oi-card,.oi-compose,.oi-qs,.oi-sec,.oi-money,.oi-note,.oi-hero,.oi-detail,.oi-sheet,.oi-prev) .mk-avatar.mk-ph{border-width:1.5px}
 .mk-avatars .mk-avatar+.mk-avatar{margin-left:-6px}
 .oi-card .mk-avatars .mk-avatar+.mk-avatar{margin-left:-6px}
 .oi-card dt{display:flex;align-items:center}

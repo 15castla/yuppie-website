@@ -35,7 +35,7 @@ import {
 import { ROUTES } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import { CostBlock } from "./cost-block";
-import { DEMO_POSTED_ID, savePosted } from "./demo-posted";
+import { DEMO_POSTED_ID, DEMO_POSTED_PAID_ID, savePosted } from "./demo-posted";
 import { CheckRow, FieldError, Lab } from "./form-parts";
 import { InkDrawing } from "./ink-drawing";
 import { InviteCard } from "./invite-card";
@@ -268,10 +268,12 @@ export function PostView({
     setPosting(true);
     timer.current = setTimeout(() => {
       const draft = previewInvite(values, context.me);
+      // "See my invite" opens the example plan of the same kind: a paid plan opens the paid one.
+      const postedId = isPaid(draft) ? DEMO_POSTED_PAID_ID : DEMO_POSTED_ID;
       savePosted({
         ...draft,
-        id: DEMO_POSTED_ID,
-        you: { ...draft.you, role: "host", chatId: `chat-${DEMO_POSTED_ID}`, askThreadId: null },
+        id: postedId,
+        you: { ...draft.you, role: "host", chatId: `chat-${postedId}`, askThreadId: null },
       });
       router.push(ROUTES.openInviteDone);
     }, 900);
@@ -486,6 +488,8 @@ export function PostView({
             <div className="oi-prev">
               <span className="mk-term">How it will look</span>
               <div className="oi-card-wrap" inert aria-hidden="true">
+                {/* The page's heading order for the card's h3 (the wrapper is hidden from screen readers and inert: this is for the outline only). */}
+                <h2 className="mk-sr">How it will look</h2>
                 <div className="oi-prev-art">
                   <InkDrawing name="trainer" w={152} line={2.5} />
                 </div>
@@ -536,7 +540,10 @@ export function PostedView({ invite, me }: { invite: OpenInvite; me: InviteMembe
             <h1 className="mk-h1">Posted.</h1>
             <p className="mk-sub-serif">Now, see who’s in.</p>
           </div>
-          <div className="oi-done-card">{card}</div>
+          <div className="oi-done-card">
+            <h2 className="mk-sr">Your invite</h2>
+            {card}
+          </div>
           <DoneNote paid={paid} />
           <div className="art">
             <InkDrawing name="coupes" h={136} line={1.9} />
@@ -554,6 +561,7 @@ export function PostedView({ invite, me }: { invite: OpenInvite; me: InviteMembe
           </div>
           <div className="oi-done-r">
             <div className="oi-card-wrap">
+              <h2 className="mk-sr">Your invite</h2>
               <div className="oi-prev-art">
                 <InkDrawing name="trainer" w={152} line={2.5} />
               </div>

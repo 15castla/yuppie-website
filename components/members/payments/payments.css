@@ -11,7 +11,8 @@
 .mk-btn.pay-danger{color:var(--error);border-color:var(--error)}
 
 /* ---- 2. the pay sheet (phone) and dialog (computer) --------------------------------------------- */
-.mk-sheet.pay-sheet{padding-top:24px}
+/* a phone sheet; from 768 the dialog's own 32px (invite.css, P1) applies, whichever stylesheet loads last */
+@media (max-width:767px){ .mk-sheet.pay-sheet{padding-top:24px} }
 .pay-hd{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;min-height:44px}
 .pay-h{font-size:28px;font-weight:800;line-height:1.1;letter-spacing:-.025em;text-wrap:balance;padding-top:2px}
 .pay-hd .pay-x{flex:none}
@@ -58,7 +59,9 @@
 /* card fields: one box, number on top, expiry and security code under it */
 .pay-lab{margin-top:14px;margin-bottom:8px;font:700 14px/1.2 var(--font-body)}
 .pay-or+.pay-lab{margin-top:14px}
-.pay-cb{border:1.5px solid var(--ink);border-radius:12px;background:var(--cream);overflow:hidden;color:var(--ink);font:400 16px/1.2 var(--font-body)}
+/* The approved sheet's card box is 346 x 122 with the dividers inset from the edges and one tighter corner (bottom left): the design's stylesheet also
+   matched this class with its chat bubble rule (padding 9px 14px 10px, corners 20px with 6px at the bottom left), and the approved shots show the result. */
+.pay-cb{padding:9px 14px 10px;border:1.5px solid var(--ink);border-radius:20px 20px 20px 6px;background:var(--cream);overflow:hidden;color:var(--ink);font:400 16px/1.2 var(--font-body)}
 .pay-cb .r1{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:50px;padding:0 14px}
 .pay-cb .r2{display:grid;grid-template-columns:1fr 1fr;border-top:1.5px solid var(--ink)}
 .pay-cb .r2>div{display:flex;align-items:center;min-height:50px;padding:0 14px}
@@ -92,6 +95,7 @@
 
 
 /* ---- 3. someone else's screen, drawn as a neutral hand-off (the bank's 3D Secure screen, Stripe's own pages) ---- */
+.pay-ext:focus{outline:none}
 .pay-ext{position:fixed;left:0;right:0;bottom:0;top:64px;z-index:75;background:var(--cream);border:2px solid var(--ink);border-bottom:0;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
 .mk-screen.mk-app .pay-ext{top:calc(var(--safe-top) + 8px)}
 .pay-ext-bar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;min-height:52px;padding:0 16px;border-bottom:1.5px solid var(--ink);font:700 15px/1 var(--font-body)}

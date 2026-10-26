@@ -194,10 +194,11 @@ const POST_COST_STATES = [
 // ---- paid plans: the plan page with a pay, leave or cancel sheet open (the underlay is the real plan page)
 const PAY_FLAGS = ["openInvite", "messages", "paidPlans"] as const;
 const PAY_PAGE_FLAGS = ["openInvite", "paidPlans"] as const;
+// A second payer needs her own payment id and receipt number (Tom's are pay-0418 and 0418): two rows with one id share a React key.
 const PRIYA_POLO_PAYMENT = {
   ...TOM_POLO_PAYMENT,
-  id: "pay-0418",
-  receiptNumber: "0418",
+  id: "pay-0419",
+  receiptNumber: "0419",
   payer: EXAMPLE_PEOPLE.PRIYA,
   paidAt: "2026-10-25T10:05:00Z",
 };
@@ -209,6 +210,13 @@ const POLO_TWO: OpenInvite = {
     ...P.polo.you,
     hostMoney: { payments: [TOM_POLO_PAYMENT, PRIYA_POLO_PAYMENT], payoutOn: "2026-11-17T09:00:00Z", getPaid: "ready" },
   },
+};
+// The paid plan the moment it is posted (invite-post / done-paid): the same title and cost, and nobody in it, nobody who has paid, nobody who has asked.
+// What the real form builds (previewInvite in post-view.tsx), so the card reads "2 places open" and shows no money line.
+const POLO_POSTED: OpenInvite = {
+  ...P.polo,
+  going: [],
+  you: { ...P.polo.you, questions: [], hostMoney: null },
 };
 const POLO_CANCELLED: OpenInvite = cancelled(P.polo, EXAMPLE_NOW);
 const POLO_TWO_CANCELLED: OpenInvite = cancelled(POLO_TWO, EXAMPLE_NOW);
@@ -336,7 +344,7 @@ export const inviteScreens: PreviewScreen[] = [
         case "done":
           return <PostedView invite={P.climbing} me={SAM} />;
         case "done-paid":
-          return <PostedView invite={P.polo} me={SAM} />;
+          return <PostedView invite={POLO_POSTED} me={SAM} />;
         case "loading":
           return <PostLoading />;
         // the cost option (paid plans are on in all of these)
@@ -407,8 +415,10 @@ export const inviteScreens: PreviewScreen[] = [
             ];
       return (
         <main className="mk-main">
+          <h1 className="mk-sr">Open Invite cards</h1>
           <section className="mk-band oi-band" aria-label="Open Invite cards">
             <div className="mk-wrap">
+              <h2 className="mk-sr">Every state</h2>
               <div className="oi-feed is-one">
                 {cards.map((card) => (
                   <InviteCard key={card.key} invite={card.invite} me={SAM} pending={card.pending} mode={card.mode} />
