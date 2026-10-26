@@ -132,16 +132,21 @@ export const CARD_HELP_HREF = mailHref("My Club Yuppie card");
 
 const EVENT_ZONE = "Europe/London";
 
+// Three letters, always: Intl's en-GB short month spells September "Sept".
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
+
 // "Fri 30 Oct, 19:00": weekday, day, month, then the 24-hour time with its
 // leading zero, in the club's time zone (the zone every event time is in).
+// The month comes from the fixed list above (never "Sept"), and the weekday is
+// the first three letters of its full name, so no ICU version can lengthen
+// either of them.
 export function eventWhen(iso: string): string {
   const date = new Date(iso);
   if (Number.isNaN(date.getTime())) return "";
   const parts = Object.fromEntries(
     new Intl.DateTimeFormat("en-GB", {
-      weekday: "short",
+      weekday: "long",
       day: "numeric",
-      month: "short",
       hour: "2-digit",
       minute: "2-digit",
       hourCycle: "h23",
@@ -150,7 +155,10 @@ export function eventWhen(iso: string): string {
       .formatToParts(date)
       .map((part) => [part.type, part.value]),
   );
-  return `${parts.weekday} ${parts.day} ${parts.month}, ${parts.hour}:${parts.minute}`;
+  // The month on its own (with a day beside it en-GB would pad the day: "05").
+  const monthNumber = Number(new Intl.DateTimeFormat("en-GB", { month: "numeric", timeZone: EVENT_ZONE }).format(date));
+  const month = MONTHS_SHORT[monthNumber - 1] ?? "";
+  return `${String(parts.weekday).slice(0, 3)} ${parts.day} ${month}, ${parts.hour}:${parts.minute}`;
 }
 
 // "Included" for a free event, else the price the events list prints ("£25pp").
