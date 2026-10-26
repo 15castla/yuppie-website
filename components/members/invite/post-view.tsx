@@ -35,7 +35,7 @@ import {
 import { ROUTES } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import { CostBlock } from "./cost-block";
-import { DEMO_POSTED_ID, savePosted } from "./demo-posted";
+import { DEMO_POSTED_ID, DEMO_POSTED_PAID_ID, savePosted } from "./demo-posted";
 import { CheckRow, FieldError, Lab } from "./form-parts";
 import { InkDrawing } from "./ink-drawing";
 import { InviteCard } from "./invite-card";
@@ -268,10 +268,12 @@ export function PostView({
     setPosting(true);
     timer.current = setTimeout(() => {
       const draft = previewInvite(values, context.me);
+      // "See my invite" opens the example plan of the same kind: a paid plan opens the paid one.
+      const postedId = isPaid(draft) ? DEMO_POSTED_PAID_ID : DEMO_POSTED_ID;
       savePosted({
         ...draft,
-        id: DEMO_POSTED_ID,
-        you: { ...draft.you, role: "host", chatId: `chat-${DEMO_POSTED_ID}`, askThreadId: null },
+        id: postedId,
+        you: { ...draft.you, role: "host", chatId: `chat-${postedId}`, askThreadId: null },
       });
       router.push(ROUTES.openInviteDone);
     }, 900);
