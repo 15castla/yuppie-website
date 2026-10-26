@@ -410,7 +410,10 @@ button.msg-li:last-child,a.msg-li:last-child{border-bottom:0}
   .msg-scrim-phone{display:none}
   .msg-scrim-card{display:block;position:absolute;inset:0;background:rgba(245,243,231,.86);z-index:39}
   /* the info panel: a drawer inside the card's right edge */
-  .msg-sheet{position:absolute;left:auto;z-index:40;top:0;right:0;bottom:0;width:min(392px,80%);max-height:none;background:var(--yellow);border:0;border-left:2px solid var(--ink);border-radius:0;padding:14px 20px 12px}
+  /* the drawer ends where the composer starts (--msg-comp-h is the composer's own height, set by the thread view; 75px is
+     the one-line composer): it used to run under the composer, which is drawn over it, so the bottom 75px could never be
+     scrolled clear at 768 to 1023 ("Leave chat", the report safety line). Its own overflow-y:auto now does the scrolling. */
+  .msg-sheet{position:absolute;left:auto;z-index:40;top:0;right:0;bottom:var(--msg-comp-h,75px);width:min(392px,80%);max-height:none;background:var(--yellow);border:0;border-left:2px solid var(--ink);border-radius:0;padding:14px 20px 12px}
   .msg-sheet .msg-grab{display:none}
   .msg-sheet .mk-btn.mk-sm{width:auto}
   .msg-sheet .msg-li{min-height:52px;padding:8px 0}
