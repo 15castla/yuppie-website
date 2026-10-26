@@ -289,6 +289,13 @@
 .mk-tab[aria-current] .mk-in{background:var(--ink);color:var(--yellow)}
 .mk-tab .mk-badge{top:-2px;right:calc(50% - 26px);min-width:18px;height:18px;font-size:11px;line-height:14px;padding:0 4px}
 @media (min-width:768px){ .mk-dock,.mk-dock-spacer,.mk-tint{display:none} }
+/* Keyboard focus (and scrollIntoView, and #anchors) must not leave the focused element under the fixed tab bar (QA YM-07).
+   The page scrolls on the root, so the room is reserved there: the dock's height (60px + the 3px rule + the safe area less
+   the 6px the home indicator already clears, the --dock-h sum written out because the root cannot read .mk-screen's
+   variables) plus 16px, so the 2px focus ring and a little air show too. Only a page that draws the dock, only on a phone. */
+@media (max-width:767px){
+  html:has(.mk-dock){scroll-padding-bottom:calc(63px + max(var(--native-safe-area-inset-bottom,env(safe-area-inset-bottom,0px)) - 6px,0px) + 16px)}
+}
 /* the bottom tint strip: drawn when the shell has no dock (a page with its own docked bar, the photo gate), so a
    solid yellow fixed element is always at the bottom edge. Height as the old strips: the safe area, 1rem minimum. */
 .mk-tint{position:fixed;left:0;right:0;bottom:0;z-index:20;height:max(1rem,var(--safe-bottom));background-color:var(--yellow);pointer-events:none}
@@ -366,7 +373,11 @@
 @media (min-width:768px){ .mk-band-actions .mk-btn{align-self:auto} }
 @media (max-width:359px){ .mk-tab .mk-lb{font-size:10px} .mk-tabbar{padding-left:2px;padding-right:2px} }
 
-/* v3 kit fixes (25 Oct): four-link computer header at tablet width, no island on a 320 phone */
+/* v3 kit fixes (25 Oct): four-link computer header at tablet width, no island on a 320 phone.
+   QA ED-04 (26 Oct), left as built: below 900px the nav gap is 16px, the grid gap 16px, links 14px and the wordmark 36px,
+   as kit2.css and the approved 768 boards for Events, Open Invite, Messages and Notifications measure. Only the Discounts
+   and Access boards (disc.css:17, a page-level tightening the kit's own fix superseded) draw 14px and 12px, which puts
+   Events, Discounts and Access 2, 4 and 6px left of here at 768. The kit value is the shell's, so the pages match each other. */
 .mk-hdr nav a{white-space:nowrap}
 @media (max-width:899px){
   .mk-hdr .mk-grid{gap:16px}
@@ -374,11 +385,20 @@
   .mk-hdr nav a,.mk-hdr .mk-me{font-size:14px}
   .mk-hdr .mk-wm{height:36px}
   .mk-hdr .mk-me > span:not(.mk-avatar){display:none}
+  /* with the name hidden the You link is the 40px photo alone: a 44px target (QA ED-03, YM-13, IP-11). The negative
+     margin keeps the layout footprint at 40px, so the photo, the messages icon and the wordmark do not move. */
+  .mk-hdr .mk-me{min-width:44px;justify-content:center;margin-inline:-2px}
 }
 
-/* the photo is the current page on You: the phone's double ring on the photo, and the name underlined like a current tab link (the kit draws neither on the computer header) */
+/* five links (the app on an iPad with Concierge on, QA ED-01): half the header is too narrow for them below about
+   1190px, so the links column takes the room it needs and the wordmark sits right of centre until the header has room
+   again. Three and four links never reach these rules. */
+.mk-hdr.mk-hdr-5 .mk-grid{grid-template-columns:minmax(max-content,1fr) auto minmax(0,1fr)}
+@media (min-width:900px) and (max-width:1199px){ .mk-hdr.mk-hdr-5 nav{gap:20px} }
+
+/* the photo is the current page on You: the phone's double ring on the photo (the kit draws no current state on the computer header).
+   The name is not underlined: the approved You boards draw no underline there (QA YM-08); aria-current="page" stays on the link. */
 .mk-hdr .mk-me[aria-current] .mk-avatar{box-shadow:0 0 0 2px var(--yellow),0 0 0 4px var(--ink)}
-.mk-hdr .mk-me[aria-current] > span:not(.mk-avatar){text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:6px}
 
 /* 9. additions for the product (small, additive; the area designs draw these in their own files) ---------- */
 /* a button that cannot be used yet: outlined and quiet, never a faded ink button (RULE-38). Saving is the full ink button, aria-busy. */

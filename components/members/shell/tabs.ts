@@ -45,8 +45,13 @@ export function tabsFor({
   return keys.map((key) => ({ key, ...TAB_META[key], badge: badges[key] }));
 }
 
-// The computer header's links: the same tabs without Concierge (app only,
-// and a phone-shaped screen).
-export function headerLinksFor(tabs: TabSpec[]): TabSpec[] {
-  return tabs.filter((tab) => tab.key !== "concierge");
+// The computer header's links (768px and up). The web lists the launch tabs
+// and never Concierge. The app, on an iPad, lists every tab it has, so with the
+// Concierge flag on Concierge sits between Events and Discounts exactly as in
+// the phone's tab bar. (QA ED-01, decision 26 Oct: the app header used to leave
+// Concierge out, so on an iPad nothing led to it.) tabsFor only adds Concierge
+// for the app with the flag on, so a flag-off app still lists the launch tabs
+// alone and the web and the phone tab bar are unchanged.
+export function headerLinksFor(tabs: TabSpec[], mode: ShellMode): TabSpec[] {
+  return mode === "app" ? tabs : tabs.filter((tab) => tab.key !== "concierge");
 }

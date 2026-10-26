@@ -6,7 +6,9 @@
 // photo and first name right (and the messages icon on Open Invite pages).
 // Sticky at the top; once the page has scrolled it shows the public site's
 // 1.5px rule (a shadow, so its height never changes: RULE-22).
-// The links are the tabs without Concierge.
+// The links are the tabs: the web never lists Concierge, the app (an iPad) lists
+// it between Events and Discounts when its flag is on (see headerLinksFor). With
+// five links the left column grows to fit them (.mk-hdr-5 in members.css).
 
 import { Suspense, useSyncExternalStore } from "react";
 
@@ -67,14 +69,18 @@ export function DesktopHeader({
   activeTab: TabKey | null;
   landingHref?: string;
 }) {
-  const { showMessages, messagesCurrent, unread } = useShell();
+  const { mode, showMessages, messagesCurrent, unread } = useShell();
   const scrolled = usePageScrolled();
+  const links = headerLinksFor(tabs, mode);
   return (
-    <header className={cn("mk-hdr", scrolled && "mk-stuck")} data-needs-device-check="true">
+    <header
+      className={cn("mk-hdr", links.length > 4 && "mk-hdr-5", scrolled && "mk-stuck")}
+      data-needs-device-check="true"
+    >
       <div className="mk-wrap">
         <div className="mk-grid">
           <nav aria-label="Main">
-            {headerLinksFor(tabs).map((tab) => (
+            {links.map((tab) => (
               <KitLink
                 key={tab.key}
                 href={tab.href}

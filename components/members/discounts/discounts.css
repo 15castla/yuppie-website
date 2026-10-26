@@ -28,7 +28,7 @@
   grid-area:tile;width:48px;height:48px;display:flex;align-items:center;justify-content:center;overflow:hidden;
   border:1.5px solid var(--ink);border-radius:12px;background:var(--cream);font:800 20px/1 var(--font-body);
 }
-.dc-tile img{display:block;width:100%;height:100%;padding:7.5px;object-fit:contain}   /* a partner's logo, any shape, contained */
+.dc-tile img{display:block;width:30px;height:30px;object-fit:contain}   /* a partner's logo, any shape, contained in the approved 30px box (not tile-minus-padding: that is 31px where the 1.5px border draws as 1px) */
 .dc-name{grid-area:name;min-width:0;font:700 16px/1.25 var(--font-body);letter-spacing:-.005em;overflow-wrap:anywhere}
 .dc-pill{grid-area:pill;align-self:start;margin-left:12px;margin-top:-1px}
 .dc-offer{grid-area:offer;min-width:0;margin-top:2px;font:400 15px/1.35 var(--font-body);overflow-wrap:anywhere}
