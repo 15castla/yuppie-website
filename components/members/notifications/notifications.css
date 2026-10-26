@@ -22,6 +22,12 @@
 .ntf-row.is-fixed .mk-end{align-self:center}
 .ntf-row .ntf-link{display:flex;margin:-2px 0 -12px}
 .ntf-row .ntf-link .mk-link{margin-left:0}
+/* the Text row holds a link, so only its words are a label for the switch: the label is stretched over the row (a tap on the
+   title, the detail or the space round them flips it), and the link and the switch sit above it so they take their own taps */
+.ntf-row.is-labelled{position:relative}
+.ntf-row .ntf-lab{display:block;cursor:pointer}
+.ntf-row .ntf-lab::after{content:"";position:absolute;inset:0}
+.ntf-row.is-labelled .ntf-link,.ntf-row.is-labelled .mk-end{position:relative;z-index:1}
 /* a row with something under its text: the switch lines up with the title, not the middle of the block */
 .ntf-row.has-x{align-items:flex-start}
 .ntf-row.has-x .mk-end{margin-top:-4px}

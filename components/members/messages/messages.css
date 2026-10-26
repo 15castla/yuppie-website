@@ -29,6 +29,9 @@
   .msg-split.is-thread .msg-list-col{display:none}
 }
 @media (min-width:768px){ .msg-wrap{padding:40px var(--gutter) 64px} }
+/* From 768 the wrap carries the page's bottom space (64px, as drawn: the design's <main> has no .main-pad), so the kit's
+   40px under <main> is not added on top. Inbox and Updates were 40px taller than approved (1,128 against 1,088 at 1280). */
+@media (min-width:768px){ .mk-page > .mk-main.msg-main{padding-bottom:0} }
 @media (min-width:1024px){
   .msg-split{display:grid;grid-template-columns:380px minmax(0,1fr);column-gap:clamp(32px,4vw,56px);align-items:start;flex:none}
 }
@@ -146,7 +149,7 @@
 .msg-grp.is-me .msg-col{align-items:flex-end;max-width:min(80%,520px)}
 .msg-grp.is-them.no-av .msg-col{max-width:min(80%,520px)}
 .msg-who{font:700 12px/16px var(--font-body);margin:0 0 3px 14px;color:var(--ink)}
-.msg-b{padding:9px 14px 10px;border:1.5px solid var(--ink);border-radius:20px;background:var(--cream);font:400 16px/1.38 var(--font-body);overflow-wrap:anywhere}
+.msg-b{min-height:44px;padding:9px 14px 10px;border:1.5px solid var(--ink);border-radius:20px;background:var(--cream);font:400 16px/1.38 var(--font-body);overflow-wrap:anywhere}  /* min-height: a one-line bubble opens the menu, so it is a 44px target (it was 43.1) */
 .msg-grp.is-them .msg-b{border-bottom-left-radius:6px}
 .msg-grp.is-them .msg-b + .msg-b{border-top-left-radius:6px}
 .msg-grp.is-me .msg-b{background:var(--ink);color:var(--yellow);border-bottom-right-radius:6px}
@@ -407,7 +410,10 @@ button.msg-li:last-child,a.msg-li:last-child{border-bottom:0}
   .msg-scrim-phone{display:none}
   .msg-scrim-card{display:block;position:absolute;inset:0;background:rgba(245,243,231,.86);z-index:39}
   /* the info panel: a drawer inside the card's right edge */
-  .msg-sheet{position:absolute;left:auto;z-index:40;top:0;right:0;bottom:0;width:min(392px,80%);max-height:none;background:var(--yellow);border:0;border-left:2px solid var(--ink);border-radius:0;padding:14px 20px 12px}
+  /* the drawer ends where the composer starts (--msg-comp-h is the composer's own height, set by the thread view; 75px is
+     the one-line composer): it used to run under the composer, which is drawn over it, so the bottom 75px could never be
+     scrolled clear at 768 to 1023 ("Leave chat", the report safety line). Its own overflow-y:auto now does the scrolling. */
+  .msg-sheet{position:absolute;left:auto;z-index:40;top:0;right:0;bottom:var(--msg-comp-h,75px);width:min(392px,80%);max-height:none;background:var(--yellow);border:0;border-left:2px solid var(--ink);border-radius:0;padding:14px 20px 12px}
   .msg-sheet .msg-grab{display:none}
   .msg-sheet .mk-btn.mk-sm{width:auto}
   .msg-sheet .msg-li{min-height:52px;padding:8px 0}

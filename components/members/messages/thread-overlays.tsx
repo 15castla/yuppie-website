@@ -270,7 +270,7 @@ function InfoSheet({
         <InfoRow
           icon="image"
           title={isQuestion ? `Report ${name}’s photo` : "Report a photo"}
-          meta={isQuestion ? "Tell us if it isn’t him or isn’t suitable." : "Tell us if a photo isn’t them or isn’t suitable."}
+          meta={isQuestion ? "Tell us if it isn’t them or isn’t suitable." : "Tell us if a photo isn’t them or isn’t suitable."}
           onClick={() => aboutMember("photo")}
         />
         <InfoRow

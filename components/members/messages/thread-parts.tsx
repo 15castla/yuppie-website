@@ -151,7 +151,8 @@ export function EmptyPrompt({ chat }: { chat: Chat }) {
   const prompt = emptyPrompt(chat);
   return (
     <div className="msg-empty-thread">
-      <h3 className="mk-h3">{prompt.title}</h3>
+      {/* h2: it follows the page h1 on a computer. The mk-h3 class keeps the 18px look. */}
+      <h2 className="mk-h3">{prompt.title}</h2>
       <p>{prompt.body}</p>
     </div>
   );

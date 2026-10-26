@@ -138,10 +138,12 @@ export function ThreadView({
   const [keyboardUp, setKeyboardUp] = useState(Boolean(preview?.keyboard));
   const [announce, setAnnounce] = useState("");
 
+  const cardRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const streamRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
   const lastBubbleRef = useRef<HTMLElement | null>(null);
+  const fromBubbleRef = useRef(false);
   const timersRef = useRef<number[]>([]);
   const counterRef = useRef(0);
   const startedRef = useRef<{ wall: number } | null>(null);
@@ -230,6 +232,24 @@ export function ThreadView({
     };
   }, [preview?.keyboard]);
 
+  // ---- the info drawer ends at the composer ------------------------------------------------------
+  // From 768px the drawer sits inside the card and the composer is drawn over its foot, so the drawer
+  // stops at the composer's top edge (messages.css reads --msg-comp-h). The composer grows with what is
+  // typed, so the height is kept up to date rather than assumed.
+  useEffect(() => {
+    const card = cardRef.current;
+    const composer = card?.querySelector<HTMLElement>(".msg-comp");
+    if (!card || !composer || typeof ResizeObserver === "undefined") return;
+    const sync = () => card.style.setProperty("--msg-comp-h", `${composer.getBoundingClientRect().height}px`);
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(composer);
+    return () => {
+      observer.disconnect();
+      card.style.removeProperty("--msg-comp-h");
+    };
+  }, [closed]);
+
   // ---- sending -----------------------------------------------------------------------------------
   const settle = useCallback(
     (clientId: string) => {
@@ -278,6 +298,7 @@ export function ThreadView({
 
   function openMenu(target: HTMLElement, messageId: string) {
     lastBubbleRef.current = target;
+    fromBubbleRef.current = true;
     setOverlay({ kind: "menu", messageId });
   }
   // The menu sits next to the pressed bubble, placed from its own rectangle.
@@ -303,10 +324,18 @@ export function ThreadView({
   }, [menuOpen]);
 
   function closeOverlay() {
-    const back = overlay.kind === "menu" ? lastBubbleRef.current : null;
     setOverlay({ kind: "none" });
-    if (back) back.focus({ preventScroll: true });
   }
+
+  // Whatever started at a bubble's menu (the menu itself, Copy, and the report sheets reached from "Report
+  // message") hands focus back to that bubble when it closes, by any route: Escape, a tap on the scrim, the
+  // close button, Done. Without it focus falls to <body> and a keyboard user starts again from the top.
+  useEffect(() => {
+    if (overlay.kind !== "none" || !fromBubbleRef.current) return;
+    fromBubbleRef.current = false;
+    const bubble = lastBubbleRef.current;
+    if (bubble?.isConnected) bubble.focus({ preventScroll: true });
+  }, [overlay.kind]);
 
   // Escape closes whatever is open.
   useEffect(() => {
@@ -413,7 +442,7 @@ export function ThreadView({
   const streamClass = cn("msg-stream", safety && "is-top", empty && "is-center");
 
   return (
-    <div className="msg-card">
+    <div className="msg-card" ref={cardRef}>
       <ThreadHeader chat={chat} infoOpen={overlay.kind === "info"} onInfo={() => setOverlay({ kind: "info" })} />
       {selecting ? (
         <div className="msg-banner" role="status">
