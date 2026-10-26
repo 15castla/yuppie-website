@@ -17,9 +17,12 @@ import "./payments.css";
 /** Refunds reach a card in 5 to 10 working days: the usual card time, never a promise. */
 export const BACK_5_10 = "5 to 10 working days";
 
-/** Where the buyer's money is, before and after paying. */
-export function heldLine(amount: string, host: string): string {
-  return `Your ${amount} is held by Club Yuppie until the plan is over. Then it goes to ${host}.`;
+/**
+ * Where the buyer's money is, before and after paying. `would` is for the one place where nothing has been
+ * taken yet (the price changed while paying): "would be held", never "is held" (payments spec 3.3).
+ */
+export function heldLine(amount: string, host: string, tense: "is" | "would" = "is"): string {
+  return `Your ${amount} ${tense === "would" ? "would be" : "is"} held by Club Yuppie until the plan is over. Then it goes to ${host}.`;
 }
 
 export const REFUND_RULE = "Leave more than 24 hours before and you get it all back.";

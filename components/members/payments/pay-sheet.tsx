@@ -338,7 +338,7 @@ export function PaySheet({
           <PlanTile invite={invite} photoOf={invite.host}>
             <PriceLines lines={{ kind: "changed", wasPence: listed, nowPence: newPricePence }} />
           </PlanTile>
-          <MoneyList items={[{ icon: "banknote", text: heldLine(now, host) }]} />
+          <MoneyList items={[{ icon: "banknote", text: heldLine(now, host, "would") }]} />
           <PayActions>
             <Button block icon={<Icon name="lock" size={18} />} onClick={() => pay(newPricePence)}>
               {`Pay ${now} and join`}
