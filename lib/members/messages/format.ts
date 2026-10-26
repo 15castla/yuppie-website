@@ -14,11 +14,15 @@ const timeFormat = new Intl.DateTimeFormat("en-GB", {
   minute: "2-digit",
   hourCycle: "h23",
 });
+// Three letters, always: Intl's en-GB short month spells September "Sept".
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+// The month on its own, so the day stays unpadded ("Mon 5 Jan"): en-GB pads
+// the day to two digits whenever the month is numeric in the same pattern.
+const monthOnly = new Intl.DateTimeFormat("en-GB", { timeZone: ZONE, month: "numeric" });
 const dateParts = new Intl.DateTimeFormat("en-GB", {
   timeZone: ZONE,
   weekday: "short",
   day: "numeric",
-  month: "short",
   year: "numeric",
 });
 
@@ -27,14 +31,18 @@ type Parts = { weekday: string; day: string; month: string; year: string };
 function partsOf(iso: string): Parts {
   const parts: Record<string, string> = {};
   for (const part of dateParts.formatToParts(new Date(iso))) parts[part.type] = part.value;
-  return { weekday: parts.weekday, day: parts.day, month: parts.month, year: parts.year };
+  return {
+    weekday: parts.weekday,
+    day: parts.day,
+    month: MONTHS_SHORT[Number(monthOnly.format(new Date(iso))) - 1] ?? "",
+    year: parts.year,
+  };
 }
 
 /** A calendar day number in London, for counting days between two instants. */
 function dayNumber(iso: string): number {
   const p = partsOf(iso);
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return Date.UTC(Number(p.year), months.indexOf(p.month), Number(p.day)) / 86_400_000;
+  return Date.UTC(Number(p.year), MONTHS_SHORT.indexOf(p.month), Number(p.day)) / 86_400_000;
 }
 
 /** "09:13". */

@@ -6,12 +6,18 @@ import type { OpenInvite } from "./types";
 
 const LONDON = "Europe/London";
 
+// Three letters, always: Intl's en-GB short month spells September "Sept".
+const MONTHS_SHORT = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+// A month on its own, so the day stays unpadded ("Mon 5 Jan"): en-GB pads the
+// day to two digits whenever the month is numeric in the same pattern.
+const monthOnly = new Intl.DateTimeFormat("en-GB", { timeZone: LONDON, month: "numeric" });
+
 function londonParts(iso: string) {
   const parts = new Intl.DateTimeFormat("en-GB", {
     timeZone: LONDON,
     weekday: "short",
     day: "numeric",
-    month: "short",
     hour: "2-digit",
     minute: "2-digit",
     hourCycle: "h23",
@@ -20,7 +26,7 @@ function londonParts(iso: string) {
   return {
     weekday: pick("weekday"),
     day: pick("day"),
-    month: pick("month"),
+    month: MONTHS_SHORT[Number(monthOnly.format(new Date(iso))) - 1] ?? "",
     hour: pick("hour"),
     minute: pick("minute"),
   };
