@@ -87,8 +87,12 @@ export const SUPABASE_TEMPLATE_NAMES = Object.keys(SPECS) as SupabaseTemplateNam
 /**
  * A Supabase template, with its placeholders left in. Images and the footer
  * links point at the live site (https://clubyuppie.com) whatever the env,
- * because the file is pasted into the live project.
+ * because the file is pasted into the live project. Supabase Auth renders
+ * templates with Go's html/template, which strips every HTML comment (seen on
+ * the local Auth, v2.177.0), so the Outlook-only parts go and the html button
+ * stays visible to Outlook (commentsSurvive: false). The only difference from
+ * out/r2c-supabase-*.html is that one style on the reset button.
  */
 export function renderSupabaseTemplate(name: SupabaseTemplateName, options: RenderOptions = {}): RenderedEmail {
-  return renderSpec(SPECS[name], { site: DEFAULT_SITE_URL, notificationsLink: false, ...options });
+  return renderSpec(SPECS[name], { site: DEFAULT_SITE_URL, notificationsLink: false, commentsSurvive: false, ...options });
 }
