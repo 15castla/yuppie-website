@@ -230,7 +230,9 @@ max_frequency = "1s"
 # Number of characters used in the email OTP.
 otp_length = 6
 # Number of seconds before the email OTP expires (defaults to 1 hour).
-otp_expiry = 3600
+# 10 minutes (decision C-D5): the login code, email change code and admin reset
+# emails all say "expires in 10 minutes", so this must stay 600.
+otp_expiry = 600
 
 # Use a production-ready SMTP server
 # [auth.email.smtp]
@@ -246,6 +248,25 @@ otp_expiry = 3600
 # [auth.email.template.invite]
 # subject = "You have been invited"
 # content_path = "./supabase/templates/invite.html"
+
+# Club Yuppie's three Auth emails (r2c 4, 5 and 23). The files are written by
+# tests/e2e/phase-a/emails/build-supabase-templates.mjs from lib/emails; do not
+# edit them by hand. In the dashboard these are "Magic Link", "Change Email
+# Address" and "Reset Password".
+# Login code (signInWithOtp). A code, never a link: {{ .Token }} is shown as text.
+[auth.email.template.magic_link]
+subject = "Your Club Yuppie login code"
+content_path = "./supabase/templates/magic_link.html"
+
+# The code that confirms a new login email, sent to the new address.
+[auth.email.template.email_change]
+subject = "Confirm your new Club Yuppie email"
+content_path = "./supabase/templates/email_change.html"
+
+# Admin password reset: links to /admin/reset-confirm?token_hash={{ .TokenHash }}&type=recovery.
+[auth.email.template.recovery]
+subject = "Reset your Club Yuppie admin password"
+content_path = "./supabase/templates/recovery.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]

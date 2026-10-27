@@ -300,7 +300,6 @@ export type BookingReviewReason = "paid_twice" | "over_capacity";
 
 /** 21. A paid booking needs a look. */
 export type AdminBookingReviewData = {
-  reason: BookingReviewReason;
   /** "Sam Taylor". */
   memberName: string;
   event: EmailEvent;
@@ -308,14 +307,19 @@ export type AdminBookingReviewData = {
   amount: EmailMoney;
   /** The Stripe PaymentIntent id (the Payment row and the Stripe link). */
   paymentIntentId: string;
-  /** For "over_capacity": confirmed bookings now, and the capacity ("25 of 24 places"). */
-  booked?: number;
-  capacity?: number;
   /** "Open in Stripe". Default https://dashboard.stripe.com/payments/<paymentIntentId> (pass the /test/ one in test mode if wanted). */
   stripeUrl?: EmailLink;
   /** "Open the member". Default "/admin/members". */
   memberUrl?: EmailLink;
-};
+} & (
+  | { reason: "paid_twice" }
+  | {
+      reason: "over_capacity";
+      /** Confirmed bookings now, this one included, and the capacity: "25 of 24 places". */
+      booked: number;
+      capacity: number;
+    }
+);
 
 // ---------------------------------------------------------------- the maps
 
