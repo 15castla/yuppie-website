@@ -15,8 +15,14 @@ const beforeEnd = await makeEvent('msbefore', { price: 0, startInHours: 24 * 3 }
 await insertBooking(m, afterEnd);
 await insertBooking(m, beforeEnd);
 
-// ---- Cancel membership (two-step, with the reason)
+// ---- Cancel membership, step 1: the preview changes nothing
 let mark = fakesMark();
+const pre = await action('you.getCancelMembershipPreview', [], s);
+eq([pre.result.ok, new Date(pre.result.endsAt).getTime(), pre.result.bookingsAfterEnd.map((b) => b.title)], [true, periodEnd, ['Msafter night']], 'getCancelMembershipPreview: the end date and the booking after it');
+eq([fakesSince(mark, 'stripe').filter((l) => l.method !== 'GET').length, sql1(`select cancel_at from members where id = ${q(m.id)}`).cancel_at], [0, null], 'and nothing changed');
+
+// ---- step 2 (with the reason)
+mark = fakesMark();
 const c1 = await action('you.requestCancelMembership', ['Moving away'], s);
 ok(c1.result.ok, 'requestCancelMembership: ok', c1);
 eq(new Date(c1.result.endsAt).getTime(), periodEnd, 'ends at the end of the billing period');

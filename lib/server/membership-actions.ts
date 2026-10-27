@@ -15,7 +15,8 @@ import { cancelFutureBookingsForMember, bookingsAfter, type CancelledFutureBooki
 import { MEMBER_ROW_COLUMNS, errorMessage, serviceDb, stripeErrorCode, type EndedReason, type MemberRow } from "./db";
 import { dayDate, londonEndOfDay, pounds } from "./format";
 import { later } from "./later";
-import { membershipState } from "./membership";
+import { membershipCardData, membershipState, type MemberStateFields } from "./membership";
+import type { MembershipCardData } from "@/lib/members/you/types";
 import { sendEmail } from "./messages";
 import { cardLabelForPaymentMethod } from "./stripe/card";
 
@@ -106,6 +107,45 @@ export async function requestCancel(
     console.error(`requestCancel ${memberId} failed:`, err);
     return fail("error", GENERIC);
   }
+}
+
+/** The current billing period's end, from Stripe (null when unknown). */
+async function periodEnd(subscriptionId: string | null): Promise<string | null> {
+  if (!subscriptionId) return null;
+  try {
+    const sub = await stripe.subscriptions.retrieve(subscriptionId);
+    return unixToIso(sub.items?.data?.[0]?.current_period_end);
+  } catch (err) {
+    console.error(`periodEnd: reading subscription ${subscriptionId} failed:`, err);
+    return null;
+  }
+}
+
+/**
+ * Cancel membership, step 1 (before anything changes): the day access would
+ * end, and the club events booked after it that would be cancelled and
+ * refunded (the D8 warning line, "Sunrise Wellness Retreat, Sun 15 Nov, is
+ * after this date.").
+ */
+export async function cancelPreview(
+  memberId: string,
+): Promise<ActionResult<{ endsAt: string | null; endsOn: string | null; bookingsAfterEnd: { bookingId: string; title: string; startTime: string; slug: string }[] }>> {
+  const member = await loadMember(memberId);
+  if (!member) return fail("not_found", GENERIC);
+  const endsAt = member.cancel_at ? new Date(member.cancel_at).toISOString() : await periodEnd(member.stripe_subscription_id);
+  return {
+    ok: true,
+    endsAt,
+    endsOn: endsAt ? dayDate(endsAt) : null,
+    bookingsAfterEnd: endsAt ? await bookingsAfter(memberId, endsAt) : [],
+  };
+}
+
+/** The You card's data with real dates (lib/members/you/types.ts MembershipCardData): the renewal date from Stripe when active. */
+export async function membershipCardFor(member: MemberStateFields & { stripe_subscription_id: string | null }): Promise<MembershipCardData> {
+  const info = membershipState(member);
+  if (info.state !== "active") return membershipCardData(info);
+  return membershipCardData(membershipState(member, new Date(), { renewsAt: await periodEnd(member.stripe_subscription_id) }));
 }
 
 /** Keep my membership: undo a cancel request before it takes effect. */
