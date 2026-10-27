@@ -1,0 +1,365 @@
+// The contract between the emails module (lib/emails, owned by the emails
+// agent) and the code that sends (lib/server/messages, the foundation).
+//
+// One name per email or text, and one typed data object per name. Every value
+// an email shows comes from here: the renderer never reads the database, the
+// clock or Stripe. Dates and times are formatted by the caller, in
+// Europe/London, in the kit's style ("Tue 27 Oct" and a 24-hour "18:30"),
+// because the You page and the event pages show the same strings and they
+// must agree. The renderer escapes every value, keeps dates on one line, and
+// makes every link absolute on NEXT_PUBLIC_SITE_URL (https://clubyuppie.com
+// when unset).
+//
+// The words, layout and states are the approved round 2 designs
+// (rebrand/v4/specs/r2c.md, files out/r2c-send-*.html|.txt) and, for the
+// event reminder, round 3 (notif-email-reminder-event, v3/specs/notifications.md 3.4).
+
+// ---------------------------------------------------------------- shared shapes
+
+/** A date and a 24-hour time, formatted by the caller (Europe/London): `{ date: "Thu 29 Oct", time: "18:30" }`. */
+export type EmailDateTime = { date: string; time: string };
+
+/**
+ * A date on its own, formatted by the caller: "Thu 12 Nov" (weekday, day,
+ * short month). Where the design shows the short form ("until 12 Nov") the
+ * renderer drops the weekday itself, so pass the long form.
+ */
+export type EmailDate = string;
+
+/** Money, formatted by the caller: "£25", "£10", "£12.50". */
+export type EmailMoney = string;
+
+/** The card as the designs write it: "Visa ending 4242". `null` when unknown: its row is left out. */
+export type EmailCard = string | null;
+
+/**
+ * A link: an absolute URL ("https://…", "mailto:…") or a path on the site
+ * ("/members/you", ROUTES.x, eventHref(slug)), which the renderer makes
+ * absolute. Optional link fields have the default the design gives.
+ */
+export type EmailLink = string;
+
+/**
+ * Where an event is: the venue name (events.location) and, once the club has
+ * saved it, the exact address (event_addresses.address; written on one line
+ * with commas or on several lines, either works). With no address the Where
+ * row shows the venue name only and Open in Maps searches for the venue
+ * (r2c, booking confirmed, States).
+ */
+export type EmailPlace = { venue: string; address?: string | null };
+
+/** A refund that is on its way to a card. */
+export type EmailRefund = {
+  /** What goes back: "£25". */
+  amount: EmailMoney;
+  /** "Visa ending 4242", or null when unknown (the To row is left out). */
+  card: EmailCard;
+};
+
+// ---------------------------------------------------------------- 1. joining
+
+/** 1. To the applicant, when `submitApplication` succeeds. */
+export type ApplicationReceivedData = {
+  /** The applicant's full name as typed: "Hannah Reed". */
+  fullName: string;
+  /** When the application was sent. */
+  sent: EmailDateTime;
+};
+
+/** 2. The welcome, to the new member after `approve()` (with the welcome text). */
+export type ApprovalData = {
+  /** First name for the headline ("You’re in, Hannah."). Blank or null gives "You’re in." */
+  firstName?: string | null;
+  /** The email they log in with (the Login row). */
+  loginEmail: string;
+  /** The first payment just taken, "£10" (the row reads "£10, taken today"). null or absent: the Paid row is left out. */
+  paid?: EmailMoney | null;
+  /** The renewal date from the subscription, "Wed 25 Nov". null or absent: the Renews row is left out. */
+  renewsOn?: EmailDate | null;
+  /** Default "/member-login". */
+  loginUrl?: EmailLink;
+};
+
+/** 3. To the applicant, when an admin declines with the email switch on (B-D3, C-D2). Never a text. */
+export type DeclineData = {
+  /**
+   * True once the saved card was released in Stripe (C-D8, the payment
+   * method detached). Then the email says so. False if the release failed or
+   * there was no card: the line is left out, so the email never claims it.
+   */
+  cardReleased: boolean;
+  /** Default "/apply". */
+  applyUrl?: EmailLink;
+};
+
+// ---------------------------------------------------------------- 2. login and account (Resend; the codes are Supabase templates)
+
+/** 6. Security notice to the OLD address, after a login email change is confirmed. */
+export type EmailChangedData = {
+  /** The address before the change (the Was row; the email goes here). */
+  oldEmail: string;
+  /** The address now (the Now row and the preheader). */
+  newEmail: string;
+  /** When the change went through. */
+  changed: EmailDateTime;
+};
+
+/** 8. To the member's address, sent just before the account is anonymised (brief 5.6). */
+export type AccountDeletedData = {
+  /** True when the member hosted Open Invite plans (Phase B): adds "Plans you were hosting are cancelled…". Default false. */
+  hostedPlans?: boolean;
+};
+
+// ---------------------------------------------------------------- 3. membership
+
+/** 9. The member cancelled (cancel at period end). */
+export type CancelRequestedData = {
+  /** The day access ends (members.cancel_at): "Thu 12 Nov". The headline and intro show "12 Nov". */
+  endsOn: EmailDate;
+  /** The plan price, default "£10" (the Plan row reads "£10 a month"). */
+  price?: EmailMoney;
+  /** True when the member has a club event booked after `endsOn` (A-D8): adds "Events you’ve booked after that date are cancelled and refunded." */
+  bookingsAfterEnd: boolean;
+  /** Phase B: true when they host an Open Invite plan after `endsOn`. Default false. */
+  hostedPlansAfterEnd?: boolean;
+  /** "Keep my membership". Default "/members/you". */
+  keepUrl?: EmailLink;
+};
+
+/**
+ * Why the membership ended (members.ended_reason). The design draws two:
+ * "member_cancelled" (Why: You cancelled) and "payment_failed" (Why: Payment
+ * failed, and the first line names the amount). "admin_cancelled" has no
+ * drawn Why words, so its Why row is left out.
+ */
+export type MembershipEndedReason = "member_cancelled" | "payment_failed" | "admin_cancelled";
+
+/** 10. The membership has ended (Stripe customer.subscription.deleted, or the memberships job). */
+export type MembershipEndedData = {
+  /** The day it ended: "Thu 12 Nov". */
+  endedOn: EmailDate;
+  reason: MembershipEndedReason;
+  /** The payment that failed, "£10". Used by "payment_failed" only; default "£10". */
+  amount?: EmailMoney;
+  /** "Apply again". Default "/apply". */
+  applyUrl?: EmailLink;
+};
+
+/** 11. A membership payment failed (Stripe invoice.payment_failed): once per failed invoice. */
+export type PaymentFailedData = {
+  /** "£10". Also in the subject: "We couldn’t take your £10". */
+  amount: EmailMoney;
+  /** "Visa ending 4242", or null (row left out). */
+  card: EmailCard;
+  /** The day the payment failed (members.payment_failed_at): "Thu 12 Nov". */
+  triedOn: EmailDate;
+  /** The last day to fix it (members.grace_until, tried plus 3 days, C-D12): "Sun 15 Nov". The You page shows the same date. */
+  until: EmailDate;
+  /** "Update card": the Stripe billing portal entry. Default "/members/billing" (the design's route). */
+  updateCardUrl?: EmailLink;
+};
+
+// ---------------------------------------------------------------- 4. events
+
+/** The event an email is about. */
+export type EmailEvent = {
+  /** events.title: "Padel & Pints". */
+  title: string;
+  /** The start: `{ date: "Thu 29 Oct", time: "18:30" }`. */
+  start: EmailDateTime;
+};
+
+/** 12. A paid booking was recorded (send once, from the path that inserted the row). */
+export type BookingConfirmedData = {
+  event: EmailEvent;
+  place: EmailPlace;
+  /** What was paid (bookings.amount_pence, formatted): "£25". */
+  paid: EmailMoney;
+  /** "Visa ending 4242", or null (row left out). */
+  card: EmailCard;
+  /**
+   * The free-cancel deadline (start minus FREE_CANCEL_HOURS, A-D1): `{ date: "Tue 27 Oct", time: "18:30" }`.
+   * null when it has already passed (a booking made inside 48 hours): the
+   * "You can cancel until … and get your £25 back." sentence is left out.
+   */
+  cancelUntil: EmailDateTime | null;
+  /** "See your booking": the event page. */
+  bookingUrl: EmailLink;
+  /** "Add to calendar": the event's .ics file. */
+  calendarUrl: EmailLink;
+};
+
+/** 13. A booking for an event included in the membership was recorded. */
+export type BookingConfirmedIncludedData = {
+  event: EmailEvent;
+  place: EmailPlace;
+  bookingUrl: EmailLink;
+  calendarUrl: EmailLink;
+};
+
+/**
+ * Why a booking was cancelled (bookings.cancel_reason, the ones that email
+ * the member about one booking):
+ * - "member": the member cancelled in the free window (drawn, paid and free).
+ * - "member_late": the member chose "Cancel without a refund" inside 48 hours (A-D1).
+ * - "event_changed": the member cancelled after the club moved the event (C-D11: full refund whatever the date).
+ * - "membership_ended": the membership ended and this future booking went with it (A-D8, refunded in full).
+ * Only "member" is drawn word for word; see renderers/booking-cancelled.ts for what the others reuse.
+ */
+export type BookingCancelReason = "member" | "member_late" | "event_changed" | "membership_ended";
+
+/** 14. One booking was cancelled. */
+export type BookingCancelledData = {
+  reason: BookingCancelReason;
+  event: EmailEvent;
+  /** When it was cancelled (bookings.cancelled_at): the Date row. */
+  cancelled: EmailDateTime;
+  /**
+   * The refund, or null when nothing goes back (an included event, or a late
+   * cancel without a refund). With a refund the email is the drawn paid one;
+   * without, the free one (no To row, no Refunded total).
+   */
+  refund: (EmailRefund & {
+    /** About 10 working days after the cancel date: "Mon 9 Nov" ("…usually lands in 5 to 10 working days, by Mon 9 Nov."). */
+    arrivesBy: EmailDate;
+  }) | null;
+  /** For "membership_ended": the day the membership ended, "Thu 12 Nov". */
+  membershipEndedOn?: EmailDate;
+  /** "See what’s on". Default "/members/events". */
+  eventsUrl?: EmailLink;
+};
+
+/** 15. The club cancelled an event: one email per confirmed booking (B-D8). */
+export type EventCancelledData = {
+  event: EmailEvent;
+  /**
+   * The admin's optional reason, the words after "because":
+   * "the courts are closed that evening". Trimmed; a leading "because" and a
+   * trailing full stop are dropped. Blank or null: the sentence ends after the date.
+   */
+  reason?: string | null;
+  /** The refund for a paid booking, or null for an included one. */
+  refund: EmailRefund | null;
+  /** "See what’s on". Default "/members/events". */
+  eventsUrl?: EmailLink;
+};
+
+/**
+ * What the club moved (r2c 16: "Lists only what moved: time, place, or both").
+ * "time" covers a new date, a new start time, or both.
+ */
+export type EventChangeKind = "time" | "place" | "both";
+
+/** 16. The club changed the date, time or place of an event this member is booked on. */
+export type EventChangedData = {
+  moved: EventChangeKind;
+  /** The title and the start as it is NOW. */
+  event: EmailEvent;
+  /** The start before the change (the Was row). Needed for "time" and "both". */
+  wasStart?: EmailDateTime;
+  /** The venue before the change (the second Was row). Needed for "place" and "both". */
+  wasVenue?: string;
+  /** Where it is now (unchanged for "time"). */
+  place: EmailPlace;
+  /** What this member paid, "£25", for "…get your £25 back, whatever the date." null for an included event. */
+  paid: EmailMoney | null;
+  /** "See your booking": the event page. */
+  bookingUrl: EmailLink;
+};
+
+/** Which reminder: the day before at the same clock time, or 2 hours before. */
+export type ReminderWindow = "24h" | "2h";
+
+/** Event reminder emails (round 3, notif-email-reminder-event), 24 hours and 2 hours before. */
+export type EventReminderData = {
+  window: ReminderWindow;
+  event: EmailEvent;
+  place: EmailPlace;
+  bookingUrl: EmailLink;
+};
+
+// ---------------------------------------------------------------- 5. Albert's inbox (to ADMIN_ALERTS_EMAIL, C-D7)
+
+/** 19. One per new application. */
+export type AdminNewApplicationData = {
+  /** "Hannah Reed". The intro uses the first word ("Hannah applied at 09:41."). */
+  fullName: string;
+  /** applications.role_title: "Associate". Optional. */
+  role?: string | null;
+  /** applications.employer: "Calder Partners". Optional. */
+  employer?: string | null;
+  sent: EmailDateTime;
+  /** Pending applications, this one included (the Waiting row: "3 applications"). */
+  waiting: number;
+  /** "Review application". Default "/admin/applications". */
+  reviewUrl?: EmailLink;
+};
+
+/** Why a paid booking needs a look (flagBookingForReview). */
+export type BookingReviewReason = "paid_twice" | "over_capacity";
+
+/** 21. A paid booking needs a look. */
+export type AdminBookingReviewData = {
+  reason: BookingReviewReason;
+  /** "Sam Taylor". */
+  memberName: string;
+  event: EmailEvent;
+  /** The payment that went through: "£25". */
+  amount: EmailMoney;
+  /** The Stripe PaymentIntent id (the Payment row and the Stripe link). */
+  paymentIntentId: string;
+  /** For "over_capacity": confirmed bookings now, and the capacity ("25 of 24 places"). */
+  booked?: number;
+  capacity?: number;
+  /** "Open in Stripe". Default https://dashboard.stripe.com/payments/<paymentIntentId> (pass the /test/ one in test mode if wanted). */
+  stripeUrl?: EmailLink;
+  /** "Open the member". Default "/admin/members". */
+  memberUrl?: EmailLink;
+};
+
+// ---------------------------------------------------------------- the maps
+
+/** Every email Phase A sends through Resend. The three Supabase Auth emails are files in supabase/templates/, not these. */
+export type EmailData = {
+  "application-received": ApplicationReceivedData;
+  approval: ApprovalData;
+  decline: DeclineData;
+  "email-changed": EmailChangedData;
+  "account-deleted": AccountDeletedData;
+  "cancel-requested": CancelRequestedData;
+  "membership-ended": MembershipEndedData;
+  "payment-failed": PaymentFailedData;
+  "booking-confirmed": BookingConfirmedData;
+  "booking-confirmed-included": BookingConfirmedIncludedData;
+  "booking-cancelled": BookingCancelledData;
+  "event-cancelled": EventCancelledData;
+  "event-changed": EventChangedData;
+  "event-reminder": EventReminderData;
+  "admin-new-application": AdminNewApplicationData;
+  "admin-booking-review": AdminBookingReviewData;
+};
+
+export type EmailName = keyof EmailData;
+
+/** What renderEmail returns: everything a send needs except the addresses (see EMAIL_FROM, EMAIL_REPLY_TO). */
+export type RenderedEmail = {
+  subject: string;
+  /** The inbox preview line (already inside the html, hidden). */
+  preheader: string;
+  html: string;
+  /** The plain-text part, the same words. */
+  text: string;
+};
+
+/** The welcome text, C-D4 A: "Club Yuppie: You’re in. Log in: clubyuppie.com/member-login". */
+export type WelcomeTextData = Record<string, never>;
+
+/** Every text Phase A sends through Twilio (reminders by text are Phase B). */
+export type TextData = {
+  welcome: WelcomeTextData;
+};
+
+export type TextName = keyof TextData;
+
+export type RenderEmail = <N extends EmailName>(name: N, data: EmailData[N]) => RenderedEmail;
+export type RenderText = <N extends TextName>(name: N, data: TextData[N]) => string;
