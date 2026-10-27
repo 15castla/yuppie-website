@@ -14,8 +14,10 @@ import { isValidPhoneNumber } from "libphonenumber-js";
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
-import { sendEmailChangedEmail } from "@/app/admin/send-email-changed-email";
 import { stripe } from "@/lib/stripe";
+import { dayDate, time24 } from "@/lib/server/format";
+import { sendEmail } from "@/lib/server/messages";
+import { requestCancel } from "@/lib/server/membership-actions";
 import { uploadMemberMedia } from "@/lib/media-storage";
 import { requireMember } from "../require-member";
 
@@ -194,12 +196,17 @@ export async function verifyEmailChange(
   // after the response, same as the welcome email.
   const previousEmail = user.email;
   const confirmedEmail = updatedUser.email;
+  const changedAt = new Date();
   after(async () => {
-    try {
-      await sendEmailChangedEmail({ to: previousEmail, newEmail: confirmedEmail });
-    } catch (err) {
-      console.error(`verifyEmailChange: changed-email notice failed for member ${member.id}:`, err);
-    }
+    // The rewritten security notice (r2c 6), through the message service
+    // (message_log; never throws).
+    await sendEmail({
+      template: "email-changed",
+      to: previousEmail,
+      data: { oldEmail: previousEmail, newEmail: confirmedEmail, changed: { date: dayDate(changedAt), time: time24(changedAt) } },
+      dedupeKey: `email-changed:${member.id}:${confirmedEmail.toLowerCase()}:${changedAt.getTime()}`,
+      refs: { memberId: member.id },
+    });
   });
 
   const { error: syncError } = await createAdminSupabaseClient()
@@ -216,7 +223,11 @@ export async function verifyEmailChange(
   // failure is logged rather than reported as a failed change.
   if (member.stripe_customer_id) {
     try {
-      await stripe.customers.update(member.stripe_customer_id, { email: updatedUser.email });
+      await stripe.customers.update(
+        member.stripe_customer_id,
+        { email: updatedUser.email },
+        { idempotencyKey: `customer-email-${member.stripe_customer_id}-${updatedUser.email.toLowerCase()}-${Math.floor(Date.now() / 60000)}` },
+      );
     } catch (err) {
       console.error(`verifyEmailChange: Stripe email sync failed for member ${member.id}:`, err);
     }
@@ -290,32 +301,18 @@ export async function removeAvatar(): Promise<{ success: boolean; error?: string
   return { success: true };
 }
 
-// A well-defined single Stripe call, safe to build for real: sets the
-// subscription to cancel at the end of the current billing period rather
-// than immediately. Deliberately does not touch members.membership_status
-// here, since there's no webhook handler in this codebase yet to flip it to
-// "cancelled" once the period actually ends, and guessing an in-between
-// status not in the existing active/paused/cancelled set would be worse
-// than leaving it alone.
+// Today's one-step Cancel membership, kept under its name for the You page:
+// sets the subscription to cancel at the end of the billing period and now
+// also stores the end date (members.cancel_at), so the card shows "Ends 12
+// Nov", the gate opens on that date, and the cancel-requested email goes.
+// The two-step flow with a reason is requestCancelMembership in
+// app/members/you/actions.ts; both use lib/server/membership-actions.ts.
 export async function cancelMembership(): Promise<{ success: boolean; error?: string }> {
   const member = await requireMember();
-
-  if (!member.stripe_subscription_id) {
-    return { success: false, error: "We couldn’t find a subscription on your account. Contact us." };
+  const result = await requestCancel(member.id, null);
+  if (!result.ok) {
+    return { success: false, error: result.error };
   }
-
-  try {
-    await stripe.subscriptions.update(member.stripe_subscription_id, {
-      cancel_at_period_end: true,
-    });
-  } catch (err) {
-    console.error(`cancelMembership failed for member ${member.id}:`, err);
-    return {
-      success: false,
-      error: "Your membership wasn’t cancelled. Try again.",
-    };
-  }
-
   revalidatePath("/members", "layout");
   return { success: true };
 }

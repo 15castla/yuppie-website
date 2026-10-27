@@ -5,6 +5,9 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
 import { uploadMemberMedia } from "@/lib/media-storage";
+import { audit } from "@/lib/server/audit";
+import { emailEventMove, getEventAddress, recordEventMove, setEventAddress, type EventMove } from "@/lib/server/events";
+import { later } from "@/lib/server/later";
 import { dateTimeLocalToISO } from "@/lib/utils";
 import type { EventCategory } from "@/components/members/event-types";
 
@@ -135,10 +138,19 @@ function slugify(title: string): string {
 // That's surfaced back as a non-fatal `warning` rather than `error`, since
 // treating the whole submission as failed would make the admin re-submit
 // and risk a duplicate event.
+// The exact address (A-D3): an optional "address" field on both forms. Kept
+// in event_addresses, which only admins and the server can read; members see
+// it only with a confirmed booking. Absent from the form: left as it is.
+function readAddress(formData: FormData): string | null | undefined {
+  if (!formData.has("address")) return undefined;
+  const value = formData.get("address");
+  return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
 export async function createEvent(
   formData: FormData,
 ): Promise<{ success: boolean; error?: string; warning?: string }> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const parsed = parseEventFields(formData);
   if ("error" in parsed) return { success: false, error: parsed.error };
@@ -159,6 +171,13 @@ export async function createEvent(
 
     if (!error) {
       let warning: string | undefined;
+
+      const address = readAddress(formData);
+      if (address) {
+        const saved = await setEventAddress(data.id, address);
+        if (!saved.ok) warning = "Event created, but saving the address failed. Add it again from the event.";
+      }
+      await audit(admin.id, "event.create", { type: "event", id: data.id }, { title: parsed.fields.title, slug });
 
       if (hasPhoto) {
         const uploaded = await uploadMemberMedia("events", data.id, photo as File);
@@ -195,10 +214,18 @@ export async function createEvent(
 // shared/bookmarked, and changing one out from under a member silently
 // would just 404 their link. Renaming a slug is rare enough that it can
 // still go through Supabase directly when it's genuinely needed.
+//
+// Moving a booked event (C-D11): when the date, time or place (venue or exact
+// address) changes and the event has confirmed bookings, events.changed_at is
+// set, so every member already booked may cancel for a full refund whatever
+// the date. With "notify_booked" = "on" they are emailed (event-changed) after
+// the response; without it, the result says how many are booked so the
+// screen can offer the email (adminEmailEventChange in
+// event-booking-actions.ts sends it later).
 export async function updateEventDetails(
   formData: FormData,
-): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+): Promise<{ success: boolean; error?: string; moved?: EventMove | null; bookedCount?: number; emailing?: boolean }> {
+  const admin = await requireAdmin();
 
   const eventId = formData.get("event_id");
   if (typeof eventId !== "string" || !eventId) {
@@ -209,6 +236,12 @@ export async function updateEventDetails(
   if ("error" in parsed) return { success: false, error: parsed.error };
 
   const adminClient = createAdminSupabaseClient();
+  const [{ data: beforeRow }, beforeAddress] = await Promise.all([
+    adminClient.from("events").select("start_time, location").eq("id", eventId).maybeSingle(),
+    getEventAddress(eventId),
+  ]);
+  if (!beforeRow) return { success: false, error: "That event couldn’t be found." };
+
   const { error } = await adminClient.from("events").update(parsed.fields).eq("id", eventId);
 
   if (error) {
@@ -216,9 +249,33 @@ export async function updateEventDetails(
     return { success: false, error: "Something went wrong saving that event." };
   }
 
+  const address = readAddress(formData);
+  if (address !== undefined) {
+    const saved = await setEventAddress(eventId, address);
+    if (!saved.ok) return { success: false, error: "The event saved, but the address didn’t. Try again." };
+  }
+
+  const before = { start_time: beforeRow.start_time as string, location: beforeRow.location as string | null, address: beforeAddress };
+  const after = { start_time: parsed.fields.start_time, location: parsed.fields.location, address: address === undefined ? beforeAddress : address };
+  const move = await recordEventMove(eventId, before, after);
+  const notify = formData.get("notify_booked") === "on" && move.moved !== null && move.bookedCount > 0;
+  await audit(admin.id, "event.update", { type: "event", id: eventId }, {
+    fields: parsed.fields,
+    address_changed: address !== undefined && address !== beforeAddress,
+    moved: move.moved,
+    changed_at: move.changedAt,
+    booked: move.bookedCount,
+    before,
+    notify,
+  });
+  if (notify && move.moved) {
+    const moved = move.moved;
+    later(`event-changed emails for ${eventId}`, () => emailEventMove(eventId, { moved, before, changedAt: move.changedAt }));
+  }
+
   revalidateTag("events", "minutes");
   revalidatePath("/admin/events");
-  return { success: true };
+  return { success: true, moved: move.moved, bookedCount: move.bookedCount, emailing: notify };
 }
 
 export async function updateEventImage(
