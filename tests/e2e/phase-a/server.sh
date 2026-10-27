@@ -2,7 +2,8 @@
 # Start or stop this worktree's Next server for the Phase A scripts, by PID (never pkill).
 #   tests/e2e/phase-a/server.sh start [prod|dev] [port]   # prod needs `next build --webpack` first
 #   tests/e2e/phase-a/server.sh stop [port]
-# Env: the local stack's app.env, MEMBERS_TEST_HOOKS=on (the test hook route), ADMIN_ALERTS_EMAIL=f.alerts@example.com.
+# Env: the local stack's app.env, MEMBERS_TEST_HOOKS=on (the test hook route), MEMBERS_PREVIEW=1 (the preview harness),
+# ADMIN_ALERTS_EMAIL=f.alerts@example.com.
 set -e
 ROOT=$(cd "$(dirname "$0")/../../.." && pwd)
 CMD=${1:-start}
@@ -21,7 +22,7 @@ if [ "$CMD" = stop ]; then
 fi
 cd "$ROOT"
 set -a; . /home/claude/stack/app.env; set +a
-export MEMBERS_TEST_HOOKS=on ADMIN_ALERTS_EMAIL=${ADMIN_ALERTS_EMAIL:-f.alerts@example.com}
+export MEMBERS_TEST_HOOKS=on MEMBERS_PREVIEW=1 ADMIN_ALERTS_EMAIL=${ADMIN_ALERTS_EMAIL:-f.alerts@example.com}
 if [ "$MODE" = dev ]; then
   nohup node node_modules/next/dist/bin/next dev --webpack -p "$PORT" > "$LOG" 2>&1 &
 else

@@ -8,6 +8,7 @@ import * as adminMemberStatus from "@/app/admin/member-status-actions";
 import * as apply from "@/app/apply/actions";
 import * as events from "@/app/members/events/actions";
 import * as profile from "@/app/members/profile/actions";
+import * as redemption from "@/app/members/redemption-actions";
 import * as you from "@/app/members/you/actions";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ const MODULES: Record<string, Record<string, unknown>> = {
   apply,
   events,
   profile,
+  redemption,
   you,
 };
 
