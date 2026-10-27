@@ -8,6 +8,7 @@
 
 import type { Flags } from "@/lib/members/flags";
 import { isMockAllowed } from "@/lib/members/mock/guard";
+import { marksExamples } from "@/lib/members/mock/marking";
 import { exampleSettingsSummaries } from "@/lib/members/mock/you-settings";
 import { ROUTES } from "@/lib/members/routes";
 import type { ShellMode } from "@/components/members/shell/types";
@@ -48,5 +49,7 @@ export function settingsRowsFor(flags: Pick<Flags, "notifications" | "paidPlans"
   // The summaries are invented stand-ins ("Push, email", "Get paid: not set up"), and You is a real page that carries
   // no example note, so on the live page each row says what it is instead of a made-up status (the preview harness
   // calls buildSettingsRows directly and keeps the approved summaries).
-  return buildSettingsRows(flags, exampleSettingsSummaries(mode)).map((row) => ({ ...row, lines: ["Example screen"], warn: false }));
+  const rows = buildSettingsRows(flags, exampleSettingsSummaries(mode));
+  // NEXT_PUBLIC_MEMBERS_MARK_EXAMPLES=off (mock/marking.ts) keeps the approved summaries, as in the preview harness.
+  return marksExamples() ? rows.map((row) => ({ ...row, lines: ["Example screen"], warn: false })) : rows;
 }

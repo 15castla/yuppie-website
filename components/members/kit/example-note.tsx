@@ -12,18 +12,23 @@
 // is false, so the approved screens and their measurements are untouched.
 // When a real backend replaces the adapter for an area, its page drops the
 // wrapper, and the note and the "Coming soon" buttons go with it.
+//
+// NEXT_PUBLIC_MEMBERS_MARK_EXAMPLES=off (lib/members/mock/marking.ts) makes the
+// wrapper provide false: the screens then look exactly as they do without it
+// (no note, live-looking Pay buttons) while still running on example data.
 
 import { createContext, useContext, type ReactNode } from "react";
 
+import { marksExamples } from "@/lib/members/mock/marking";
 import { cn } from "@/lib/utils";
 
 const ExampleContext = createContext(false);
 
 export function ExampleScope({ children }: { children: ReactNode }) {
-  return <ExampleContext.Provider value={true}>{children}</ExampleContext.Provider>;
+  return <ExampleContext.Provider value={marksExamples()}>{children}</ExampleContext.Provider>;
 }
 
-/** True under an <ExampleScope>: this screen runs on example data. */
+/** True under an <ExampleScope> that marks its screens as examples (see marking.ts). */
 export function useExample(): boolean {
   return useContext(ExampleContext);
 }
