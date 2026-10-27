@@ -233,7 +233,10 @@ const AUTH = { magic_link: 'login-code', email_change: 'email-change-code', reco
 for (const t of supabase.SUPABASE_TEMPLATE_NAMES) {
   const file = fs.readFileSync(path.join(REPO, 'supabase/templates', `${t}.html`), 'utf8');
   check(file === supabase.renderSupabaseTemplate(t).html, `supabase/templates/${t}.html is out of date: run build-supabase-templates.mjs`);
-  check(file === fs.readFileSync(path.join(DESIGN, `r2c-supabase-${AUTH[t]}.html`), 'utf8'), `supabase/templates/${t}.html differs from r2c-supabase-${AUTH[t]}.html`);
+  // One deliberate difference: Supabase strips comments (so the VML button goes), so the reset button keeps no mso-hide:all.
+  const drawn = fs.readFileSync(path.join(DESIGN, `r2c-supabase-${AUTH[t]}.html`), 'utf8').replace('text-align:center;text-decoration:none;mso-hide:all;">Choose a new password', 'text-align:center;text-decoration:none;">Choose a new password');
+  check(file === drawn, `supabase/templates/${t}.html differs from r2c-supabase-${AUTH[t]}.html`);
+  check(!/class="btn[^"]*" style="[^"]*mso-hide:all/.test(file), `${t}: the html button is not hidden from Outlook (Supabase strips the VML one)`);
   check(file.includes('10 minutes'), `${t}: says 10 minutes`);
   const holes = file.match(/\{\{[^}]*\}\}/g) ?? [];
   check(holes.every((h) => ['{{ .Token }}', '{{ .Email }}', '{{ .NewEmail }}', '{{ .SiteURL }}', '{{ .TokenHash }}'].includes(h)), `${t}: unknown placeholder ${holes.join(' ')}`);

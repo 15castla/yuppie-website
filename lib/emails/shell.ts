@@ -91,15 +91,23 @@ export type RenderOptions = {
   scheme?: EmailColorScheme;
   /** Draw "Choose what we email you". Default: the Notifications flag. */
   notificationsLink?: boolean;
+  /**
+   * False when the sender strips HTML comments. Supabase Auth does (checked on
+   * v2.177.0: Go's html/template removes every comment), which removes the
+   * Outlook conditional comments and with them the VML button, so the html
+   * button must not hide itself from Outlook (no mso-hide:all). Default true.
+   */
+  commentsSurvive?: boolean;
 };
 
-export type ResolvedOptions = { site: string; scheme: EmailColorScheme; notificationsLink: boolean };
+export type ResolvedOptions = { site: string; scheme: EmailColorScheme; notificationsLink: boolean; commentsSurvive: boolean };
 
 export function resolveOptions(options: RenderOptions = {}): ResolvedOptions {
   return {
     site: normaliseSite(options.site ?? siteUrl()),
     scheme: options.scheme ?? EMAIL_COLOR_SCHEME,
     notificationsLink: options.notificationsLink ?? notificationsLinkOn(),
+    commentsSurvive: options.commentsSurvive ?? true,
   };
 }
 
@@ -200,14 +208,14 @@ function codeHtml(code: Inline, rows?: { label: string; value: Inline }[]): stri
   return cardShell(c);
 }
 
-function buttonHtml(l: string, url: string): string {
+function buttonHtml(l: string, url: string, commentsSurvive: boolean): string {
   // The VML button's width for Outlook for Windows, as the design sizes it.
   const w = Math.max(196, Math.trunc(Array.from(l).length * 10 + 64));
   const href = escapeAttr(url);
   return (
     `<table role="presentation" class="btn-wrap" width="100%" cellpadding="0" cellspacing="0" border="0" style="width:100%;border-collapse:separate;"><tr><td>\n` +
     `<!--[if mso]><v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" xmlns:w="urn:schemas-microsoft-com:office:word" href="${href}" style="height:56px;v-text-anchor:middle;width:${w}px;" arcsize="50%" stroke="f" fillcolor="${INK}"><w:anchorlock/><center style="color:${YEL};font-family:Arial,Helvetica,sans-serif;font-size:17px;font-weight:bold;">${esc(l)}</center></v:roundrect><![endif]-->\n` +
-    `<!--[if !mso]><!--><a href="${href}" class="btn bg-btn t-btn" style="display:block;box-sizing:border-box;background-color:${INK};border-radius:999px;padding:17px 28px;${A}font-size:17px;line-height:22px;font-weight:700;color:${YEL};text-align:center;text-decoration:none;mso-hide:all;">${esc(l)}</a><!--<![endif]-->\n` +
+    `<!--[if !mso]><!--><a href="${href}" class="btn bg-btn t-btn" style="display:block;box-sizing:border-box;background-color:${INK};border-radius:999px;padding:17px 28px;${A}font-size:17px;line-height:22px;font-weight:700;color:${YEL};text-align:center;text-decoration:none;${commentsSurvive ? "mso-hide:all;" : ""}">${esc(l)}</a><!--<![endif]-->\n` +
     `</td></tr></table>`
   );
 }
@@ -346,7 +354,7 @@ export function renderHtml(spec: EmailSpec, opts: ResolvedOptions): string {
   for (const blk of spec.blocks ?? []) {
     parts.push(["card", blk.kind === "card" ? cardHtml(blk.rows, blk.total) : codeHtml(blk.code, blk.rows)]);
   }
-  if (spec.button) parts.push(["btn", buttonHtml(spec.button.label, spec.button.url)]);
+  if (spec.button) parts.push(["btn", buttonHtml(spec.button.label, spec.button.url, opts.commentsSurvive)]);
   if (spec.links2 && spec.links2.length > 0) {
     parts.push([
       "link2",
