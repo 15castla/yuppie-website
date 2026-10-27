@@ -4,7 +4,8 @@
 // switch MEMBERS_SHOW_EXAMPLES=on is set, so a feature flag can never put
 // example data in front of a real member by mistake. Local runs and Vercel
 // previews are always allowed. The pages that use it wrap their view in
-// <ExampleScope> so every screen says it is an example (kit/example-note).
+// <ExampleScope> so every screen says it is an example (kit/example-note),
+// unless NEXT_PUBLIC_MEMBERS_MARK_EXAMPLES=off (marking.ts) is also set.
 // When a real backend exists for an area, its page stops using the adapter
 // and the call is removed for that area.
 //
