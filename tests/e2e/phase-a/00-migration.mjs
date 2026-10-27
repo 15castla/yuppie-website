@@ -13,6 +13,9 @@ const psql = (file) => execFileSync('psql', ['-h', '127.0.0.1', '-p', '54322', '
 if (process.argv.includes('--rebuild')) {
   const out = execFileSync('/home/claude/stack/apply_repo.sh', [ROOT], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   ok(out.includes('APPLIED'), 'apply_repo.sh: baseline plus every migration applies from scratch');
+  // The rebuild drops public (admin_users with it; auth users survive): seed the test admin and data again.
+  execFileSync('node', ['/home/claude/stack/tools/seed.mjs', '--prefix', 'f.', '--quiet'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  ok(true, 'seed.mjs restores the test admin and data');
 }
 psql(FILE);
 ok(true, 'the Phase A migration applies again on top of itself');

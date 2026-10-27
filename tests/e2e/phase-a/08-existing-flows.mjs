@@ -16,6 +16,12 @@ const past = await makeEvent('expast', { price: 0, startInHours: 2 });
 await makeBooking(m, past);
 await (await import('./lib.mjs')).exec(`update events set start_time = now() - interval '1 day' where id = ${q(past.id)}`);
 
+// The page's own <main> (a streamed page also holds its loading <main> until it is swapped).
+const mainText = async (pg) => {
+  await pg.locator('main:not([aria-busy="true"])').last().waitFor();
+  return pg.locator('main:not([aria-busy="true"])').last().innerText();
+};
+
 const browser = await chromium.launch();
 try {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
@@ -24,7 +30,7 @@ try {
   ok(new URL(p.url()).pathname.startsWith('/members'), `log in through /member-login with the emailed code: ${new URL(p.url()).pathname}`);
 
   await p.goto(`${BASE}/members/events`);
-  ok((await p.locator('main').innerText()).includes('Exfree night'), 'Events lists the event');
+  ok((await mainText(p)).includes('Exfree night'), 'Events lists the event');
 
   // Free booking with the page's own button.
   await p.goto(`${BASE}/members/events/${free.slug}`);
@@ -49,13 +55,13 @@ try {
   ok(true, 'paid: the event page shows Booked');
 
   await p.goto(`${BASE}/members/plans`);
-  const plans = await p.locator('main').innerText();
+  const plans = await mainText(p);
   ok(plans.includes('Exfree night') && plans.includes('Expaid night'), 'Your plans lists both bookings');
   await p.goto(`${BASE}/members/plans?when=past`);
-  ok((await p.locator('main').innerText()).includes('Expast night'), 'and the past one under Past');
+  ok((await mainText(p)).includes('Expast night'), 'and the past one under Past');
 
   await p.goto(`${BASE}/members/you`);
-  ok((await p.locator('main').innerText()).includes('Ex1 Tester'), 'You shows the member');
+  ok((await mainText(p)).includes('Ex1 Tester'), 'You shows the member');
 
   // Profile edit (the action the Edit page calls) and its page.
   eq((await page('/members/profile/edit', s)).status, 200, 'the Edit details page opens');
