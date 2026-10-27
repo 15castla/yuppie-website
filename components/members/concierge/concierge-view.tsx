@@ -18,7 +18,7 @@
 
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
-import { Icon, Main, PerkDrawing, SectionTitle, TitleBlock } from "@/components/members/kit";
+import { ExampleNote, Icon, Main, PerkDrawing, SectionTitle, TitleBlock } from "@/components/members/kit";
 import type {
   ConciergeMemoryItem,
   ConciergeMessage,
@@ -356,7 +356,12 @@ export function ConciergeView({
   return (
     <Main pad={false} className={cn("cn-page", typing && "cn-typing")}>
       {started ? (
-        <CompactBar onOpenMemory={() => setSheetOpen(true)} memoryRef={memoryButton} inert={sheetOpen} />
+        <>
+          <CompactBar onOpenMemory={() => setSheetOpen(true)} memoryRef={memoryButton} inert={sheetOpen} />
+          {/* Example screens on the live site: once the chat starts the title block (which carries the note) is gone,
+              so a one-line strip stays under the bar (kit/example-note). Nothing outside an <ExampleScope>. */}
+          <ExampleNote inside className="cn-ex" lead="Example chat." rest="Made-up places. Nothing you write is sent." />
+        </>
       ) : (
         <TitleBlock title="Concierge." sub="It learns your taste." />
       )}

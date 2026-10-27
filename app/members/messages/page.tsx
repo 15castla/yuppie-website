@@ -1,6 +1,7 @@
 import { InboxView } from "@/components/members/messages/inbox-view";
 import { ThreadView } from "@/components/members/messages/thread-view";
 import { flags, requireFlag } from "@/lib/members/flags";
+import { ExampleScope } from "@/components/members/kit";
 import { assertMockAllowed } from "@/lib/members/mock/guard";
 import { EXAMPLE_NOW, EXAMPLE_YOU, getThread, listChats, listUpdates } from "@/lib/members/mock/messages";
 import type { Chat, ChatThread, UpdateItem } from "@/lib/members/messages/types";
@@ -28,15 +29,17 @@ export default async function MessagesPage() {
   }
 
   return (
-    <InboxView
-      chats={chats}
-      updates={updates}
-      now={EXAMPLE_NOW}
-      state={failed ? "error" : "ready"}
-      openChatId={first?.chat.id ?? null}
-      pane={first ? <ThreadView thread={first} now={EXAMPLE_NOW} youId={EXAMPLE_YOU.id} /> : null}
-      settingsHref={flags.notifications ? ROUTES.youNotifications : null}
-      youId={EXAMPLE_YOU.id}
-    />
+    <ExampleScope>
+      <InboxView
+        chats={chats}
+        updates={updates}
+        now={EXAMPLE_NOW}
+        state={failed ? "error" : "ready"}
+        openChatId={first?.chat.id ?? null}
+        pane={first ? <ThreadView thread={first} now={EXAMPLE_NOW} youId={EXAMPLE_YOU.id} /> : null}
+        settingsHref={flags.notifications ? ROUTES.youNotifications : null}
+        youId={EXAMPLE_YOU.id}
+      />
+    </ExampleScope>
   );
 }

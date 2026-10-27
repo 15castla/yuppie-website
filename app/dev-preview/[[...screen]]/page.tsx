@@ -12,6 +12,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { CSSProperties } from "react";
 
+import { ExampleScope } from "@/components/members/kit";
 import { MembersFrame } from "@/components/members/shell/members-frame";
 import { MembersShell } from "@/components/members/shell/members-shell";
 import { tabsFor } from "@/components/members/shell/tabs";
@@ -45,7 +46,7 @@ function Index() {
         Screens rendered inside the real members shell, with no login and no database. Add{" "}
         <code>?shell=app</code> for the app, <code>?state=&lt;state&gt;</code>,{" "}
         <code>?member=&lt;fixture&gt;</code> ({MEMBER_KEYS.join(", ")}), <code>?flags=openInvite,concierge</code>{" "}
-        <code>?unread=3</code> and <code>?route=/members/open-invite</code> (draw it in the shell the real
+        <code>?unread=3</code>, <code>?example=1</code> (the Example screen note, as on the live site) and <code>?route=/members/open-invite</code> (draw it in the shell the real
         route table gives that path).
       </p>
       <ul>
@@ -120,6 +121,11 @@ export default async function DevPreviewPage({
   // and the chrome from lib/members/routes.ts, as the live layout does. Without
   // it the screen's own frame fields decide (see registry/types.ts).
   const route = first(query.route);
+  // ?example=1 wraps the screen in <ExampleScope>, as the real pages do when
+  // example screens are switched on for the live site: the "Example screen"
+  // note and the "Coming soon" money buttons. Without it the screen is exactly
+  // the approved one.
+  const body = first(query.example) === "1" ? <ExampleScope>{screen.render(previewParams)}</ExampleScope> : screen.render(previewParams);
   if (route) {
     return (
       <MembersShell
@@ -132,7 +138,7 @@ export default async function DevPreviewPage({
         style={insets}
       >
         {device ? <StatusBarMock /> : null}
-        {screen.render(previewParams)}
+        {body}
       </MembersShell>
     );
   }
@@ -152,7 +158,7 @@ export default async function DevPreviewPage({
       style={insets}
     >
       {device ? <StatusBarMock /> : null}
-      {screen.render(previewParams)}
+      {body}
     </MembersFrame>
   );
 }

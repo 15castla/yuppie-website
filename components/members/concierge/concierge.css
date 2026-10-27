@@ -105,3 +105,7 @@
 @media (max-width:767px){
   .mk-page > .mk-main.cn-page{--cn-pad:var(--gutter)}
 }
+
+/* The example strip under the bar once the chat has started (kit/example-note). It stays under the sticky bar as the page scrolls. */
+.cn-page > .cn-ex{position:sticky;top:calc(57px + var(--safe-top));z-index:39;margin:0;padding:6px var(--cn-pad,var(--gutter));border:0;border-bottom:1.5px dashed var(--ink);border-radius:0;font-size:13px;line-height:1.35;text-align:center}
+@media (min-width:768px){ .cn-page > .cn-ex{top:140px} }

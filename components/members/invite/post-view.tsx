@@ -19,7 +19,7 @@ import "./invite.css";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import { BackRow, Button, Icon, Main, Shape } from "@/components/members/kit";
+import { BackRow, Button, ExampleNote, Icon, Main, Shape } from "@/components/members/kit";
 import { GetPaidHandOff, type GetPaidMode } from "@/components/members/payments/get-paid";
 import { EMPTY_COST, usablePence, validateCost, type CostValues } from "@/lib/members/invite/cost";
 import { formatDateInput, isPaid, londonLocalToIso } from "@/lib/members/invite/format";
@@ -465,6 +465,7 @@ export function PostView({
   return (
     <Main pad={false} className="oi-postmain">
       <BackRow href={ROUTES.openInvite} label="Cancel" />
+      <ExampleNote />
       <div className="mk-wrap">
         <div className="oi-form-head">
           <h1 className="mk-h1">Got a plan?</h1>
@@ -534,6 +535,7 @@ export function PostedView({ invite, me }: { invite: OpenInvite; me: InviteMembe
   return (
     <Main pad={false} fill>
       <BackRow href={ROUTES.openInvite} label="Open Invite" />
+      <ExampleNote />
       <div className="oi-done-m oi-done-wrap">
         <div className="mk-wrap oi-done">
           <div className="oi-form-head">

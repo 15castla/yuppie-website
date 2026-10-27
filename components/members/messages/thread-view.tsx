@@ -34,7 +34,7 @@ import {
   type ReactNode,
 } from "react";
 
-import { Avatar, Button, Icon } from "@/components/members/kit";
+import { Avatar, Button, ExampleNote, Icon } from "@/components/members/kit";
 import { containsLink } from "@/lib/members/messages/link-check";
 import { SELECT_BANNER, closedNote } from "@/lib/members/messages/thread-copy";
 import { buildRows, groupTime, type GroupMessage, type StreamRow } from "@/lib/members/messages/thread-model";
@@ -444,6 +444,7 @@ export function ThreadView({
   return (
     <div className="msg-card" ref={cardRef}>
       <ThreadHeader chat={chat} infoOpen={overlay.kind === "info"} onInfo={() => setOverlay({ kind: "info" })} />
+      <ExampleNote inside className="msg-ex-thread" lead="Example chat." rest="Made-up people. Nothing you write is sent." />
       {selecting ? (
         <div className="msg-banner" role="status">
           <span>{SELECT_BANNER}</span>

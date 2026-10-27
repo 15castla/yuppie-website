@@ -21,7 +21,7 @@
 
 import { useId, useState, type ReactNode } from "react";
 
-import { Button, Card, Icon } from "@/components/members/kit";
+import { Button, Card, Icon, useExample } from "@/components/members/kit";
 import { Sheet } from "@/components/members/invite/sheet";
 import { formatDay, gbp } from "@/lib/members/invite/format";
 import type { GetPaid, GetPaidStatus } from "@/lib/members/invite/types";
@@ -149,6 +149,8 @@ const NEEDS = [
 /** The hand-off sheet: what Club Yuppie needs and who checks what, then on to Stripe. */
 export function GetPaidSheet({ onContinue, onClose }: { onContinue: () => void; onClose: () => void }) {
   const id = useId();
+  // Example screens on the live site: there is no Stripe link yet (kit/example-note).
+  const example = useExample();
   return (
     <Sheet labelledBy={id} onClose={onClose} variant="pay">
       <PayHead id={id} title="Get paid." onClose={onClose} />
@@ -172,9 +174,9 @@ export function GetPaidSheet({ onContinue, onClose }: { onContinue: () => void; 
         </div>
       </div>
       <PayActions>
-        <Button block onClick={onContinue}>
-          Continue to Stripe
-          <Icon name="external" size={18} />
+        <Button block disabled={example} onClick={onContinue}>
+          {example ? "Coming soon" : "Continue to Stripe"}
+          {example ? null : <Icon name="external" size={18} />}
         </Button>
         <Button block variant="outline" onClick={onClose}>
           Not now

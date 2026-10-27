@@ -17,7 +17,7 @@
 import { useRouter } from "next/navigation";
 import { Fragment, useEffect, useId, useState, type KeyboardEvent, type ReactNode } from "react";
 
-import { BackLink, Button, Icon, KitLink, Main } from "@/components/members/kit";
+import { BackLink, Button, ExampleNote, Icon, KitLink, Main } from "@/components/members/kit";
 import { updateGroup } from "@/lib/members/messages/format";
 import type { Chat, UpdateItem } from "@/lib/members/messages/types";
 import { ROUTES } from "@/lib/members/routes";
@@ -318,6 +318,7 @@ export function InboxView({
                 <h1 className="mk-h1">Messages.</h1>
                 <p className="mk-sub-serif">Details, sorted.</p>
               </div>
+              <ExampleNote inside className="msg-ex-inbox" />
               <div className="msg-segwrap">
                 <div className="mk-seg msg-seg" role="tablist" aria-label="Messages" onKeyDown={onTabKey}>
                   {tabs.map((item) => (

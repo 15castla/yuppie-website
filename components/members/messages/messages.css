@@ -531,3 +531,9 @@ textarea.msg-input:focus-visible{outline:none}
 /* the list sits in the tab panel, so the design's sibling rule (.msg-segwrap + .msg-body) is spelled through it */
 .msg-segwrap + [role="tabpanel"] > .msg-body{padding-top:8px}
 @media (min-width:768px){ .msg-segwrap + [role="tabpanel"] > .msg-body{padding-top:12px} }
+
+/* The example note (kit/example-note). In a chat it is a one-line strip under the chat's header (it does not scroll away with the messages);
+   from 1024 the inbox column beside the chat already carries the full note. */
+.msg-ex-inbox{margin:12px 0 0}
+.msg-card > .msg-ex-thread{flex:none;margin:0;padding:6px 12px;border:0;border-bottom:1.5px dashed var(--ink);border-radius:0;font-size:13px;line-height:1.35;text-align:center}
+@media (min-width:1024px){ .msg-card > .msg-ex-thread{display:none} }

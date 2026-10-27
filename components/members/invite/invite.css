@@ -17,6 +17,7 @@
 .oi-seg-wrap{margin-top:12px}
 .oi-compose-wrap{margin-top:8px}
 .oi-chips-wrap{margin-top:8px;padding-bottom:16px}
+.mk-wrap > .oi-ex{margin-bottom:16px}
 .oi-compose{display:flex;align-items:center;gap:12px;min-height:52px;padding:4px;border:2px solid var(--ink);border-radius:999px;background:var(--cream);color:var(--ink);text-decoration:none;-webkit-tap-highlight-color:transparent}
 .oi-compose .mk-avatar{--s:40px}
 .oi-compose .tx{flex:1 1 auto;min-width:0;font:800 16px/1.2 var(--font-body);letter-spacing:-.005em}

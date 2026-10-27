@@ -28,7 +28,7 @@
 
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
-import { Button, Icon, KitLink } from "@/components/members/kit";
+import { Button, Icon, KitLink, useExample } from "@/components/members/kit";
 import { gbp } from "@/lib/members/invite/format";
 import type { OpenInvite } from "@/lib/members/invite/types";
 import { messageThreadHref, openInviteReceiptHref } from "@/lib/members/routes";
@@ -182,6 +182,9 @@ export function PaySheet({
   onPaid: (pence: number) => void;
 }) {
   const id = useId();
+  // Example screens on the live site: taking money is not built, so nothing here can pay (kit/example-note).
+  // The entry points already say "Coming soon"; this is the second lock.
+  const example = useExample();
   const host = invite.host.firstName;
   const listed = invite.cost?.pricePence ?? 0;
   const [state, setState] = useState<PayState>(initialState);
@@ -195,7 +198,7 @@ export function PaySheet({
 
   /** Pay: "Paying…", then the plan says yes. */
   function pay(pence: number) {
-    if (state === "paying") return;
+    if (state === "paying" || example) return;
     setPaying(pence);
     setState("paying");
     timer.current = setTimeout(() => {
@@ -233,7 +236,7 @@ export function PaySheet({
               ...(bad ? [] : [{ icon: "undo" as const, text: REFUND_RULE }]),
             ]}
           />
-          <button type="button" className={`pay-apple${busy ? " is-off" : ""}`} disabled={busy} onClick={() => pay(listed)}>
+          <button type="button" className={`pay-apple${busy || example ? " is-off" : ""}`} disabled={busy || example} onClick={() => pay(listed)}>
             <AppleMark />
             <span>Pay</span>
           </button>
@@ -250,8 +253,8 @@ export function PaySheet({
             </div>
           ) : null}
           <PayActions tight={bad}>
-            <Button block pending={busy} icon={busy ? undefined : <Icon name="lock" size={18} />} onClick={busy ? undefined : () => pay(listed)}>
-              {busy ? "Paying…" : `Pay ${amount}`}
+            <Button block pending={busy} disabled={example} icon={busy || example ? undefined : <Icon name="lock" size={18} />} onClick={busy ? undefined : () => pay(listed)}>
+              {busy ? "Paying…" : example ? "Coming soon" : `Pay ${amount}`}
             </Button>
           </PayActions>
         </>
@@ -340,8 +343,8 @@ export function PaySheet({
           </PlanTile>
           <MoneyList items={[{ icon: "banknote", text: heldLine(now, host, "would") }]} />
           <PayActions>
-            <Button block icon={<Icon name="lock" size={18} />} onClick={() => pay(newPricePence)}>
-              {`Pay ${now} and join`}
+            <Button block disabled={example} icon={example ? undefined : <Icon name="lock" size={18} />} onClick={() => pay(newPricePence)}>
+              {example ? "Coming soon" : `Pay ${now} and join`}
             </Button>
             <Button block variant="outline" onClick={onClose}>
               Not now

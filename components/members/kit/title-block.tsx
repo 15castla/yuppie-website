@@ -16,6 +16,7 @@
 import type { ReactNode } from "react";
 
 import { TopActions } from "../shell/top-actions";
+import { ExampleNote } from "./example-note";
 
 export function Serif({ children }: { children: ReactNode }) {
   return <span className="mk-serif">{children}</span>;
@@ -46,6 +47,8 @@ export function TitleBlock({
         </div>
         {lead ? <p className="mk-lead">{lead}</p> : null}
       </div>
+      {/* Under an <ExampleScope> only (example screens on the live site); nothing otherwise. */}
+      <ExampleNote inside />
     </div>
   );
 }

@@ -13,7 +13,7 @@
 
 import type { ReactNode } from "react";
 
-import { Avatar, Icon, KitLink, Segmented } from "@/components/members/kit";
+import { Avatar, ExampleNote, Icon, KitLink, Segmented } from "@/components/members/kit";
 import { MessagesButton } from "@/components/members/shell/messages-button";
 import { useShell } from "@/components/members/shell/shell-context";
 import { TopActions } from "@/components/members/shell/top-actions";
@@ -102,6 +102,7 @@ export function InviteTop({
         <ComposeRow me={me} />
         {chips ? <div className="oi-chips-wrap">{chips}</div> : <div className="oi-chips-wrap oi-yours-gap" />}
       </div>
+      <ExampleNote inside className="oi-ex" />
     </div>
   );
 }

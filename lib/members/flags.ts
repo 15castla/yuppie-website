@@ -2,8 +2,10 @@
 // variable is exactly "on". They gate screens that are built but have no
 // backend yet (see BUILD_BRIEF section 2): switching one on locally or on a
 // Vercel preview shows the screen running on its example-data adapter
-// (lib/members/mock/), and on the live site (VERCEL_ENV=production) the
-// same screens still 404 because assertMockAllowed() refuses.
+// (lib/members/mock/). On the live site (VERCEL_ENV=production) the same
+// screens still 404 because assertMockAllowed() refuses, unless the server
+// switch MEMBERS_SHOW_EXAMPLES=on is set there too: then they show, each
+// marked "Example screen" (lib/members/mock/guard.ts, kit/example-note.tsx).
 //
 // The variables are NEXT_PUBLIC_ so the client-side shell can read the same
 // value as the server. Each one is spelled out in full below: Next only

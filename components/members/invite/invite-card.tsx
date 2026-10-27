@@ -20,7 +20,7 @@
 
 import type { ReactNode } from "react";
 
-import { Avatar, Button, Icon, KitLink, Pill } from "@/components/members/kit";
+import { Avatar, Button, Icon, KitLink, Pill, useExample } from "@/components/members/kit";
 import {
   cardLabel,
   formatWhen,
@@ -184,6 +184,8 @@ export function InviteCard({
   const questions = invite.you.questions;
   const moneyLine = state === "own" ? hostMoneyLine(invite) : null;
   const join = invite.cost ? `Pay ${gbp(invite.cost.pricePence)} and join` : "I’m in";
+  // Example screens on the live site: taking money is not built, so Pay says so (kit/example-note).
+  const comingSoon = useExample() && Boolean(invite.cost);
 
   const ask = invite.you.askThreadId ? (
     <Button
@@ -215,9 +217,15 @@ export function InviteCard({
     wide = paid;
     actions = (
       <>
-        <Button size="sm" pending={pending} onClick={pending ? undefined : () => onJoin?.(invite)}>
-          <span className="mk-lb">{pending ? "Joining…" : join}</span>
-        </Button>
+        {comingSoon ? (
+          <Button size="sm" variant="outline" disabled aria-label={`${join}: coming soon`}>
+            <span className="mk-lb">Coming soon</span>
+          </Button>
+        ) : (
+          <Button size="sm" pending={pending} onClick={pending ? undefined : () => onJoin?.(invite)}>
+            <span className="mk-lb">{pending ? "Joining…" : join}</span>
+          </Button>
+        )}
         {ask}
       </>
     );

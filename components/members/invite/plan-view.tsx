@@ -15,7 +15,7 @@ import "./invite.css";
 
 import type { ReactNode } from "react";
 
-import { Avatar, BackRow, Button, Icon, KitLink, Main, Pill, Row, Rows, Shape, Status } from "@/components/members/kit";
+import { Avatar, BackRow, Button, ExampleNote, Icon, KitLink, Main, Pill, Row, Rows, Shape, Status, useExample } from "@/components/members/kit";
 import {
   formatWhen,
   gbp,
@@ -256,6 +256,8 @@ export function PlanView({
   initialPendingId?: string | null;
 }) {
   const { me, now } = page;
+  // Example screens on the live site: taking money is not built, so Pay says so (kit/example-note).
+  const example = useExample();
   const moments = useMoments({
     plans: [page.invite],
     me,
@@ -393,11 +395,16 @@ export function PlanView({
   );
   switch (state) {
     case "open":
-      barButton = (
-        <Button pending={pending} onClick={pending ? undefined : () => moments.join(invite)}>
-          {pending ? "Joining…" : joinLabel}
-        </Button>
-      );
+      barButton =
+        example && paid ? (
+          <Button disabled variant="outline" aria-label={`${joinLabel}: coming soon`}>
+            Coming soon
+          </Button>
+        ) : (
+          <Button pending={pending} onClick={pending ? undefined : () => moments.join(invite)}>
+            {pending ? "Joining…" : joinLabel}
+          </Button>
+        );
       cardButton = barButton;
       break;
     case "in":
@@ -613,6 +620,7 @@ export function PlanView({
   return (
     <Main pad={false} className="oi-planmain">
       <BackRow href={ROUTES.openInvite} label="Open Invite" actions={<BarMessages />} />
+      <ExampleNote />
 
       <section className="oi-hero" aria-label="Open Invite">
         <div className="mk-wrap oi-hero-in">
