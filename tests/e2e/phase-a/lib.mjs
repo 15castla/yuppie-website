@@ -59,7 +59,10 @@ export async function waitFor(fn, label, timeoutMs = 15000) {
   let last;
   while (Date.now() < end) {
     last = await fn();
-    if (last) return last;
+    if (last) {
+      ok(true, label);
+      return last;
+    }
     await sleep(250);
   }
   ok(false, `${label} (timed out)`, last);
@@ -199,8 +202,22 @@ export async function makeBooking(member, event, { paid = event.price > 0, booke
   }
   const { data, error } = await svc.rpc('book_event', { p_member: member.id, p_event: event.id, p_amount: paid ? event.price : 0, p_payment_intent: pi, p_allow_over_capacity: Boolean(pi) });
   if (error) throw error;
+  if (!data.booking_id) throw new Error(`makeBooking: book_event said ${data.status}`);
   if (bookedAgoHours) exec(`update bookings set booked_at = now() - interval '${bookedAgoHours} hours' where id = ${q(data.booking_id)}`);
   return { id: data.booking_id, status: data.status, pi };
+}
+
+/** A confirmed booking written directly, as if made before the member's state changed (book_event would refuse now). */
+export async function insertBooking(member, event, { paid = event.price > 0 } = {}) {
+  let pi = null;
+  if (paid) {
+    const r = await stripe('POST', 'payment_intents', { amount: event.price, currency: 'gbp', customer: member.customer, metadata: { member_id: member.id, event_id: event.id } });
+    pi = r.json.id;
+    await fakePay(pi, 'http://127.0.0.1:9/none');
+  }
+  const { data, error } = await svc.from('bookings').insert({ member_id: member.id, event_id: event.id, status: 'confirmed', amount_pence: paid ? event.price : 0, stripe_payment_intent_id: pi, booked_at: new Date(Date.now() - 86400000).toISOString() }).select('id').single();
+  if (error) throw error;
+  return { id: data.id, pi };
 }
 
 // ---------------------------------------------------------------- sessions and calls
@@ -261,6 +278,18 @@ export const fd = (obj) => ({ $formData: obj });
 export async function page(path, session = null, extraHeaders = {}) {
   const r = await fetch(`${BASE}${path}`, { redirect: 'manual', headers: { ...(session ? { cookie: cookieFor(session) } : {}), ...extraHeaders } });
   return { status: r.status, location: r.headers.get('location'), headers: r.headers, text: r.status === 200 ? await r.text() : '' };
+}
+
+/**
+ * Where a page sent the browser: a real redirect's Location, or, for a members page (the layout streams
+ * the shell first, so the page's redirect() arrives in the stream), the NEXT_REDIRECT target in the body.
+ * Null when the page rendered.
+ */
+export async function redirectedTo(path, session = null) {
+  const r = await page(path, session);
+  if (r.location) return new URL(r.location, BASE).pathname;
+  const m = /NEXT_REDIRECT;(?:replace|push);([^;"\\]+);/.exec(r.text);
+  return m ? m[1] : null;
 }
 
 /** PostgREST as the session's user (anon key plus their JWT), for the security checks. */
