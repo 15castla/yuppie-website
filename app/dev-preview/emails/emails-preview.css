@@ -1,0 +1,31 @@
+/* Email preview furniture only (app/dev-preview/emails). Not part of any email. */
+.pve{padding:32px 20px 96px;font-family:var(--font-almarai),sans-serif;color:#1B1512;background:#F5F3E7;min-height:100dvh}
+.pve code{font-size:14px;background:#FFF3B0;padding:1px 6px;border-radius:6px}
+.pve a{color:#1B1512}
+.pve-head{max-width:880px}
+.pve-head h1{font-size:30px;font-weight:800;margin:0 0 8px}
+.pve-head p{margin:0 0 20px}
+.pve-nav ul{list-style:none;margin:0 0 28px;padding:0;border-top:1.5px solid #1B1512;max-width:1100px}
+.pve-nav li{padding:8px 0;border-bottom:1.5px solid #1B1512;display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;font-size:14px}
+.pve-nav li b{min-width:240px}
+.pve-nav a[aria-current="page"]{font-weight:800;background:#FFD904;padding:0 6px;border-radius:6px}
+.pve-one h2{font-size:24px;margin:0 0 10px}
+.pve-one h2 span{font-weight:400;font-size:16px}
+.pve-one h3{font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin:24px 0 8px;color:#57514C}
+.pve-meta{border-collapse:collapse;font-size:14px;margin:0 0 8px}
+.pve-meta th{text-align:left;color:#57514C;font-weight:700;padding:2px 14px 2px 0;vertical-align:top;white-space:nowrap}
+.pve-meta td{padding:2px 0}
+.pve-frames{display:flex;gap:20px;align-items:flex-start;overflow-x:auto;padding-bottom:8px}
+.pve figure{margin:0;flex:none}
+.pve figcaption{font-size:12px;color:#57514C;margin:0 0 4px}
+.pve-frame{display:block;border:1.5px solid #1B1512;background:#fff}
+.pve-dark .pve-frames{background:#1B1512;padding:12px;border-radius:12px}
+.pve-dark figcaption{color:#F5F3E7}
+.pve-plain{white-space:pre-wrap;word-wrap:break-word;font:13px/1.55 ui-monospace,Menlo,Consolas,monospace;background:#FFF3B0;border:2px solid #1B1512;border-radius:12px;padding:14px 16px;max-width:640px}
+.pve-all{display:flex;flex-wrap:wrap;gap:24px;align-items:flex-start}
+.pve-texts{margin-top:40px;max-width:640px}
+.pve-texts h2{font-size:24px;margin:0 0 12px}
+.pve-text{margin:0 0 16px}
+.pve-text p{margin:0 0 6px}
+.pve-bubble{display:inline-block;background:#E9E9EB;border-radius:18px;padding:10px 14px;font-family:-apple-system,system-ui,sans-serif;font-size:16px;line-height:21px}
+.pve-count{font-size:13px;color:#57514C}

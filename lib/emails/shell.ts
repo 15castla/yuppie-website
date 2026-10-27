@@ -108,11 +108,16 @@ export function resolveOptions(options: RenderOptions = {}): ResolvedOptions {
 // A UK postcode stays on one line ("AB1 2CD").
 const POSTCODE = "\\b[A-Z]{1,2}\\d[A-Z\\d]? ?\\d[A-Z]{2}\\b";
 
-/** Address lines: the venue, then the address split on new lines or commas (the venue is not repeated). */
+/**
+ * Address lines: the venue, then the address, split on its new lines when it
+ * has any ("Unit 14, The Courtyard" stays one line), else on its commas. The
+ * venue is not repeated when the address starts with it.
+ */
 export function placeLines(place: EmailPlace): string[] {
   const venue = place.venue.trim();
-  const rest = (place.address ?? "")
-    .split(/\r?\n|,/)
+  const address = (place.address ?? "").trim();
+  const rest = address
+    .split(/\r?\n/.test(address) ? /\r?\n/ : /,/)
     .map((line) => line.trim())
     .filter(Boolean);
   if (rest.length > 0 && rest[0].toLowerCase() === venue.toLowerCase()) rest.shift();
