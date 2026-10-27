@@ -458,4 +458,9 @@ grant execute on function public.book_event(uuid, uuid, integer, text, boolean) 
 revoke all on function public.set_updated_at() from public, anon, authenticated;
 
 -- approve_application_and_create_member keeps working unchanged: it inserts
--- the same members columns as before, through the service role.
+-- the same members columns as before, through the service role. Its earlier
+-- migrations revoked EXECUTE from PUBLIC only, but Supabase's default
+-- privileges grant it to anon and authenticated by name, so both could call
+-- it through PostgREST (RLS stopped it doing harm; this closes the door).
+revoke all on function public.approve_application_and_create_member(uuid, uuid, text) from public, anon, authenticated;
+grant execute on function public.approve_application_and_create_member(uuid, uuid, text) to service_role;
