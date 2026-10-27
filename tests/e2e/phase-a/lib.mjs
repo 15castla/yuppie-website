@@ -1,6 +1,6 @@
 // Shared helpers for the Phase A scripts. Plain Node, no test runner: each script is `node <file>`, prints
 // one line per check and exits 1 on the first failure. They run against a build of this branch on
-// PHASE_A_BASE (default http://127.0.0.1:3141, started with MEMBERS_TEST_HOOKS=on) and the local stack.
+// PHASE_A_BASE (default http://localhost:3141, started with MEMBERS_TEST_HOOKS=on) and the local stack.
 //
 //   source /home/claude/stack/app.env
 //   MEMBERS_TEST_HOOKS=on ADMIN_ALERTS_EMAIL=f.alerts@example.com npx next start -p 3141 &
@@ -27,7 +27,7 @@ if (process.env.NODE_EXTRA_CA_CERTS !== '/home/claude/stack/certs/ca.crt' || !pr
   const r = spawnSync(process.execPath, process.argv.slice(1), { stdio: 'inherit', env });
   process.exit(r.status ?? 1);
 }
-export const BASE = process.env.PHASE_A_BASE || 'http://127.0.0.1:3141';
+export const BASE = process.env.PHASE_A_BASE || 'http://localhost:3141';
 export const SUPA = process.env.NEXT_PUBLIC_SUPABASE_URL;
 export const REST = `${SUPA}/rest/v1`;
 export const ANON = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;

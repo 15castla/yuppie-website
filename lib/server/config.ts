@@ -11,14 +11,11 @@ export const PAYMENT_GRACE_DAYS = 3;
 /** Reminder emails before a club event (round 3): 24 hours and 2 hours. */
 export const REMINDER_HOURS = { long: 24, short: 2 } as const;
 
-/** Every email the server sends comes from here, with replies to the club inbox (decision C-D6). */
-export const EMAIL_FROM = "Club Yuppie <noreply@clubyuppie.com>";
-export const EMAIL_REPLY_TO = "hello@clubyuppie.com";
-
-/** Where admin alerts go (new application, booking needs review, refund failed). Decision C-D7. */
-export function adminAlertsEmail(): string {
-  return process.env.ADMIN_ALERTS_EMAIL?.trim() || "hello@clubyuppie.com";
-}
+/**
+ * The sender (decision C-D6: from "Club Yuppie <noreply@clubyuppie.com>", reply-to hello@clubyuppie.com)
+ * and where admin alerts go (C-D7: ADMIN_ALERTS_EMAIL, else hello@clubyuppie.com) are lib/emails' one copy.
+ */
+export { EMAIL_FROM, EMAIL_REPLY_TO, adminAlertsEmail } from "@/lib/emails";
 
 /** The site's own address for links in emails and Stripe return URLs. */
 export function siteUrl(): string {

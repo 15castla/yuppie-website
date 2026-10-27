@@ -6,6 +6,7 @@ import "server-only";
 // (changed_at and the event-changed email, C-D11).
 
 import { eventHref } from "@/lib/members/routes";
+import { displayPhone } from "@/lib/members/you/format";
 import { absoluteUrl } from "./config";
 import { EVENT_ROW_COLUMNS, one, serviceDb, type BookingCancelReason, type BookingCancelledBy, type BookingStatus, type EventRow, type RefundStatus } from "./db";
 import { buildIcs, googleCalendarUrl, icsFilename } from "./calendar";
@@ -168,7 +169,8 @@ export function attendeesCsv(list: AttendeeList): string {
   const rows = list.attendees.map((a) => [
     a.name,
     a.email,
-    a.phone,
+    // "07700 900123" for a UK number (as You shows it), so a spreadsheet keeps it as written.
+    displayPhone(a.phone),
     a.status === "confirmed" ? "Booked" : "Cancelled",
     dayDateTime(a.bookedAt),
     a.amountPence > 0 ? pounds(a.amountPence) : "Included",

@@ -61,7 +61,8 @@ export async function requestCancel(
     if (!member) return fail("not_found", GENERIC);
     const state = membershipState(member).state;
     if (state === "ending" && member.cancel_at) {
-      return { ok: true, endsAt: member.cancel_at, endsOn: dayDate(member.cancel_at), bookingsAfterEnd: await bookingsAfter(memberId, member.cancel_at) };
+      const endsAt = new Date(member.cancel_at).toISOString();
+      return { ok: true, endsAt, endsOn: dayDate(endsAt), bookingsAfterEnd: await bookingsAfter(memberId, endsAt) };
     }
     if (state === "paused" || state === "cancelled") return fail("not_active", "Your membership isn’t active, so there’s nothing to cancel.");
     if (!member.stripe_subscription_id) return fail("no_subscription", "We couldn’t find a subscription on your account. Email hello@clubyuppie.com.");

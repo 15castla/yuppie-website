@@ -21,7 +21,7 @@ import type Stripe from "stripe";
 
 import { stripe } from "@/lib/stripe";
 import { eventHref, ROUTES } from "@/lib/members/routes";
-import type { BookingCancelReason as EmailBookingCancelReason } from "@/lib/emails";
+import type { BookingCancelReason as EmailBookingCancelReason, EmailData } from "@/lib/emails";
 import { FREE_CANCEL_HOURS, adminAlertsEmail } from "./config";
 import {
   BOOKING_ROW_COLUMNS,
@@ -211,28 +211,28 @@ async function flagBookingForReview(
   event: EventRow,
 ): Promise<void> {
   console.error(`BOOKING_NEEDS_REVIEW ${reason}: payment intent ${paymentIntent.id}, member ${memberId}, event ${event.id}`);
-  let booked: number | undefined;
+  const base = {
+    memberName: await memberName(memberId),
+    event: { title: event.title, start: { date: dayDate(event.start_time), time: time24(event.start_time) } },
+    amount: pounds(paymentIntent.amount),
+    paymentIntentId: paymentIntent.id,
+    memberUrl: `/admin/members/${memberId}`,
+  };
+  let data: EmailData["admin-booking-review"];
   if (reason === "over_capacity") {
     const { count } = await serviceDb()
       .from("bookings")
       .select("*", { count: "exact", head: true })
       .eq("event_id", event.id)
       .eq("status", "confirmed");
-    booked = count ?? undefined;
+    data = { ...base, reason, booked: count ?? 0, capacity: event.capacity ?? 0 };
+  } else {
+    data = { ...base, reason };
   }
   await sendEmail({
     template: "admin-booking-review",
     to: adminAlertsEmail(),
-    data: {
-      reason,
-      memberName: await memberName(memberId),
-      event: { title: event.title, start: { date: dayDate(event.start_time), time: time24(event.start_time) } },
-      amount: pounds(paymentIntent.amount),
-      paymentIntentId: paymentIntent.id,
-      booked,
-      capacity: event.capacity ?? undefined,
-      memberUrl: `/admin/members/${memberId}`,
-    },
+    data,
     dedupeKey: `admin-booking-review:${paymentIntent.id}:${reason}`,
     refs: { memberId, eventId: event.id },
   });
