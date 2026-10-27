@@ -45,5 +45,8 @@ export function buildSettingsRows(flags: Pick<Flags, "notifications" | "paidPlan
 export function settingsRowsFor(flags: Pick<Flags, "notifications" | "paidPlans" | "messages">, mode: ShellMode): SettingsRow[] {
   const anyOn = flags.notifications || flags.paidPlans || flags.messages;
   if (!anyOn || !isMockAllowed()) return [];
-  return buildSettingsRows(flags, exampleSettingsSummaries(mode));
+  // The summaries are invented stand-ins ("Push, email", "Get paid: not set up"), and You is a real page that carries
+  // no example note, so on the live page each row says what it is instead of a made-up status (the preview harness
+  // calls buildSettingsRows directly and keeps the approved summaries).
+  return buildSettingsRows(flags, exampleSettingsSummaries(mode)).map((row) => ({ ...row, lines: ["Example screen"], warn: false }));
 }
