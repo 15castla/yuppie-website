@@ -366,6 +366,7 @@ try {
   audited('event.cancel', ev.id);
 
   // ---- 10. Discounts: add two, search, Move up and Move down, Delete with its confirm
+  exec(`delete from partner_perks where name like 'a.Disc %'`); // a run that stopped half way leaves its two behind
   const discIds = [];
   for (const nm of [`a.Disc One ${RUN}`, `a.Disc Two ${RUN}`]) {
     await open('/admin/discounts/new');
@@ -376,6 +377,7 @@ try {
     await page.getByLabel('Badge').fill('10%');
     await button('Add discount').click();
     await page.waitForURL(/\/admin\/discounts\/[0-9a-f-]{36}\?created=1/);
+    await page.getByText('Added. Members see it now, at the bottom of the list.').waitFor();
     const id = new URL(page.url()).pathname.split('/').pop();
     discIds.push(id);
     audited('perk.create', id);
@@ -383,7 +385,8 @@ try {
   const orderOf = (id) => sql1(`select count(*)::int as n from partner_perks p, partner_perks me where me.id = ${q(id)} and p.type = 'discount' and (p.display_order, p.id) <= (me.display_order, me.id)`).n;
   const total = sql1(`select count(*)::int as n from partner_perks where type = 'discount'`).n;
   eq([orderOf(discIds[0]), orderOf(discIds[1])], [total - 1, total], 'new discounts go to the bottom of the list');
-  ok((await page.locator('.ad-card').innerText()).includes(`Position ${total} of ${total}`), `the card says “Position ${total} of ${total}”`);
+  await page.locator('.ad-card', { hasText: `Position ${total} of ${total}` }).waitFor();
+  ok(true, `the card says “Position ${total} of ${total}”`);
   ok(await button('Move down').isDisabled(), 'Move down is switched off at the bottom');
   await page.getByRole('searchbox').fill(`disc two ${RUN}`);
   await page.waitForFunction(() => document.querySelectorAll('.ad-list-col .ad-prow').length === 1);
@@ -407,6 +410,8 @@ try {
   eq(sql1(`select count(*)::int as n from partner_perks where id = ${q(discIds[1])}`).n, 0, 'Delete discount: gone');
   audited('perk.delete', discIds[1]);
   exec(`delete from partner_perks where id = ${q(discIds[0])}`);
+  // Tidy: the one helper event this script made for Cancel now stays off the members' Events page.
+  exec(`update events set cancelled_at = now() where id = ${q(cmEvent)}`);
 
   // ---- the Menu below 1100px, then Account, Log out
   await page.setViewportSize({ width: 768, height: 900 });
