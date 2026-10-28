@@ -35,14 +35,17 @@ try {
   // Free booking with the page's own button.
   await p.goto(`${BASE}/members/events/${free.slug}`);
   await p.waitForLoadState('networkidle');
-  await p.getByRole('button', { name: 'Book my spot' }).first().click();
-  await p.getByRole('button', { name: 'Booked' }).first().waitFor({ timeout: 20000 });
-  ok(true, 'free event: Book my spot turns to Booked');
+  // The redesigned page (r2a): one tap opens "You’re booked." and the bar turns to "See booking".
+  await p.getByRole('button', { name: 'Book my spot' }).filter({ visible: true }).first().click();
+  await p.getByRole('dialog').getByRole('heading', { name: 'You’re booked.' }).waitFor({ timeout: 20000 });
+  await p.getByRole('dialog').getByRole('button', { name: 'Done' }).click();
+  await p.getByRole('button', { name: 'See booking' }).filter({ visible: true }).first().waitFor({ timeout: 20000 });
+  ok(true, 'free event: Book my spot books it (You’re booked, then See booking)');
   const fb = sql1(`select id, status, amount_pence from bookings where member_id = ${q(m.id)} and event_id = ${q(free.id)}`);
   eq([fb.status, fb.amount_pence], ['confirmed', 0], 'and the booking row exists');
   await waitFor(() => messages(`booking_id = ${q(fb.id)} and template = 'booking-confirmed-included' and status = 'sent'`).length === 1, 'with its confirmation email');
   await p.reload();
-  await p.getByRole('button', { name: 'Booked' }).first().waitFor({ timeout: 20000 });
+  await p.getByRole('button', { name: 'See booking' }).filter({ visible: true }).first().waitFor({ timeout: 20000 });
   ok(true, 'Booked stays after a reload');
 
   // Paid: the PaymentIntent is made through the app, paid on the fake (Stripe.js cannot reach it), webhook books.
@@ -51,8 +54,8 @@ try {
   const pay = await fakePay(secret.split('_secret')[0]);
   eq(pay.webhook, 200, 'paid: the fake pays and the webhook answers 200');
   await p.goto(`${BASE}/members/events/${paid.slug}`);
-  await p.getByRole('button', { name: 'Booked' }).first().waitFor({ timeout: 20000 });
-  ok(true, 'paid: the event page shows Booked');
+  await p.getByRole('button', { name: 'See booking' }).filter({ visible: true }).first().waitFor({ timeout: 20000 });
+  ok(true, 'paid: the event page shows the booking');
 
   await p.goto(`${BASE}/members/plans`);
   const plans = await mainText(p);
