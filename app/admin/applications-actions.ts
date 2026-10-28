@@ -259,6 +259,28 @@ export async function approveApplication(formData: FormData) {
   await approve(id, admin.email, admin.id);
 }
 
+export type ApproveApplicationResult =
+  | { ok: true; memberId: string | null }
+  | { ok: false; error: string };
+
+// The card's Approve (after its confirm dialog, B-D17): the same approve() as the form action above, then
+// what happened, so the card can show the receipt or the plain banner for the payment problem.
+export async function adminApproveApplication(applicationId: string): Promise<ApproveApplicationResult> {
+  const admin = await requireAdmin();
+  if (!admin.email) return { ok: false, error: "Your admin account has no email address." };
+  if (!applicationId) return { ok: false, error: "Missing application." };
+  await approve(applicationId, admin.email, admin.id);
+  const adminClient = createAdminSupabaseClient();
+  const { data: app } = await adminClient.from("applications").select("status, email, payment_error").eq("id", applicationId).maybeSingle();
+  if (!app) return { ok: false, error: "Application not found." };
+  if (app.status !== "approved") {
+    await audit(admin.id, "application.approve_failed", { type: "application", id: applicationId }, { payment_error: app.payment_error ?? null });
+    return { ok: false, error: app.payment_error ?? "The application wasn’t approved." };
+  }
+  const { data: member } = await adminClient.from("members").select("id").eq("email", app.email).maybeSingle();
+  return { ok: true, memberId: member?.id ?? null };
+}
+
 export type DeclineApplicationResult =
   | { ok: true; cardReleased: boolean; emailed: boolean }
   | { ok: false; error: string };
