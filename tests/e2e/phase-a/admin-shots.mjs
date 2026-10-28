@@ -1,6 +1,6 @@
 // Screenshots of admin pages at the six widths, logged in as the local test admin (aal2, through /admin/login).
 //   node tests/e2e/phase-a/admin-shots.mjs [--base http://localhost:3145] [--prefix a.] [--out DIR] [--widths 320,390,...]
-//        [--full] [--anon] name=/admin/path [name=/admin/path ...]   (a path may end in "#click=<css>" to open something first)
+//        [--full] [--anon] name=/admin/path [name=/admin/path ...]   (a path may end in "#click=<css>|fill=<css>=><value>|wait=<ms>")
 // Writes <out>/<name>-<width>.png. The signed-in state is kept in <out>/.state.json and reused while it works.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -35,16 +35,19 @@ try {
     await ctx.storageState({ path: STATE });
   }
   for (const [name, target] of targets) {
-    const [url, action] = target.split('#');
+    const cut = target.indexOf('#');
+    const url = cut < 0 ? target : target.slice(0, cut);
+    const action = cut < 0 ? '' : target.slice(cut + 1);
     for (const w of WIDTHS) {
       const page = await ctx.newPage();
       await page.setViewportSize({ width: w, height: w < 700 ? 844 : 900 });
       await page.goto(`${BASE}${url}`, { waitUntil: 'networkidle' });
-      if (action?.startsWith('click=')) {
-        for (const sel of action.slice(6).split('|')) {
-          await page.locator(sel).first().click();
-          await page.waitForTimeout(250);
-        }
+      // Actions, separated by "|": click=<css>, fill=<css>=><value>, wait=<ms>.
+      for (const step of (action ?? '').split('|').filter(Boolean)) {
+        if (step.startsWith('click=')) await page.locator(step.slice(6)).first().click({ timeout: 4000 }).catch(() => console.log(`  (${name}-${w}: nothing to click for ${step.slice(6)})`));
+        else if (step.startsWith('fill=')) { const [sel, value] = step.slice(5).split('=>'); await page.locator(sel).first().fill(value); }
+        else if (step.startsWith('wait=')) await page.waitForTimeout(Number(step.slice(5)));
+        await page.waitForTimeout(300);
       }
       await page.waitForTimeout(150);
       const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);

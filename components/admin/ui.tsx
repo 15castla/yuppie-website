@@ -4,7 +4,7 @@
 // Styles: app/admin/admin.css (ad- classes).
 
 import Link from "next/link";
-import type { CSSProperties, ReactNode } from "react";
+import { Fragment, type CSSProperties, type ReactNode } from "react";
 
 import { Icon, type AdminIconName } from "./icons";
 import { cn } from "@/lib/utils";
@@ -110,10 +110,10 @@ export function DL({ rows, className }: { rows: DLRow[]; className?: string }) {
       {rows.map(([label, value]) => {
         const empty = value === null || value === undefined || value === "";
         return (
-          <div key={label} style={{ display: "contents" }}>
+          <Fragment key={label}>
             <dt>{label}</dt>
             <dd className={empty ? "empty" : undefined}>{empty ? "Not given" : value}</dd>
-          </div>
+          </Fragment>
         );
       })}
     </dl>
