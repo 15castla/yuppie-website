@@ -59,12 +59,25 @@ const periodEnd = (sub) => sub.items?.data?.[0]?.current_period_end ?? sub.curre
 
 // ---------------------------------------------------------------- read
 console.log(`${APPLY ? 'APPLY' : 'DRY RUN'}: members with a Stripe subscription${ONLY_PREFIX ? ` (${ONLY_PREFIX}*)` : ''}`);
-const { data: members, error } = await db
-  .from('members')
-  .select('id, email, membership_status, stripe_subscription_id, cancel_at, cancel_requested_at, payment_failed_at, grace_until, paused_at, ended_at, ended_reason, deleted_at')
-  .not('stripe_subscription_id', 'is', null)
-  .is('deleted_at', null)
-  .order('created_at', { ascending: true });
+// Every row, a page at a time: PostgREST answers at most its max-rows setting (1000 on Supabase) per request.
+async function readAll(query) {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await query().range(from, from + 999);
+    if (error) return { data: null, error };
+    rows.push(...data);
+    if (data.length < 1000) return { data: rows, error: null };
+  }
+}
+const { data: members, error } = await readAll(() =>
+  db
+    .from('members')
+    .select('id, email, membership_status, stripe_subscription_id, cancel_at, cancel_requested_at, payment_failed_at, grace_until, paused_at, ended_at, ended_reason, deleted_at')
+    .not('stripe_subscription_id', 'is', null)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .order('id', { ascending: true }),
+);
 if (error) {
   console.error('reading members failed:', error.message);
   process.exit(1);

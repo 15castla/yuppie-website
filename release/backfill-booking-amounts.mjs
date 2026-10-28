@@ -31,12 +31,25 @@ const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABA
 const pounds = (p) => `£${Math.floor(p / 100)}${p % 100 ? `.${String(p % 100).padStart(2, '0')}` : ''}`;
 
 console.log(`${APPLY ? 'APPLY' : 'DRY RUN'}: bookings with a payment intent and amount_pence 0${ONLY_PREFIX ? ` (members ${ONLY_PREFIX}*)` : ''}`);
-const { data: rows, error } = await db
-  .from('bookings')
-  .select('id, status, member_id, event_id, stripe_payment_intent_id, amount_pence, refund_status, refund_pence, stripe_refund_id, cancel_reason, member:members(email), event:events(title, start_time)')
-  .eq('amount_pence', 0)
-  .not('stripe_payment_intent_id', 'is', null)
-  .order('booked_at', { ascending: true });
+// Every row, a page at a time: PostgREST answers at most its max-rows setting (1000 on Supabase) per request.
+async function readAll(query) {
+  const rows = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await query().range(from, from + 999);
+    if (error) return { data: null, error };
+    rows.push(...data);
+    if (data.length < 1000) return { data: rows, error: null };
+  }
+}
+const { data: rows, error } = await readAll(() =>
+  db
+    .from('bookings')
+    .select('id, status, member_id, event_id, stripe_payment_intent_id, amount_pence, refund_status, refund_pence, stripe_refund_id, cancel_reason, member:members(email), event:events(title, start_time)')
+    .eq('amount_pence', 0)
+    .not('stripe_payment_intent_id', 'is', null)
+    .order('booked_at', { ascending: true })
+    .order('id', { ascending: true }),
+);
 if (error) {
   console.error('reading bookings failed:', error.message);
   process.exit(1);
