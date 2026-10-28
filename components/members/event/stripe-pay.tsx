@@ -14,7 +14,7 @@
 // needs_device_check: Apple Pay, the Payment Element's own fields and keyboard, Stripe's 3-D Secure window over
 // the sheet, a redirect to the bank and back (the page reopens the sheet in "Checking your payment").
 
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import type { PaymentIntent, Stripe, StripeError } from "@stripe/stripe-js";
 // The pure entry: Stripe.js is fetched only when loadStripe() is called (the plain entry fetches it on import,
 // on every page that so much as imports this file).
@@ -173,7 +173,6 @@ function PayFlow({
   const stripe = useStripe();
   const elements = useElements();
   const [ready, setReady] = useState(false);
-  const busy = useRef(false);
 
   // Stripe's fields never drew: the same sheet as Stripe.js not loading.
   useEffect(() => {
@@ -238,8 +237,8 @@ function PayFlow({
   }
 
   async function pay() {
-    if (!stripe || !elements || busy.current) return;
-    busy.current = true;
+    // Once: the button has no action while paying (it is the pending "Paying…").
+    if (!stripe || !elements || state === "paying") return;
     setDeclined(null);
     setState("paying");
     try {
@@ -266,8 +265,6 @@ function PayFlow({
       console.error("Paying failed:", err);
       setDeclined(null);
       setState("declined");
-    } finally {
-      busy.current = false;
     }
   }
 

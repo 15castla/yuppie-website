@@ -13,6 +13,11 @@ import { FREE_CANCEL_HOURS, freeCancelUntil } from "@/lib/server/bookings";
 // booking with the exact address (A-D3: only then; getMyBooking reads it through the server), whether
 // cancelling is free now (48 hours, A-D1 B; or the club moved it, C-D11), and whether the club cancelled it.
 // The view (components/members/event/event-page-view.tsx) is a pure component of this.
+/** Now, on the server, is before this moment. */
+function isStillBefore(moment: Date): boolean {
+  return Date.now() < moment.getTime();
+}
+
 export default async function EventDetailPage({
   params,
   searchParams,
@@ -81,7 +86,7 @@ export default async function EventDetailPage({
     started: hasEventStarted(event),
     freeUntil: freeUntil.toISOString(),
     freeCancelHours: FREE_CANCEL_HOURS,
-    freeWindowOpen: Date.now() < freeUntil.getTime(),
+    freeWindowOpen: isStillBefore(freeUntil),
     memberEmail: member.email,
     clubCancelled,
     paymentReturn,
