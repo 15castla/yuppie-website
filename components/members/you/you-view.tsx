@@ -19,6 +19,7 @@ import { useEffect, useState, useTransition, type ReactNode } from "react";
 import { Button, Icon, Main, Rows, SectionTitle, TitleBlock } from "@/components/members/kit";
 import { takePhotoChanged } from "@/lib/members/photo/notice";
 import { ROUTES } from "@/lib/members/routes";
+import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import type { MembershipCardData, SettingsRow, YouDetails } from "@/lib/members/you/types";
 import { CancelDialog, DeleteDialog, LogoutDialog, type CancelOutcome, type CancelPreview, type CancelStep } from "./you-dialogs";
 import { MembershipCard } from "./membership-card";
@@ -59,13 +60,13 @@ export type YouViewProps = {
   /** signOutMember. */
   signOut: () => void | Promise<void>;
   /** Keep my membership (keepMyMembership): undoes a cancel. Used by the ending card's button. */
-  keep: (() => Promise<{ ok: true } | { ok: false; error: string }>) | null;
+  keep: (() => Promise<{ ok: true } | { ok: false; error: string } | SessionEnded>) | null;
   /** Cancel membership, step 1's facts (getCancelMembershipPreview). Null: no Cancel link (no subscription to cancel). */
-  cancelPreview: (() => Promise<CancelPreviewResult>) | null;
+  cancelPreview: (() => Promise<CancelPreviewResult | SessionEnded>) | null;
   /** Cancel membership, step 2 (requestCancelMembership, with the reason). */
-  cancelMembership: ((reason: string | null) => Promise<CancelOutcome>) | null;
+  cancelMembership: ((reason: string | null) => Promise<CancelOutcome | SessionEnded>) | null;
   /** Delete my account (deleteMyAccount). */
-  deleteAccount: ((confirmation: string) => Promise<{ ok: false; error: string } | void>) | null;
+  deleteAccount: ((confirmation: string) => Promise<{ ok: false; error: string } | SessionEnded | void>) | null;
   /** The billing portal did not open (/members/billing sent the member back with ?billing=unavailable). */
   billingError?: string | null;
   /** Preview only: Open Invite's hosted-plans lines in the dialogs (paid plans are Phase B, so never live). */
@@ -160,6 +161,8 @@ export function YouView({
     if (!cancelPreview || isOpening) return;
     startOpening(async () => {
       const result = await cancelPreview().catch(() => null);
+      // The session ended while You was open: Log in with "Your session ended." (B-D1).
+      if (isSessionEnded(result)) return goToSessionEnded();
       setPreview(
         result && result.ok
           ? { until: result.until ?? membership.renews ?? null, bookings: result.bookingsAfterEnd.map(({ title, when }) => ({ title, when })) }
@@ -174,6 +177,7 @@ export function YouView({
     setKeepError(null);
     startKeeping(async () => {
       const result = await keep().catch(() => ({ ok: false as const, error: "Your membership is still set to end. Try again." }));
+      if (isSessionEnded(result)) return goToSessionEnded();
       if (!result.ok) setKeepError(result.error);
     });
   }

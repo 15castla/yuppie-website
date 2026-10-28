@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Fragment, type CSSProperties, type ReactNode } from "react";
 
 import { Icon, type AdminIconName } from "./icons";
+import { MainBusy } from "./main-busy";
 import { cn } from "@/lib/utils";
 
 export { Icon, type AdminIconName };
@@ -198,21 +199,34 @@ export function ListShapes({ rows = 6, lead = "cir" }: { rows?: number; lead?: "
     [46, 60],
   ];
   return (
-    <div className="ad-q" aria-hidden="true">
-      {widths.slice(0, rows).map(([a, b], i) => (
-        <div key={i} className="ad-item">
-          <span className="lead">
-            <Shape className={lead === "cir" ? "cir" : undefined} style={{ width: lead === "date" ? 36 : 44, height: 44 }} />
-          </span>
-          <span>
-            <Shape style={{ width: `${a}%`, height: 15 }} />
-            <Shape style={{ width: `${b}%`, height: 13, marginTop: 8 }} />
-          </span>
-          <span className="end">
-            <Shape className="rnd" style={{ width: 64, height: 22 }} />
-          </span>
-        </div>
-      ))}
+    <div aria-busy="true">
+      <MainBusy />
+      <div className="ad-q" aria-hidden="true">
+        {widths.slice(0, rows).map(([a, b], i) => (
+          <div key={i} className="ad-item">
+            <span className="lead">
+              <Shape className={lead === "cir" ? "cir" : undefined} style={{ width: lead === "date" ? 36 : 44, height: 44 }} />
+            </span>
+            <span>
+              <Shape style={{ width: `${a}%`, height: 15 }} />
+              <Shape style={{ width: `${b}%`, height: 13, marginTop: 8 }} />
+            </span>
+            <span className="end">
+              <Shape className="rnd" style={{ width: 64, height: 22 }} />
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** The card while it loads (each area's loading.tsx): the page's main is busy, then the shapes. */
+export function CardLoading() {
+  return (
+    <div aria-busy="true">
+      <MainBusy />
+      <CardShapes />
     </div>
   );
 }

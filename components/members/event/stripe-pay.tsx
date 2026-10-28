@@ -46,7 +46,7 @@ const LOAD_TIMEOUT_MS = 20000;
 
 const WITH_FIELDS: PayState[] = ["ready", "paying", "declined", "bank"];
 
-export type PayOutcome = "booked" | "pending" | "paid-not-booked";
+export type PayOutcome = "booked" | "pending" | "paid-not-booked" | "refunded";
 
 function declineWords(error: StripeError | null | undefined): string | null {
   if (!error) return null;
@@ -239,6 +239,12 @@ function PayFlow({
     if (result.reason === "check_failed") {
       setState("processing");
       onOutcome("pending");
+      return;
+    }
+    // It could never become a booking and the server refunded it straight away (QA3-09).
+    if (result.reason === "paid_not_booked" && result.refunded) {
+      setState("refunded");
+      onOutcome("refunded");
       return;
     }
     setState("confirm-failed");

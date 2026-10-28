@@ -200,7 +200,8 @@ ok(audits('event.export_attendees', att.id).length >= 2, 'audit: event.export_at
 
 // ---- deleteMember is audited too
 const dm = await makeMember('ad8');
-eq((await action('admin.members.deleteMember', [dm.id], admin)).result, { success: true }, 'deleteMember: ok');
+eq((await action('admin.members.deleteMember', [dm.id], admin)).result, { success: true, refunded: 0 }, 'deleteMember: ok');
+eq(sql(`select deleted_at is not null as deleted, ended_reason from members where id = ${q(dm.id)}`), [{ deleted: true, ended_reason: 'account_deleted' }], 'deleteMember is Delete my account: the row is kept, anonymised (QA2-02; 13-fixes-3 checks the rest)');
 eq(audits('member.delete', dm.id).length, 1, 'audit: member.delete');
 ok(sql(`select distinct admin_id from admin_audit where created_at >= ${q(since)}`).every((r) => r.admin_id === admin.adminId), 'every audit row names the admin');
 void exec; void insertBooking;

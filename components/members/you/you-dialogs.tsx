@@ -15,6 +15,7 @@ import { useState, useTransition, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
 import { deleteMyAccount } from "@/app/members/you/actions";
+import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import { Button, Chip, FormField, Icon } from "@/components/members/kit";
 import { Dialog } from "./dialog";
 
@@ -105,7 +106,7 @@ function CancelBody({
 }: {
   preview: CancelPreview;
   hostedPlans: boolean;
-  cancel: (reason: string | null) => Promise<CancelOutcome>;
+  cancel: (reason: string | null) => Promise<CancelOutcome | SessionEnded>;
   initialStep: CancelStep;
   initialReason: string | null;
   onClose: () => void;
@@ -120,6 +121,8 @@ function CancelBody({
     setError(null);
     startCancelling(async () => {
       const result = await cancel(reason);
+      // The session ended while the dialog was open: Log in with "Your session ended." (B-D1).
+      if (isSessionEnded(result)) return goToSessionEnded();
       if (!result.ok) {
         setError(result.error || "Your membership wasn’t cancelled. Try again.");
         return;
@@ -219,7 +222,7 @@ export function CancelDialog({
   /** Preview only: Open Invite's hosted plans line (paid plans are Phase B). */
   hostedPlans?: boolean;
   /** requestCancelMembership: cancels at the end of the billing period, saving the reason. */
-  cancel: (reason: string | null) => Promise<CancelOutcome>;
+  cancel: (reason: string | null) => Promise<CancelOutcome | SessionEnded>;
   initialStep?: CancelStep;
   initialReason?: string | null;
 }) {
@@ -253,7 +256,7 @@ export function DeleteDialog({
    * one real action): on success the server signs out and goes to the public home page; it only returns on
    * failure. The preview passes a stand-in.
    */
-  deleteAccount?: (confirmation: string) => Promise<{ ok: false; error: string } | void>;
+  deleteAccount?: (confirmation: string) => Promise<{ ok: false; error: string } | SessionEnded | void>;
   /** Preview only: Open Invite's hosted plans line (paid plans are Phase B). */
   hostedPlans?: boolean;
   initialTyped?: string;
@@ -272,7 +275,7 @@ function DeleteBody({
   initialTyped,
 }: {
   onClose: () => void;
-  deleteAccount: (confirmation: string) => Promise<{ ok: false; error: string } | void>;
+  deleteAccount: (confirmation: string) => Promise<{ ok: false; error: string } | SessionEnded | void>;
   hostedPlans: boolean;
   initialTyped: string;
 }) {
@@ -286,6 +289,7 @@ function DeleteBody({
     setError(null);
     startDeleting(async () => {
       const result = await deleteAccount(typed);
+      if (isSessionEnded(result)) return goToSessionEnded();
       if (result && !result.ok) setError(result.error || "Your account wasn’t deleted. Try again.");
     });
   }

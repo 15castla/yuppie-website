@@ -126,19 +126,24 @@ const emailChanged: Build<"email-changed"> = (d: EmailChangedData) => ({
   always: "We always send security emails.",
 });
 
+// Not drawn: the club deleting the account (the admin's Delete member). The drawn email with its first words and
+// its reason line changed, so it never says the member asked.
 const accountDeleted: Build<"account-deleted"> = (d: AccountDeletedData) => ({
   subject: "Your Club Yuppie account is deleted",
   pre: "Your details, photo and messages are gone. Your membership has ended.",
   label: "Account",
   h1: { a: "Your account", b: "is deleted.", br: true },
   intro: [
-    "We’ve deleted your details, photo and messages. Your membership ended today, so there’s no refund for the rest of this month. Nothing more will be taken.",
+    `${d.by === "club" ? "We’ve deleted your Club Yuppie account, with your details, photo and messages." : "We’ve deleted your details, photo and messages."} Your membership ended today, so there’s no refund for the rest of this month. Nothing more will be taken.`,
     // States: only a member who hosted plans sees the second paragraph.
     ...(d.hostedPlans ? ["Plans you were hosting are cancelled, and anyone who paid is refunded."] : []),
   ],
   below: "We keep only what the law asks us to, such as payment records.",
   foot: "member",
-  why: "You’re getting this because you asked us to delete your Club Yuppie account.",
+  why:
+    d.by === "club"
+      ? "You’re getting this because Club Yuppie deleted your account."
+      : "You’re getting this because you asked us to delete your Club Yuppie account.",
   always: "We always send account emails.",
 });
 
@@ -269,8 +274,10 @@ const bookingConfirmedIncluded: Build<"booking-confirmed-included"> = (d: Bookin
     ],
     button: { label: "See your booking", url: absoluteUrl(d.bookingUrl, o.site) },
     links2: [{ label: "Add to calendar", url: absoluteUrl(d.calendarUrl, o.site) }],
+    // A booking made inside the 48 hours has no "up to 48 hours before" left to ask for: that sentence is left out.
     below:
-      "We’ll remind you 24 hours and 2 hours before. Can’t make it? Cancel up to 48 hours before, so someone else can have your place.",
+      "We’ll remind you 24 hours and 2 hours before." +
+      (d.cancelUntil === null ? "" : " Can’t make it? Cancel up to 48 hours before, so someone else can have your place."),
     art: "coupes",
     foot: "member",
     why: WHY_BOOKED,
@@ -324,6 +331,26 @@ const bookingCancelled: Build<"booking-cancelled"> = (d: BookingCancelledData, o
         },
       ],
       below: "Nothing more to pay. Your place has gone back to the other members.",
+    };
+  }
+  // Not drawn: a paid booking cancelled inside 48 hours without a refund (A-D1). The free layout, with the
+  // late cancel sheet's own words: the money is not refunded.
+  if (d.reason === "member_late" && d.notRefunded) {
+    return {
+      ...common,
+      pre: `Your ${d.notRefunded} isn’t refunded, because it was less than 48 hours before.`,
+      h1: { a: "Cancelled.", b: "See you next time.", br: true },
+      intro: [
+        `You cancelled ${title} on ${at(start)}. It was less than 48 hours before, so your ${d.notRefunded} isn’t refunded. Your place has gone back to the other members.`,
+      ],
+      blocks: [
+        {
+          kind: "card",
+          rows: [row("Event", title), row("When", at(start)), row("Cancelled", "Less than 48 hours before"), row("Date", at(d.cancelled))],
+          total: { label: "Refunded", value: "£0" },
+        },
+      ],
+      below: "Nothing more to pay.",
     };
   }
   return {
@@ -518,6 +545,16 @@ function reviewWords(d: AdminBookingReviewData, member: string, title: string) {
         below: "The booking stays cancelled. The money hasn’t gone back yet.",
       };
     case "paid_not_booked":
+      if (d.refunded) {
+        return {
+          subject: "Booking needs review: paid, not booked",
+          pre: `${member} paid ${d.amount} for ${title}, but no booking was made. It was refunded automatically.`,
+          intro: `${member} paid ${d.amount} for ${title}, but the booking couldn’t be recorded, so the payment was refunded automatically. Nothing to do, unless you want to book them in by hand.`,
+          reason: "Paid, not booked",
+          detail: { label: "Why", value: d.detail },
+          below: "Nothing was booked. The payment was refunded automatically.",
+        };
+      }
       return {
         subject: "Booking needs review: paid, not booked",
         pre: `${member} paid ${d.amount} for ${title}, but no booking was made.`,

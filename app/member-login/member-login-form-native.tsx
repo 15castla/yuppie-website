@@ -45,7 +45,9 @@ const MESSAGES: Record<SendErrorKey | VerifyErrorKey, string> = {
   "not-found": "We don’t recognise that email as a Club Yuppie member. Check for typos and try again.",
   rate: "Too many attempts. Please wait a few minutes and try again.",
   network: "We couldn’t reach Club Yuppie. Check your connection and try again.",
-  generic: "Something went wrong sending the login code. Please try again.",
+  // Auth answered with something unexpected (a 5xx): the network words, the nearest designed line (r2b: never
+  // "Something went wrong").
+  generic: "We couldn’t reach Club Yuppie. Check your connection and try again.",
   "code-required": "Enter the 6-digit code from your email.",
   wrong: "That code isn’t right. Check the email and try again.",
   expired: "That code has expired. Send a new code and try again.",
@@ -54,7 +56,7 @@ const MESSAGES: Record<SendErrorKey | VerifyErrorKey, string> = {
 // Decision A-D5.
 const APPLIED_LINE = "Applied already? We’ll email you when you’re approved.";
 // Not in the designs: Auth answered with something unexpected while checking a code.
-const VERIFY_GENERIC = "Something went wrong checking the code. Please try again.";
+const VERIFY_GENERIC = "We couldn’t reach Club Yuppie. Check your connection and try again.";
 
 const EMAIL_STEP_HELPER = "Enter your email and we’ll send you a one-time code.";
 

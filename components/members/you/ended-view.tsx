@@ -17,6 +17,7 @@ import { Button, Icon, KitLink, Main, PerkDrawing, SectionTitle, Serif, cssVars 
 import { CONTACT_EMAIL } from "@/components/site/links";
 import { DeleteAccountLink } from "./delete-account-link";
 import { YouFoot } from "./you-parts";
+import type { SessionEnded } from "@/components/members/session-ended";
 
 const REASONS = [
   { title: "Events", text: "Supper clubs, Padel & Pints and nights out. Run by us, at cost.", art: "coupes" },
@@ -39,7 +40,7 @@ export function MembershipEndedView({
   appVersion?: string | null;
   signOut: () => void | Promise<void>;
   /** The preview's stand-in for deleteMyAccount (the live gate leaves it out: the dialog's default is the real action). */
-  deleteAccount?: (confirmation: string) => Promise<{ ok: false; error: string } | void>;
+  deleteAccount?: (confirmation: string) => Promise<{ ok: false; error: string } | SessionEnded | void>;
 }) {
   const isApp = mode === "app";
   const logOut = (

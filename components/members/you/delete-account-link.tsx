@@ -7,8 +7,9 @@ import { useState } from "react";
 
 import { Button } from "@/components/members/kit";
 import { DeleteDialog } from "./you-dialogs";
+import type { SessionEnded } from "@/components/members/session-ended";
 
-export function DeleteAccountLink({ deleteAccount }: { deleteAccount?: (confirmation: string) => Promise<{ ok: false; error: string } | void> }) {
+export function DeleteAccountLink({ deleteAccount }: { deleteAccount?: (confirmation: string) => Promise<{ ok: false; error: string } | SessionEnded | void> }) {
   const [open, setOpen] = useState(false);
   return (
     <>

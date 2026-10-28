@@ -7,6 +7,8 @@ import { createAdminSupabaseClient } from "./admin-client";
 import { stripe } from "@/lib/stripe";
 import { declineApplicationById, sendApprovalMessages } from "@/lib/server/applications";
 import { audit } from "@/lib/server/audit";
+import { absoluteUrl } from "@/lib/server/config";
+import { sendAdminAlert } from "@/lib/server/messages";
 
 // The installed @supabase/auth-js version has no getUserByEmail(), and
 // listUsers() takes no email/filter param (verified against
@@ -84,11 +86,18 @@ async function approve(id: string, adminEmail: string, adminId: string) {
     }
 
     try {
+      // The saved card is the customer's invoice default, not the subscription's own default card: a card the
+      // member saves later in the billing portal (the customer's default) must be the one the membership
+      // charges (QA3-02). Set again here in case the card on the application is not the customer's default.
+      await stripe.customers.update(
+        application.stripe_customer_id,
+        { invoice_settings: { default_payment_method: application.stripe_payment_method_id } },
+        { idempotencyKey: `approve-customer-card-${id}-${application.stripe_payment_method_id}` },
+      );
       const subscription = await stripe.subscriptions.create(
         {
           customer: application.stripe_customer_id,
           items: [{ price: process.env.STRIPE_PRICE_ID_MEMBERSHIP! }],
-          default_payment_method: application.stripe_payment_method_id,
           payment_behavior: "error_if_incomplete",
           off_session: true,
         },
@@ -165,7 +174,7 @@ async function approve(id: string, adminEmail: string, adminId: string) {
         await adminClient
           .from("applications")
           .update({
-            payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}). Supabase reports this email is already registered, but the matching account couldn't be found. Check Supabase Auth manually before retrying.`,
+            payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}). Supabase reports this email is already registered, but the matching account couldn’t be found. Check Supabase Auth manually before retrying.`,
           })
           .eq("id", id);
         revalidatePath("/admin/applications");
@@ -179,7 +188,7 @@ async function approve(id: string, adminEmail: string, adminId: string) {
       await adminClient
         .from("applications")
         .update({
-          payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}) but the member account could not be created: ${authError?.message ?? "unknown error"}. It's safe to click Approve again: this will retry account creation without charging again.`,
+          payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}) but the member account could not be created: ${authError?.message ?? "unknown error"}. It’s safe to click Approve again: this will retry account creation without charging again.`,
         })
         .eq("id", id);
       revalidatePath("/admin/applications");
@@ -207,7 +216,7 @@ async function approve(id: string, adminEmail: string, adminId: string) {
     await adminClient
       .from("applications")
       .update({
-        payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}) but the member account could not be finished: ${rpcError.message}. It's safe to click Approve again: this will retry account creation without charging again.`,
+        payment_error: `Payment succeeded (Stripe subscription ${subscriptionId}) but the member account could not be finished: ${rpcError.message}. It’s safe to click Approve again: this will retry account creation without charging again.`,
       })
       .eq("id", id);
     revalidatePath("/admin/applications");
@@ -251,31 +260,60 @@ async function approve(id: string, adminEmail: string, adminId: string) {
   revalidatePath("/admin");
 }
 
+// QA2-04: only a waiting application may be approved. Checked here, before approve() charges the card (a
+// page left open after another admin declined or approved it), and again in the database function
+// (approve_application_and_create_member, migration 20261028090200) for anything that slips between.
+type ApplicationGate =
+  | { ok: true }
+  | { ok: false; code: "not_found" | "approved" | "declined"; error: string };
+
+async function waitingOnly(applicationId: string): Promise<ApplicationGate> {
+  const { data } = await createAdminSupabaseClient()
+    .from("applications")
+    .select("status, reviewed_at, reviewed_by")
+    .eq("id", applicationId)
+    .maybeSingle();
+  if (!data) return { ok: false, code: "not_found", error: "That application couldn’t be found." };
+  if (data.status === "approved") return { ok: false, code: "approved", error: "This application was approved already, so nothing was charged again." };
+  if (data.status !== "pending") return { ok: false, code: "declined", error: "This application was declined, so nothing was charged." };
+  return { ok: true };
+}
+
 export async function approveApplication(formData: FormData) {
   const admin = await requireAdmin();
   if (!admin.email) return;
   const id = formData.get("id");
   if (typeof id !== "string" || !id) return;
+  const gate = await waitingOnly(id);
+  if (!gate.ok) {
+    await audit(admin.id, "application.approve_refused", { type: "application", id }, { reason: gate.code });
+    return;
+  }
   await approve(id, admin.email, admin.id);
 }
 
 export type ApproveApplicationResult =
   | { ok: true; memberId: string | null }
-  | { ok: false; error: string };
+  | { ok: false; code?: "not_found" | "approved" | "declined" | "payment"; error: string };
 
 // The card's Approve (after its confirm dialog, B-D17): the same approve() as the form action above, then
 // what happened, so the card can show the receipt or the plain banner for the payment problem.
 export async function adminApproveApplication(applicationId: string): Promise<ApproveApplicationResult> {
   const admin = await requireAdmin();
   if (!admin.email) return { ok: false, error: "Your admin account has no email address." };
-  if (!applicationId) return { ok: false, error: "Missing application." };
+  if (!applicationId) return { ok: false, code: "not_found", error: "That application couldn’t be found." };
+  const gate = await waitingOnly(applicationId);
+  if (!gate.ok) {
+    await audit(admin.id, "application.approve_refused", { type: "application", id: applicationId }, { reason: gate.code });
+    return gate;
+  }
   await approve(applicationId, admin.email, admin.id);
   const adminClient = createAdminSupabaseClient();
   const { data: app } = await adminClient.from("applications").select("status, email, payment_error").eq("id", applicationId).maybeSingle();
-  if (!app) return { ok: false, error: "Application not found." };
+  if (!app) return { ok: false, code: "not_found", error: "That application couldn’t be found." };
   if (app.status !== "approved") {
     await audit(admin.id, "application.approve_failed", { type: "application", id: applicationId }, { payment_error: app.payment_error ?? null });
-    return { ok: false, error: app.payment_error ?? "The application wasn’t approved." };
+    return { ok: false, code: app.status === "rejected" ? "declined" : "payment", error: app.payment_error ?? "The application wasn’t approved." };
   }
   const { data: member } = await adminClient.from("members").select("id").eq("email", app.email).maybeSingle();
   return { ok: true, memberId: member?.id ?? null };
@@ -283,34 +321,92 @@ export async function adminApproveApplication(applicationId: string): Promise<Ap
 
 export type DeclineApplicationResult =
   | { ok: true; cardReleased: boolean; emailed: boolean }
-  | { ok: false; error: string };
+  | { ok: false; code?: "not_found" | "approved" | "charged" | "error"; error: string };
+
+/** QA2-08: the saved card is still in Stripe after a decline. One alert to the club inbox per application. */
+async function alertCardNotReleased(applicationId: string) {
+  const { data: app } = await createAdminSupabaseClient()
+    .from("applications")
+    .select("full_name, email, stripe_customer_id, stripe_payment_method_id")
+    .eq("id", applicationId)
+    .maybeSingle();
+  if (!app) return;
+  const name = app.full_name?.trim() || app.email;
+  await sendAdminAlert({
+    subject: `Saved card not removed: ${name}`,
+    heading: "A declined applicant’s card is still saved in Stripe",
+    lines: [
+      `${name}’s application is declined, but Stripe didn’t remove the card they saved when they applied.`,
+      "Open the application in the admin and choose Try again, or remove the card in Stripe.",
+      `Application: ${absoluteUrl(`/admin/applications/${applicationId}`)}`,
+      `Stripe customer: ${app.stripe_customer_id ?? "none"}`,
+      `Card: ${app.stripe_payment_method_id ?? "none"}`,
+    ],
+    dedupeKey: `card-not-released:${applicationId}`,
+    refs: { applicationId },
+  });
+}
 
 // Decline (B-D9: the word is Decline, the database value stays "rejected").
 // Releases the saved card (C-D8) and, with sendEmail (the switch, on by
-// default, B-D3), sends the kind decline email (C-D2). Audited.
+// default, B-D3), sends the kind decline email (C-D2). Audited. Refused for an
+// approved application, and for a waiting one that has been charged already
+// (its account is half made: finish it instead; the card switches Decline off).
 export async function declineApplication(
   applicationId: string,
   options: { sendEmail?: boolean } = {},
 ): Promise<DeclineApplicationResult> {
   const admin = await requireAdmin();
-  if (!applicationId) return { ok: false, error: "Missing application." };
+  if (!applicationId) return { ok: false, code: "not_found", error: "That application couldn’t be found." };
+  const { data: before } = await createAdminSupabaseClient()
+    .from("applications")
+    .select("status, stripe_subscription_id")
+    .eq("id", applicationId)
+    .maybeSingle();
+  if (!before) return { ok: false, code: "not_found", error: "That application couldn’t be found." };
+  if (before.status === "approved") return { ok: false, code: "approved", error: "This application was approved already, so it can’t be declined." };
+  if (before.status === "pending" && before.stripe_subscription_id) {
+    return { ok: false, code: "charged", error: "This person has paid already, so the application can’t be declined. Finish the account instead." };
+  }
   const sendEmail = options.sendEmail !== false;
   const result = await declineApplicationById(applicationId, admin.email ?? admin.id, { sendEmail });
-  if (!result.ok) return result;
+  if (!result.ok) {
+    await audit(admin.id, "application.decline_failed", { type: "application", id: applicationId }, { error: result.error });
+    return { ok: false, code: "error", error: "We couldn’t decline that application. Try again in a moment." };
+  }
   await audit(admin.id, "application.decline", { type: "application", id: applicationId }, {
     send_email: sendEmail,
     emailed: result.emailed,
     card_released: result.cardReleased,
     already_declined: result.alreadyDeclined,
   });
+  if (!result.cardReleased) await alertCardNotReleased(applicationId);
   revalidatePath("/admin/applications");
   revalidatePath("/admin");
   return { ok: true, cardReleased: result.cardReleased, emailed: result.emailed };
 }
 
+export type ReleaseCardResult = { ok: true; cardReleased: boolean } | { ok: false; error: string };
+
+// QA2-08: Try again on a declined application whose saved card Stripe didn't remove. Detaches it again (same
+// idempotency key), sends nothing. Audited.
+export async function adminReleaseApplicationCard(applicationId: string): Promise<ReleaseCardResult> {
+  const admin = await requireAdmin();
+  if (!applicationId) return { ok: false, error: "That application couldn’t be found." };
+  const { data: app } = await createAdminSupabaseClient().from("applications").select("status").eq("id", applicationId).maybeSingle();
+  if (!app) return { ok: false, error: "That application couldn’t be found." };
+  if (app.status !== "rejected") return { ok: false, error: "Only a declined application’s card is removed here." };
+  const result = await declineApplicationById(applicationId, admin.email ?? admin.id, { sendEmail: false });
+  await audit(admin.id, "application.release_card", { type: "application", id: applicationId }, result.ok ? { card_released: result.cardReleased } : { error: result.error });
+  if (!result.ok) return { ok: false, error: "We couldn’t reach Stripe. Try again in a moment." };
+  revalidatePath("/admin/applications");
+  return { ok: true, cardReleased: result.cardReleased };
+}
+
 // Today's form action (the Reject button), kept: now the same Decline. A
 // "send_email" field of "off" (the switch) skips the email.
 export async function rejectApplication(formData: FormData) {
+  await requireAdmin();
   const id = formData.get("id");
   if (typeof id !== "string" || !id) return;
   await declineApplication(id, { sendEmail: formData.get("send_email") !== "off" });

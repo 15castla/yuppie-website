@@ -25,7 +25,7 @@ function hasStarted(startIso: string): boolean {
   return new Date(startIso).getTime() < Date.now();
 }
 
-type EventRow = Event & { cancelled_at: string | null; cancel_note: string | null };
+type EventRow = Event & { cancelled_at: string | null; cancel_note: string | null; changed_at: string | null; change_emailed_at: string | null };
 
 function Capacity({ booked, capacity, right }: { booked: number; capacity: number | null; right: string }) {
   const cap = capacity ?? 0;
@@ -63,7 +63,7 @@ export async function EventCard({
 }) {
   await requireAdmin();
   const db = createAdminSupabaseClient();
-  const { data } = await db.from("events").select(`${EVENT_COLUMNS}, cancelled_at, cancel_note`).eq("id", eventId).maybeSingle();
+  const { data } = await db.from("events").select(`${EVENT_COLUMNS}, cancelled_at, cancel_note, changed_at, change_emailed_at`).eq("id", eventId).maybeSingle();
   const event = data as EventRow | null;
   if (!event) notFound();
 
@@ -179,6 +179,10 @@ export async function EventCard({
     );
   }
 
+  // QA2-06: the date, time or place changed and the people booked haven't been emailed about it yet. The card
+  // keeps offering "Email them now" until they have (events.change_emailed_at), across reloads.
+  const untold =
+    booked > 0 && event.changed_at && (!event.change_emailed_at || new Date(event.changed_at) > new Date(event.change_emailed_at)) ? booked : 0;
   const confirmed = list.attendees.filter((a) => a.status === "confirmed");
   const paidRows = confirmed.filter((a) => a.amountPence > 0);
   const refundTotal = paidRows.reduce((sum, a) => sum + a.amountPence, 0);
@@ -206,6 +210,7 @@ export async function EventCard({
         focal={eventFocalPoint(event)}
         linkHost="clubyuppie.com"
         created={created}
+        untold={untold}
         initial={{
           title: event.title,
           category: event.category,

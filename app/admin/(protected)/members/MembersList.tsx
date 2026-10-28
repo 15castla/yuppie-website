@@ -6,7 +6,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { Chips, MoreLine, PAGE_SIZE, SearchBox, norm, useListParams, useSearchState } from "@/components/admin/list-controls";
+import { Chips, MoreLine, PAGE_SIZE, SearchBox, norm, rowsToShow, useListParams, useSearchState } from "@/components/admin/list-controls";
 import { useKeptHref, useOpenId } from "@/components/admin/split-shell";
 import { Avatar, StatusPill } from "@/components/admin/ui";
 import type { MemberListRow } from "./members-data";
@@ -22,12 +22,13 @@ export function MembersList({ rows }: { rows: MemberListRow[] }) {
   // opened with; mark it only while those are unchanged.
   const [openedWith] = useState(() => `${params.get("q") ?? ""}|${params.get("status") ?? ""}`);
   const status = (FILTERS as string[]).includes(params.get("status") ?? "") ? (params.get("status") as Filter) : "all";
-  const show = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
+  const asked = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
   const [q, setQ] = useSearchState(params.get("q") ?? "", (value) => update({ q: value || null, show: null }));
 
   const needle = norm(q);
   const inFilter = rows.filter((r) => status === "all" || r.status === status);
   const hits = needle ? inFilter.filter((r) => norm(r.name).includes(needle) || norm(r.email).includes(needle)) : inFilter;
+  const show = rowsToShow(hits, asked, openId);
   const visible = hits.slice(0, show);
   const count = (f: Filter) => (f === "all" ? rows.length : rows.filter((r) => r.status === f).length);
 

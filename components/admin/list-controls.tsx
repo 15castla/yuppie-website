@@ -11,6 +11,15 @@ import { Icon } from "./icons";
 
 export const PAGE_SIZE = 9;
 
+/**
+ * How many rows to show: what Show more asked for, or more when the open row is further down, so the open one
+ * is always in the list and marked (QA2-12), as if Show more had been pressed enough times.
+ */
+export function rowsToShow<T extends { id: string }>(rows: T[], show: number, openId: string | null): number {
+  const at = openId ? rows.findIndex((r) => r.id === openId) : -1;
+  return at >= show ? Math.ceil((at + 1) / PAGE_SIZE) * PAGE_SIZE : show;
+}
+
 export function useListParams() {
   const params = useSearchParams();
   const pathname = usePathname();

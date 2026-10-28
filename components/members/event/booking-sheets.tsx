@@ -225,6 +225,8 @@ export function CancelSheetBody({
     const refunded = (outcome?.refundPence ?? 0) > 0;
     const failed = Boolean(outcome?.refundFailed);
     const back = gbp(outcome?.refundPence ?? 0);
+    // What was paid, from the outcome (the booking itself is gone from the page once it refreshes).
+    const paidPence = outcome?.paidPence ?? booking.amountPence;
     return (
       <>
         <PayMark icon="check" />
@@ -242,7 +244,13 @@ export function CancelSheetBody({
                     { icon: "undo", text: `Your ${gbp(outcome?.paidPence ?? booking.amountPence)} refund didn’t go through straight away. We’ve told the club, and we’ll email you when it’s done.` },
                     { icon: "mail", text: `We’ve emailed ${memberEmail} to confirm.` },
                   ]
-                : [{ icon: "mail", text: "We’ve emailed you to confirm." }]
+                : late && paidPence > 0
+                  ? [
+                      // Cancelled inside the 48 hours without a refund: say plainly that the money stays taken (QA1-06).
+                      { icon: "banknote", text: `Your ${gbp(paidPence)} isn’t refunded, because it was less than ${hours} hours before.` },
+                      { icon: "mail", text: "We’ve emailed you to confirm." },
+                    ]
+                  : [{ icon: "mail", text: "We’ve emailed you to confirm." }]
           }
         />
         <PayActions>
@@ -263,7 +271,7 @@ export function CancelSheetBody({
       <PayMark icon="circle-alert" tone="bad" />
       <PayHead id={id} title="We couldn’t cancel." />
       <p className="pay-p">
-        <b>Your booking is still on.</b> Check your connection and try again. Nothing was refunded yet.
+        <b>Your booking is still on.</b> Check your connection and try again.{paid ? " Nothing was refunded yet." : ""}
       </p>
       <PayActions>
         <Button block onClick={onRetry}>

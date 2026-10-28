@@ -108,6 +108,11 @@ export type EmailChangedData = {
 export type AccountDeletedData = {
   /** True when the member hosted Open Invite plans (Phase B): adds "Plans you were hosting are cancelled…". Default false. */
   hostedPlans?: boolean;
+  /**
+   * Who deleted it. "member" (the default): Delete my account, "because you asked us to". "club": the admin's
+   * Delete member (the same deleteAccount path), so the email does not say the member asked.
+   */
+  by?: "member" | "club";
 };
 
 // ---------------------------------------------------------------- 3. membership
@@ -195,6 +200,11 @@ export type BookingConfirmedIncludedData = {
   place: EmailPlace;
   bookingUrl: EmailLink;
   calendarUrl: EmailLink;
+  /**
+   * The 48-hour mark (start minus FREE_CANCEL_HOURS). null when it has already passed (a booking made inside
+   * 48 hours): "Cancel up to 48 hours before" is left out. Left out of the data (older callers): kept in.
+   */
+  cancelUntil?: EmailDateTime | null;
 };
 
 /**
@@ -225,6 +235,11 @@ export type BookingCancelledData = {
   }) | null;
   /** For "membership_ended": the day the membership ended, "Thu 12 Nov". */
   membershipEndedOn?: EmailDate;
+  /**
+   * For "member_late" on a paid booking (cancelled inside 48 hours without a refund): what was paid, "£25". The
+   * email then says it is not refunded. Left out for an included booking.
+   */
+  notRefunded?: EmailMoney;
   /** "See what’s on". Default "/members/events". */
   eventsUrl?: EmailLink;
 };
@@ -336,6 +351,8 @@ export type AdminBookingReviewData = {
       reason: "paid_not_booked";
       /** Why the booking was blocked (the Why row): "The event was cancelled before the payment went through." Optional. */
       detail?: string;
+      /** The payment could never be booked and was refunded automatically (fixer 1, QA3-09). Optional, default false. */
+      refunded?: boolean;
     }
 );
 

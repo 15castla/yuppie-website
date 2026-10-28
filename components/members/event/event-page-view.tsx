@@ -180,13 +180,14 @@ export function EventPageView({
     actions
       .confirmPayment(returning.paymentIntentId, event.id)
       .then(async (result) => {
-        // No session to check it with: the webhook books a payment that went through, so never offer Pay again.
-        if (isSessionEnded(result) || result.pending || (!result.booked && result.reason === "check_failed")) {
+        const processing = () => {
           setPending(true);
           setSheet({ kind: "pay", state: "processing", clientSecret: null, attempt: 0 });
-          return;
-        }
+        };
+        // No session to check it with: the webhook books a payment that went through, so never offer Pay again.
+        if (isSessionEnded(result)) return processing();
         if (result.booked) return showConfirmed();
+        if (result.pending || result.reason === "check_failed") return processing();
         if (result.reason === "not_paid") {
           setSheet({ kind: "pay", state: "declined", clientSecret: returning.clientSecret, attempt: 0 });
           return;
@@ -194,6 +195,13 @@ export function EventPageView({
         if (result.reason === "mismatch" || result.reason === "missing") {
           setSheet(null);
           setMessage(PAYMENT_NOT_MATCHED);
+          return;
+        }
+        // It could never become a booking (the event was cancelled or started, or the membership ended while the
+        // member was at the bank) and the server refunded it: say so, and let the page show what is true now.
+        if (result.refunded) {
+          setSheet({ kind: "pay", state: "refunded", clientSecret: null, attempt: 0 });
+          refresh();
           return;
         }
         setPending(true);
@@ -234,6 +242,10 @@ export function EventPageView({
   async function startPayment(attempt: number) {
     const formData = new FormData();
     formData.set("event_id", event.id);
+    // The price the member was shown (the server refuses if it changed) and a new attempt id each time
+    // payment opens (one PaymentIntent per attempt).
+    formData.set("price_pence", String(event.pricePence));
+    formData.set("attempt_id", typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`);
     let result: CreateEventPaymentIntentResult | SessionEnded;
     try {
       result = await actions.createPaymentIntent(formData);
@@ -291,6 +303,12 @@ export function EventPageView({
   function onPayOutcome(outcome: PayOutcome) {
     if (outcome === "booked") {
       void showConfirmed();
+      return;
+    }
+    if (outcome === "refunded") {
+      // The sheet says the money is on its way back; the page shows the event as it is now.
+      setMessage(null);
+      refresh();
       return;
     }
     setPending(true);

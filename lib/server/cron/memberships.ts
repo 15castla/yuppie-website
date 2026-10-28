@@ -1,10 +1,16 @@
 import "server-only";
 
-// The memberships job. Safe to run every 15 minutes:
-// 1. A failed payment whose grace ran out (C-D12): cancel the Stripe
-//    subscription now and end the membership (payment_failed).
-// 2. A cancel date that has passed with no membership end recorded (the
-//    webhook was missed): end the membership (member_cancelled).
+// The memberships job. Safe to run every 15 minutes. It asks Stripe before it
+// ends anything: our rows can be behind (a missed or late webhook), Stripe is
+// the truth (QA3-02, QA3-03).
+// 1. A failed payment whose grace ran out (C-D12): if Stripe shows the
+//    subscription paid up after all, clear the problem; otherwise cancel the
+//    Stripe subscription now and end the membership (payment_failed, or
+//    member_cancelled when the member had asked to cancel in the grace days).
+// 2. A cancel date that has passed with no membership end recorded: if Stripe
+//    shows the subscription ended (or its cancel moment passed), end it
+//    (member_cancelled); if Stripe is not set to cancel at all, clear the
+//    stale cancel date instead; if Stripe's cancel date is later, use it.
 // 3. Any ended member who still has a future booking: cancel and refund it
 //    (A-D8), in case an earlier run stopped half way.
 // Each step is idempotent (endMembership and the booking cancels are).
@@ -12,24 +18,32 @@ import "server-only";
 import { stripe } from "@/lib/stripe";
 import { errorMessage, serviceDb, stripeErrorCode } from "../db";
 import { cancelFutureBookingsForMember } from "../bookings";
-import { endMembership } from "../membership-actions";
+import { clearMembershipPaymentFailed, endMembership } from "../membership-actions";
+import { periodEndSeconds } from "../stripe/period";
+import { currentSubscription, stripeCancelAt, subscriptionEnded, subscriptionPaidUp } from "../stripe/subscription";
 
 export type MembershipsSummary = {
   graceEnded: string[];
+  /** Grace over, but Stripe shows the subscription paid: the problem was cleared instead (QA3-02). */
+  graceCleared: string[];
   cancelDatePassed: string[];
+  /** Cancel date passed here, but Stripe is not set to cancel: the stale date was cleared (QA3-03). */
+  cancelCleared: string[];
+  /** Cancel date passed here, but Stripe ends it later: that date was saved. */
+  cancelMoved: string[];
   bookingsSwept: number;
   errors: { memberId: string; error: string }[];
 };
 
 export async function runMemberships(now: Date = new Date()): Promise<MembershipsSummary> {
   const db = serviceDb();
-  const summary: MembershipsSummary = { graceEnded: [], cancelDatePassed: [], bookingsSwept: 0, errors: [] };
+  const summary: MembershipsSummary = { graceEnded: [], graceCleared: [], cancelDatePassed: [], cancelCleared: [], cancelMoved: [], bookingsSwept: 0, errors: [] };
   const nowIso = now.toISOString();
 
   // 1. Grace ran out.
   const { data: graceOver, error: graceError } = await db
     .from("members")
-    .select("id, stripe_subscription_id, grace_until")
+    .select("id, stripe_subscription_id, grace_until, cancel_requested_at")
     .is("ended_at", null)
     .is("deleted_at", null)
     .not("payment_failed_at", "is", null)
@@ -38,13 +52,22 @@ export async function runMemberships(now: Date = new Date()): Promise<Membership
   for (const m of graceOver ?? []) {
     try {
       if (m.stripe_subscription_id) {
-        try {
-          await stripe.subscriptions.cancel(m.stripe_subscription_id, {}, { idempotencyKey: `sub-cancel-now-${m.stripe_subscription_id}` });
-        } catch (err) {
-          if (stripeErrorCode(err) !== "resource_missing") throw err;
+        const sub = await currentSubscription(m.stripe_subscription_id);
+        if (sub && !subscriptionEnded(sub) && (await subscriptionPaidUp(sub))) {
+          // The card was fixed and the invoice paid; invoice.paid never reached us.
+          await clearMembershipPaymentFailed(m.id);
+          summary.graceCleared.push(m.id);
+          continue;
+        }
+        if (sub && !subscriptionEnded(sub)) {
+          try {
+            await stripe.subscriptions.cancel(m.stripe_subscription_id, {}, { idempotencyKey: `sub-cancel-now-${m.stripe_subscription_id}` });
+          } catch (err) {
+            if (stripeErrorCode(err) !== "resource_missing") throw err;
+          }
         }
       }
-      await endMembership(m.id, "payment_failed", { endedAt: m.grace_until });
+      await endMembership(m.id, m.cancel_requested_at ? "member_cancelled" : "payment_failed", { endedAt: m.grace_until });
       summary.graceEnded.push(m.id);
     } catch (err) {
       summary.errors.push({ memberId: m.id, error: errorMessage(err) });
@@ -54,7 +77,7 @@ export async function runMemberships(now: Date = new Date()): Promise<Membership
   // 2. Cancel date passed, nothing recorded.
   const { data: pastCancel, error: cancelError } = await db
     .from("members")
-    .select("id, cancel_at")
+    .select("id, cancel_at, stripe_subscription_id")
     .is("ended_at", null)
     .is("deleted_at", null)
     .not("cancel_at", "is", null)
@@ -62,7 +85,30 @@ export async function runMemberships(now: Date = new Date()): Promise<Membership
   if (cancelError) throw cancelError;
   for (const m of pastCancel ?? []) {
     try {
-      await endMembership(m.id, "member_cancelled", { endedAt: m.cancel_at });
+      let endedAt: string | null = m.cancel_at;
+      if (m.stripe_subscription_id) {
+        const sub = await currentSubscription(m.stripe_subscription_id);
+        if (sub && !subscriptionEnded(sub)) {
+          const stripeEnd = stripeCancelAt(sub, periodEndSeconds(sub));
+          if (!stripeEnd) {
+            // Stripe is not cancelling it (a "Keep my membership" whose event came late, or a stale row): it goes on.
+            const { error } = await db.from("members").update({ cancel_at: null, cancel_requested_at: null, cancel_reason: null }).eq("id", m.id).is("ended_at", null);
+            if (error) throw error;
+            summary.cancelCleared.push(m.id);
+            continue;
+          }
+          if (stripeEnd.getTime() > now.getTime()) {
+            const { error } = await db.from("members").update({ cancel_at: stripeEnd.toISOString() }).eq("id", m.id).is("ended_at", null);
+            if (error) throw error;
+            summary.cancelMoved.push(m.id);
+            continue;
+          }
+          // Stripe's cancel moment has passed; it ends the subscription itself any moment now.
+          endedAt = stripeEnd.toISOString();
+        }
+        // Ended in Stripe: it ends here on the date the member was given (cancel_at).
+      }
+      await endMembership(m.id, "member_cancelled", { endedAt });
       summary.cancelDatePassed.push(m.id);
     } catch (err) {
       summary.errors.push({ memberId: m.id, error: errorMessage(err) });
@@ -79,9 +125,14 @@ export async function runMemberships(now: Date = new Date()): Promise<Membership
   if (leftError) throw leftError;
   const memberIds = [...new Set((leftovers ?? []).map((b) => b.member_id as string))];
   for (const memberId of memberIds) {
-    const { data: m } = await db.from("members").select("deleted_at").eq("id", memberId).maybeSingle();
-    const swept = await cancelFutureBookingsForMember(memberId, m?.deleted_at ? "account_deleted" : "membership_ended");
-    summary.bookingsSwept += swept.length;
+    try {
+      const { data: m, error } = await db.from("members").select("deleted_at").eq("id", memberId).maybeSingle();
+      if (error) throw error;
+      const swept = await cancelFutureBookingsForMember(memberId, m?.deleted_at ? "account_deleted" : "membership_ended");
+      summary.bookingsSwept += swept.length;
+    } catch (err) {
+      summary.errors.push({ memberId, error: errorMessage(err) });
+    }
   }
   return summary;
 }

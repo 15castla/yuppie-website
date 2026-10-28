@@ -5,8 +5,9 @@ import "server-only";
 // and its CSV (B-D7), Add to calendar, and "the club moved this event"
 // (changed_at and the event-changed email, C-D11).
 
+import { parsePhoneNumberFromString } from "libphonenumber-js";
+
 import { eventHref } from "@/lib/members/routes";
-import { displayPhone } from "@/lib/members/you/format";
 import { absoluteUrl } from "./config";
 import { EVENT_ROW_COLUMNS, one, serviceDb, type BookingCancelReason, type BookingCancelledBy, type BookingStatus, type EventRow, type RefundStatus } from "./db";
 import { buildIcs, googleCalendarUrl, icsFilename } from "./calendar";
@@ -163,14 +164,27 @@ function csvCell(value: string | number | null | undefined): string {
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+/**
+ * A phone number as the CSV writes it (QA2-10): a UK number the way You shows it, "07700 900123"; any other
+ * country with "00" for "+", "0033 6 12 34 56 78". Neither starts with a formula character, so the cell needs
+ * no guard apostrophe and a spreadsheet keeps it as written.
+ */
+function csvPhone(phone: string | null): string {
+  const value = phone?.trim();
+  if (!value) return "";
+  const parsed = parsePhoneNumberFromString(value, "GB");
+  if (!parsed) return value.replace(/^\+/, "00");
+  if (parsed.countryCallingCode === "44") return parsed.formatNational();
+  return parsed.formatInternational().replace(/^\+/, "00");
+}
+
 /** The Attendees list as CSV (Export list, B-D7). UTF-8 with a byte order mark so Excel shows £ right. */
 export function attendeesCsv(list: AttendeeList): string {
   const header = ["Name", "Email", "Phone", "Status", "Booked", "Paid", "Cancelled", "Why", "Refund", "Refunded"];
   const rows = list.attendees.map((a) => [
     a.name,
     a.email,
-    // "07700 900123" for a UK number (as You shows it), so a spreadsheet keeps it as written.
-    displayPhone(a.phone),
+    csvPhone(a.phone),
     a.status === "confirmed" ? "Booked" : "Cancelled",
     dayDateTime(a.bookedAt),
     a.amountPence > 0 ? pounds(a.amountPence) : "Included",
