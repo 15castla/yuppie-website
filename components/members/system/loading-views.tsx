@@ -101,7 +101,7 @@ export function EventLoading() {
           <Shape width={72} height={22} />
           <Shape width={110} height={12} style={{ marginTop: 8 }} />
         </div>
-        <Shape width={176} height={56} kind="pill" style={{ flex: "none" }} />
+        <i className="mk-sk mk-sk-pill sy-ev-pill" />
       </div>
     </>
   );

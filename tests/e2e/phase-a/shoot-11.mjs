@@ -3,7 +3,7 @@
 // User-Agent marker), at 320, 390, 430, 768, 1024 and 1280 (phones at 2x).
 //
 //   node tests/e2e/phase-a/shoot-11.mjs <out dir> <name>=<path>[@<member email>] ... [--app] [--full] [--widths 390,1280]
-//     [--click "<button name>"] [--wait <ms>] [--header k:v]
+//     [--click "<button name>[><next button>...]"] [--wait <ms>] [--header k:v]
 // Example: node tests/e2e/phase-a/shoot-11.mjs /tmp/shots you=/members/you@y.active@example.com --full
 import fs from 'node:fs';
 import path from 'node:path';
@@ -56,8 +56,9 @@ try {
       await pg.locator('main:not([aria-busy="true"])').last().waitFor({ timeout: 15000 }).catch(() => {});
       // The Next dev badge is the dev server's, not the page's.
       await pg.addStyleTag({ content: 'nextjs-portal{display:none!important}' }).catch(() => {});
-      if (click) {
-        await pg.getByRole('button', { name: click, exact: true }).first().click();
+      for (const name of click ? click.split('>') : []) {
+        const scope = (await pg.locator('dialog[open]').count()) ? pg.locator('dialog[open]') : pg;
+        await scope.getByRole('button', { name, exact: true }).first().click();
         await pg.waitForTimeout(900);
       }
       if (scroll) await pg.evaluate((y) => window.scrollTo(0, y), scroll);

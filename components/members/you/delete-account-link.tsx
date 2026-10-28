@@ -8,7 +8,7 @@ import { useState } from "react";
 import { Button } from "@/components/members/kit";
 import { DeleteDialog } from "./you-dialogs";
 
-export function DeleteAccountLink({ deleteAccount }: { deleteAccount: (confirmation: string) => Promise<{ ok: false; error: string } | void> }) {
+export function DeleteAccountLink({ deleteAccount }: { deleteAccount?: (confirmation: string) => Promise<{ ok: false; error: string } | void> }) {
   const [open, setOpen] = useState(false);
   return (
     <>

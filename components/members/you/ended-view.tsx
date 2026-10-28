@@ -1,7 +1,8 @@
 // The membership-ended gate: a full screen with no tabs, no photo and no Open
 // Invite. Drawn from the approved design (specs/you.md "Membership states").
 // The gate page (app/members/membership) shows it to ended members; Delete my
-// account opens the real Delete dialog when the page passes deleteAccount.
+// account opens the members area's one Delete dialog (deleteMyAccount, which
+// works from the gate).
 //
 // Web: Rejoin (to the public application) and Contact us. App: only "Get in
 // touch", because Apple's rules keep billing and sign-up links out of the app.
@@ -37,7 +38,7 @@ export function MembershipEndedView({
   legal: string[];
   appVersion?: string | null;
   signOut: () => void | Promise<void>;
-  /** deleteMyAccount. Without it the link is drawn but does nothing (the preview). */
+  /** The preview's stand-in for deleteMyAccount (the live gate leaves it out: the dialog's default is the real action). */
   deleteAccount?: (confirmation: string) => Promise<{ ok: false; error: string } | void>;
 }) {
   const isApp = mode === "app";
@@ -123,13 +124,7 @@ export function MembershipEndedView({
           <div className="mk-wrap">
             <div className="yu-quiet-row">
               {isApp ? logOut : null}
-              {deleteAccount ? (
-                <DeleteAccountLink deleteAccount={deleteAccount} />
-              ) : (
-                <Button variant="quiet" danger className="yu-quiet">
-                  Delete my account
-                </Button>
-              )}
+              <DeleteAccountLink deleteAccount={deleteAccount} />
             </div>
           </div>
         </section>

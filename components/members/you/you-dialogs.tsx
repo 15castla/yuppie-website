@@ -14,6 +14,7 @@
 import { useState, useTransition, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
+import { deleteMyAccount } from "@/app/members/you/actions";
 import { Button, Chip, FormField, Icon } from "@/components/members/kit";
 import { Dialog } from "./dialog";
 
@@ -241,14 +242,18 @@ export function CancelDialog({
 export function DeleteDialog({
   open,
   onClose,
-  deleteAccount,
+  deleteAccount = deleteMyAccount,
   hostedPlans = false,
   initialTyped = "",
 }: {
   open: boolean;
   onClose: () => void;
-  /** deleteMyAccount: on success the server signs out and goes to the public home page; it only returns on failure. */
-  deleteAccount: (confirmation: string) => Promise<{ ok: false; error: string } | void>;
+  /**
+   * deleteMyAccount (the default, so every Delete my account in the members area, You and both gates, is the
+   * one real action): on success the server signs out and goes to the public home page; it only returns on
+   * failure. The preview passes a stand-in.
+   */
+  deleteAccount?: (confirmation: string) => Promise<{ ok: false; error: string } | void>;
   /** Preview only: Open Invite's hosted plans line (paid plans are Phase B). */
   hostedPlans?: boolean;
   initialTyped?: string;

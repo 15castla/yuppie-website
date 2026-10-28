@@ -10,7 +10,6 @@ import { Button, Main } from "@/components/members/kit";
 import { MembershipEndedView } from "@/components/members/you/ended-view";
 import { CONTACT_EMAIL } from "@/components/site/links";
 import { signOutMember } from "../profile/actions";
-import { deleteMyAccount } from "../you/actions";
 import { getMembershipState, requireMember } from "../require-member";
 
 // The membership gate (decision A-D4). requireMember() sends every paused or
@@ -33,7 +32,6 @@ export default async function MembershipGatePage() {
         endedOn={state.endsOn ?? null}
         legal={legalLines(new Date().getFullYear())}
         signOut={signOutMember}
-        deleteAccount={deleteMyAccount}
       />
     );
   }

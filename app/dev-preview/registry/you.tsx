@@ -413,12 +413,12 @@ export const youScreens: PreviewScreen[] = [
   },
   {
     id: "you-ended",
-    title: "Membership ended (gate, drawn only)",
+    title: "Membership ended (gate)",
     states: ["default"],
     chrome: "bare",
     dock: "own",
     render: ({ shell }) => (
-      <MembershipEndedView mode={shell} endedOn="12 Nov" legal={legalLines(2026)} appVersion="1.0 (1)" signOut={previewSignOut} />
+      <MembershipEndedView mode={shell} endedOn="12 Nov" legal={legalLines(2026)} appVersion="1.0 (1)" signOut={previewSignOut} deleteAccount={previewDeleteAccount} />
     ),
   },
   {

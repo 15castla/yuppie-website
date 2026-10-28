@@ -136,6 +136,13 @@ try {
     ok(true, `${key}: You goes to the membership gate`);
     await pg.goto(`${BASE}/members/you/help/faq`);
     ok(new URL(pg.url()).pathname === '/members/you/help/faq' && (await mainText(pg)).includes('FAQs'), `${key}: the help pages still open`);
+    if (key === 'ended') {
+      await pg.goto(`${BASE}/members/membership`);
+      await pg.getByRole('button', { name: 'Delete my account', exact: true }).click();
+      ok((await dialogText(pg)).includes('Delete your account?'), 'ended gate: Delete my account opens the real Delete dialog');
+      await pg.locator('dialog[open]').getByRole('button', { name: 'Keep my account', exact: true }).click();
+      eq(await pg.locator('dialog[open]').count(), 0, '  and Keep my account closes it');
+    }
     await ctx.close();
   }
   // Paused and cancelled never reach You (the gate), so the preview harness draws those two cards.

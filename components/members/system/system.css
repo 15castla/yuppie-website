@@ -78,4 +78,10 @@
 .sy-ev-bar-space{flex:none;height:calc(77px + var(--safe-bottom))}
 .sy-ev-bar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:16px;
   padding:12px var(--gutter) calc(var(--safe-bottom) + 6px);background-color:var(--yellow);border-top:3px solid var(--ink)}
+.sy-ev-pill{flex:none;width:176px;height:56px}
+@media (max-width:359px){ .sy-ev-pill{width:148px} }
 @media (min-width:768px){ .sy-ev-bar,.sy-ev-bar-space{display:none} }
+
+/* A public 404 or error inside the app (no public header there): the head clears the status area, as the
+   title blocks of the members pages do. <html data-native-app> is set before the first paint (app/layout.tsx). */
+@media (max-width:767px){ html[data-native-app] .sy-standalone.mk-web .mk-head{padding-top:calc(var(--safe-top) + 10px)} }
