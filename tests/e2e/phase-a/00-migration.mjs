@@ -34,14 +34,18 @@ has('stripe_events', ['id', 'type', 'received_at', 'processed_at', 'error']);
 has('admin_audit', ['id', 'admin_id', 'action', 'target_type', 'target_id', 'details', 'created_at']);
 
 const uniques = sql(`select pg_get_indexdef(indexrelid) as def from pg_index where indrelid = 'public.bookings'::regclass and indisunique and not indisprimary`).map((r) => r.def);
-ok(uniques.some((d) => /\(member_id, event_id\) WHERE \(status = 'confirmed'::text\)/.test(d)), 'bookings: one confirmed booking per member and event (partial unique index)', uniques);
+ok(uniques.some((d) => /\(member_id, event_id\) WHERE \(status = 'confirmed'::(text|booking_status)\)/.test(d)), 'bookings: one confirmed booking per member and event (partial unique index)', uniques);
 ok(uniques.some((d) => /\(stripe_payment_intent_id\) WHERE \(stripe_payment_intent_id IS NOT NULL\)/.test(d)), 'bookings: one booking per payment intent', uniques);
 ok(!uniques.some((d) => /\(member_id, event_id\)$/.test(d)), 'bookings: the old unique (member_id, event_id) is gone', uniques);
 eq(sql1(`select count(*)::int as n from pg_constraint where conrelid = 'public.bookings'::regclass and contype = 'u'`).n, 0, 'bookings: no unique constraint left on (member_id, event_id)');
 
 const policies = (table) => sql(`select policyname, cmd from pg_policies where schemaname = 'public' and tablename = '${table}' order by 1`);
-eq(policies('bookings').map((p) => p.cmd).sort(), ['SELECT', 'SELECT'], 'bookings: only the two read policies (own rows, admins); no member insert');
-eq(policies('members').map((p) => p.policyname), ['Admins manage members', 'Members read self', 'Members update self'], 'members: the three policies, nothing broader');
+eq(policies('bookings').map((p) => `${p.policyname}/${p.cmd}`), ['Members read own bookings/SELECT'], 'bookings: one read policy (own rows); no member insert or update');
+eq(policies('members').map((p) => p.policyname), ['Members read self', 'Members update self'], 'members: read and update self, nothing broader');
+const liveNames = ['Members can insert their own bookings', 'Members can view their own bookings', 'Members cancel own bookings', 'Members create own bookings', 'Members can update their own row', 'Members can view their own row', 'Members read own profile', 'Members update own profile'];
+eq(sql(`select policyname from pg_policies where schemaname = 'public' and policyname in (${liveNames.map((n) => `'${n}'`).join(',')})`), [], 'none of the live member and booking policies is left (Members cancel own bookings included)');
+eq(sql1(`select udt_name from information_schema.columns where table_schema = 'public' and table_name = 'bookings' and column_name = 'status'`).udt_name, 'booking_status', 'bookings.status is the live enum (the checks work on it)');
+eq(sql1(`select is_nullable from information_schema.columns where table_schema = 'public' and table_name = 'events' and column_name = 'tier'`).is_nullable, 'YES', 'events.tier is optional now (live: NOT NULL with no default, so the admin could not create an event)');
 for (const t of ['event_addresses', 'message_log', 'stripe_events', 'admin_audit']) {
   eq(sql1(`select relrowsecurity as on from pg_class where oid = 'public.${t}'::regclass`).on, true, `${t}: RLS on`);
 }

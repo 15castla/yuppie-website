@@ -19,6 +19,7 @@ import { membershipCardData, membershipState, type MemberStateFields } from "./m
 import type { MembershipCardData } from "@/lib/members/you/types";
 import { sendEmail } from "./messages";
 import { cardLabelForPaymentMethod } from "./stripe/card";
+import { periodEndSeconds } from "./stripe/period";
 
 export type ActionResult<T extends object = object> = ({ ok: true } & T) | { ok: false; code: string; error: string };
 
@@ -45,7 +46,7 @@ function unixToIso(seconds: number | null | undefined): string | null {
 
 /** When a subscription set to cancel at period end will end. */
 function cancelAtOf(sub: Stripe.Subscription): string | null {
-  return unixToIso(sub.cancel_at) ?? unixToIso(sub.items?.data?.[0]?.current_period_end);
+  return unixToIso(sub.cancel_at) ?? unixToIso(periodEndSeconds(sub));
 }
 
 // ---------------------------------------------------------------------------
@@ -114,7 +115,7 @@ async function periodEnd(subscriptionId: string | null): Promise<string | null> 
   if (!subscriptionId) return null;
   try {
     const sub = await stripe.subscriptions.retrieve(subscriptionId);
-    return unixToIso(sub.items?.data?.[0]?.current_period_end);
+    return unixToIso(periodEndSeconds(sub));
   } catch (err) {
     console.error(`periodEnd: reading subscription ${subscriptionId} failed:`, err);
     return null;
@@ -192,6 +193,9 @@ export async function billingPortalUrl(memberId: string, returnPath: string = RO
       {
         customer: member.stripe_customer_id,
         return_url: absoluteUrl(safePath),
+        // The portal configuration the release creates (release/stripe-setup.md). Unset: Stripe's default
+        // configuration, which must then be saved once in the Dashboard (live has none today).
+        ...(process.env.STRIPE_PORTAL_CONFIGURATION_ID ? { configuration: process.env.STRIPE_PORTAL_CONFIGURATION_ID } : {}),
         ...(problem ? { flow_data: { type: "payment_method_update" as const } } : {}),
       },
       { idempotencyKey: `portal-${member.stripe_customer_id}-${problem ? "card" : "manage"}-${safePath}-${Math.floor(Date.now() / 60000)}` },

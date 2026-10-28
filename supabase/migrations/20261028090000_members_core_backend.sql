@@ -9,15 +9,22 @@
 -- bookings (member_id, event_id) is found by its columns, not its name. It is
 -- safe to run more than once.
 --
+-- Checked against the live layout of 27 Oct 2026 (status columns are enums:
+-- membership_status, booking_status with a third value 'waitlisted',
+-- application_status; events.tier is an enum NOT NULL with no default; the
+-- policies below are the live names). See release/live-migration-notes.md.
+--
 -- Security model after this migration:
 --   * members: a member reads their own row and can change only their own
 --     profile fields (column grants). Status, dates, email and Stripe ids are
 --     written by the server (service role) only.
 --   * bookings: members read their own rows. Nobody but the server inserts,
 --     updates or deletes them; every booking goes through book_event().
---   * event_addresses, message_log, admin_audit, stripe_events: admins (or
---     nobody, for stripe_events) through the REST API; the server uses the
---     service role.
+--   * event_addresses, message_log, admin_audit, stripe_events: the server
+--     (service role) only in practice. The "admins" policies on the new tables
+--     match the live pattern (exists in admin_users), but live admin_users has
+--     RLS on and no policy, so no REST caller passes them; the app's admin
+--     pages use the service role, as every admin page does today.
 
 -- ---------------------------------------------------------------------------
 -- Helpers
@@ -67,9 +74,12 @@ create trigger members_set_updated_at before update on public.members
 revoke insert, update, delete on public.members from anon, authenticated;
 grant update (full_name, phone, employer, role_title, bio, avatar_url) on public.members to authenticated;
 
--- Every policy on members is replaced by the three below, whatever the
--- dashboard called the old ones (a broad self-update policy, or a policy
--- that let members read each other, must not survive).
+-- Every policy on members is replaced by the two below, whatever the
+-- dashboard called the old ones. Live has four: "Members can update their own
+-- row", "Members can view their own row", "Members read own profile" and
+-- "Members update own profile" (UPDATE with no WITH CHECK). None is kept.
+-- Live has no admin policy on members, so none is added (admin pages use the
+-- service role).
 do $$
 declare p record;
 begin
@@ -89,10 +99,6 @@ create policy "Members update self" on public.members
   using (id = auth.uid())
   with check (id = auth.uid());
 
-create policy "Admins manage members" on public.members
-  for all to authenticated
-  using (exists (select 1 from public.admin_users where id = auth.uid()))
-  with check (exists (select 1 from public.admin_users where id = auth.uid()));
 
 -- ---------------------------------------------------------------------------
 -- events
@@ -105,6 +111,21 @@ alter table public.events add column if not exists updated_at timestamptz defaul
 -- made before this moment may be cancelled for a full refund at any time
 -- (decision C-D11).
 alter table public.events add column if not exists changed_at timestamptz;
+
+-- Live: events.tier is an event_tier enum, NOT NULL, with no default, and
+-- nothing in the app sets it (the admin's createEvent does not know it), so
+-- creating an event in the admin fails today with a not-null violation.
+-- Made optional (no default: a made-up tier would be wrong data). The four
+-- live events keep the tier they have.
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'events' and column_name = 'tier' and is_nullable = 'NO'
+  ) then
+    alter table public.events alter column tier drop not null;
+  end if;
+end $$;
 
 drop trigger if exists events_set_updated_at on public.events;
 create trigger events_set_updated_at before update on public.events
@@ -168,8 +189,11 @@ alter table public.bookings drop constraint if exists bookings_amount_pence_chec
 alter table public.bookings add constraint bookings_amount_pence_check
   check (amount_pence >= 0 and (refund_pence is null or refund_pence >= 0));
 
--- Status: only confirmed and cancelled. NOT VALID first, so a stray old value
--- in the live table cannot stop the migration; then validated if it can be.
+-- Status: only confirmed and cancelled. Live bookings.status is the enum
+-- booking_status (confirmed, cancelled, waitlisted); nothing writes
+-- waitlisted, and this keeps it that way. NOT VALID first, so a stray old
+-- value cannot stop the migration; then validated if it can be (live: 2 rows,
+-- both confirmed).
 alter table public.bookings drop constraint if exists bookings_status_check;
 alter table public.bookings add constraint bookings_status_check
   check (status in ('confirmed', 'cancelled')) not valid;
@@ -231,9 +255,12 @@ drop trigger if exists bookings_set_updated_at on public.bookings;
 create trigger bookings_set_updated_at before update on public.bookings
   for each row execute function public.set_updated_at();
 
--- Members read their own bookings; admins read all. No member write of any
--- kind: the old member insert policy goes, whatever its name, and the table
--- privileges are taken away as well.
+-- Members read their own bookings. No member write of any kind: every live
+-- policy goes, whatever its name ("Members can insert their own bookings",
+-- "Members can view their own bookings", "Members cancel own bookings" (an
+-- UPDATE that let a member change their own booking), "Members create own
+-- bookings", "Members read own bookings"), and the table privileges are
+-- taken away as well.
 revoke insert, update, delete on public.bookings from anon, authenticated;
 
 do $$
@@ -249,10 +276,6 @@ alter table public.bookings enable row level security;
 create policy "Members read own bookings" on public.bookings
   for select to authenticated
   using (member_id = auth.uid());
-
-create policy "Admins read bookings" on public.bookings
-  for select to authenticated
-  using (exists (select 1 from public.admin_users where id = auth.uid()));
 
 -- ---------------------------------------------------------------------------
 -- applications

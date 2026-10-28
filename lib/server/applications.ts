@@ -8,6 +8,7 @@ import { adminAlertsEmail } from "./config";
 import { errorMessage, serviceDb, stripeErrorCode } from "./db";
 import { dayDate, firstName, pounds, time24 } from "./format";
 import { sendEmail, sendText } from "./messages";
+import { periodEndSeconds } from "./stripe/period";
 
 /** After a successful application: "Thanks for applying" to the applicant, and one alert to the club. */
 export async function sendApplicationEmails(applicationId: string): Promise<void> {
@@ -53,7 +54,8 @@ export async function sendApprovalMessages(input: {
       const sub = await stripe.subscriptions.retrieve(input.subscriptionId);
       const item = sub.items?.data?.[0];
       if (item?.price?.unit_amount) paid = pounds(item.price.unit_amount);
-      if (item?.current_period_end) renewsOn = dayDate(new Date(item.current_period_end * 1000));
+      const end = periodEndSeconds(sub);
+      if (end) renewsOn = dayDate(new Date(end * 1000));
     } catch (err) {
       console.error(`sendApprovalMessages: reading subscription ${input.subscriptionId} failed:`, err);
     }
