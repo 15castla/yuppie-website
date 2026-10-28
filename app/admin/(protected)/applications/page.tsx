@@ -9,7 +9,7 @@ export default async function ApplicationsIndexPage({ searchParams }: { searchPa
   // layouts above it (QA2-01).
   await requireAdmin();
   const tab = currentTab((await searchParams).tab ?? null);
-  const first = (await listApplications()).find((a) => a.tab === tab);
+  const first = (await listApplications()).find((a) => tab === "all" || a.tab === tab);
   if (!first) return null;
   return <ApplicationCard applicationId={first.id} />;
 }

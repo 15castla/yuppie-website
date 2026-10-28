@@ -112,6 +112,7 @@ export function EventForm({
   linkHost,
   extraActions,
   created = false,
+  untold = 0,
 }: {
   mode: "new" | "edit";
   eventId?: string;
@@ -123,6 +124,8 @@ export function EventForm({
   linkHost: string;
   extraActions?: ReactNode;
   created?: boolean;
+  /** People booked who haven't been emailed about the last date, time or place change (QA2-06). */
+  untold?: number;
 }) {
   const router = useRouter();
   const isNew = mode === "new";
@@ -136,6 +139,8 @@ export function EventForm({
   const [moveDialog, setMoveDialog] = useState<"time" | "place" | "both" | null>(null);
   const [notify, setNotify] = useState(true);
   const [emailing, startEmailing] = useTransition();
+  // The offer from an earlier visit (QA2-06): shown until the email goes, or a save here takes over.
+  const [earlier, setEarlier] = useState<{ emailed?: number } | null>(untold > 0 ? {} : null);
   const [point, setPoint] = useState<FocalPoint>(focal);
   const [photo, setPhoto] = useState<File | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
@@ -205,6 +210,7 @@ export function EventForm({
         return;
       }
       setBaseline(values);
+      if (result.moved && (result.bookedCount ?? 0) > 0) setEarlier(null);
       setSaved({ moved: result.moved ?? null, booked: result.bookedCount ?? 0, emailing: Boolean(result.emailing) });
       router.refresh();
     });
@@ -235,7 +241,10 @@ export function EventForm({
     if (!eventId) return;
     startEmailing(async () => {
       const result = await adminEmailEventChange(eventId).catch(() => ({ ok: false as const, error: "" }));
-      setSaved((s) => (s ? { ...s, emailing: false, emailed: result.ok ? result.emailed : -1 } : s));
+      const emailed = result.ok && result.failed === 0 ? result.emailed : -1;
+      setSaved((s) => (s ? { ...s, emailing: false, emailed } : s));
+      setEarlier((e) => (e ? { emailed } : e));
+      if (emailed >= 0) router.refresh();
     });
   }
 
@@ -404,6 +413,24 @@ export function EventForm({
         </div>
       </Section>
 
+      {!saved?.moved && earlier && (
+        <div style={{ marginTop: 22 }}>
+          <p className="ad-hint" style={{ marginTop: 0 }} role="status">
+            {earlier.emailed === undefined
+              ? `The ${untold === 1 ? "person" : `${untold} people`} booked ${untold === 1 ? "hasn’t" : "haven’t"} been told about the last change to the date, time or place yet.`
+              : earlier.emailed >= 0
+                ? `Emailed ${earlier.emailed === 1 ? "1 person" : `${earlier.emailed} people`} about the change.`
+                : "The emails didn’t all go. Try again in a moment."}
+          </p>
+          {(earlier.emailed === undefined || earlier.emailed < 0) && (
+            <div className="ad-acts" style={{ marginTop: 10 }}>
+              <BusyButton type="button" className="sm secondary" busy={emailing} busyLabel="Emailing…" onClick={emailThem}>
+                Email them now
+              </BusyButton>
+            </div>
+          )}
+        </div>
+      )}
       {saved && (
         <div style={{ marginTop: 22 }}>
           <SavedLine>Saved. Members see the new details now.</SavedLine>

@@ -402,7 +402,10 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 .ad-art svg.mk-perk-svg{display:block;overflow:visible;width:calc(var(--slot)*var(--fw));height:calc(var(--slot)*var(--fh));stroke-width:var(--fs)}
 
 /* loading: pale shapes (yellow inside a pale card), no motion, no spinner */
-.ad-sk{display:block;background:var(--pale);border-radius:8px}
+/* B-D6 C (QA2-09), as the members area: the pale shapes show only when the page has not arrived after about
+   300 ms, so a fast page never flickers. No motion: they appear in one step. */
+.ad-sk{display:block;background:var(--pale);border-radius:8px;animation:ad-sk-wait .3s step-end both}
+@keyframes ad-sk-wait{from{visibility:hidden}to{visibility:visible}}
 .ad-sk.rnd{border-radius:999px}
 .ad-sk.cir{border-radius:50%}
 .ad-card .ad-sk{background:var(--yellow)}

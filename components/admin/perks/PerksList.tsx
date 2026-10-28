@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import { reorderPerks } from "@/app/admin/discounts-actions";
 import { ErrorLine, Pill } from "../ui";
 import { Icon } from "../icons";
-import { MoreLine, PAGE_SIZE, SearchBox, norm, useListParams, useSearchState } from "../list-controls";
+import { MoreLine, PAGE_SIZE, SearchBox, norm, rowsToShow, useListParams, useSearchState } from "../list-controls";
 import { useOpenId } from "../split-shell";
 import { PerkTile } from "./perk-tile";
 import { PERK_WORDS, perkMeta, type PerkRow, type PerkType } from "./perk-types";
@@ -77,7 +77,7 @@ export function PerksList({ type, rows }: { type: PerkType; rows: PerkRow[] }) {
   const words = PERK_WORDS[type];
   const { params, update } = useListParams();
   const openId = useOpenId();
-  const show = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
+  const asked = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
   const [q, setQ] = useSearchState(params.get("q") ?? "", (value) => update({ q: value || null, show: null }));
   const [items, setItems] = useState(rows);
   const [error, setError] = useState<string | null>(null);
@@ -98,6 +98,7 @@ export function PerksList({ type, rows }: { type: PerkType; rows: PerkRow[] }) {
   const hits = needle
     ? items.filter((p) => norm(p.name).includes(needle) || norm(p.area).includes(needle) || norm(p.category ?? "").includes(needle))
     : items;
+  const show = rowsToShow(hits, asked, openId);
   const visible = hits.slice(0, show);
   const draggable = !needle && visible.length > 1;
   // The card beside the list on the index page is the first one for the search the page opened with.

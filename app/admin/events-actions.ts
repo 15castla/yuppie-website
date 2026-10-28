@@ -345,11 +345,11 @@ export async function updateEventImage(
     return { success: false, error: "Missing event." };
   }
 
+  const locked = await lockedReason(eventId);
+  if (locked) return { success: false, error: locked };
   if (!(photo instanceof File)) {
     return { success: false, error: "Choose a picture to upload." };
   }
-  const locked = await lockedReason(eventId);
-  if (locked) return { success: false, error: locked };
 
   const uploaded = await uploadMemberMedia("events", eventId, photo);
   if (uploaded.error) {

@@ -100,7 +100,7 @@ export default async function AdminDashboardPage() {
     ["Members", members.count ?? 0, "/admin/members"],
     ["Cancelled or lapsed", lapsed, "/admin/members?status=cancelled"],
     ["Waiting for review", waiting.length, "/admin/applications"],
-    ["Applications, all time", allApps.count ?? 0, "/admin/applications?tab=approved"],
+    ["Applications, all time", allApps.count ?? 0, "/admin/applications?tab=all"],
     ["Applications this week", weekApps.count ?? 0, "/admin/applications"],
   ];
 
