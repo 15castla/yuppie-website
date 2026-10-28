@@ -11,7 +11,7 @@ const dir = path.dirname(new URL(import.meta.url).pathname);
 const scripts = fs.readdirSync(dir).filter((f) => /^\d\d-.*\.mjs$/.test(f)).sort();
 const results = [];
 // Every script reads its own prefix's fixtures (f. m. y. a.): make sure all four exist (seed.mjs is idempotent).
-for (const prefix of ['f.', 'm.', 'y.', 'a.']) {
+for (const prefix of ['f.', 'm.', 'y.', 'a.', 'f1.', 'f2.', 'f3.']) {
   const s = spawnSync(process.execPath, ['/home/claude/stack/tools/seed.mjs', '--prefix', prefix, '--quiet'], { encoding: 'utf8', timeout: 300000 });
   if (s.status !== 0) { console.log(`seed ${prefix} failed:\n${s.stdout}${s.stderr}`); process.exit(1); }
 }
