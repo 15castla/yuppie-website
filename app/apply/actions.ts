@@ -1,7 +1,9 @@
 "use server";
 
+import { after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { stripe } from "@/lib/stripe";
+import { sendApplicationEmails } from "@/lib/server/applications";
 import { CONTACT_EMAIL } from "@/components/site/links";
 
 export type SubmitApplicationResult =
@@ -74,12 +76,16 @@ export async function submitApplication(
   let stripeCustomerId: string;
 
   try {
-    const customer = await stripe.customers.create({
-      name: fullName,
-      email,
-      payment_method: paymentMethodId,
-      invoice_settings: { default_payment_method: paymentMethodId },
-    });
+    const customer = await stripe.customers.create(
+      {
+        name: fullName,
+        email,
+        payment_method: paymentMethodId,
+        invoice_settings: { default_payment_method: paymentMethodId },
+      },
+      // One saved card makes one customer, even if the form is sent twice.
+      { idempotencyKey: `apply-customer-${paymentMethodId}` },
+    );
     stripeCustomerId = customer.id;
   } catch (err) {
     console.error("Stripe customer creation error:", err);
@@ -95,7 +101,7 @@ export async function submitApplication(
       process.env.SUPABASE_SECRET_KEY!,
     );
 
-    const { error } = await supabase.from("applications").insert({
+    const { data: inserted, error } = await supabase.from("applications").insert({
       full_name: fullName,
       email,
       phone: formData.get("phone") as string,
@@ -105,7 +111,7 @@ export async function submitApplication(
       instagram_username: formData.get("instagram_username") as string,
       stripe_customer_id: stripeCustomerId,
       stripe_payment_method_id: paymentMethodId,
-    });
+    }).select("id").single();
 
     if (error) {
       console.error("submitApplication insert error:", error);
@@ -122,6 +128,13 @@ export async function submitApplication(
         success: false,
         error: `We couldn’t send your application. Have another go, or email ${CONTACT_EMAIL} if it keeps happening.`,
       };
+    }
+
+    // "Thanks for applying" to the applicant (C-D3) and one alert to the
+    // club (C-D7), after the response. Never fails the application.
+    const applicationId = inserted?.id as string | undefined;
+    if (applicationId) {
+      after(() => sendApplicationEmails(applicationId));
     }
 
     return { success: true };

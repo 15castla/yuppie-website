@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
 import { stripe } from "@/lib/stripe";
+import { audit } from "@/lib/server/audit";
 
 // Permanently deletes a member's row from `members`. If they have a Stripe
 // subscription on file, it's cancelled immediately first (not
@@ -17,7 +18,7 @@ import { stripe } from "@/lib/stripe";
 export async function deleteMember(
   memberId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   if (!memberId) {
     return { success: false, error: "Missing member." };
@@ -37,7 +38,7 @@ export async function deleteMember(
 
   if (member.stripe_subscription_id) {
     try {
-      await stripe.subscriptions.cancel(member.stripe_subscription_id);
+      await stripe.subscriptions.cancel(member.stripe_subscription_id, {}, { idempotencyKey: `sub-cancel-now-${member.stripe_subscription_id}` });
     } catch (err) {
       // Already cancelled/gone on Stripe's side isn't a reason to block
       // deletion, since there's nothing left to cancel. This is a real,
@@ -66,6 +67,7 @@ export async function deleteMember(
     return { success: false, error: "Something went wrong deleting that member." };
   }
 
+  await audit(admin.id, "member.delete", { type: "member", id: memberId }, { subscription: member.stripe_subscription_id });
   revalidatePath("/admin/members");
   revalidatePath("/admin");
   return { success: true };

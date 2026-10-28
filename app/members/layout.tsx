@@ -24,7 +24,9 @@ import "./members.css";
 // allowMissingPhoto because a layout cannot see the pathname: the photo gate
 // is enforced page by page inside requireMember (see require-member.ts).
 async function AuthGate({ children }: { children: ReactNode }) {
-  await requireMember({ allowMissingPhoto: true });
+  // allowGated for the same reason: the membership gate (A-D4) is also
+  // enforced page by page, so the gate page and the help pages can open.
+  await requireMember({ allowMissingPhoto: true, allowGated: true });
   return children;
 }
 

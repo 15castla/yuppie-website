@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
-import { sendWelcomeEmail } from "./send-welcome-email";
-import { sendWelcomeSms } from "./send-welcome-sms";
 import { stripe } from "@/lib/stripe";
+import { declineApplicationById, sendApprovalMessages } from "@/lib/server/applications";
+import { audit } from "@/lib/server/audit";
 
 // The installed @supabase/auth-js version has no getUserByEmail(), and
 // listUsers() takes no email/filter param (verified against
@@ -39,7 +39,7 @@ async function findAuthUserIdByEmail(
   }
 }
 
-async function approve(id: string, adminEmail: string) {
+async function approve(id: string, adminEmail: string, adminId: string) {
   const adminClient = createAdminSupabaseClient();
 
   // Single fetch covers everything below: the idempotency check
@@ -84,13 +84,18 @@ async function approve(id: string, adminEmail: string) {
     }
 
     try {
-      const subscription = await stripe.subscriptions.create({
-        customer: application.stripe_customer_id,
-        items: [{ price: process.env.STRIPE_PRICE_ID_MEMBERSHIP! }],
-        default_payment_method: application.stripe_payment_method_id,
-        payment_behavior: "error_if_incomplete",
-        off_session: true,
-      });
+      const subscription = await stripe.subscriptions.create(
+        {
+          customer: application.stripe_customer_id,
+          items: [{ price: process.env.STRIPE_PRICE_ID_MEMBERSHIP! }],
+          default_payment_method: application.stripe_payment_method_id,
+          payment_behavior: "error_if_incomplete",
+          off_session: true,
+        },
+        // A double click is one subscription; a retry a minute later (after a
+        // declined card is fixed) is a fresh attempt.
+        { idempotencyKey: `approve-sub-${id}-${Math.floor(Date.now() / 60000)}` },
+      );
       subscriptionId = subscription.id;
     } catch (err) {
       console.error(`Subscription creation failed for application ${id}:`, err);
@@ -226,44 +231,21 @@ async function approve(id: string, adminEmail: string) {
   const email = application.email;
   const fullName = application.full_name;
   const phone = application.phone;
+  const approvedSubscriptionId = subscriptionId;
 
-  after(async () => {
-    try {
-      await sendWelcomeEmail({ to: email, fullName });
-    } catch (err) {
-      console.error(
-        `sendWelcomeEmail failed for application ${id} (${email}):`,
-        err,
-      );
-    }
-
-    if (phone) {
-      try {
-        await sendWelcomeSms({ to: phone });
-      } catch (err) {
-        console.error(
-          `sendWelcomeSms failed for application ${id} (${email}):`,
-          err,
-        );
-      }
-    }
-  });
-
-  revalidatePath("/admin/applications");
-  revalidatePath("/admin");
-}
-
-async function reject(id: string, adminEmail: string) {
-  const adminClient = createAdminSupabaseClient();
-
-  await adminClient
-    .from("applications")
-    .update({
-      status: "rejected",
-      reviewed_at: new Date().toISOString(),
-      reviewed_by: adminEmail,
-    })
-    .eq("id", id);
+  // The rewritten welcome email and the short welcome text (C-D4), through
+  // the message service (message_log, once per application, never throws).
+  after(() =>
+    sendApprovalMessages({
+      applicationId: id,
+      memberId: authUserId,
+      email,
+      fullName,
+      phone,
+      subscriptionId: approvedSubscriptionId,
+    }),
+  );
+  await audit(adminId, "application.approve", { type: "application", id }, { email, member_id: authUserId, subscription: subscriptionId });
 
   revalidatePath("/admin/applications");
   revalidatePath("/admin");
@@ -274,13 +256,40 @@ export async function approveApplication(formData: FormData) {
   if (!admin.email) return;
   const id = formData.get("id");
   if (typeof id !== "string" || !id) return;
-  await approve(id, admin.email);
+  await approve(id, admin.email, admin.id);
 }
 
-export async function rejectApplication(formData: FormData) {
+export type DeclineApplicationResult =
+  | { ok: true; cardReleased: boolean; emailed: boolean }
+  | { ok: false; error: string };
+
+// Decline (B-D9: the word is Decline, the database value stays "rejected").
+// Releases the saved card (C-D8) and, with sendEmail (the switch, on by
+// default, B-D3), sends the kind decline email (C-D2). Audited.
+export async function declineApplication(
+  applicationId: string,
+  options: { sendEmail?: boolean } = {},
+): Promise<DeclineApplicationResult> {
   const admin = await requireAdmin();
-  if (!admin.email) return;
+  if (!applicationId) return { ok: false, error: "Missing application." };
+  const sendEmail = options.sendEmail !== false;
+  const result = await declineApplicationById(applicationId, admin.email ?? admin.id, { sendEmail });
+  if (!result.ok) return result;
+  await audit(admin.id, "application.decline", { type: "application", id: applicationId }, {
+    send_email: sendEmail,
+    emailed: result.emailed,
+    card_released: result.cardReleased,
+    already_declined: result.alreadyDeclined,
+  });
+  revalidatePath("/admin/applications");
+  revalidatePath("/admin");
+  return { ok: true, cardReleased: result.cardReleased, emailed: result.emailed };
+}
+
+// Today's form action (the Reject button), kept: now the same Decline. A
+// "send_email" field of "off" (the switch) skips the email.
+export async function rejectApplication(formData: FormData) {
   const id = formData.get("id");
   if (typeof id !== "string" || !id) return;
-  await reject(id, admin.email);
+  await declineApplication(id, { sendEmail: formData.get("send_email") !== "off" });
 }

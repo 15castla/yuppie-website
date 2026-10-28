@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { flags } from "@/lib/members/flags";
 import { ROUTES } from "@/lib/members/routes";
+import { isGated, membershipState, type MembershipStateInfo } from "@/lib/server/membership";
 import type { MemberSummary } from "@/components/members/shell/types";
 
 export type Member = {
@@ -18,10 +19,21 @@ export type Member = {
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   created_at: string;
+  // Membership dates (supabase/migrations/20261028090000_members_core_backend.sql).
+  // Read by membershipState() in lib/server/membership.ts; written only by
+  // the server.
+  cancel_at: string | null;
+  cancel_requested_at: string | null;
+  payment_failed_at: string | null;
+  grace_until: string | null;
+  paused_at: string | null;
+  ended_at: string | null;
+  ended_reason: string | null;
+  deleted_at: string | null;
 };
 
 const MEMBER_COLUMNS =
-  "id, full_name, email, phone, employer, role_title, bio, avatar_url, membership_status, stripe_customer_id, stripe_subscription_id, created_at";
+  "id, full_name, email, phone, employer, role_title, bio, avatar_url, membership_status, stripe_customer_id, stripe_subscription_id, created_at, cancel_at, cancel_requested_at, payment_failed_at, grace_until, paused_at, ended_at, ended_reason, deleted_at";
 
 // Non-redirecting check, for pages that need to know whether a valid
 // member session exists without forcing a redirect on failure (e.g.
@@ -75,7 +87,19 @@ export type RequireMemberOptions = {
   // The photo gate's escape hatch. Only the photo page itself, the actions
   // that save a photo, and the layout's login check pass this.
   allowMissingPhoto?: boolean;
+  // The membership gate's escape hatch (decision A-D4): a paused or ended
+  // member sees ROUTES.membership and nothing else. Only the gate page, the
+  // help pages, billing, the layout's login check and the account actions
+  // that still work from the gate (log out, delete my account) pass this.
+  allowGated?: boolean;
 };
+
+// The member's membership state, worked out on the server for this request
+// (lib/server/membership.ts). Cached with getMember().
+export const getMembershipState = cache(async (): Promise<MembershipStateInfo | null> => {
+  const member = await getMember();
+  return member ? membershipState(member) : null;
+});
 
 // Mirrors app/admin/require-admin.ts's shape, but queries through the
 // request-scoped (RLS-respecting) client rather than the admin service-role
@@ -99,6 +123,13 @@ export async function requireMember(options: RequireMemberOptions = {}): Promise
 
   if (!member) {
     redirect("/member-login");
+  }
+
+  // THE MEMBERSHIP GATE. Decided here, on the server, on every request:
+  // paused and ended (including a cancel or grace date that has passed with
+  // no webhook yet) go to the gate.
+  if (!options.allowGated && isGated(membershipState(member).state)) {
+    redirect(ROUTES.membership);
   }
 
   if (flags.photoGate && !options.allowMissingPhoto && !member.avatar_url) {
