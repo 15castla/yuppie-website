@@ -45,6 +45,13 @@
 .yu-mem-foot.yu-col{flex-direction:column;align-items:stretch;gap:14px}
 .yu-mem-foot.yu-col .mk-btn{width:100%}
 .mk-status.yu-bad{--c:var(--error)}
+/* r2a section 8 (D8): a booked club event after the end date, on the ending card (v4/r2a.css .gt-mem-warn) */
+.yu-mem-warn{display:flex;gap:12px;align-items:flex-start;margin-top:16px;padding:12px 14px;border:1.5px solid var(--ink);border-radius:14px;background:var(--cream);font:400 14px/1.4 var(--font-body)}
+.yu-mem-warn .mk-ico{flex:none;margin-top:1px}
+.yu-mem-warn b{font-weight:700}
+/* the card button's action did not work (Keep my membership; the billing portal did not open) */
+.yu-mem-err{display:flex;align-items:flex-start;gap:6px;margin-top:12px;font:400 14px/1.4 var(--font-body);color:var(--error)}
+.yu-mem-err .mk-ico{margin-top:2px;flex:none}
 
 /* detail rows (label over value) and Settings and Help rows */
 .yu-kv{min-height:68px}

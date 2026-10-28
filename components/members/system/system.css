@@ -1,0 +1,87 @@
+/* System screens (r2b Part 1, designer B, round 2): page error, not found, maintenance, and the loading
+   rule. One grammar, the approved empty-state one: the page's own title block (H1 with the serif accent on
+   its own line, one lead) / a 3px ink rule / a cream band with one ink pill, at most one quiet link and one
+   help line, and a public drawing standing on the floor. Ported from v4/r2b.css (.r2b-s-*) with the kit's
+   rules: @container is @media, cqw is vw, every class here starts sy-.
+
+   The floor: a phone with a tab bar ends on the tab bar's own 3px rule (the band runs down to it); a page
+   without one (public pages, maintenance) closes the band with its own 3px rule and a plain yellow strip
+   (24px plus the home indicator); a computer closes with the rule and 40px of yellow. */
+
+.mk-page > .mk-main.sy-main{display:flex;flex-direction:column}
+.sy-main{padding-bottom:0}
+@media (min-width:768px){ .sy-main{padding-bottom:40px} }
+
+.sy-head .mk-head{padding-bottom:28px}
+.sy-head .mk-h1 .mk-serif{display:block}
+.sy-head .mk-head .mk-lead{max-width:30ch;text-wrap:balance}
+@media (min-width:768px){
+  .sy-head .mk-head{padding-bottom:clamp(40px,5vw,64px)}
+  .sy-head .mk-head .mk-lead{max-width:38ch}
+}
+
+.sy-band{flex:1 0 auto;display:flex;flex-direction:column;background:var(--cream);border-top:3px solid var(--ink)}
+.sy-band > .mk-wrap{flex:1 0 auto;display:flex;flex-direction:column;padding-top:36px}
+.sy-band.sy-floor{border-bottom:3px solid var(--ink)}
+.sy-acts{display:flex;flex-direction:column;gap:4px;align-items:stretch}
+.sy-acts .mk-link{justify-content:center}
+.sy-help{margin-top:20px;font-size:15px;line-height:1.45}
+.sy-help .mk-inline-link{overflow-wrap:anywhere}
+.sy-ref{display:block;margin-top:4px;font-size:13px;line-height:1.4;color:var(--muted);letter-spacing:.02em}
+.sy-art{margin-top:auto;padding-top:44px;display:flex;justify-content:center;align-items:flex-end}
+.sy-strip{flex:none;height:calc(var(--safe-bottom) + 24px)}
+@media (min-width:768px){
+  .sy-band{border-bottom:3px solid var(--ink)}
+  .sy-band > .mk-wrap{display:grid;grid-template-columns:minmax(0,1fr) auto;grid-template-rows:1fr;column-gap:var(--col-gap);padding-top:48px}
+  .sy-words{align-self:start}
+  .sy-acts{flex-direction:row;align-items:center;gap:24px}
+  .sy-acts .mk-btn{min-width:220px}
+  .sy-art{margin-top:0;padding-top:0;align-self:end;justify-content:flex-end;padding-right:clamp(0px,3vw,40px)}
+  .sy-strip{display:none}
+}
+
+/* The drawing, cropped to its ink box so its ink bottom is the floor (RULE-07), sized by height, with the
+   public site's line weight: 2.4px on a phone, 3px from 768 (stroke-width is in the drawing's own units). */
+.sy-art svg{display:block;overflow:visible;
+  height:calc(var(--hp) * 1px);width:calc(var(--hp) * var(--bw) / var(--bh) * 1px);stroke-width:calc(2.4 * var(--bh) / var(--hp))}
+@media (min-width:768px){
+  .sy-art svg{height:calc(var(--hd) * 1px);width:calc(var(--hd) * var(--bw) / var(--bh) * 1px);stroke-width:calc(3 * var(--bh) / var(--hd))}
+}
+
+/* "Try again" while the retry runs: the same ink pill and size, the label changes. Nothing fades, nothing
+   spins (the app's launch picture waits while anything spins). Both labels share one grid cell. */
+.sy-try{display:inline-grid}
+.sy-try > span{grid-area:1 / 1}
+.sy-try > [aria-hidden="true"]{visibility:hidden}
+.sy-acts .mk-btn.sy-trying{background:var(--ink);color:var(--yellow)}
+
+/* Pages with no members shell around them (the public 404 and error, maintenance): the kit's screen, flowing
+   under the public header from the root layout (or a bare wordmark bar). */
+.sy-standalone{flex:1 0 auto}
+.sy-bare-bar{height:56px;border-bottom:1.5px solid var(--ink)}
+.sy-bare-bar .sy-bare-in{display:flex;align-items:center;height:54px}
+.mk-screen.mk-app .sy-bare-bar{display:none}
+.sy-wm-row{display:flex;align-items:center;height:30px;margin-bottom:22px}
+.sy-wm-row img{height:30px;width:auto}
+
+/* Loading footprints (r2b section 8): You and the event page. Shapes only where data goes. */
+.sy-load-main{padding-bottom:28px}
+.sy-load-row{display:flex;gap:20px;align-items:center}
+.sy-load-grow{flex:1;min-width:0}
+.sy-load-kv{display:flex;flex-direction:column;justify-content:center;gap:10px;min-height:76px;border-bottom:1.5px solid var(--ink)}
+.sy-load-rows{border-top:1.5px solid var(--ink);margin-top:14px}
+.sy-ev-wrap{padding-top:20px}
+.mk-screen.mk-app .sy-ev-wrap{padding-top:12px}
+.sy-ev-hero{height:208px;border-radius:20px;margin-top:12px}
+@media (min-width:768px){ .sy-ev-wrap{padding-top:48px} .sy-ev-hero{height:360px} }
+/* the event page's fixed price and booking bar, as shapes (phones only, like the real bar) */
+.sy-ev-bar-space{flex:none;height:calc(77px + var(--safe-bottom))}
+.sy-ev-bar{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;align-items:center;justify-content:space-between;gap:16px;
+  padding:12px var(--gutter) calc(var(--safe-bottom) + 6px);background-color:var(--yellow);border-top:3px solid var(--ink)}
+.sy-ev-pill{flex:none;width:176px;height:56px}
+@media (max-width:359px){ .sy-ev-pill{width:148px} }
+@media (min-width:768px){ .sy-ev-bar,.sy-ev-bar-space{display:none} }
+
+/* A public 404 or error inside the app (no public header there): the head clears the status area, as the
+   title blocks of the members pages do. <html data-native-app> is set before the first paint (app/layout.tsx). */
+@media (max-width:767px){ html[data-native-app] .sy-standalone.mk-web .mk-head{padding-top:calc(var(--safe-top) + 10px)} }
