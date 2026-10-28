@@ -109,10 +109,10 @@ export type AccountDeletedData = {
   /** True when the member hosted Open Invite plans (Phase B): adds "Plans you were hosting are cancelled…". Default false. */
   hostedPlans?: boolean;
   /**
-   * Who deleted it. "member" (the default): Delete my account, "because you asked us to". "club": the admin's
-   * Delete member (the same deleteAccount path), so the email does not say the member asked.
+   * True when the club deleted it (the admin's Delete member, the same deleteAccount path): the email does not
+   * say the member asked. Default false: Delete my account, "because you asked us to".
    */
-  by?: "member" | "club";
+  byClub?: boolean;
 };
 
 // ---------------------------------------------------------------- 3. membership

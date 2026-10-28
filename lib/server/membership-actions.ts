@@ -306,7 +306,7 @@ export async function deleteAccount(memberId: string, options: { by?: "member" |
     await sendEmail({
       template: "account-deleted",
       to: member.email,
-      data: options.by === "club" ? { by: "club" } : {},
+      data: options.by === "club" ? { byClub: true } : {},
       dedupeKey: `account-deleted:${memberId}`,
       refs: { memberId },
     });

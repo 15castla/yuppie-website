@@ -107,6 +107,8 @@ export function EventPageView({
   // Paid, but not booked yet, also after a reload (the server found the payment: data.paidNotBooked): the bar
   // says Processing with the message above it, and there is no Book button, so it cannot be paid twice.
   const startUnbooked = start?.paidNotBooked ?? Boolean(data.paidNotBooked);
+  // What was taken: the payment's own amount after a reload (the event's price may have changed since).
+  const takenPence = data.paidNotBooked?.amountPence ?? event.pricePence;
   const [busy, setBusy] = useState<"booking" | null>(start?.busy ?? null);
   const [pending, setPending] = useState(start?.pending ?? startUnbooked);
   const [unbooked, setUnbooked] = useState(startUnbooked);
@@ -403,7 +405,7 @@ export function EventPageView({
   } else if (bar === "processing" && unbooked) {
     note = (
       <HeroNote icon="circle-alert">
-        <b>Paid, but not booked yet.</b> We took your {gbp(event.pricePence)} but couldn’t confirm your booking. Email us and we’ll sort it
+        <b>Paid, but not booked yet.</b> We took your {gbp(takenPence)} but couldn’t confirm your booking. Email us and we’ll sort it
         out. If we can’t book you in, we’ll refund you.
       </HeroNote>
     );

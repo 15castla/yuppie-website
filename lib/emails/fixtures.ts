@@ -40,7 +40,7 @@ export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
   "account-deleted": [
     { id: "design", label: "As drawn (hosted plans)", data: { hostedPlans: true } },
     { id: "no-plans", label: "No hosted plans (Phase A)", data: {} },
-    { id: "by-club", label: "Deleted by the club (admin Delete member)", data: { by: "club" } },
+    { id: "by-club", label: "Deleted by the club (admin Delete member)", data: { byClub: true } },
   ],
   "cancel-requested": [
     {

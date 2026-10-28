@@ -134,14 +134,14 @@ const accountDeleted: Build<"account-deleted"> = (d: AccountDeletedData) => ({
   label: "Account",
   h1: { a: "Your account", b: "is deleted.", br: true },
   intro: [
-    `${d.by === "club" ? "We’ve deleted your Club Yuppie account, with your details, photo and messages." : "We’ve deleted your details, photo and messages."} Your membership ended today, so there’s no refund for the rest of this month. Nothing more will be taken.`,
+    `${d.byClub ? "We’ve deleted your Club Yuppie account, with your details, photo and messages." : "We’ve deleted your details, photo and messages."} Your membership ended today, so there’s no refund for the rest of this month. Nothing more will be taken.`,
     // States: only a member who hosted plans sees the second paragraph.
     ...(d.hostedPlans ? ["Plans you were hosting are cancelled, and anyone who paid is refunded."] : []),
   ],
   below: "We keep only what the law asks us to, such as payment records.",
   foot: "member",
   why:
-    d.by === "club"
+    d.byClub
       ? "You’re getting this because Club Yuppie deleted your account."
       : "You’re getting this because you asked us to delete your Club Yuppie account.",
   always: "We always send account emails.",

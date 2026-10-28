@@ -19,5 +19,7 @@ export function isSessionEnded(value: unknown): value is SessionEnded {
 
 /** The page's half: off to Log in with the notice. */
 export function goToSessionEnded(): void {
+  // A full page load on purpose (see the top of this file): nothing of the dead session stays in the page.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
   window.location.assign(SESSION_ENDED_LOGIN);
 }

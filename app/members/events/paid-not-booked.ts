@@ -17,7 +17,8 @@ import { stripe } from "@/lib/stripe";
 
 const ALERT_KEY = "admin-alert:paid-not-booked:";
 
-export async function paidNotBookedFor(memberId: string, eventId: string): Promise<{ paymentIntentId: string } | null> {
+/** amountPence: what was taken (null when Stripe could not be asked; the page then names the event's price). */
+export async function paidNotBookedFor(memberId: string, eventId: string): Promise<{ paymentIntentId: string; amountPence: number | null } | null> {
   const db = createAdminSupabaseClient();
   const { data: rows, error } = await db
     .from("message_log")
@@ -42,6 +43,7 @@ export async function paidNotBookedFor(memberId: string, eventId: string): Promi
       .eq("stripe_payment_intent_id", paymentIntentId);
     if (count) continue;
 
+    let amountPence: number | null = null;
     try {
       const pi = await stripe.paymentIntents.retrieve(paymentIntentId);
       if (pi.status !== "succeeded" || pi.metadata?.member_id !== memberId || pi.metadata?.event_id !== eventId) continue;
@@ -49,12 +51,13 @@ export async function paidNotBookedFor(memberId: string, eventId: string): Promi
       const refunded = refunds.data
         .filter((refund) => refund.status === "succeeded" || refund.status === "pending")
         .reduce((total, refund) => total + refund.amount, 0);
-      if (refunded >= (pi.amount_received || pi.amount)) continue;
+      amountPence = pi.amount_received || pi.amount;
+      if (refunded >= amountPence) continue;
     } catch (err) {
       // Stripe could not say: keep the member from paying twice.
       console.error(`paidNotBookedFor: could not check payment ${paymentIntentId}:`, err);
     }
-    return { paymentIntentId };
+    return { paymentIntentId, amountPence };
   }
   return null;
 }

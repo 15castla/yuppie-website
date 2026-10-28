@@ -77,7 +77,7 @@ export type EventPageData = {
    * A payment of this member's for this event went through but never became a booking, and is not refunded
    * (app/members/events/paid-not-booked.ts): the page opens in "Paid, but not booked yet." with no Book button.
    */
-  paidNotBooked?: boolean;
+  paidNotBooked?: { amountPence: number } | null;
 };
 
 /** What the page is, before anything the member does on it. */

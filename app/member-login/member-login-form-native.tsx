@@ -45,8 +45,8 @@ const MESSAGES: Record<SendErrorKey | VerifyErrorKey, string> = {
   "not-found": "We don’t recognise that email as a Club Yuppie member. Check for typos and try again.",
   rate: "Too many attempts. Please wait a few minutes and try again.",
   network: "We couldn’t reach Club Yuppie. Check your connection and try again.",
-  // Auth answered with something unexpected (a 5xx): the network words, the nearest designed line (r2b: never
-  // "Something went wrong").
+  // Auth answered with something unexpected (a 5xx): the network words, the nearest designed line (r2b: no
+  // generic error line).
   generic: "We couldn’t reach Club Yuppie. Check your connection and try again.",
   "code-required": "Enter the 6-digit code from your email.",
   wrong: "That code isn’t right. Check the email and try again.",

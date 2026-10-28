@@ -54,7 +54,7 @@ export default async function EventDetailPage({
     !event.cancelled_at && !started && (event.price_pence ?? 0) > 0 ? paidNotBookedFor(member.id, event.id) : Promise.resolve(null),
   ]);
 
-  const paidNotBooked = !myBooking && Boolean(paidAlready);
+  const paidNotBooked = !myBooking && paidAlready ? { amountPence: paidAlready.amountPence ?? event.price_pence ?? 0 } : null;
 
   const freeUntil = freeCancelUntil(event.start_time);
   const clubCancelled: ClubCancelledBooking | null = cancelledMine.data
