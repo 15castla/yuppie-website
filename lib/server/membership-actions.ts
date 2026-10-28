@@ -88,7 +88,7 @@ export async function requestCancel(
       } else {
         const sub = await stripe.subscriptions.update(
           member.stripe_subscription_id,
-          { cancel_at_period_end: true },
+          { cancel_at_period_end: true, proration_behavior: "none" },
           { idempotencyKey: `sub-cancel-at-period-end-${member.stripe_subscription_id}-${version(member)}` },
         );
         endsAt = cancelAtOf(sub);
@@ -183,18 +183,19 @@ export async function keepMembership(memberId: string): Promise<ActionResult> {
       try {
         // Both ways a subscription can be set to end go (QA3-11): cancel at period end, and a cancel_at moment
         // (a cancel made in the payment grace days). Read Stripe first: it takes one of the two per request.
+        // proration_behavior none on every cancel change (N4): no proration is ever created.
         let sub = await stripe.subscriptions.retrieve(member.stripe_subscription_id);
         if (sub.cancel_at_period_end) {
           sub = await stripe.subscriptions.update(
             member.stripe_subscription_id,
-            { cancel_at_period_end: false },
+            { cancel_at_period_end: false, proration_behavior: "none" },
             { idempotencyKey: `sub-keep-${member.stripe_subscription_id}-${version(member)}` },
           );
         }
         if (sub.cancel_at) {
           sub = await stripe.subscriptions.update(
             member.stripe_subscription_id,
-            { cancel_at: "" },
+            { cancel_at: "", proration_behavior: "none" },
             { idempotencyKey: `sub-keep-cancel-at-${member.stripe_subscription_id}-${version(member)}` },
           );
         }
@@ -719,4 +720,27 @@ export async function retryMembershipPayment(memberId: string, paymentMethodId: 
   }
   if (paid.length) await clearMembershipPaymentFailed(memberId);
   return { status: "paid", invoices: paid };
+}
+
+/**
+ * customer.updated with a new default card, for a member whose payment has NOT failed (N1). Subscriptions made
+ * before this release carry their own default_payment_method, which wins over the customer's, so the next
+ * renewal would charge the old card: when the subscription has its own card and it is not the new default,
+ * the new one becomes the subscription's card. A subscription with no card of its own already follows the
+ * customer's default, so it is left alone. Stripe errors throw (the webhook answers 500 and Stripe retries).
+ */
+export async function syncSubscriptionCard(memberId: string, paymentMethodId: string | null): Promise<{ status: "updated" | "no_change" | "not_member" | "no_card"; from?: string | null }> {
+  const member = await loadMember(memberId);
+  if (!member || member.deleted_at || member.membership_status === "cancelled" || !member.stripe_subscription_id) return { status: "not_member" };
+  if (!paymentMethodId) return { status: "no_card" };
+  const sub = await stripe.subscriptions.retrieve(member.stripe_subscription_id);
+  if (sub.status === "canceled" || sub.status === "incomplete_expired") return { status: "not_member" };
+  const own = typeof sub.default_payment_method === "string" ? sub.default_payment_method : sub.default_payment_method?.id ?? null;
+  if (!own || own === paymentMethodId) return { status: "no_change", from: own };
+  await stripe.subscriptions.update(
+    sub.id,
+    { default_payment_method: paymentMethodId },
+    { idempotencyKey: `sub-default-pm-${sub.id}-${paymentMethodId}` },
+  );
+  return { status: "updated", from: own };
 }

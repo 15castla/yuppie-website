@@ -313,6 +313,37 @@ const bookingCancelled: Build<"booking-cancelled"> = (d: BookingCancelledData, o
     always: "We always send payment emails.",
     q: "Questions about a payment?",
   };
+  // Not drawn (QA1-12): a payment that went through after booking stopped being possible. Nothing was booked,
+  // and it is refunded in full. The drawn paid layout, with its own words.
+  if (d.reason === "not_booked" && r) {
+    const why: Record<NonNullable<BookingCancelledData["notBookedWhy"]>, string> = {
+      event_cancelled: "the event was cancelled",
+      event_started: "the event had started",
+      event_gone: "the event was taken off the list",
+      membership_paused: "your membership was paused",
+      membership_ended: "your membership had ended",
+    };
+    const because = why[d.notBookedWhy ?? "event_cancelled"];
+    return {
+      ...common,
+      subject: `We couldn’t book you in: ${title}, ${start.date}`,
+      pre: `Your ${r.amount} is refunded in full. It usually lands in 5 to 10 working days.`,
+      label: "Not booked",
+      h1: { a: "We couldn’t", b: "book you in.", br: true },
+      intro: [
+        `Your payment for ${title} went through just as ${because}, so we couldn’t book you in. We’ve refunded your ${r.amount} in full. It goes back to the card you paid with and usually lands in 5 to 10 working days, by ${r.arrivesBy}.`,
+      ],
+      blocks: [
+        {
+          kind: "card",
+          rows: [row("Event", title), row("When", at(start)), ...rowIf("To", r.card), row("Date", at(d.cancelled))],
+          total: { label: "Refunded", value: r.amount },
+        },
+      ],
+      below: "Nothing was booked and there’s nothing to pay.",
+      why: "You’re getting this because you paid for a Club Yuppie event.",
+    };
+  }
   if (r) {
     return {
       ...common,

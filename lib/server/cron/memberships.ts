@@ -13,14 +13,18 @@ import "server-only";
 //    stale cancel date instead; if Stripe's cancel date is later, use it.
 // 3. Any ended member who still has a future booking: cancel and refund it
 //    (A-D8), in case an earlier run stopped half way.
+// 4. A member in the payment problem state who was never sent the
+//    payment-failed email (release/reconcile-members.mjs set the grace, or the
+//    webhook's send failed before it was logged): send it now for the open
+//    invoice, with the webhook's dedupe key (C-D12; N3).
 // Each step is idempotent (endMembership and the booking cancels are).
 
 import { stripe } from "@/lib/stripe";
 import { errorMessage, serviceDb, stripeErrorCode } from "../db";
 import { cancelFutureBookingsForMember } from "../bookings";
-import { clearMembershipPaymentFailed, endMembership } from "../membership-actions";
+import { clearMembershipPaymentFailed, endMembership, recordMembershipPaymentFailed } from "../membership-actions";
 import { periodEndSeconds } from "../stripe/period";
-import { currentSubscription, stripeCancelAt, subscriptionEnded, subscriptionPaidUp } from "../stripe/subscription";
+import { currentSubscription, idOf, latestInvoiceOf, stripeCancelAt, subscriptionEnded, subscriptionPaidUp } from "../stripe/subscription";
 
 export type MembershipsSummary = {
   graceEnded: string[];
@@ -32,12 +36,14 @@ export type MembershipsSummary = {
   /** Cancel date passed here, but Stripe ends it later: that date was saved. */
   cancelMoved: string[];
   bookingsSwept: number;
+  /** Payment problem on file but no payment-failed email sent: sent now (N3). */
+  paymentEmails: string[];
   errors: { memberId: string; error: string }[];
 };
 
 export async function runMemberships(now: Date = new Date()): Promise<MembershipsSummary> {
   const db = serviceDb();
-  const summary: MembershipsSummary = { graceEnded: [], graceCleared: [], cancelDatePassed: [], cancelCleared: [], cancelMoved: [], bookingsSwept: 0, errors: [] };
+  const summary: MembershipsSummary = { graceEnded: [], graceCleared: [], cancelDatePassed: [], cancelCleared: [], cancelMoved: [], bookingsSwept: 0, paymentEmails: [], errors: [] };
   const nowIso = now.toISOString();
 
   // 1. Grace ran out.
@@ -132,6 +138,42 @@ export async function runMemberships(now: Date = new Date()): Promise<Membership
       summary.bookingsSwept += swept.length;
     } catch (err) {
       summary.errors.push({ memberId, error: errorMessage(err) });
+    }
+  }
+
+  // 4. In the payment problem state and never told.
+  const { data: problems, error: problemError } = await db
+    .from("members")
+    .select("id, stripe_subscription_id, payment_failed_at")
+    .is("ended_at", null)
+    .is("deleted_at", null)
+    .not("payment_failed_at", "is", null)
+    .not("stripe_subscription_id", "is", null)
+    .gt("grace_until", nowIso);
+  if (problemError) throw problemError;
+  for (const m of problems ?? []) {
+    try {
+      const since = new Date(new Date(m.payment_failed_at as string).getTime() - 60 * 60 * 1000).toISOString();
+      const { count, error } = await db
+        .from("message_log")
+        .select("id", { count: "exact", head: true })
+        .eq("member_id", m.id)
+        .eq("template", "payment-failed")
+        .gte("created_at", since);
+      if (error) throw error;
+      if (count) continue;
+      const sub = await currentSubscription(m.stripe_subscription_id as string);
+      const invoice = sub && !subscriptionEnded(sub) ? await latestInvoiceOf(sub) : null;
+      if (!invoice?.id || invoice.status !== "open") continue;
+      const sent = await recordMembershipPaymentFailed(m.id, {
+        id: invoice.id,
+        amount: invoice.amount_due ?? invoice.total ?? 0,
+        paymentMethodId: idOf((invoice.default_payment_method as string | { id: string } | null) ?? null),
+        failedAt: m.payment_failed_at,
+      });
+      if (sent.emailed) summary.paymentEmails.push(m.id);
+    } catch (err) {
+      summary.errors.push({ memberId: m.id, error: errorMessage(err) });
     }
   }
   return summary;

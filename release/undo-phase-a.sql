@@ -1,15 +1,87 @@
--- UNDO for supabase/migrations/20261028090000_members_core_backend.sql, back to the live layout of 27 Oct 2026
--- (live-schema/supabase-layout-2026-10-27.md). Read release/live-migration-notes.md first.
+-- UNDO for the three Phase A migrations, back to the live layout of 27 Oct 2026
+-- (live-schema/supabase-layout-2026-10-27.md), in one transaction:
+--   20261028090200_admin_fixes.sql, 20261028090100_backend_fixes.sql, 20261028090000_members_core_backend.sql
+-- (newest first). Read release/live-migration-notes.md ("Undo") first. Proved on a live-like copy: the schema
+-- after the three migrations and this file is the live layout exactly (pg_dump -s, no difference).
 --
 -- It deletes data: the new tables (message_log, stripe_events, admin_audit, event_addresses) and the new
--- columns (cancel dates, refund records, reminders, addresses). Export them first (see the notes).
+-- columns (cancel dates, refund records and retries, reminders, addresses, change emails). Export them first.
 -- To put the old unique rule back it also deletes cancelled booking rows that share a member and event with
 -- another row (a member who cancelled and booked again keeps only the newer row).
--- Kept on purpose: approve_application_and_create_member stays service-role only (re-granting it to anon and
--- authenticated would reopen a hole).
+-- Exactly as live, so these come back too: approve_application_and_create_member executable by anon and
+-- authenticated (it runs as the caller, so row security still applies), the "Anyone can apply" policy and the
+-- INSERT grant on applications for anon and authenticated (QA3-12's hole, reopened).
 -- Run it with the previous release's code deployed (or about to be): this code needs the new columns.
 begin;
 
+-- ======================================================================== 20261028090200_admin_fixes.sql
+alter table public.events drop column if exists change_emailed_at;
+-- The live definition (no "not pending" check), and its live grants.
+create or replace function public.approve_application_and_create_member(p_application_id uuid, p_auth_user_id uuid, p_reviewed_by text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+declare
+  v_application applications%rowtype;
+begin
+  select * into v_application
+  from applications
+  where id = p_application_id
+  for update;
+
+  if not found then
+    raise exception 'Application % not found', p_application_id;
+  end if;
+
+  if v_application.stripe_subscription_id is null then
+    raise exception 'Application % has no recorded Stripe subscription, refusing to create a member without a confirmed charge', p_application_id;
+  end if;
+
+  insert into members (
+    id,
+    email,
+    full_name,
+    phone,
+    employer,
+    role_title,
+    membership_status,
+    stripe_customer_id,
+    stripe_subscription_id
+  )
+  values (
+    p_auth_user_id,
+    v_application.email,
+    v_application.full_name,
+    v_application.phone,
+    v_application.employer,
+    v_application.role_title,
+    'active',
+    v_application.stripe_customer_id,
+    v_application.stripe_subscription_id
+  );
+
+  update applications
+  set status = 'approved',
+      reviewed_at = now(),
+      reviewed_by = p_reviewed_by,
+      payment_error = null
+  where id = p_application_id;
+end;
+$$;
+-- Revoked from everyone first, then granted in live's order, so the privilege list reads exactly as live's.
+revoke all on function public.approve_application_and_create_member(uuid, uuid, text) from public, anon, authenticated, service_role;
+grant all on function public.approve_application_and_create_member(uuid, uuid, text) to anon;
+grant all on function public.approve_application_and_create_member(uuid, uuid, text) to authenticated;
+grant all on function public.approve_application_and_create_member(uuid, uuid, text) to service_role;
+
+-- ======================================================================== 20261028090100_backend_fixes.sql
+drop index if exists public.bookings_refund_due_idx;
+alter table public.bookings drop constraint if exists bookings_refund_attempts_check;
+alter table public.bookings drop column if exists refund_attempts, drop column if exists refund_attempted_at;
+drop policy if exists "Anyone can apply" on public.applications;
+create policy "Anyone can apply" on public.applications for insert to anon, authenticated with check (true);
+grant insert on public.applications to anon, authenticated;
+
+-- ======================================================================== 20261028090000_members_core_backend.sql
 -- ---- policies back exactly as live
 do $$
 declare p record;

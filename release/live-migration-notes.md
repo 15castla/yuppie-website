@@ -15,8 +15,9 @@ Checked against the live layout read on 27 Oct 2026 (`live-schema/supabase-layou
   `tests/e2e/phase-a/live-layout-check.mjs` compares the two (40 checks; it rebuilds the database).
 - On that layout the Phase A migration applies, and applies again on top of itself
   (`tests/e2e/phase-a/00-migration.mjs`), and every Phase A script passes on it (`run-all.mjs`).
-- `release/undo-members-core-backend.sql` takes the migrated database back to the live layout exactly
-  (the same 40-check comparison), and works with booking rows present.
+- `release/undo-phase-a.sql` takes the database with all three Phase A migrations back to the live layout
+  exactly: on a live-like copy (QA3's `setup-qa3-db.sh`, another name), `pg_dump -s` before the migrations and
+  after the migrations plus the undo are identical, with booking rows present (see "Undo").
 
 ## What is different on live from the local stack
 
@@ -68,6 +69,8 @@ the service role).
 
 1. **Back up.** Note the time for point-in-time recovery, or take a backup in the dashboard. Export what the
    undo would lose if it is ever needed (nothing yet, before the release).
+(Superseded by **Release order (fix round)** at the end, which applies all three files in one transaction.)
+
 2. **Apply the migration**, in the SQL editor (paste the whole file and run it) or:
    `psql "$LIVE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261028090000_members_core_backend.sql`.
    It runs in a few seconds (four small tables).
@@ -131,18 +134,24 @@ And from the outside: with a member's own token, `PATCH /rest/v1/members?id=eq.<
 
 ## Undo
 
-`release/undo-members-core-backend.sql` returns the layout to the live dump exactly (proved locally). It
-deletes data: the four new tables and every new column (cancel dates, refunds, reminders, exact addresses,
-the message and audit logs), and, to restore the old unique rule, a member's cancelled booking rows where
-they booked the same event again. It keeps `approve_application_and_create_member` server-only and leaves
-`events.tier` optional if an event without a tier exists by then.
+`release/undo-phase-a.sql` undoes all three migrations (090200, then 090100, then the core file) in one
+transaction and returns the layout to the live dump exactly. Proved on a live-like copy: `pg_dump -s` of the
+copy before the migrations and after the three migrations plus the undo show no difference, with the live-like
+rows present and kept. It deletes data: the four new tables and every new column (cancel dates, refunds and
+their retries, reminders, exact addresses, change emails, the message and audit logs), and, to restore the old
+unique rule, a member's cancelled booking rows where they booked the same event again. Being exact, it also
+brings back what live had: `approve_application_and_create_member` without the "not pending" check and
+executable by anon and authenticated (it runs as the caller, so row security still applies), and the "Anyone
+can apply" policy with the INSERT grant on `applications` (QA3-12's hole). It leaves `events.tier` optional if
+an event without a tier exists by then.
 
 1. Export first, for example in the SQL editor:
    `select * from message_log;`, `select * from admin_audit;`, `select * from event_addresses;`,
    `select id, cancel_at, payment_failed_at, grace_until, ended_at, ended_reason, deleted_at from members;`,
    `select * from bookings;` (download each as CSV).
 2. Redeploy the previous release first (this code needs the new columns; the previous code works on either).
-3. Run the undo file as `postgres`, as one transaction (it has its own `begin` and `commit`).
+3. Run the undo file as `postgres` on the direct connection (port 5432):
+   `psql "$LIVE_DB_URL" -v ON_ERROR_STOP=1 -f release/undo-phase-a.sql` (it has its own `begin` and `commit`).
 
 ## The fix round's migration: `20261028090100_backend_fixes.sql`
 
@@ -155,8 +164,8 @@ they booked the same event again. It keeps `approve_application_and_create_membe
   role; nothing else inserts applications with a public key (the native app does not). Proved: anon POST
   `/rest/v1/applications` answers 401, and applying through `/apply` still works (`13-fixes-f1.mjs`).
 - Proved on a separate database built like live (`baseline.sql`, the 16 earlier migrations, live-like rows:
-  QA3's `setup-qa3-db.sh` with another name): the core file and this one apply in one transaction with
-  `set lock_timeout = '5s'`, and this one applies again on top of itself.
+  QA3's `setup-qa3-db.sh` with another name): the three files apply in one transaction exactly as step 4 of
+  the release order runs them, and this one applies again on top of itself.
 
 Check after applying:
 
@@ -189,10 +198,13 @@ keys in the environment (never in a file or a chat).
      `supabase/templates/recovery.html`, subject "Reset your Club Yuppie admin password".
    - URL configuration: Site URL **https://clubyuppie.com**.
    - Providers, Email: **Secure email change** checked (`double_confirm_changes = true` in config.toml).
-4. **Apply the three migrations in one transaction, with a lock timeout (checklist 7)**, as `postgres`:
+4. **Apply the three migrations in one transaction, with a lock timeout (checklist 7)**, as `postgres`, on the
+   **direct connection** (Dashboard, Connect, "Direct connection": host `db.tbcpzmzfxtbaumlcnmdf.supabase.co`,
+   **port 5432**), not the transaction pooler (port 6543). `begin;`, then `set local lock_timeout = '5s';`
+   (local: it lasts for this transaction only), then the three files in order, then `commit;`:
 
    ```bash
-   ( echo "set lock_timeout = '5s';"; echo "begin;";
+   ( echo "begin;"; echo "set local lock_timeout = '5s';";
      cat supabase/migrations/20261028090000_members_core_backend.sql \
          supabase/migrations/20261028090100_backend_fixes.sql \
          supabase/migrations/20261028090200_admin_fixes.sql;
@@ -201,27 +213,36 @@ keys in the environment (never in a file or a chat).
 
    With `ON_ERROR_STOP` any error stops psql before `commit`, so nothing is half applied; a lock it cannot get
    in 5 seconds (a busy table) fails the whole thing cleanly: wait a minute and run it again.
-5. **Reconcile the members with Stripe (checklist 2)**, before members use the new pages:
-   `node release/reconcile-members.mjs` (dry run; read every line), then
-   `node release/reconcile-members.mjs --apply`. Live has 4 active members and 3 active subscriptions: expect
-   one "ended" (a cancel made with the old code, whose period ran out) and possibly a "cancel_at" (a cancel
-   still running). It reports anything it does not change (a pause that differs).
-6. **Deploy** straight after 4 and 5 (the new code reads the new columns).
+5. **Deploy** straight after step 4 (the new code reads the new columns).
+6. **Reconcile the members with Stripe (checklist 2)**, straight after the deploy, before members use the new
+   pages: `node release/reconcile-members.mjs` (dry run; read every line), then
+   `node release/reconcile-members.mjs --apply --site https://clubyuppie.com` (with `CRON_SECRET` in the
+   environment). Live has 4 active members and 3 active subscriptions: expect one "ended" (a cancel made with
+   the old code, whose period ran out) and possibly a "cancel_at" (a cancel still running). It lists what it
+   does not change (a pause that differs, and every member with no Stripe subscription: check those by hand).
+   With `--site` it then runs the memberships job, which sends the payment-failed email to anyone it put in the
+   payment problem state (C-D12, the webhook's dedupe key) and cancels and refunds the future bookings of anyone
+   it ended (A-D8).
 7. **Backfill the booking amounts (checklist 1)**, after the deploy:
    `node release/backfill-booking-amounts.mjs` (dry run), then `--apply`. The two live bookings were made by the
    old code, which stored no amount: each gets what Stripe received, and any refund already made in Stripe is
-   recorded. (The new code reads Stripe for such a booking anyway when it refunds one; the backfill makes the
-   admin's lists, the booking card and the emails right.)
+   recorded: in full, the booking's refund is done; in part (say £5 of £15, by hand), the part is recorded and
+   the booking stays refundable for the rest. (The new code reads Stripe for such a booking anyway when it
+   refunds one; the backfill makes the admin's lists, the booking card and the emails right.)
 8. **Stripe webhook events, after the deploy (checklist 8)**: `release/stripe-setup.md` section 1 (nine events).
 9. **Schedule the jobs (checklist 4)**: `psql "$LIVE_DB_URL" -v ON_ERROR_STOP=1 -v cron_secret="$CRON_SECRET" -f
    release/schedule-cron.sql` (pg_cron and pg_net, the secret in Vault; reminders, memberships and refunds every
-   15 minutes on different minutes). Then run `GET /api/cron/memberships` once by hand: it cancels and refunds
-   the future bookings of anyone step 5 ended (A-D8). Checks are at the end of the file.
-10. **Stop the subscription-level default card (checklist 3)**: nothing to run. The code no longer sets one on
-    new subscriptions, and the webhook handles members who already have one (`release/stripe-setup.md`).
+   15 minutes on different minutes). Checks are at the end of the file.
+10. **Stop the subscription-level default card (checklist 3)**: nothing has to run. The code no longer sets
+    one on new subscriptions, and `customer.updated` moves a new default card onto a subscription that has a
+    card of its own (members approved before this release), whatever the member's state
+    (`release/stripe-setup.md`). **Optional**, once the code handles it: `node
+    release/clear-subscription-cards.mjs` (dry run), then `--apply`, removes the card from the existing
+    subscriptions so the customer's default applies (it makes that card the customer's default first if the
+    customer has none, and leaves alone, and reports, a subscription whose card differs from the customer's).
 
-What was tested locally and what was not: the migrations (above); both scripts against the local stack and the
-Stripe fake (`13-fixes-f1.mjs`: dry run, apply, run again); `schedule-cron.sql` on a scratch database with
+What was tested locally and what was not: the migrations and the undo (above); the three scripts against the
+local stack and the Stripe fake (`13-fixes-f1.mjs`: dry run, apply, run again); `schedule-cron.sql` on a scratch database with
 stand-ins for `cron.schedule`, Vault and `net.http_get` (pg_cron, pg_net and Vault are not available locally):
 it runs twice cleanly, makes three jobs with the right schedules, and each job's command, run, asks for the
 right URL with a bearer header that the site accepts (200 from each job on a local build). Not tested: the real

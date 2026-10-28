@@ -7,13 +7,16 @@
 // and release/reconcile-members.mjs. Test people are f1.t-...@example.com; the admin is the seeded f1. admin.
 process.env.PHASE_A_TAG = 'f1.';
 import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import {
   BASE, WEBHOOK, ANON, REST, action, adminSession, cron, done, eq, exec, fakeInvoiceFailed, fakePay, fakeRefundMode, fakeState,
   fakesMark, fakesSince, fd, insertBooking, makeBooking, makeEvent, makeMember, memberSession, messages, ok, page,
-  postWebhook, q, sleep, sql, sql1, stripe, stripeEvent, svc, waitFor,
+  postWebhook, q, rand, sleep, sql, sql1, stripe, stripeEvent, svc, waitFor,
 } from './lib.mjs';
 
+// One run's own name part, so the release scripts' --only-email-prefix sees only this run's people.
+const RUN = rand();
 const ROOT = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../../..');
 const admin = await adminSession('f1.');
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -38,6 +41,7 @@ async function legacyPaidBooking(m, ev) {
   return { id: data.id, pi, amount: data.amount_pence };
 }
 const openInvoiceOf = async (sub) => (await stripe('GET', `invoices?subscription=${sub}&status=open`)).json.data[0];
+const require_ = (file) => fs.readFileSync(file, 'utf8');
 const runRelease = (script, ...args) => spawnSync(process.execPath, [path.join(ROOT, 'release', script), ...args], { cwd: ROOT, encoding: 'utf8', env: process.env, timeout: 120000 });
 
 // ================================================================ QA3-01 legacy bookings (amount_pence 0, real payment)
@@ -187,7 +191,7 @@ const runRelease = (script, ...args) => spawnSync(process.execPath, [path.join(R
   const markK = fakesMark();
   eq((await action('you.keepMyMembership', [], s)).result, { ok: true }, 'QA3-11 Keep my membership: ok');
   const keep = stripeWrites(markK, `/v1/subscriptions/${m.subscription}`);
-  eq(keep.map((c) => JSON.stringify(c.body)), ['{"cancel_at":""}'], 'QA3-11 Keep clears Stripe’s cancel_at (not only cancel_at_period_end)');
+  eq(keep.map((c) => JSON.stringify(c.body)), ['{"cancel_at":"","proration_behavior":"none"}'], 'QA3-11 Keep clears Stripe’s cancel_at (not only cancel_at_period_end); N4: with proration_behavior none');
   const after = (await stripe('GET', `subscriptions/${m.subscription}`)).json;
   eq([after.cancel_at, after.cancel_at_period_end, memberRow(m.id).cancel_at, Boolean(memberRow(m.id).payment_failed_at)], [null, false, null, true], 'QA3-11 nothing set to cancel; back to the payment problem');
 }
@@ -354,6 +358,9 @@ for (const delay of [0, 20]) {
     eq([pageResult.booked, pageResult.reason, pageResult.refunded], [false, 'paid_not_booked', true], `QA3-09 event ${label} while paying: not booked, refunded`);
     ok(refundPosts(mark, pi).every((c) => c.idem === `refund-unbooked-${pi}`) && refundPosts(mark, pi).length >= 1, `QA3-09 (${label}) refund-unbooked-<pi>`);
     eq(Object.values((await fakeState()).refunds).filter((x) => x.payment_intent === pi).map((x) => x.amount), [2100], `QA3-09 (${label}) one refund of £21 (page and webhook)`);
+    await waitFor(() => messages(`dedupe_key = ${q(`payment-not-booked:${pi}`)} and status = 'sent' and member_id = ${q(m.id)}`).length === 1, `QA1-12 (${label}) the member is emailed, once for the payment`);
+    const told = (await mailTo(m.email)).filter((x) => (x.subject ?? '').startsWith('We couldn’t book you in:') && (x.text ?? '').includes(ev.title));
+    ok(told.length === 1 && told[0].text.includes('refunded your £21 in full') && told[0].text.includes('5 to 10 working days') && told[0].text.includes(label === 'cancelled' ? 'the event was cancelled' : 'the event had started'), `QA1-12 (${label}) "We couldn’t book you in", the event, £21 refunded in full, 5 to 10 working days`, told.map((x) => x.text));
     await waitFor(() => messages(`dedupe_key = ${q(`admin-alert:paid-not-booked:${pi}`)} and status = 'sent'`).length === 1, `QA3-09 (${label}) the club is alerted`);
     eq(sql1(`select count(*)::int as n from bookings where stripe_payment_intent_id = ${q(pi)}`).n, 0, `QA3-09 (${label}) no booking`);
   }
@@ -440,14 +447,14 @@ for (const delay of [0, 20]) {
 
 // ================================================================ release/reconcile-members.mjs
 {
-  const gone = await makeMember('recgone');
+  const gone = await makeMember(`rec${RUN}gone`);
   await stripe('DELETE', `subscriptions/${gone.subscription}`);
-  const ending = await makeMember('recending');
+  const ending = await makeMember(`rec${RUN}ending`);
   const subE = (await stripe('POST', `subscriptions/${ending.subscription}`, { cancel_at_period_end: 'true' })).json;
-  const prob = await makeMember('recprob');
+  const prob = await makeMember(`rec${RUN}prob`);
   await fakeInvoiceFailed(prob.subscription);
-  const fine = await makeMember('recfine');
-  const prefix = 'f1.t-rec';
+  const fine = await makeMember(`rec${RUN}fine`);
+  const prefix = `f1.t-rec${RUN}`;
   const dry = runRelease('reconcile-members.mjs', '--only-email-prefix', prefix);
   ok(dry.status === 0 && dry.stdout.includes('DRY RUN') && dry.stdout.includes(gone.email) && dry.stdout.includes('ended:'), 'reconcile dry run: lists the changes', dry.stdout + dry.stderr);
   eq(memberRow(gone.id).membership_status, 'active', 'reconcile dry run changes nothing');
@@ -459,6 +466,116 @@ for (const delay of [0, 20]) {
   ok(dry.stdout.includes(`${fine.email} (${fine.id}): matches Stripe`), 'reconcile: a member who matches is left alone');
   const again = runRelease('reconcile-members.mjs', '--apply', '--only-email-prefix', prefix);
   ok(again.status === 0 && again.stdout.includes('0 changed'), 'reconcile again: nothing to change', again.stdout);
+}
+
+// ================================================================ round 2
+// N1: an ACTIVE member whose subscription has its own card (approved before this release) changes card.
+{
+  const m = await makeMember('n1active');
+  await stripe('POST', `subscriptions/${m.subscription}`, { default_payment_method: 'pm_card_visa_0001' });
+  const newPm = 'pm_card_mastercard_5555';
+  const cust = (await stripe('POST', `customers/${m.customer}`, { invoice_settings: { default_payment_method: newPm } })).json;
+  const mark = fakesMark();
+  const r = await postWebhook(stripeEvent('customer.updated', cust, { previous_attributes: { invoice_settings: { default_payment_method: null } } }));
+  eq([r.status, r.json.detail?.card?.status], [200, 'updated'], 'N1 active member, new default card: the subscription’s own card is replaced');
+  const w = stripeWrites(mark, m.subscription);
+  eq(w.map((c) => [c.body.default_payment_method, c.idem]), [[newPm, `sub-default-pm-${m.subscription}-${newPm}`]], 'N1 one write, with an idempotency key; no invoice paid');
+  eq((await stripe('GET', `subscriptions/${m.subscription}`)).json.default_payment_method, newPm, 'N1 the next renewal charges the new card');
+  const plain = await makeMember('n1plain');
+  const markP = fakesMark();
+  const rp = await postWebhook(stripeEvent('customer.updated', (await stripe('POST', `customers/${plain.customer}`, { invoice_settings: { default_payment_method: newPm } })).json, { previous_attributes: { invoice_settings: { default_payment_method: null } } }));
+  eq([rp.json.detail?.card?.status, stripeWrites(markP, plain.subscription).length], ['no_change', 0], 'N1 a subscription with no card of its own follows the customer already: nothing written');
+
+  // the optional release step
+  const same = await makeMember(`n1rs${RUN}-same`);
+  await stripe('POST', `subscriptions/${same.subscription}`, { default_payment_method: 'pm_card_visa_1001' });
+  await stripe('POST', `customers/${same.customer}`, { invoice_settings: { default_payment_method: 'pm_card_visa_1001' } });
+  const none = await makeMember(`n1rs${RUN}-none`);
+  await stripe('POST', `subscriptions/${none.subscription}`, { default_payment_method: 'pm_card_visa_1002' });
+  const diff = await makeMember(`n1rs${RUN}-diff`);
+  await stripe('POST', `subscriptions/${diff.subscription}`, { default_payment_method: 'pm_card_visa_1003' });
+  await stripe('POST', `customers/${diff.customer}`, { invoice_settings: { default_payment_method: 'pm_card_visa_1004' } });
+  const dry = runRelease('clear-subscription-cards.mjs', '--only-email-prefix', `f1.t-n1rs${RUN}-`);
+  ok(dry.status === 0 && dry.stdout.includes('DRY RUN') && dry.stdout.includes(`make pm_card_visa_1002 the customer's default, then remove pm_card_visa_1002`) && dry.stdout.includes('two different cards'), 'N1 clear-subscription-cards dry run: says what it would do', dry.stdout + dry.stderr);
+  eq((await stripe('GET', `subscriptions/${same.subscription}`)).json.default_payment_method, 'pm_card_visa_1001', 'N1 the dry run changes nothing');
+  const ap = runRelease('clear-subscription-cards.mjs', '--apply', '--only-email-prefix', `f1.t-n1rs${RUN}-`);
+  ok(ap.status === 0 && ap.stdout.includes('2 changed') && ap.stdout.includes('Needs a look'), 'N1 --apply: 2 changed, the differing one reported', ap.stdout + ap.stderr);
+  const after = async (mm) => [(await stripe('GET', `subscriptions/${mm.subscription}`)).json.default_payment_method, (await stripe('GET', `customers/${mm.customer}`)).json.invoice_settings?.default_payment_method ?? null];
+  eq([await after(same), await after(none), await after(diff)], [[null, 'pm_card_visa_1001'], [null, 'pm_card_visa_1002'], ['pm_card_visa_1003', 'pm_card_visa_1004']], 'N1 subscription cards removed (the customer’s default set first where it had none); the differing one left alone');
+  const again = runRelease('clear-subscription-cards.mjs', '--apply', '--only-email-prefix', `f1.t-n1rs${RUN}-`);
+  ok(again.status === 0 && again.stdout.includes('0 changed'), 'N1 run again: nothing to do', again.stdout);
+}
+
+// N2: a part refund made by hand is a part refund.
+{
+  const m = await makeMember('n2part');
+  const s = await memberSession(m.email);
+  const legacy = await legacyPaidBooking(m, await makeEvent('f1n2legacy', { price: 1500 }));
+  await stripe('POST', 'refunds', { payment_intent: legacy.pi, amount: 500 });
+  const bf = runRelease('backfill-booking-amounts.mjs', '--apply', '--only-email-prefix', m.email);
+  ok(bf.status === 0 && bf.stdout.includes('part refund already made in Stripe: £5 of £15') && bf.stdout.includes('stays refundable'), 'N2 backfill: a £5 refund of £15 is a part refund', bf.stdout + bf.stderr);
+  eq((({ amount_pence, refund_status, refund_pence }) => ({ amount_pence, refund_status, refund_pence }))(bookingRow(legacy.id)), { amount_pence: 1500, refund_status: 'none', refund_pence: 500 }, 'N2 the booking stays refundable, £5 recorded');
+  let mark = fakesMark();
+  eq((await action('events.cancelBooking', [legacy.id], s)).result, { ok: true, refund: 'succeeded', refundPence: 1500, late: false }, 'N2 the member cancels: refunded');
+  eq(refundPosts(mark, legacy.pi).map((c) => c.body.amount), ['1000'], 'N2 only the other £10 is refunded');
+  eq([bookingRow(legacy.id).refund_status, bookingRow(legacy.id).refund_pence], ['succeeded', 1500], 'N2 £15 back in all');
+
+  const b = await makeBooking(m, await makeEvent('f1n2charge', { price: 1500 }));
+  const part = (await stripe('POST', 'refunds', { payment_intent: b.pi, amount: 500 })).json;
+  const ch = await postWebhook(stripeEvent('charge.refunded', { id: `ch_f1_${Date.now()}`, object: 'charge', payment_intent: b.pi, amount: 1500, amount_refunded: 500, refunded: false, refunds: { data: [part] } }));
+  eq([ch.status, bookingRow(b.id).refund_status, bookingRow(b.id).refund_pence, bookingRow(b.id).status], [200, 'none', 500, 'confirmed'], 'N2 charge.refunded for £5 of £15: recorded, not a full refund');
+  mark = fakesMark();
+  eq((await action('events.cancelBooking', [b.id], s)).result.refundPence, 1500, 'N2 cancelling it later refunds the rest');
+  eq(refundPosts(mark, b.pi).map((c) => c.body.amount), ['1000'], 'N2 the rest is £10');
+}
+
+// N3: reconcile sends the payment-failed email (through the memberships job) and lists members with no subscription.
+{
+  const due = await makeMember(`rc2${RUN}-due`);
+  const failed = await fakeInvoiceFailed(due.subscription);
+  const nosub = await makeMember(`rc2${RUN}-nosub`, 'active', { stripe_subscription_id: null });
+  const out = runRelease('reconcile-members.mjs', '--apply', '--site', BASE, '--only-email-prefix', `f1.t-rc2${RUN}-`);
+  ok(out.status === 0 && out.stdout.includes('payment problem') && out.stdout.includes('Memberships job on'), 'N3 reconcile --apply --site: the problem set, the job run', out.stdout + out.stderr);
+  ok(out.stdout.includes('No Stripe subscription (1') && out.stdout.includes(`${nosub.email} (${nosub.id}): active`), 'N3 the member with no subscription is listed', out.stdout);
+  eq(memberRow(nosub.id).membership_status, 'active', 'N3 and left as it is');
+  await waitFor(() => messages(`member_id = ${q(due.id)} and template = 'payment-failed' and dedupe_key = ${q(`payment-failed:${failed.invoice.id}`)} and status = 'sent'`).length === 1, 'N3 the payment-failed email is sent, with the webhook’s dedupe key');
+  const g = memberRow(due.id).grace_until;
+  ok((await mailTo(due.email)).some((e) => (e.text ?? '').includes(`by ${dayMonth(g)}`) || (e.text ?? '').includes(dayDate(g))), 'N3 it gives the grace date');
+  await postWebhook(stripeEvent('invoice.payment_failed', failed.invoice));
+  await cron('memberships');
+  await sleep(800);
+  eq(messages(`member_id = ${q(due.id)} and template = 'payment-failed'`).length, 1, 'N3 Stripe’s webhook for the same invoice, and the job again: no second email');
+}
+
+// N4: no proration on any cancel change.
+{
+  const m = await makeMember('n4');
+  const s = await memberSession(m.email);
+  const mark = fakesMark();
+  await action('you.requestCancelMembership', ['x'], s);
+  await action('you.keepMyMembership', [], s);
+  eq(stripeWrites(mark, m.subscription).map((c) => [c.body.cancel_at_period_end, c.body.proration_behavior]), [['true', 'none'], ['false', 'none']], 'N4 cancel at period end and Keep: proration_behavior none');
+}
+
+// N5: one undo for all three migrations, exact (a live-like copy, never the shared database).
+{
+  const setup = spawnSync('bash', ['-c', "sed -e 's/\\bqa3\\b/f1undotest/g' -e 's#/home/claude/build-a/qa/f1undotest/db/#/home/claude/build-a/qa/qa3/db/#' /home/claude/build-a/qa/qa3/db/setup-qa3-db.sh | bash"], { encoding: 'utf8', timeout: 180000 });
+  ok(setup.status === 0, 'N5 setup: a live-like copy', setup.stderr.slice(-500));
+  const P = ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-q', '-v', 'ON_ERROR_STOP=1', '-d', 'f1undotest'];
+  const dump = () => spawnSync('pg_dump', ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-s', '-d', 'f1undotest'], { encoding: 'utf8' }).stdout.split('\n').filter((l) => !/^\\(un)?restrict /.test(l)).join('\n');
+  const before = dump();
+  const M = path.join(ROOT, 'supabase/migrations');
+  const migrate = `begin;\nset local lock_timeout = '5s';\n${['20261028090000_members_core_backend.sql', '20261028090100_backend_fixes.sql', '20261028090200_admin_fixes.sql'].map((f) => require_(path.join(M, f))).join('\n')}\ncommit;\n`;
+  const ap = spawnSync('psql', P, { input: migrate, encoding: 'utf8' });
+  ok(ap.status === 0, 'N5/N6 the three files apply in one transaction (begin; set local lock_timeout; files; commit)', ap.stderr.slice(-500));
+  ok(dump() !== before, 'N5 setup: the layout changed');
+  const un = spawnSync('psql', [...P, '-f', path.join(ROOT, 'release/undo-phase-a.sql')], { encoding: 'utf8' });
+  ok(un.status === 0, 'N5 release/undo-phase-a.sql runs', un.stderr.slice(-500));
+  eq(dump() === before, true, 'N5 the schema afterwards is the live layout exactly (pg_dump -s identical)');
+  spawnSync('psql', ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-q', '-d', 'postgres', '-c', 'drop database if exists f1undotest']);
+  const notes = require_(path.join(ROOT, 'release/live-migration-notes.md'));
+  ok(/echo "begin;"; echo "set local lock_timeout = '5s';"/.test(notes) && notes.includes('port 5432') && notes.includes('not the transaction pooler'), 'N6 the notes: begin; set local lock_timeout; direct connection on 5432');
+  ok(!notes.includes('undo-members-core-backend'), 'N5 the notes name the one undo file');
 }
 
 void BASE; void WEBHOOK;

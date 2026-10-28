@@ -6,15 +6,17 @@
 //   * cancel_at (the day access ends) when Stripe is set to cancel, or clears a cancel date Stripe does not have;
 //   * the payment problem (payment_failed_at now, grace_until the end of the London day 3 days later, C-D12)
 //     when the latest invoice is unpaid after a try, or clears it when Stripe shows the subscription paid up.
-// It reports every change, and anything it leaves alone that needs a look (a pause that differs, a member
-// ended here whose subscription still bills). It sends no emails. After --apply, run the memberships job once
-// (GET /api/cron/memberships): it cancels and refunds the future bookings of anyone ended here (A-D8).
+// It reports every change, anything it leaves alone that needs a look (a pause that differs, a member ended
+// here whose subscription still bills), and every member with no Stripe subscription (listed, never changed).
+// It sends no emails itself. After --apply the memberships job runs (with --site <url>, or by hand: GET
+// /api/cron/memberships): it sends the payment-failed email to anyone put in the payment problem state here
+// (C-D12, the same dedupe key as the webhook's) and cancels and refunds the future bookings of anyone ended (A-D8).
 //
 // Run by Claude Code from the repo root with the live keys in the environment (STRIPE_SECRET_KEY,
 // NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY), after the migration and before members use the new pages:
 //
 //   node release/reconcile-members.mjs            # dry run: prints every change, changes nothing
-//   node release/reconcile-members.mjs --apply    # makes them
+//   node release/reconcile-members.mjs --apply --site https://clubyuppie.com    # makes them, then runs the job
 //
 // Options (for testing): --only-email-prefix <p>. Safe to run again (a second run finds nothing to change).
 import Stripe from 'stripe';
@@ -24,6 +26,11 @@ const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
 const prefixAt = args.indexOf('--only-email-prefix');
 const ONLY_PREFIX = prefixAt >= 0 ? args[prefixAt + 1] : null;
+// --site <url>: after --apply, run the site's memberships job (GET <url>/api/cron/memberships with CRON_SECRET from
+// the environment). It sends the payment-failed email to anyone this put in the payment problem state (C-D12, the
+// webhook's dedupe key) and cancels and refunds the future bookings of anyone it ended (A-D8).
+const siteAt = args.indexOf('--site');
+const SITE = siteAt >= 0 ? args[siteAt + 1]?.replace(/\/+$/, '') : null;
 for (const name of ['STRIPE_SECRET_KEY', 'NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SECRET_KEY']) {
   if (!process.env[name]) {
     console.error(`${name} is not set`);
@@ -133,7 +140,7 @@ for (const m of todo) {
       const paidUp = (sub.status === 'active' || sub.status === 'trialing') && (!invoice || invoice.status === 'paid');
       if (unpaid && !m.payment_failed_at) {
         Object.assign(update, { payment_failed_at: now.toISOString(), grace_until: londonEndOfDay(now, PAYMENT_GRACE_DAYS).toISOString() });
-        why.push(`payment problem: invoice ${invoice.id} unpaid after ${invoice.attempt_count} attempt(s); grace until ${update.grace_until} (Stripe's next retry sends the payment-failed email)`);
+        why.push(`payment problem: invoice ${invoice.id} unpaid after ${invoice.attempt_count} attempt(s); grace until ${update.grace_until} (the memberships job sends the payment-failed email)`);
       } else if (m.payment_failed_at && paidUp) {
         Object.assign(update, { payment_failed_at: null, grace_until: null });
         why.push('payment problem cleared: Stripe shows the subscription paid up');
@@ -163,5 +170,28 @@ if (look.length) {
   console.log('Needs a look (not changed):');
   for (const line of look) console.log(`  ${line}`);
 }
-if (APPLY && changes) console.log('Next: GET https://clubyuppie.com/api/cron/memberships (with the bearer secret) to cancel and refund the future bookings of anyone ended (A-D8).');
+// Members with no Stripe subscription: listed, never changed (N3).
+{
+  const { data: noSub, error: noSubError } = await readAll(() =>
+    db.from('members').select('id, email, membership_status, ended_at').is('stripe_subscription_id', null).is('deleted_at', null).order('created_at', { ascending: true }).order('id', { ascending: true }),
+  );
+  if (noSubError) {
+    problems += 1;
+    console.error('reading members with no subscription failed:', noSubError.message);
+  } else {
+    const listed = noSub.filter((m) => !ONLY_PREFIX || m.email.startsWith(ONLY_PREFIX));
+    console.log(`No Stripe subscription (${listed.length}, left as they are; check each by hand):`);
+    for (const m of listed) console.log(`  ${m.email} (${m.id}): ${m.ended_at ? 'ended' : m.membership_status}`);
+  }
+}
+if (APPLY && changes) {
+  if (SITE && process.env.CRON_SECRET) {
+    const r = await fetch(`${SITE}/api/cron/memberships`, { headers: { Authorization: `Bearer ${process.env.CRON_SECRET}` } });
+    const body = await r.json().catch(() => ({}));
+    console.log(`Memberships job on ${SITE}: ${r.status} ${JSON.stringify(body.result ?? body)}`);
+    if (r.status !== 200) problems += 1;
+  } else {
+    console.log('Next: GET https://clubyuppie.com/api/cron/memberships (with the bearer secret), or run again with --site https://clubyuppie.com: it sends the payment-failed emails (C-D12) and cancels and refunds the future bookings of anyone ended (A-D8).');
+  }
+}
 process.exit(problems ? 1 : 0);

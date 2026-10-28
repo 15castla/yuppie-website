@@ -225,7 +225,31 @@ export async function confirmPaidBooking(paymentIntent: Stripe.PaymentIntent): P
     ? await refundUnbookedPayment(paymentIntent, reason)
     : null;
   await alertPaidNotBooked(paymentIntent, memberId, eventId, event, why[reason] ?? "The booking could not be saved.", refund);
+  if (refund?.ok && (reason === "started" || reason === "cancelled" || reason === "inactive")) {
+    // The member is told too (QA1-12): nothing was booked and the money is coming back. One email per payment.
+    later(`not-booked email for ${paymentIntent.id}`, () => sendNotBookedEmail(paymentIntent, memberId, event, reason));
+  }
   return { booked: false, reason, refunded: refund?.ok ?? false };
+}
+
+async function sendNotBookedEmail(paymentIntent: Stripe.PaymentIntent, memberId: string, event: EventRow, reason: "started" | "cancelled" | "inactive"): Promise<void> {
+  const { data: member } = await serviceDb().from("members").select("email, membership_status, deleted_at").eq("id", memberId).maybeSingle();
+  if (!member || member.deleted_at) return;
+  const now = new Date().toISOString();
+  await sendEmail({
+    template: "booking-cancelled",
+    to: member.email,
+    data: {
+      reason: "not_booked",
+      notBookedWhy: reason === "cancelled" ? "event_cancelled" : reason === "started" ? "event_started" : member.membership_status === "paused" ? "membership_paused" : "membership_ended",
+      event: emailEvent(event),
+      cancelled: { date: dayDate(now), time: time24(now) },
+      refund: { amount: pounds(paymentIntent.amount_received || paymentIntent.amount), card: await cardLabelForPaymentIntent(paymentIntent.id), arrivesBy: refundArrivesBy(now) },
+      eventsUrl: ROUTES.events,
+    },
+    dedupeKey: `payment-not-booked:${paymentIntent.id}`,
+    refs: { memberId, eventId: event.id },
+  });
 }
 
 type UnbookedRefund = { ok: boolean; refundId?: string; error?: string };
@@ -553,9 +577,10 @@ export async function refundBooking(
     if (!claimed?.length) return { status: "skipped", refundPence: 0 };
     const attempt = attempts + 1;
 
-    // A retry, or a booking from before the migration: did Stripe refund it already?
+    // A retry, a booking from before the migration, or a part refund already on file (made by hand): what has
+    // Stripe given back already? Only the rest is refunded (N2).
     let toRefund = amount;
-    if (attempts > 0 || backfilled) {
+    if (attempts > 0 || backfilled || (row.refund_pence ?? 0) > 0) {
       const made = await refundsAlreadyMade(row.stripe_payment_intent_id, row.id);
       const found = made.ours ?? (made.pence >= amount ? made.latest : null);
       if (found) {
@@ -791,24 +816,28 @@ export async function recordRefundFromCharge(charge: Stripe.Charge): Promise<{ b
     .maybeSingle<BookingRow>();
   if (readError) throw readError;
   if (!booking) return { bookingId: null, changed: false };
-  if (booking.refund_status === "succeeded" && booking.refund_pence === charge.amount_refunded) {
+  if (booking.refund_pence === charge.amount_refunded && booking.refund_status !== "pending") {
     return { bookingId: booking.id, changed: false };
   }
+  // A booking from before the migration: the charge says what was paid (QA3-01).
+  const paid = booking.amount_pence > 0 ? booking.amount_pence : charge.amount;
+  // Refunded in full only when the whole amount has gone back. A part refund made by hand (£5 of £15) is
+  // recorded, and the booking stays refundable for the rest (N2): refundBooking gives back what is left.
+  const full = charge.amount_refunded >= paid && paid > 0;
   // Waiting on it: a refund that failed here and was then made by hand, or one Stripe never confirmed to us.
   const waited = booking.refund_status === "failed" || (booking.refund_status === "pending" && !booking.stripe_refund_id);
   const { error } = await db
     .from("bookings")
     .update({
-      refund_status: charge.amount_refunded > 0 ? "succeeded" : booking.refund_status,
+      refund_status: full ? "succeeded" : booking.refund_status,
       refund_pence: charge.amount_refunded,
-      refund_error: null,
-      // A booking from before the migration: the charge says what was paid (QA3-01).
+      ...(full ? { refund_error: null } : {}),
       ...(booking.amount_pence === 0 && charge.amount > 0 ? { amount_pence: charge.amount } : {}),
     })
     .eq("id", booking.id);
   if (error) throw error;
   // The member's cancellation email waited for the refund.
-  if (waited && booking.status === "cancelled" && charge.amount_refunded > 0) await sendCancellationEmail(booking.id);
+  if (waited && full && booking.status === "cancelled") await sendCancellationEmail(booking.id);
   return { bookingId: booking.id, changed: true };
 }
 
