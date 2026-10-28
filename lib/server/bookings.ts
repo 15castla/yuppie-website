@@ -378,9 +378,12 @@ export async function sendBookingConfirmedEmail(bookingId: string): Promise<void
   const calendarUrl = `${eventHref(event.slug)}/calendar.ics`;
   const refs = { memberId: booking.member_id, bookingId: booking.id, eventId: event.id };
   const dedupeKey = `booking-confirmed:${booking.id}`;
+  // The free-cancel deadline, or null once it has passed (a booking made inside 48 hours): the email leaves
+  // the deadline sentence out (QA1-06).
+  const until = freeCancelUntil(event.start_time);
+  const cancelUntil = until.getTime() > Date.now() ? { date: dayDate(until), time: time24(until) } : null;
 
   if (booking.amount_pence > 0) {
-    const until = freeCancelUntil(event.start_time);
     await sendEmail({
       template: "booking-confirmed",
       to: booking.member.email,
@@ -389,7 +392,7 @@ export async function sendBookingConfirmedEmail(bookingId: string): Promise<void
         place,
         paid: pounds(booking.amount_pence),
         card: await cardLabelForPaymentIntent(booking.stripe_payment_intent_id),
-        cancelUntil: until.getTime() > Date.now() ? { date: dayDate(until), time: time24(until) } : null,
+        cancelUntil,
         bookingUrl,
         calendarUrl,
       },
@@ -400,7 +403,13 @@ export async function sendBookingConfirmedEmail(bookingId: string): Promise<void
     await sendEmail({
       template: "booking-confirmed-included",
       to: booking.member.email,
-      data: { event: emailEvent(event), place, bookingUrl, calendarUrl },
+      data: {
+        event: emailEvent(event),
+        place,
+        bookingUrl,
+        calendarUrl,
+        cancelUntil,
+      },
       dedupeKey,
       refs,
     });
@@ -434,6 +443,8 @@ async function sendBookingCancelledEmail(
             }
           : null,
       membershipEndedOn: extra.membershipEndedOn,
+      // A paid booking cancelled late keeps its money: the email says so (QA1-06).
+      notRefunded: reason === "member_late" && !refunded && booking.amount_pence > 0 ? pounds(booking.amount_pence) : undefined,
       eventsUrl: ROUTES.events,
     },
     dedupeKey: `booking-cancelled:${booking.id}`,

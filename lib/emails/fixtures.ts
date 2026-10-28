@@ -40,6 +40,7 @@ export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
   "account-deleted": [
     { id: "design", label: "As drawn (hosted plans)", data: { hostedPlans: true } },
     { id: "no-plans", label: "No hosted plans (Phase A)", data: {} },
+    { id: "by-club", label: "Deleted by the club (admin Delete member)", data: { byClub: true } },
   ],
   "cancel-requested": [
     {
@@ -131,6 +132,17 @@ export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
         calendarUrl: "/members/events/rooftop-social/calendar.ics",
       },
     },
+    {
+      id: "inside-48",
+      label: "Booked inside 48 hours (no cancel deadline)",
+      data: {
+        event: ROOFTOP,
+        place: MEWS,
+        bookingUrl: "/members/events/rooftop-social",
+        calendarUrl: "/members/events/rooftop-social/calendar.ics",
+        cancelUntil: null,
+      },
+    },
   ],
   "booking-cancelled": [
     {
@@ -151,7 +163,12 @@ export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
     {
       id: "late",
       label: "Paid, cancelled late without a refund",
-      data: { reason: "member_late", event: PADEL, cancelled: { date: "Wed 28 Oct", time: "20:15" }, refund: null },
+      data: { reason: "member_late", event: PADEL, cancelled: { date: "Wed 28 Oct", time: "20:15" }, refund: null, notRefunded: "£25" },
+    },
+    {
+      id: "late-included",
+      label: "Included event, cancelled inside 48 hours",
+      data: { reason: "member_late", event: ROOFTOP, cancelled: { date: "Wed 28 Oct", time: "20:15" }, refund: null },
     },
     {
       id: "event-changed",

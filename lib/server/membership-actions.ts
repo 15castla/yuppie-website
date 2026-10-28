@@ -256,7 +256,8 @@ function avatarPath(url: string | null): string | null {
  * survive), frees the email for a new application, and bans the auth user
  * with its email moved to the tombstone. The caller signs the session out.
  */
-export async function deleteAccount(memberId: string): Promise<ActionResult<{ refunded: number }>> {
+/** `by`: who asked for it. "club" is the admin's Delete member: the account-deleted email then does not say the member asked. */
+export async function deleteAccount(memberId: string, options: { by?: "member" | "club" } = {}): Promise<ActionResult<{ refunded: number }>> {
   try {
     const db = serviceDb();
     const member = await loadMember(memberId);
@@ -302,7 +303,13 @@ export async function deleteAccount(memberId: string): Promise<ActionResult<{ re
     }
 
     // To the address they have now, before it is replaced.
-    await sendEmail({ template: "account-deleted", to: member.email, data: {}, dedupeKey: `account-deleted:${memberId}`, refs: { memberId } });
+    await sendEmail({
+      template: "account-deleted",
+      to: member.email,
+      data: options.by === "club" ? { byClub: true } : {},
+      dedupeKey: `account-deleted:${memberId}`,
+      refs: { memberId },
+    });
 
     const now = new Date().toISOString();
     const { error: anonError } = await db

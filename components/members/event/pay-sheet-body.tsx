@@ -9,6 +9,8 @@
 //   returning       back from the bank: "Checking your payment."
 //   processing      the payment has not cleared: no booking yet, do not pay again, Done
 //   confirm-failed  paid, but not booked: no pay button at all, Email us and Close
+//   refunded        paid, but it could never be booked (the event was cancelled or started, or the membership
+//                   ended, while paying), so the server refunded it at once: no pay button, See other events
 //   load-error      we couldn't open payment: nothing taken, Try again and Close
 //
 // The free and included path never opens this sheet: one tap books and the confirmed sheet opens.
@@ -17,10 +19,11 @@ import type { ReactNode } from "react";
 
 import { Button, Icon } from "@/components/members/kit";
 import { BACK_5_10, MoneyList, PayActions, PayHead, PayMark } from "@/components/members/payments/pay-parts";
+import { ROUTES } from "@/lib/members/routes";
 import { EventSummary } from "./sheet-parts";
 import { gbp, mailtoClub, type EventPageEvent } from "./model";
 
-export const PAY_STATES = ["ready", "paying", "declined", "bank", "returning", "processing", "confirm-failed", "load-error"] as const;
+export const PAY_STATES = ["ready", "paying", "declined", "bank", "returning", "processing", "confirm-failed", "refunded", "load-error"] as const;
 export type PayState = (typeof PAY_STATES)[number];
 
 /** Close allowed (the scrim, Escape, the corner button)? Never while money is being taken or checked. */
@@ -199,6 +202,28 @@ export function PaySheetBody({
     );
   }
 
+  if (state === "refunded") {
+    return (
+      <>
+        <PayMark icon="undo" tone="line" />
+        <PayHead id={id} title="We couldn’t book you in." />
+        <p className="pay-p">
+          Your payment went through, but this event can’t be booked any more. <b>We’ve refunded your {price} in full.</b>
+        </p>
+        <EventSummary event={event} line={{ label: "Refunded", pence: event.pricePence }} />
+        <MoneyList items={[{ icon: "undo", text: `Your ${price} is on its way back to your card. It usually lands in ${BACK_5_10}.` }]} />
+        <PayActions>
+          <Button block href={ROUTES.events}>
+            See other events
+          </Button>
+          <Button block variant="outline" onClick={onClose}>
+            Close
+          </Button>
+        </PayActions>
+      </>
+    );
+  }
+
   // load-error
   return (
     <>
@@ -232,6 +257,8 @@ export function payStatus(state: PayState, price: string): string {
       return "Your payment is processing.";
     case "confirm-failed":
       return "Paid, but not booked yet.";
+    case "refunded":
+      return "We couldn’t book you in. Your payment is refunded.";
     case "load-error":
       return "We couldn’t open payment. Nothing was taken.";
     default:

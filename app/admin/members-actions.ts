@@ -31,7 +31,8 @@ export async function deleteMember(memberId: string): Promise<DeleteMemberResult
     .maybeSingle();
   if (!before) return { success: false, error: ERRORS.not_found };
 
-  const result = await deleteAccount(memberId);
+  // The club deleted it: the account-deleted email says so, not "you asked us to".
+  const result = await deleteAccount(memberId, { by: "club" });
   await audit(admin.id, "member.delete", { type: "member", id: memberId }, {
     subscription: before.stripe_subscription_id ?? null,
     already_deleted: Boolean(before.deleted_at),
