@@ -8,6 +8,15 @@ export const FREE_CANCEL_HOURS = 48;
 /** A failed membership payment ends the membership at the end of the day this many days later, Europe/London (decision C-D12). */
 export const PAYMENT_GRACE_DAYS = 3;
 
+/**
+ * A refund Stripe did not answer (a timeout, a crash, a Stripe error) is tried again by the refunds job, with
+ * the same idempotency key, this many times in all; after the last failure the club is alerted (QA3-07).
+ */
+export const MAX_REFUND_ATTEMPTS = 3;
+
+/** The refunds job leaves a refund alone for this long after an attempt (or the cancel), so it never races one in flight. */
+export const REFUND_RETRY_AFTER_MINUTES = 5;
+
 /** Reminder emails before a club event (round 3): 24 hours and 2 hours. */
 export const REMINDER_HOURS = { long: 24, short: 2 } as const;
 

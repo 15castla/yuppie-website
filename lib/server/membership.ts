@@ -4,7 +4,8 @@ import "server-only";
 // every request decides it the same way and on the server.
 //
 //   active    paying, nothing pending
-//   ending    cancel requested: access until cancel_at (members.cancel_at)
+//   ending    cancel requested: access until cancel_at (members.cancel_at);
+//             wins over problem (a cancel during the grace days ends on the grace date)
 //   problem   a membership payment failed: access until grace_until (C-D12)
 //   paused    membership_status 'paused'
 //   cancelled ended: membership_status 'cancelled', or deleted, or cancel_at
@@ -73,12 +74,14 @@ export function membershipState(
     return { state: "paused" };
   }
 
-  if (member.payment_failed_at) {
-    return { state: "problem", failedOn: short(member.payment_failed_at), updateBy: short(member.grace_until) };
-  }
-
+  // Ending wins over problem: a member who cancels while a payment has failed
+  // is told one date, the grace date their membership now ends on (QA1-01, C-D12).
   if (member.cancel_at) {
     return { state: "ending", endsOn: short(member.cancel_at), endsAt: member.cancel_at };
+  }
+
+  if (member.payment_failed_at) {
+    return { state: "problem", failedOn: short(member.payment_failed_at), updateBy: short(member.grace_until) };
   }
 
   const renewsAt = options.renewsAt ? new Date(options.renewsAt) : null;

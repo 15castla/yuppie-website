@@ -25,9 +25,10 @@ export type ActionResult<T extends object = object> = ({ ok: true } & T) | { ok:
 
 const GENERIC = "Something went wrong. Try again, or email hello@clubyuppie.com if it keeps happening.";
 
+/** The member row; null when there is none. A database error throws (every caller reports it, and a webhook is sent again). */
 async function loadMember(memberId: string): Promise<MemberRow | null> {
   const { data, error } = await serviceDb().from("members").select(MEMBER_ROW_COLUMNS).eq("id", memberId).maybeSingle<MemberRow>();
-  if (error) console.error(`loadMember ${memberId} failed:`, error);
+  if (error) throw new Error(`loading member ${memberId}: ${error.message}`);
   return data ?? null;
 }
 
@@ -69,18 +70,32 @@ export async function requestCancel(
     if (state === "paused" || state === "cancelled") return fail("not_active", "Your membership isn’t active, so there’s nothing to cancel.");
     if (!member.stripe_subscription_id) return fail("no_subscription", "We couldn’t find a subscription on your account. Email hello@clubyuppie.com.");
 
-    let sub: Stripe.Subscription;
+    // A payment has failed (C-D12): the membership already ends on the grace date unless the card is fixed,
+    // so a cancel now ends it on that date, not later (QA1-01). Stripe stops at that moment: no attempts after.
+    const graceEnd = state === "problem" && member.grace_until ? new Date(member.grace_until) : null;
+
+    let endsAt: string | null;
     try {
-      sub = await stripe.subscriptions.update(
-        member.stripe_subscription_id,
-        { cancel_at_period_end: true },
-        { idempotencyKey: `sub-cancel-at-period-end-${member.stripe_subscription_id}-${version(member)}` },
-      );
+      if (graceEnd) {
+        await stripe.subscriptions.update(
+          member.stripe_subscription_id,
+          { cancel_at: Math.floor(graceEnd.getTime() / 1000), proration_behavior: "none" },
+          { idempotencyKey: `sub-cancel-at-grace-${member.stripe_subscription_id}-${version(member)}` },
+        );
+        // The stored date is the grace date itself (the payment-failed email's and the card's date).
+        endsAt = graceEnd.toISOString();
+      } else {
+        const sub = await stripe.subscriptions.update(
+          member.stripe_subscription_id,
+          { cancel_at_period_end: true },
+          { idempotencyKey: `sub-cancel-at-period-end-${member.stripe_subscription_id}-${version(member)}` },
+        );
+        endsAt = cancelAtOf(sub);
+      }
     } catch (err) {
       console.error(`requestCancel: Stripe update failed for member ${memberId}:`, err);
       return fail("stripe", "Your membership wasn’t cancelled. Try again.");
     }
-    const endsAt = cancelAtOf(sub);
     if (!endsAt) return fail("stripe", "Your membership wasn’t cancelled. Try again.");
 
     const requestedAt = new Date().toISOString();
@@ -133,7 +148,13 @@ export async function cancelPreview(
 ): Promise<ActionResult<{ endsAt: string | null; endsOn: string | null; bookingsAfterEnd: { bookingId: string; title: string; startTime: string; slug: string }[] }>> {
   const member = await loadMember(memberId);
   if (!member) return fail("not_found", GENERIC);
-  const endsAt = member.cancel_at ? new Date(member.cancel_at).toISOString() : await periodEnd(member.stripe_subscription_id);
+  const state = membershipState(member).state;
+  // In the payment problem state a cancel ends the membership on the grace date (QA1-01).
+  const endsAt = member.cancel_at
+    ? new Date(member.cancel_at).toISOString()
+    : state === "problem" && member.grace_until
+      ? new Date(member.grace_until).toISOString()
+      : await periodEnd(member.stripe_subscription_id);
   return {
     ok: true,
     endsAt,
@@ -159,11 +180,21 @@ export async function keepMembership(memberId: string): Promise<ActionResult> {
     if (state !== "ending") return fail("not_ending", "There’s no cancellation to undo.");
     if (member.stripe_subscription_id) {
       try {
-        await stripe.subscriptions.update(
+        // Both ways a subscription can be set to end go (QA3-11): cancel at period end, and a cancel_at moment
+        // (a cancel made during the payment grace days). Stripe takes one of the two per request.
+        let sub = await stripe.subscriptions.update(
           member.stripe_subscription_id,
           { cancel_at_period_end: false },
           { idempotencyKey: `sub-keep-${member.stripe_subscription_id}-${version(member)}` },
         );
+        if (sub.cancel_at) {
+          sub = await stripe.subscriptions.update(
+            member.stripe_subscription_id,
+            { cancel_at: "" },
+            { idempotencyKey: `sub-keep-cancel-at-${member.stripe_subscription_id}-${version(member)}` },
+          );
+        }
+        if (sub.cancel_at || sub.cancel_at_period_end) throw new Error(`subscription ${sub.id} is still set to cancel`);
       } catch (err) {
         console.error(`keepMembership: Stripe update failed for member ${memberId}:`, err);
         return fail("stripe", "Your membership is still set to end. Try again.");
@@ -226,7 +257,22 @@ export async function deleteAccount(memberId: string): Promise<ActionResult<{ re
     const db = serviceDb();
     const member = await loadMember(memberId);
     if (!member) return fail("not_found", GENERIC);
-    if (member.deleted_at) return { ok: true, refunded: 0 };
+    const tombstone = tombstoneEmail(memberId);
+    // Done already. (Marked but not finished, after a failure part way: carry on from here.)
+    if (member.deleted_at && member.email === tombstone) return { ok: true, refunded: 0 };
+
+    // Mark the account first (QA3-05): Stripe's customer.subscription.deleted, which the cancel below causes,
+    // may arrive before this finishes, and must find a deleted account (reason kept, no emails, bookings
+    // account_deleted). The row is gated from here on.
+    const before = { deleted_at: member.deleted_at, ended_reason: member.ended_reason };
+    const { error: markError } = await db
+      .from("members")
+      .update({ deleted_at: member.deleted_at ?? new Date().toISOString(), ended_reason: "account_deleted" })
+      .eq("id", memberId);
+    if (markError) {
+      console.error(`deleteAccount: marking member ${memberId} failed:`, markError);
+      return fail("db", GENERIC);
+    }
 
     if (member.stripe_subscription_id) {
       try {
@@ -235,6 +281,9 @@ export async function deleteAccount(memberId: string): Promise<ActionResult<{ re
         const code = stripeErrorCode(err);
         if (code !== "resource_missing") {
           console.error(`deleteAccount: Stripe cancel failed for member ${memberId}:`, err);
+          // Nothing else has changed: undo the mark, so the member is not shut out while still paying.
+          const { error: undoError } = await db.from("members").update(before).eq("id", memberId);
+          if (undoError) console.error(`deleteAccount: undoing the mark for member ${memberId} failed:`, undoError);
           return fail("stripe", "Your account wasn’t deleted. Try again, or email hello@clubyuppie.com.");
         }
       }
@@ -252,7 +301,6 @@ export async function deleteAccount(memberId: string): Promise<ActionResult<{ re
     await sendEmail({ template: "account-deleted", to: member.email, data: {}, dedupeKey: `account-deleted:${memberId}`, refs: { memberId } });
 
     const now = new Date().toISOString();
-    const tombstone = tombstoneEmail(memberId);
     const { error: anonError } = await db
       .from("members")
       .update({
@@ -266,7 +314,7 @@ export async function deleteAccount(memberId: string): Promise<ActionResult<{ re
         membership_status: "cancelled",
         ended_reason: "account_deleted",
         ended_at: member.ended_at ?? now,
-        deleted_at: now,
+        deleted_at: member.deleted_at ?? now,
         cancel_at: null,
         cancel_requested_at: null,
         cancel_reason: null,
@@ -398,12 +446,20 @@ export async function cancelMemberNow(
     if (!member) return fail("not_found", "Member not found.");
     let stripeDone = false;
     if (options.stripe && member.stripe_subscription_id) {
+      // The reason first (QA3-05): Stripe's customer.subscription.deleted may arrive before this returns, and
+      // its membership-ended email must say the club ended it.
+      const marked = !member.ended_reason;
+      if (marked) {
+        const { error } = await serviceDb().from("members").update({ ended_reason: "admin_cancelled" }).eq("id", memberId).is("ended_reason", null);
+        if (error) return fail("db", "Saving the cancellation failed, so nothing changed.");
+      }
       try {
         await stripe.subscriptions.cancel(member.stripe_subscription_id, {}, { idempotencyKey: `sub-cancel-now-${member.stripe_subscription_id}` });
         stripeDone = true;
       } catch (err) {
         if (stripeErrorCode(err) !== "resource_missing") {
           console.error(`cancelMemberNow: Stripe failed for member ${memberId}:`, err);
+          if (marked) await serviceDb().from("members").update({ ended_reason: null }).eq("id", memberId).is("ended_at", null);
           return fail("stripe", `Stripe didn’t cancel the subscription, so nothing changed: ${errorMessage(err)}`);
         }
       }
@@ -424,6 +480,11 @@ export async function cancelMemberNow(
  * End a membership: status cancelled, ended_at, ended_reason; cancel and
  * refund future bookings (A-D8); send membership-ended once. Safe to call
  * again (the second call only sweeps any booking left over).
+ *
+ * A reason already on the row wins (Delete my account and the admin's Cancel
+ * now mark it before they cancel in Stripe, QA3-05). A deleted account gets no
+ * membership-ended or booking emails, and its bookings say account_deleted.
+ * A database error throws (the webhook answers 500 and Stripe sends it again).
  */
 export async function endMembership(
   memberId: string,
@@ -438,31 +499,44 @@ export async function endMembership(
   let endedAt = member.ended_at;
   if (!member.ended_at) {
     const at = options.endedAt && new Date(options.endedAt).getTime() <= Date.now() ? options.endedAt : new Date().toISOString();
-    const { data } = await db
+    const stored: EndedReason = member.deleted_at ? "account_deleted" : member.ended_reason ?? reason;
+    const { data, error } = await db
       .from("members")
-      .update({ membership_status: "cancelled", ended_at: at, ended_reason: member.ended_reason ?? reason })
+      .update({ membership_status: "cancelled", ended_at: at, ended_reason: stored })
       .eq("id", memberId)
       .is("ended_at", null)
       .select("id");
+    if (error) throw new Error(`ending member ${memberId}: ${error.message}`);
     transitioned = Boolean(data?.length);
     endedAt = at;
   } else if (member.membership_status !== "cancelled") {
-    await db.from("members").update({ membership_status: "cancelled" }).eq("id", memberId);
+    const { error } = await db.from("members").update({ membership_status: "cancelled" }).eq("id", memberId);
+    if (error) throw new Error(`ending member ${memberId}: ${error.message}`);
   }
 
+  // As it is now: a Delete my account that marked the row meanwhile wins.
+  const now = (await loadMember(memberId)) ?? member;
+  endedAt = now.ended_at ?? endedAt;
+  const deleted = Boolean(now.deleted_at) || now.ended_reason === "account_deleted";
+  const effective: EndedReason = deleted ? "account_deleted" : now.ended_reason ?? reason;
   const endedOn = dayDate(endedAt ?? new Date());
-  const cancelledBookings = await cancelFutureBookingsForMember(memberId, reason === "account_deleted" ? "account_deleted" : "membership_ended", {
+  const cancelledBookings = await cancelFutureBookingsForMember(memberId, deleted ? "account_deleted" : "membership_ended", {
     membershipEndedOn: endedOn,
-    email: options.email !== false,
+    email: options.email !== false && !deleted,
   });
 
-  if (transitioned && reason !== "account_deleted" && options.email !== false) {
-    await sendEmail({
-      template: "membership-ended",
-      to: member.email,
-      data: { endedOn, reason },
-      dedupeKey: `membership-ended:${memberId}`,
-      refs: { memberId },
+  if (transitioned && !deleted && options.email !== false) {
+    later(`membership-ended email for ${memberId}`, async () => {
+      // Checked again at send time: an account deleted in the meantime gets the account-deleted email only.
+      const latest = await loadMember(memberId);
+      if (!latest || latest.deleted_at || latest.ended_reason === "account_deleted") return;
+      await sendEmail({
+        template: "membership-ended",
+        to: latest.email,
+        data: { endedOn, reason: latest.ended_reason ?? effective },
+        dedupeKey: `membership-ended:${memberId}`,
+        refs: { memberId },
+      });
     });
   }
   return { transitioned, endedAt, cancelledBookings };
