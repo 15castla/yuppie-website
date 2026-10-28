@@ -71,7 +71,7 @@ export function ApplicationActions({
       if (result.ok) return goTo("approved");
       if (result.code === "approved") return goTo("was-approved");
       if (result.code === "declined") return goTo("was-declined");
-      if (result.code === "not_found") setError({ title: "The application wasn’t approved.", body: result.error });
+      if (result.code === "not_found" || result.code === "busy") setError({ title: "The application wasn’t approved.", body: result.error });
       router.refresh();
     });
   }
@@ -82,8 +82,9 @@ export function ApplicationActions({
       setDialog(null);
       if (result.ok) return goTo("declined");
       if (result.code === "approved") return goTo("was-approved");
+      if (result.code === "declined") return goTo("was-declined");
       setError({ title: "The application wasn’t declined.", body: result.error || "We couldn’t decline that application. Try again in a moment." });
-      if (result.code === "charged") router.refresh();
+      if (result.code === "charged" || result.code === "busy") router.refresh();
     });
   }
 

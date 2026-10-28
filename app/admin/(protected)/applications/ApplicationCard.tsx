@@ -227,7 +227,8 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
       {done === "was-declined" && (
         <section className="ad-sec">
           <Banner title={`${first}’s application was declined already.`} info>
-            Nothing was charged and no account was made.
+            {/* QA2-15: never "Nothing was charged" when a subscription exists (the banner below says what to do). */}
+            {app.stripe_subscription_id ? "No account was made." : "Nothing was charged and no account was made."}
           </Banner>
         </section>
       )}
@@ -257,7 +258,8 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
       {cardStuck && (
         <section className="ad-sec">
           <Banner title="Stripe didn’t remove the saved card.">
-            {emailed ? "The decline email left out the line about the card. " : ""}Nothing is charged. Try again, or remove it in Stripe. The club inbox has the details.
+            {emailed ? "The decline email left out the line about the card. " : ""}
+            {app.stripe_subscription_id ? "" : "Nothing is charged. "}Try again, or remove it in Stripe. The club inbox has the details.
           </Banner>
           <ReleaseCardAgain applicationId={app.id} stripeUrl={app.stripe_customer_id ? stripeCustomerUrl(app.stripe_customer_id) : null} />
         </section>
