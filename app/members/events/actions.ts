@@ -1,11 +1,13 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { randomUUID } from "node:crypto";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { stripe } from "@/lib/stripe";
 import { eventCalendarHref } from "@/lib/members/routes";
 import { bookIncludedEvent, cancelBookingByMember, cancelTerms } from "@/lib/server/bookings";
 import { calendarForMember, getEventAddressForMember } from "@/lib/server/events";
+import { pounds } from "@/lib/server/format";
 import { requireMember } from "../require-member";
 import { getEventCapacity } from "./booking-capacity";
 import { confirmPaidBooking } from "./confirm-paid-booking";
@@ -71,13 +73,26 @@ export type CreateEventPaymentIntentResult =
        * Why, for the page (r2a 2 and 3): "error" means payment could not be opened (the sheet's "We couldn't open
        * payment"); the others are a message in the strip above the bar.
        */
-      reason?: "not_found" | "started" | "cancelled" | "free" | "no_customer" | "already_booked" | "full" | "error";
+      reason?: "not_found" | "started" | "cancelled" | "free" | "no_customer" | "already_booked" | "full" | "price_changed" | "error";
+      /** price_changed: the price now, in pence (the page shows it after its refresh). */
+      pricePence?: number;
     };
+
+/** An attempt id from the page (one per time the member opens payment): letters, digits, - and _. */
+function attemptIdFrom(value: FormDataEntryValue | null): string {
+  return typeof value === "string" && /^[A-Za-z0-9_-]{8,64}$/.test(value) ? value : randomUUID();
+}
 
 // Embedded payment flow. Reads the event straight from the table (not
 // getCachedEventBySlug) since price and title need to be current at the
 // moment of charging. The booking row is only made once Stripe confirms the
 // payment succeeded (confirmEventPayment below, or the webhook), never here.
+//
+// The page sends the price the member saw ("price_pence"): if it is not the
+// price now, nothing is charged and the member is told the new price (QA1-03).
+// The page also sends an attempt id ("attempt_id"), new each time the member
+// opens payment: a double tap reuses one PaymentIntent, and cancelling then
+// booking again gets a new one (QA1-08). Without one, every call is its own.
 export async function createEventPaymentIntent(
   formData: FormData,
 ): Promise<CreateEventPaymentIntentResult> {
@@ -111,6 +126,18 @@ export async function createEventPaymentIntent(
   // Never trust the client on this: the price decides whether a charge happens.
   if (!event.price_pence) {
     return { success: false, error: "This event doesn’t require payment.", reason: "free" };
+  }
+
+  const seen = formData.get("price_pence");
+  if (typeof seen === "string" && seen.trim() !== "" && Number(seen) !== event.price_pence) {
+    // The page's copy of the event is cached; expire it so the page's refresh shows the price now.
+    revalidateTag("events", { expire: 0 });
+    return {
+      success: false,
+      error: `The price has changed to ${pounds(event.price_pence)}. Check it and try again.`,
+      reason: "price_changed",
+      pricePence: event.price_pence,
+    };
   }
 
   if (!member.stripe_customer_id) {
@@ -161,8 +188,8 @@ export async function createEventPaymentIntent(
         automatic_payment_methods: { enabled: true },
         metadata: { member_id: member.id, event_id: eventId },
       },
-      // A double tap within the same minute reuses one PaymentIntent.
-      { idempotencyKey: `event-pi-${member.id}-${eventId}-${event.price_pence}-${Math.floor(Date.now() / 60000)}` },
+      // One PaymentIntent per attempt (a double tap is one attempt; opening payment again is a new one).
+      { idempotencyKey: `event-pi-${member.id}-${eventId}-${event.price_pence}-${attemptIdFrom(formData.get("attempt_id"))}` },
     );
 
     if (!paymentIntent.client_secret) {
@@ -198,6 +225,8 @@ export type ConfirmEventPaymentResult =
        * processing: the webhook books it); mismatch, the payment is not for this member and event.
        */
       reason: "missing" | "check_failed" | "mismatch" | "not_paid" | "paid_not_booked";
+      /** paid_not_booked: the payment could never be booked and was refunded automatically (QA3-09). */
+      refunded?: boolean;
     };
 
 // Called by the payment form once Stripe's confirmPayment (or the return
@@ -254,12 +283,20 @@ export async function confirmEventPayment(
 
   // By now the member has been charged: the booking is recorded (or, if it
   // cannot be, the club is alerted and the page shows "Paid, but not booked yet").
-  const { booked } = await confirmPaidBooking(paymentIntentId, member.id, eventId, paymentIntent);
-  if (!booked) {
+  let outcome: Awaited<ReturnType<typeof confirmPaidBooking>>;
+  try {
+    outcome = await confirmPaidBooking(paymentIntentId, member.id, eventId, paymentIntent);
+  } catch (err) {
+    // The database did not answer: nothing was decided. The webhook books it; the page shows "still processing".
+    console.error(`confirmEventPayment: recording payment ${paymentIntentId} failed for now:`, err);
+    return { booked: false, pending: true };
+  }
+  if (!outcome.booked) {
     return {
       booked: false,
       error: "Your payment went through, but we couldn’t confirm your booking. Please contact us.",
       reason: "paid_not_booked",
+      refunded: Boolean(outcome.refunded),
     };
   }
 

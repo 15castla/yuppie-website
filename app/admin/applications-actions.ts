@@ -84,11 +84,18 @@ async function approve(id: string, adminEmail: string, adminId: string) {
     }
 
     try {
+      // The saved card is the customer's invoice default, not the subscription's own default card: a card the
+      // member saves later in the billing portal (the customer's default) must be the one the membership
+      // charges (QA3-02). Set again here in case the card on the application is not the customer's default.
+      await stripe.customers.update(
+        application.stripe_customer_id,
+        { invoice_settings: { default_payment_method: application.stripe_payment_method_id } },
+        { idempotencyKey: `approve-customer-card-${id}-${application.stripe_payment_method_id}` },
+      );
       const subscription = await stripe.subscriptions.create(
         {
           customer: application.stripe_customer_id,
           items: [{ price: process.env.STRIPE_PRICE_ID_MEMBERSHIP! }],
-          default_payment_method: application.stripe_payment_method_id,
           payment_behavior: "error_if_incomplete",
           off_session: true,
         },

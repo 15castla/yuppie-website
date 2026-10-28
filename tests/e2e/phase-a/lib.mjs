@@ -68,7 +68,8 @@ export async function waitFor(fn, label, timeoutMs = 15000) {
   ok(false, `${label} (timed out)`, last);
 }
 export const rand = () => crypto.randomBytes(4).toString('hex');
-export const tag = (name) => `f.t-${name}-${rand()}`;
+// PHASE_A_TAG: another agent's prefix for its own test people (fixer 1 uses f1.).
+export const tag = (name) => `${process.env.PHASE_A_TAG || 'f.'}t-${name}-${rand()}`;
 
 // ---------------------------------------------------------------- database (psql as postgres, for asserts and setup)
 export function sql(query) {
@@ -120,6 +121,14 @@ export async function fakeState() {
 /** Mark a PaymentIntent paid; the signed payment_intent.succeeded goes to this build's webhook (or `webhook`). */
 export async function fakePay(pi, webhook = WEBHOOK) {
   return (await fetch(`https://api.stripe.com/__fake/stripe/pay/${pi}?webhook=${encodeURIComponent(webhook)}`, { method: 'POST' })).json();
+}
+/** A failed renewal in the fake: a new open invoice becomes the subscription's latest (no webhook unless given). */
+export async function fakeInvoiceFailed(subscription, webhook = null) {
+  return (await fetch('https://api.stripe.com/__fake/stripe/invoice-failed', { method: 'POST', body: JSON.stringify({ subscription, ...(webhook ? { webhook } : {}) }) })).json();
+}
+/** Make the fake refuse refunds for one PaymentIntent: 'error500', 'invalid', or 'ok' again. */
+export async function fakeRefundMode(paymentIntent, mode) {
+  return (await fetch('https://api.stripe.com/__fake/stripe/refund-mode', { method: 'POST', body: JSON.stringify({ payment_intent: paymentIntent, mode }) })).json();
 }
 /** Send any event through the fake (it signs it and posts it to this build's webhook). */
 export async function emit(type, object) {
@@ -173,6 +182,10 @@ export async function makeMember(name, state = 'active', fields = {}) {
   if (state === 'paused') Object.assign(row, { membership_status: 'paused', paused_at: new Date().toISOString() });
   if (state === 'ended') Object.assign(row, { membership_status: 'cancelled', ended_at: new Date(now - 86400000).toISOString(), ended_reason: 'member_cancelled' });
   if (state === 'lapsed') Object.assign(row, { cancel_at: new Date(now - 3600000).toISOString(), cancel_requested_at: new Date(now - 20 * 86400000).toISOString() });
+  // Stripe as it would be (fixer 1): a failed renewal leaves an open invoice; a cancel date that passed with no
+  // webhook means Stripe ended the subscription. The memberships job asks Stripe before it ends anything.
+  if (state === 'problem' || state === 'graceover') await fakeInvoiceFailed(s.json.id);
+  if (state === 'lapsed') await stripe('DELETE', `subscriptions/${s.json.id}`);
   Object.assign(row, fields);
   const { error } = await svc.from('members').upsert(row);
   if (error) throw error;

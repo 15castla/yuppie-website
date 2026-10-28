@@ -518,6 +518,16 @@ function reviewWords(d: AdminBookingReviewData, member: string, title: string) {
         below: "The booking stays cancelled. The money hasn’t gone back yet.",
       };
     case "paid_not_booked":
+      if (d.refunded) {
+        return {
+          subject: "Booking needs review: paid, not booked",
+          pre: `${member} paid ${d.amount} for ${title}, but no booking was made. It was refunded automatically.`,
+          intro: `${member} paid ${d.amount} for ${title}, but the booking couldn’t be recorded, so the payment was refunded automatically. Nothing to do, unless you want to book them in by hand.`,
+          reason: "Paid, not booked",
+          detail: { label: "Why", value: d.detail },
+          below: "Nothing was booked. The payment was refunded automatically.",
+        };
+      }
       return {
         subject: "Booking needs review: paid, not booked",
         pre: `${member} paid ${d.amount} for ${title}, but no booking was made.`,

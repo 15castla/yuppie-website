@@ -336,6 +336,8 @@ export type AdminBookingReviewData = {
       reason: "paid_not_booked";
       /** Why the booking was blocked (the Why row): "The event was cancelled before the payment went through." Optional. */
       detail?: string;
+      /** The payment could never be booked and was refunded automatically (fixer 1, QA3-09). Optional, default false. */
+      refunded?: boolean;
     }
 );
 

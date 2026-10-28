@@ -1,20 +1,22 @@
 import { NextResponse } from "next/server";
 
 import { runMemberships } from "@/lib/server/cron/memberships";
+import { runRefunds } from "@/lib/server/cron/refunds";
 import { runReminders } from "@/lib/server/cron/reminders";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Scheduled jobs: GET /api/cron/reminders and GET /api/cron/memberships, with
+// Scheduled jobs: GET /api/cron/reminders, /api/cron/memberships and /api/cron/refunds, with
 // "Authorization: Bearer ${CRON_SECRET}" (Vercel Cron sends exactly that;
-// pg_cron can too). Each job is idempotent and safe every 15 minutes; the
-// answer is a JSON summary of what it did. The schedule itself is the
-// release's to set (no vercel.json crons here).
+// pg_cron sends it too: release/schedule-cron.sql). Each job is idempotent and
+// safe every 15 minutes; the answer is a JSON summary of what it did. The
+// schedule itself is the release's to set (no vercel.json crons here).
 
 const JOBS = {
   reminders: runReminders,
   memberships: runMemberships,
+  refunds: runRefunds,
 } as const;
 
 function authorised(request: Request): boolean {

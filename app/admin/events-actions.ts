@@ -301,7 +301,9 @@ export async function updateEventDetails(
     later(`event-changed emails for ${eventId}`, () => emailEventMove(eventId, { moved, before, changedAt: move.changedAt }));
   }
 
-  revalidateTag("events", "minutes");
+  // Expired at once, not stale-while-revalidate: members pay the price the event page shows (QA1-03).
+  // (updateTag does the same but refuses outside a server action, and the test hooks are a route.)
+  revalidateTag("events", { expire: 0 });
   revalidatePath("/admin/events");
   return { success: true, moved: move.moved, bookedCount: move.bookedCount, emailing: notify };
 }
