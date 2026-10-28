@@ -23,7 +23,7 @@ const norm = (s) => String(s ?? '').replace(/\s+/g, ' ').replace(/public\./g, ''
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-a-pre-'));
 fs.mkdirSync(path.join(tmp, 'supabase/migrations'), { recursive: true });
 for (const f of fs.readdirSync(path.join(ROOT, 'supabase/migrations'))) {
-  if (f !== PHASE_A) fs.copyFileSync(path.join(ROOT, 'supabase/migrations', f), path.join(tmp, 'supabase/migrations', f));
+  if (f < '20261028090000') fs.copyFileSync(path.join(ROOT, 'supabase/migrations', f), path.join(tmp, 'supabase/migrations', f));
 }
 execFileSync('/home/claude/stack/apply_repo.sh', [tmp], { stdio: ['ignore', 'pipe', 'pipe'] });
 ok(true, 'baseline plus the repo migrations before Phase A applied');

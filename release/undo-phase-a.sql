@@ -1,8 +1,9 @@
--- UNDO for the three Phase A migrations, back to the live layout of 27 Oct 2026
+-- UNDO for the four Phase A migrations, back to the live layout of 27 Oct 2026
 -- (live-schema/supabase-layout-2026-10-27.md), in one transaction:
---   20261028090200_admin_fixes.sql, 20261028090100_backend_fixes.sql, 20261028090000_members_core_backend.sql
+--   20261028090300_application_claim.sql, 20261028090200_admin_fixes.sql, 20261028090100_backend_fixes.sql,
+--   20261028090000_members_core_backend.sql
 -- (newest first). Read release/live-migration-notes.md ("Undo") first. Proved on a live-like copy: the schema
--- after the three migrations and this file is the live layout exactly (pg_dump -s, no difference).
+-- after the four migrations and this file is the live layout exactly (pg_dump -s, no difference).
 --
 -- It deletes data: the new tables (message_log, stripe_events, admin_audit, event_addresses) and the new
 -- columns (cancel dates, refund records and retries, reminders, addresses, change emails). Export them first.
@@ -13,6 +14,15 @@
 -- INSERT grant on applications for anon and authenticated (QA3-12's hole, reopened).
 -- Run it with the previous release's code deployed (or about to be): this code needs the new columns.
 begin;
+
+-- ======================================================================== 20261028090300_application_claim.sql
+drop function if exists public.release_application(uuid, uuid);
+drop function if exists public.claim_application(uuid, text, text, interval);
+alter table public.applications drop constraint if exists applications_processing_action_check;
+alter table public.applications drop column if exists processing_token;
+alter table public.applications drop column if exists processing_action;
+alter table public.applications drop column if exists processing_by;
+alter table public.applications drop column if exists processing_at;
 
 -- ======================================================================== 20261028090200_admin_fixes.sql
 alter table public.events drop column if exists change_emailed_at;

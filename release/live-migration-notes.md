@@ -15,7 +15,7 @@ Checked against the live layout read on 27 Oct 2026 (`live-schema/supabase-layou
   `tests/e2e/phase-a/live-layout-check.mjs` compares the two (40 checks; it rebuilds the database).
 - On that layout the Phase A migration applies, and applies again on top of itself
   (`tests/e2e/phase-a/00-migration.mjs`), and every Phase A script passes on it (`run-all.mjs`).
-- `release/undo-phase-a.sql` takes the database with all three Phase A migrations back to the live layout
+- `release/undo-phase-a.sql` takes the database with all four Phase A migrations back to the live layout
   exactly: on a live-like copy (QA3's `setup-qa3-db.sh`, another name), `pg_dump -s` before the migrations and
   after the migrations plus the undo are identical, with booking rows present (see "Undo").
 
@@ -69,7 +69,7 @@ the service role).
 
 1. **Back up.** Note the time for point-in-time recovery, or take a backup in the dashboard. Export what the
    undo would lose if it is ever needed (nothing yet, before the release).
-(Superseded by **Release order (fix round)** at the end, which applies all three files in one transaction.)
+(Superseded by **Release order (fix round)** at the end, which applies all four files in one transaction.)
 
 2. **Apply the migration**, in the SQL editor (paste the whole file and run it) or:
    `psql "$LIVE_DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20261028090000_members_core_backend.sql`.
@@ -134,9 +134,9 @@ And from the outside: with a member's own token, `PATCH /rest/v1/members?id=eq.<
 
 ## Undo
 
-`release/undo-phase-a.sql` undoes all three migrations (090200, then 090100, then the core file) in one
+`release/undo-phase-a.sql` undoes all four migrations (090300, then 090200, then 090100, then the core file) in one
 transaction and returns the layout to the live dump exactly. Proved on a live-like copy: `pg_dump -s` of the
-copy before the migrations and after the three migrations plus the undo show no difference, with the live-like
+copy before the migrations and after the four migrations plus the undo show no difference, with the live-like
 rows present and kept. It deletes data: the four new tables and every new column (cancel dates, refunds and
 their retries, reminders, exact addresses, change emails, the message and audit logs), and, to restore the old
 unique rule, a member's cancelled booking rows where they booked the same event again. Being exact, it also
@@ -164,7 +164,7 @@ an event without a tier exists by then.
   role; nothing else inserts applications with a public key (the native app does not). Proved: anon POST
   `/rest/v1/applications` answers 401, and applying through `/apply` still works (`13-fixes-f1.mjs`).
 - Proved on a separate database built like live (`baseline.sql`, the 16 earlier migrations, live-like rows:
-  QA3's `setup-qa3-db.sh` with another name): the three files apply in one transaction exactly as step 4 of
+  QA3's `setup-qa3-db.sh` with another name): the four files apply in one transaction exactly as step 4 of
   the release order runs them, and this one applies again on top of itself.
 
 Check after applying:
@@ -198,10 +198,10 @@ keys in the environment (never in a file or a chat).
      `supabase/templates/recovery.html`, subject "Reset your Club Yuppie admin password".
    - URL configuration: Site URL **https://clubyuppie.com**.
    - Providers, Email: **Secure email change** checked (`double_confirm_changes = true` in config.toml).
-4. **Apply the three migrations in one transaction, with a lock timeout (checklist 7)**, as `postgres`, on the
+4. **Apply the four migrations in one transaction, with a lock timeout (checklist 7)**, as `postgres`, on the
    **direct connection** (Dashboard, Connect, "Direct connection": host `db.tbcpzmzfxtbaumlcnmdf.supabase.co`,
    **port 5432**), not the transaction pooler (port 6543). `begin;`, then `set local lock_timeout = '5s';`
-   (local: it lasts for this transaction only), then the three files in order, then `commit;`:
+   (local: it lasts for this transaction only), then the four files in order, then `commit;`:
 
    ```bash
    ( echo "begin;"; echo "set local lock_timeout = '5s';";
