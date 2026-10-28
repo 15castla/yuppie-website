@@ -19,7 +19,7 @@ export async function confirmPaidBooking(
   memberId: string,
   eventId: string,
   paymentIntent?: Stripe.PaymentIntent,
-): Promise<{ booked: boolean; bookingId?: string }> {
+): Promise<{ booked: boolean; bookingId?: string; refunded?: boolean }> {
   let pi = paymentIntent;
   if (!pi || pi.id !== paymentIntentId) {
     try {
@@ -33,6 +33,7 @@ export async function confirmPaidBooking(
     console.error(`confirmPaidBooking: payment intent ${paymentIntentId} is not for member ${memberId}, event ${eventId}`);
     return { booked: false };
   }
+  // A database error throws (TransientBookingError): the caller treats it as still processing.
   const result = await recordPaidBooking(pi);
-  return result.booked ? { booked: true, bookingId: result.bookingId } : { booked: false };
+  return result.booked ? { booked: true, bookingId: result.bookingId } : { booked: false, refunded: Boolean(result.refunded) };
 }

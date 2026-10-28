@@ -211,6 +211,10 @@ export function EventPageView({
   async function startPayment(attempt: number) {
     const formData = new FormData();
     formData.set("event_id", event.id);
+    // The price the member was shown (the server refuses if it changed) and a new attempt id each time
+    // payment opens (one PaymentIntent per attempt).
+    formData.set("price_pence", String(event.pricePence));
+    formData.set("attempt_id", typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`);
     let result: CreateEventPaymentIntentResult;
     try {
       result = await actions.createPaymentIntent(formData);

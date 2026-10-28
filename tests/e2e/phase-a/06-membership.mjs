@@ -43,7 +43,7 @@ eq((await redirectedTo('/members/events', s)), null, 'an ending member still use
 mark = fakesMark();
 eq((await action('you.keepMyMembership', [], s)).result, { ok: true }, 'keepMyMembership: ok');
 eq(sql1(`select cancel_at, cancel_requested_at, cancel_reason from members where id = ${q(m.id)}`), { cancel_at: null, cancel_requested_at: null, cancel_reason: null }, 'the cancel is undone');
-eq(fakesSince(mark, 'stripe').find((l) => l.path === `/v1/subscriptions/${m.subscription}`)?.body.cancel_at_period_end, 'false', 'Stripe: cancel_at_period_end false');
+eq(fakesSince(mark, 'stripe').find((l) => l.method === 'POST' && l.path === `/v1/subscriptions/${m.subscription}`)?.body.cancel_at_period_end, 'false', 'Stripe: cancel_at_period_end false');
 eq((await action('you.keepMyMembership', [], s)).result, { ok: true }, 'keeping an active membership: nothing to do, ok');
 
 // ---- today's one-step cancel stores the date too

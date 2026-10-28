@@ -248,8 +248,9 @@ async function refundUnbookedPayment(paymentIntent: Stripe.PaymentIntent, why: s
     if (refund.status === "failed" || refund.status === "canceled") return { ok: false, refundId: refund.id, error: refund.failure_reason ?? "refund failed" };
     return { ok: true, refundId: refund.id };
   } catch (err) {
-    // The other caller (page or webhook) is making this same refund right now.
-    if (stripeErrorCode(err) === "idempotency_key_in_use") return { ok: true };
+    // The other caller (page or webhook) is making this same refund right now, or made it already.
+    const code = stripeErrorCode(err);
+    if (code === "idempotency_key_in_use" || code === "charge_already_refunded") return { ok: true };
     console.error(`refundUnbookedPayment ${paymentIntent.id} failed:`, err);
     return { ok: false, error: errorMessage(err).slice(0, 300) };
   }
@@ -570,8 +571,20 @@ export async function refundBooking(
     } catch (err) {
       // Another caller is making this very refund right now (same key): theirs records it.
       if (stripeErrorCode(err) === "idempotency_key_in_use") return { status: "pending", refundPence: amount };
+      // Refunded already (by hand in the Dashboard, before this): record what Stripe has.
+      if (stripeErrorCode(err) === "charge_already_refunded") {
+        const made = await refundsAlreadyMade(row.stripe_payment_intent_id, row.id);
+        if (made.latest) {
+          const status = refundStatusOf(made.ours ?? made.latest);
+          const { error } = await db.from("bookings").update({ refund_status: status, refund_pence: made.pence, stripe_refund_id: (made.ours ?? made.latest).id, refund_error: null }).eq("id", row.id);
+          if (error) throw error;
+          return { status, refundPence: made.pence, refundId: (made.ours ?? made.latest).id };
+        }
+      }
       const message = errorMessage(err).slice(0, 500);
-      const final = attempt >= MAX_REFUND_ATTEMPTS;
+      // Stripe refused it (no such payment, already refunded, disputed): trying again cannot help. Stripe did
+      // not answer, or failed on its side: the refunds job tries again, up to MAX_REFUND_ATTEMPTS in all.
+      const final = !transientStripeError(err) || attempt >= MAX_REFUND_ATTEMPTS;
       console.error(`refundBooking: Stripe refund attempt ${attempt} failed for booking ${row.id}${final ? " (giving up)" : " (the refunds job tries again)"}:`, err);
       // Only over a claim nobody else has finished (a concurrent caller may have recorded the refund meanwhile).
       const { error } = await db
@@ -607,6 +620,17 @@ export async function refundBooking(
     console.error(`refundBooking ${booking.id} did not finish (the refunds job retries it):`, err);
     return { status: "pending", refundPence: row?.amount_pence ?? booking.amount_pence, error: errorMessage(err), retrying: true };
   }
+}
+
+/** An error worth trying again: no answer, a Stripe-side failure, a rate limit or a lock (not a refusal). */
+function transientStripeError(err: unknown): boolean {
+  if (!err || typeof err !== "object") return true;
+  const e = err as { type?: string; statusCode?: number; code?: string };
+  if (e.type === "StripeConnectionError" || e.type === "StripeAPIError" || e.type === "StripeRateLimitError") return true;
+  if (e.code === "lock_timeout" || e.code === "rate_limit") return true;
+  if (typeof e.statusCode === "number") return e.statusCode >= 500 || e.statusCode === 429 || e.statusCode === 409;
+  // Not a Stripe answer at all (a timeout, the network).
+  return !e.type?.startsWith("Stripe");
 }
 
 /** A pending refund Stripe accepted: ask Stripe again (refunds to some cards take days). */
@@ -829,8 +853,10 @@ export async function cancelBookingByMember(
     const cancelled = await markCancelled(booking.id, "member", reason);
     if (!cancelled) return { ok: false, reason: "already_cancelled" };
 
-    const refund = terms.free ? await refundBooking(cancelled) : { status: "none" as const, refundPence: 0 };
-    if (refund.status !== "failed") {
+    const refund: RefundOutcome = terms.free ? await refundBooking(cancelled) : { status: "none", refundPence: 0 };
+    // Not while the refund is failed or still being tried: the email says the money is on its way. The refunds
+    // job (or charge.refunded, after a refund by hand) sends it once it is.
+    if (refund.status !== "failed" && !refund.retrying) {
       later(`booking-cancelled email for ${booking.id}`, () => sendBookingCancelledEmail(booking.id, reason));
     }
     return { ok: true, reason, refund };
@@ -904,7 +930,7 @@ export async function cancelBookingsForEvent(
       const refund = await refundBooking(cancelled);
       if (refund.status === "succeeded" || refund.status === "pending") summary.refunded += 1;
       if (refund.status === "failed") summary.refundFailed += 1;
-      if (refund.status !== "failed") {
+      if (refund.status !== "failed" && !refund.retrying) {
         later(`event-cancelled email for ${row.id}`, () => sendEventCancelledEmail(row.id));
       }
     }
@@ -926,7 +952,7 @@ export async function cancelBookingsForEvent(
       if (refund.status === "none" || refund.status === "skipped") continue;
       if (refund.status === "succeeded" || refund.status === "pending") summary.refunded += 1;
       if (refund.status === "failed") summary.refundFailed += 1;
-      if (refund.status !== "failed") later(`event-cancelled email for ${row.id}`, () => sendEventCancelledEmail(row.id));
+      if (refund.status !== "failed" && !refund.retrying) later(`event-cancelled email for ${row.id}`, () => sendEventCancelledEmail(row.id));
     }
     const { count } = await db
       .from("bookings")
@@ -979,7 +1005,7 @@ export async function cancelFutureBookingsForMember(
     if (!cancelled) continue;
     const refund = await refundBooking(cancelled);
     out.push({ bookingId: raw.id, eventId: event.id, title: event.title, startTime: event.start_time, amountPence: raw.amount_pence, refund });
-    if (reason === "membership_ended" && options.email !== false && refund.status !== "failed") {
+    if (reason === "membership_ended" && options.email !== false && refund.status !== "failed" && !refund.retrying) {
       later(`booking-cancelled email for ${raw.id}`, () =>
         sendBookingCancelledEmail(raw.id, "membership_ended", { membershipEndedOn: options.membershipEndedOn }),
       );
