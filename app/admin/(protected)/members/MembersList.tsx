@@ -4,6 +4,7 @@
 // nine rows, then Show more (B-D18). The open member is marked.
 
 import Link from "next/link";
+import { useState } from "react";
 
 import { Chips, MoreLine, PAGE_SIZE, SearchBox, norm, useListParams, useSearchState } from "@/components/admin/list-controls";
 import { useKeptHref, useOpenId } from "@/components/admin/split-shell";
@@ -13,10 +14,13 @@ import type { MemberListRow } from "./members-data";
 type Filter = "all" | "active" | "paused" | "cancelled";
 const FILTERS: Filter[] = ["all", "active", "paused", "cancelled"];
 
-export function MembersList({ rows, defaultId }: { rows: MemberListRow[]; defaultId: string | null }) {
+export function MembersList({ rows }: { rows: MemberListRow[] }) {
   const { params, update } = useListParams();
   const href = useKeptHref(["q", "status", "show"]);
   const openId = useOpenId();
+  // The card beside the list on /admin/members is the first member for the search and filter the page
+  // opened with; mark it only while those are unchanged.
+  const [openedWith] = useState(() => `${params.get("q") ?? ""}|${params.get("status") ?? ""}`);
   const status = (FILTERS as string[]).includes(params.get("status") ?? "") ? (params.get("status") as Filter) : "all";
   const show = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
   const [q, setQ] = useSearchState(params.get("q") ?? "", (value) => update({ q: value || null, show: null }));
@@ -60,7 +64,7 @@ export function MembersList({ rows, defaultId }: { rows: MemberListRow[]; defaul
           </div>
         ) : (
           visible.map((m) => (
-            <Link key={m.id} className="ad-item" href={href(`/admin/members/${m.id}`)} aria-current={m.id === openId ? "true" : undefined} data-default={!openId && m.id === defaultId ? "true" : undefined} scroll={false}>
+            <Link key={m.id} className="ad-item" href={href(`/admin/members/${m.id}`)} aria-current={m.id === openId ? "true" : undefined} data-default={!openId && openedWith === `${q}|${params.get("status") ?? ""}` && m.id === visible[0]?.id ? "true" : undefined} scroll={false}>
               <span className="lead">
                 <Avatar name={m.name} photoUrl={m.photoUrl} />
               </span>

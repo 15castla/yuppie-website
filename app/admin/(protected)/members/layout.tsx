@@ -8,7 +8,7 @@ import { listMembers } from "./members-data";
 // Members (r2b 15): the list on the left stays while the card on the right (the child page) changes.
 async function MembersListData() {
   const rows = await listMembers();
-  return <MembersList rows={rows} defaultId={rows[0]?.id ?? null} />;
+  return <MembersList rows={rows} />;
 }
 
 export default function MembersLayout({ children }: { children: ReactNode }) {

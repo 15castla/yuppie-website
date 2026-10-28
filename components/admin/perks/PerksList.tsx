@@ -100,7 +100,9 @@ export function PerksList({ type, rows }: { type: PerkType; rows: PerkRow[] }) {
     : items;
   const visible = hits.slice(0, show);
   const draggable = !needle && visible.length > 1;
-  const first = items[0]?.id ?? null;
+  // The card beside the list on the index page is the first one for the search the page opened with.
+  const [openedWith] = useState(() => params.get("q") ?? "");
+  const first = openedWith === q ? (visible[0]?.id ?? null) : null;
   const kept = new URLSearchParams();
   if (q) kept.set("q", q);
   if (params.get("show")) kept.set("show", String(show));
