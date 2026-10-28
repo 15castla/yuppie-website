@@ -17,6 +17,7 @@ export function SplitShell({
   basePath,
   backLabel,
   keepParams = [],
+  fullSegments = [],
 }: {
   head: ReactNode;
   list: ReactNode;
@@ -25,6 +26,8 @@ export function SplitShell({
   backLabel: string;
   /** Search params the Back link keeps (the list's search and filter). */
   keepParams?: string[];
+  /** Child segments that take the whole width with no list (Access, Feature card). */
+  fullSegments?: string[];
 }) {
   const segment = useSelectedLayoutSegment();
   const params = useSearchParams();
@@ -35,6 +38,14 @@ export function SplitShell({
     if (v) kept.set(key, v);
   }
   const backHref = kept.size ? `${basePath}?${kept.toString()}` : basePath;
+  if (segment && fullSegments.includes(segment)) {
+    return (
+      <div className="ad-page" data-open="false">
+        <div className="ad-pagehead">{head}</div>
+        <div className="ad-full">{children}</div>
+      </div>
+    );
+  }
   return (
     <div className="ad-page" data-open={open ? "true" : "false"}>
       <div className="ad-pagehead">{head}</div>

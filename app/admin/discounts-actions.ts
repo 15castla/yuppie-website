@@ -5,6 +5,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
 import { uploadMemberMedia } from "@/lib/media-storage";
+import { audit } from "@/lib/server/audit";
 
 const TYPES = ["discount", "access"] as const;
 const ACCESS_KINDS = ["skip_queue", "members_club", "first_dibs", "invite_only"] as const;
@@ -34,7 +35,8 @@ type PerkFields = {
 // literal discriminant) doesn't reliably narrow `result.fields` to defined
 // after checking `result.error`, since TS's discriminated-union narrowing
 // is keyed on a shared literal-typed property, not general truthiness.
-type PerkFieldsResult = { ok: false; error: string } | { ok: true; fields: PerkFields };
+export type PerkField = "name" | "area" | "category" | "access_kind" | "headline" | "type";
+type PerkFieldsResult = { ok: false; error: string; field?: PerkField } | { ok: true; fields: PerkFields };
 
 function readPerkFields(formData: FormData): PerkFieldsResult {
   const name = formData.get("name");
@@ -45,12 +47,12 @@ function readPerkFields(formData: FormData): PerkFieldsResult {
   const headline = formData.get("headline");
   const badgeRaw = formData.get("badge");
 
-  if (typeof name !== "string" || !name.trim()) return { ok: false, error: "Name is required." };
-  if (typeof area !== "string" || !area.trim()) return { ok: false, error: "Area is required." };
+  if (typeof name !== "string" || !name.trim()) return { ok: false, error: "Add a name.", field: "name" };
+  if (typeof area !== "string" || !area.trim()) return { ok: false, error: "Add the area.", field: "area" };
   if (typeof type !== "string" || !TYPES.includes(type as (typeof TYPES)[number]))
-    return { ok: false, error: "Please choose a valid type." };
+    return { ok: false, error: "Choose discount or door.", field: "type" };
   if (typeof headline !== "string" || !headline.trim())
-    return { ok: false, error: "Headline is required." };
+    return { ok: false, error: "Add a headline.", field: "headline" };
 
   // Category is only meaningful for Discount perks. access-view.tsx groups
   // Access perks purely by access_kind and never reads it (see the
@@ -62,7 +64,7 @@ function readPerkFields(formData: FormData): PerkFieldsResult {
   let category: string | null = null;
   if (type === "discount") {
     if (typeof categoryRaw !== "string" || !categoryRaw.trim())
-      return { ok: false, error: "Category is required." };
+      return { ok: false, error: "Choose a category.", field: "category" };
     category = categoryRaw.trim();
   }
 
@@ -71,6 +73,7 @@ function readPerkFields(formData: FormData): PerkFieldsResult {
     ACCESS_KINDS.includes(accessKindRaw as (typeof ACCESS_KINDS)[number])
       ? accessKindRaw
       : null;
+  if (type === "access" && !accessKind) return { ok: false, error: "Choose the type of access.", field: "access_kind" };
   const badge = typeof badgeRaw === "string" && badgeRaw.trim() ? badgeRaw.trim() : null;
 
   return {
@@ -96,28 +99,28 @@ function readPerkFields(formData: FormData): PerkFieldsResult {
 // to resubmit and create a duplicate.
 export async function createPerk(
   formData: FormData,
-): Promise<{ success: boolean; error?: string; warning?: string }> {
-  await requireAdmin();
+): Promise<{ success: boolean; error?: string; field?: PerkField; warning?: string; id?: string }> {
+  const admin = await requireAdmin();
 
   const result = readPerkFields(formData);
-  if (!result.ok) return { success: false, error: result.error };
+  if (!result.ok) return { success: false, error: result.error, field: result.field };
 
   const logo = formData.get("logo");
   const hasLogo = result.fields.type === "discount" && logo instanceof File && logo.size > 0;
 
   const adminClient = createAdminSupabaseClient();
 
-  // New items are pinned to the top of their type's list rather than
-  // appended: one less than the current minimum sorts above every
-  // existing row without needing to renumber anything else.
-  const { data: minOrderRow } = await adminClient
+  // A new item goes to the bottom of its list (r2b Discounts: "It goes to the
+  // bottom of the list. Move it when you’re ready."): one more than the
+  // current maximum, so nothing else is renumbered.
+  const { data: maxOrderRow } = await adminClient
     .from("partner_perks")
     .select("display_order")
     .eq("type", result.fields.type)
-    .order("display_order", { ascending: true })
+    .order("display_order", { ascending: false })
     .limit(1)
     .maybeSingle();
-  const displayOrder = (minOrderRow?.display_order ?? 0) - 1;
+  const displayOrder = (maxOrderRow?.display_order ?? -1) + 1;
 
   const { data, error } = await adminClient
     .from("partner_perks")
@@ -127,8 +130,9 @@ export async function createPerk(
 
   if (error) {
     console.error("createPerk failed:", error);
-    return { success: false, error: "Something went wrong creating that perk." };
+    return { success: false, error: `We couldn’t add it. Try again in a moment. (${error.message})` };
   }
+  await audit(admin.id, "perk.create", { type: "perk", id: data.id }, { ...result.fields, display_order: displayOrder });
 
   let warning: string | undefined;
 
@@ -149,27 +153,28 @@ export async function createPerk(
   }
 
   revalidatePerks();
-  return { success: true, warning };
+  return { success: true, warning, id: data.id as string };
 }
 
 export async function updatePerk(
   formData: FormData,
-): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+): Promise<{ success: boolean; error?: string; field?: PerkField }> {
+  const admin = await requireAdmin();
 
   const id = formData.get("id");
   if (typeof id !== "string" || !id) return { success: false, error: "Missing perk." };
 
   const result = readPerkFields(formData);
-  if (!result.ok) return { success: false, error: result.error };
+  if (!result.ok) return { success: false, error: result.error, field: result.field };
 
   const adminClient = createAdminSupabaseClient();
   const { error } = await adminClient.from("partner_perks").update(result.fields).eq("id", id);
 
   if (error) {
     console.error(`updatePerk failed for perk ${id}:`, error);
-    return { success: false, error: "Something went wrong saving that perk." };
+    return { success: false, error: `We couldn’t save that. (${error.message})` };
   }
+  await audit(admin.id, "perk.update", { type: "perk", id }, { ...result.fields });
 
   revalidatePerks();
   return { success: true };
@@ -178,14 +183,14 @@ export async function updatePerk(
 export async function uploadPerkLogo(
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const id = formData.get("id");
   const logo = formData.get("logo");
 
   if (typeof id !== "string" || !id) return { success: false, error: "Missing perk." };
   if (!(logo instanceof File)) {
-    return { success: false, error: "Please choose an image to upload." };
+    return { success: false, error: "Choose a picture to upload." };
   }
 
   const uploaded = await uploadMemberMedia("perks", id, logo);
@@ -201,6 +206,7 @@ export async function uploadPerkLogo(
     console.error(`uploadPerkLogo failed for perk ${id}:`, error);
     return { success: false, error: "Uploaded, but saving it to the perk failed." };
   }
+  await audit(admin.id, "perk.logo", { type: "perk", id }, { logo_url: uploaded.url });
 
   revalidatePerks();
   return { success: true };
@@ -212,7 +218,7 @@ export async function uploadPerkLogo(
 // the member-media bucket. lib/media-storage.ts has no deletion helper,
 // and an orphaned file only costs storage space, not correctness.
 export async function removePerkLogo(id: string): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   if (!id) {
     return { success: false, error: "Missing perk." };
@@ -226,8 +232,9 @@ export async function removePerkLogo(id: string): Promise<{ success: boolean; er
 
   if (error) {
     console.error(`removePerkLogo failed for perk ${id}:`, error);
-    return { success: false, error: "Something went wrong removing that logo." };
+    return { success: false, error: "We couldn’t remove the logo. Try again in a moment." };
   }
+  await audit(admin.id, "perk.logo_remove", { type: "perk", id });
 
   revalidatePerks();
   return { success: true };
@@ -242,7 +249,7 @@ export async function reorderPerks(
   type: "discount" | "access",
   orderedIds: string[],
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const adminClient = createAdminSupabaseClient();
   const results = await Promise.all(
@@ -254,27 +261,64 @@ export async function reorderPerks(
   const failed = results.find((result) => result.error);
   if (failed?.error) {
     console.error("reorderPerks failed:", failed.error);
-    return { success: false, error: "Something went wrong saving that order." };
+    return { success: false, error: "We couldn’t save that order. Try again in a moment." };
   }
+  await audit(admin.id, "perk.reorder", { type: "perk_list", id: type }, { order: orderedIds });
 
   revalidatePerks();
   return { success: true };
 }
 
 export async function deletePerk(formData: FormData): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const id = formData.get("id");
   if (typeof id !== "string" || !id) return { success: false, error: "Missing perk." };
 
   const adminClient = createAdminSupabaseClient();
+  const { data: before } = await adminClient.from("partner_perks").select("name, type").eq("id", id).maybeSingle();
   const { error } = await adminClient.from("partner_perks").delete().eq("id", id);
 
   if (error) {
     console.error(`deletePerk failed for perk ${id}:`, error);
-    return { success: false, error: "Something went wrong deleting that perk." };
+    return { success: false, error: `We couldn’t delete it. (${error.message})` };
   }
+  await audit(admin.id, "perk.delete", { type: "perk", id }, { name: before?.name ?? null, perk_type: before?.type ?? null });
 
   revalidatePerks();
   return { success: true };
+}
+
+// Move up and Move down beside the drag handle (B-D19): swaps a perk with its
+// neighbour in its own list, then writes the whole order (the same numbering
+// as reorderPerks). Returns the new position, 1 based.
+export async function movePerk(
+  id: string,
+  direction: "up" | "down",
+): Promise<{ success: true; position: number; total: number } | { success: false; error: string }> {
+  const admin = await requireAdmin();
+  const adminClient = createAdminSupabaseClient();
+  const { data: perk } = await adminClient.from("partner_perks").select("id, type").eq("id", id).maybeSingle();
+  if (!perk) return { success: false, error: "That one couldn’t be found." };
+  const { data: rows, error: listError } = await adminClient
+    .from("partner_perks")
+    .select("id")
+    .eq("type", perk.type)
+    .order("display_order", { ascending: true })
+    .order("id", { ascending: true });
+  if (listError || !rows) return { success: false, error: "We couldn’t read the order. Try again in a moment." };
+  const ids = rows.map((r) => r.id as string);
+  const at = ids.indexOf(id);
+  const to = direction === "up" ? at - 1 : at + 1;
+  if (at < 0 || to < 0 || to >= ids.length) return { success: true, position: at + 1, total: ids.length };
+  [ids[at], ids[to]] = [ids[to], ids[at]];
+  const results = await Promise.all(ids.map((rowId, index) => adminClient.from("partner_perks").update({ display_order: index }).eq("id", rowId)));
+  const failed = results.find((r) => r.error);
+  if (failed?.error) {
+    console.error("movePerk failed:", failed.error);
+    return { success: false, error: "We couldn’t save that order. Try again in a moment." };
+  }
+  await audit(admin.id, direction === "up" ? "perk.move_up" : "perk.move_down", { type: "perk", id }, { from: at + 1, to: to + 1, perk_type: perk.type });
+  revalidatePerks();
+  return { success: true, position: to + 1, total: ids.length };
 }

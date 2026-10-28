@@ -318,7 +318,7 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 .ad-erow .meta{display:block;margin-top:3px;font:400 14px/1.3 var(--font-body);color:var(--muted)}
 .ad-erow .end{flex:none;font:700 14px/1.3 var(--font-body)}
 .ad-prow{display:grid;grid-template-columns:44px 48px minmax(0,1fr) auto;column-gap:12px;row-gap:2px;align-items:center;min-height:76px;padding:12px 0;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none;background:var(--yellow)}
-.ad-prow[aria-current]{background:var(--pale);margin:0 -14px;padding:12px 14px;box-shadow:inset 4px 0 0 var(--ink)}
+.ad-prow[data-current=true]{background:var(--pale);margin:0 -14px;padding:12px 14px;box-shadow:inset 4px 0 0 var(--ink)}
 @media (min-width:768px){ .ad-prow[data-default=true]{background:var(--pale);margin:0 -14px;padding:12px 14px;box-shadow:inset 4px 0 0 var(--ink)} }
 .ad-prow.no-grip{grid-template-columns:48px minmax(0,1fr) auto}
 .ad-prow .grip{display:flex;align-items:center;justify-content:center;width:44px;height:44px;margin-left:-10px;color:var(--ink);background:none;border:0;padding:0;cursor:grab;touch-action:none}
@@ -431,3 +431,12 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 /* a list with nothing in it (All caught up) takes the whole width when no card is open */
 .ad-grid[data-open=false]:has(> .ad-list-col .ad-empty-wide){grid-template-columns:minmax(0,1fr)}
 .ad-grid[data-open=false]:has(> .ad-list-col .ad-empty-wide) > .ad-card-col{display:none}
+
+/* the members' discount row, drawn in "How members see it" */
+.ad-dcrow{display:grid;grid-template-columns:62px minmax(0,1fr) auto;grid-template-areas:"tile name pill" "tile offer offer" "tile meta meta";align-items:start;padding:14px 0}
+.ad-dcrow .ad-tile{grid-area:tile}
+.ad-dcrow .nm{grid-area:name;min-width:0;font:700 16px/1.25 var(--font-body);overflow-wrap:anywhere}
+.ad-dcrow .pl{grid-area:pill;margin-left:12px}
+.ad-dcrow .of{grid-area:offer;min-width:0;margin-top:2px;font:400 15px/1.35 var(--font-body);overflow-wrap:anywhere}
+.ad-dcrow .mt{grid-area:meta;margin-top:2px;font:400 14px/1.3 var(--font-body);color:var(--muted)}
+.ad-full{margin-top:24px;max-width:760px}

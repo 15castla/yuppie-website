@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from "next/cache";
 
 import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
+import { audit } from "@/lib/server/audit";
 
 const CONTENT_TYPES = ["event", "discount", "access"] as const;
 type ContentType = (typeof CONTENT_TYPES)[number];
@@ -28,7 +29,7 @@ function revalidateFeatureCard() {
 export async function setFeatureCard(
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const contentType = formData.get("content_type");
   const contentId = formData.get("content_id");
@@ -42,15 +43,16 @@ export async function setFeatureCard(
 
     if (error) {
       console.error("setFeatureCard: failed to clear:", error);
-      return { success: false, error: `Couldn't clear the feature card: ${error.message}` };
+      return { success: false, error: `We couldn’t clear the feature card. (${error.message})` };
     }
 
+    await audit(admin.id, "feature_card.clear", { type: "feature_card", id: "feature_card" });
     revalidateFeatureCard();
     return { success: true };
   }
 
   if (typeof contentType !== "string" || !CONTENT_TYPES.includes(contentType as ContentType)) {
-    return { success: false, error: "Please choose something to feature." };
+    return { success: false, error: "Choose something to feature." };
   }
 
   const label = typeof labelRaw === "string" ? labelRaw.trim() || null : null;
@@ -65,9 +67,10 @@ export async function setFeatureCard(
 
   if (error) {
     console.error("setFeatureCard failed:", error);
-    return { success: false, error: `Couldn't set the feature card: ${error.message}` };
+    return { success: false, error: `We couldn’t save the feature card. (${error.message})` };
   }
 
+  await audit(admin.id, "feature_card.set", { type: "feature_card", id: "feature_card" }, { content_type: contentType, content_id: contentId, label });
   revalidateFeatureCard();
   return { success: true };
 }
