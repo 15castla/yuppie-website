@@ -82,7 +82,8 @@ export function StripePaySheet({
   onClose: () => void;
 }) {
   const id = useId();
-  const [state, setState] = useState<PayState>(clientSecret ? initialState : "load-error");
+  // A state that needs Stripe's fields with no PaymentIntent to draw them for: payment could not be opened.
+  const [state, setState] = useState<PayState>(!clientSecret && WITH_FIELDS.includes(initialState) ? "load-error" : initialState);
   const [stripe, setStripe] = useState<Stripe | null>(null);
   const [declined, setDeclined] = useState<string | null>(null);
   const needsStripe = Boolean(clientSecret) && WITH_FIELDS.includes(state);

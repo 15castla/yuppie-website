@@ -2,7 +2,7 @@
 // can't be styled with regular classes, so this approximates the site's
 // own input/label styling via Stripe's own theming API instead. Shared
 // between the membership application form (app/apply/apply-form.tsx) and
-// the event payment form (components/members/event-payment-form.tsx) so
+// the event pay sheet (components/members/event/stripe-pay.tsx) so
 // both read as the same on-page checkout experience.
 export const STRIPE_APPEARANCE = {
   variables: {

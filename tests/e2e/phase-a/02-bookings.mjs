@@ -36,7 +36,7 @@ const [ra, rb] = await Promise.all([
 ]);
 const wins = [ra, rb].filter((r) => r.result.success).length;
 eq(wins, 1, 'two members racing for the last spot: exactly one gets it');
-ok([ra, rb].some((r) => r.result.error === 'Sorry, this event is fully booked.'), 'the other is told it is fully booked');
+ok([ra, rb].some((r) => r.result.error === 'That was the last spot. Someone booked just before you.'), 'the other is told it is fully booked (r2a: "That was the last spot.")');
 eq(confirmedCount(free.id), 2, 'never over capacity (2 of 2)');
 
 // ---- refusals
@@ -94,7 +94,7 @@ await waitFor(() => messages(`booking_id = ${q(pi2Booking)} and template = 'book
 const m5 = await makeMember('bk5');
 const s5 = await memberSession(m5.email);
 const pi3 = piFrom((await action('events.createEventPaymentIntent', [fd({ event_id: paid.id })], s5)).result.clientSecret);
-eq((await action('events.confirmEventPayment', [pi3, paid.id], s5)).result, { booked: false, error: 'Your payment didn’t go through. Please try again.' }, 'an unpaid PaymentIntent is not booked');
+eq((await action('events.confirmEventPayment', [pi3, paid.id], s5)).result, { booked: false, error: 'Your payment didn’t go through. Please try again.', reason: 'not_paid' }, 'an unpaid PaymentIntent is not booked');
 eq((await action('events.confirmEventPayment', [pi3, paid.id], s1)).result.error, 'That payment doesn’t match this booking.', "another member's payment cannot be confirmed");
 
 // ---- paid twice: a second payment for someone already booked
@@ -113,7 +113,7 @@ await fakePay(over.json.id);
 eq(confirmedCount(tiny.id), 2, 'over capacity: the paid member is booked anyway (2 of 1)');
 await waitFor(() => messages(`dedupe_key = ${q(`admin-booking-review:${over.json.id}:over_capacity`)} and status = 'sent'`).length === 1, 'over capacity: admin-booking-review sent');
 const fullPi = await action('events.createEventPaymentIntent', [fd({ event_id: tiny.id })], s5);
-eq(fullPi.result, { success: false, error: 'Sorry, this event is fully booked.' }, 'and no new payment starts for a full event');
+eq(fullPi.result, { success: false, error: 'That was the last spot. Someone booked just before you.', reason: 'full' }, 'and no new payment starts for a full event');
 
 // ---- the amount must match the event price
 const wrong = await stripe('POST', 'payment_intents', { amount: 100, currency: 'gbp', customer: m5.customer, metadata: { member_id: m5.id, event_id: paid.id } });
