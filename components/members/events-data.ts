@@ -3,6 +3,15 @@ import { unstable_cache } from "next/cache";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { EVENT_COLUMNS, type Event } from "./event-types";
 
+// The members area also reads whether the club cancelled an event (B-D8) and when it last moved it (C-D11).
+// Kept here rather than in event-types.ts, whose EVENT_COLUMNS the admin pages read too.
+export type MemberEvent = Event & {
+  cancelled_at: string | null;
+  cancel_note: string | null;
+  changed_at: string | null;
+};
+const MEMBER_EVENT_COLUMNS = `${EVENT_COLUMNS}, cancelled_at, cancel_note, changed_at`;
+
 // Events are shared catalog content, identical for every member, and only
 // changed by editing the events table directly in Supabase (no in-app admin
 // UI for it exists), not something that needs to be fresh on every single
@@ -23,16 +32,17 @@ const getCachedAllEvents = unstable_cache(
     const adminClient = createAdminSupabaseClient();
     const { data, error } = await adminClient
       .from("events")
-      .select(EVENT_COLUMNS)
+      .select(MEMBER_EVENT_COLUMNS)
       .order("start_time", { ascending: true });
 
     if (error) {
       console.error("Failed to load events:", error);
     }
 
-    return (data ?? []) as Event[];
+    return (data ?? []) as MemberEvent[];
   },
-  ["events-list"],
+  // v2: the rows now carry cancelled_at (a cached v1 entry would not).
+  ["events-list-v2"],
   { tags: ["events"], revalidate: 60 },
 );
 
@@ -43,7 +53,9 @@ export function hasEventStarted(event: Pick<Event, "start_time">, now = Date.now
   return new Date(event.start_time).getTime() <= now;
 }
 
-// What members see: only events that haven't started yet. Filtered here,
+// What members see: only events that haven't started yet, and not the ones
+// the club cancelled (booking them is refused; the event page itself still
+// opens from an old link and says it is cancelled). Filtered here,
 // after the cache, rather than inside the cached query, so the cut-off is
 // the current moment rather than whenever the cache was last filled (up
 // to 60s earlier). Admin pages query the events table directly and still
@@ -51,7 +63,7 @@ export function hasEventStarted(event: Pick<Event, "start_time">, now = Date.now
 // an old link to a past event still opens it, with booking disabled.
 export async function getCachedEvents() {
   const now = Date.now();
-  return (await getCachedAllEvents()).filter((event) => !hasEventStarted(event, now));
+  return (await getCachedAllEvents()).filter((event) => !hasEventStarted(event, now) && !event.cancelled_at);
 }
 
 // Which upcoming events have no spots left, for the "Fully booked" pill on the
@@ -70,7 +82,8 @@ const getCachedFullEventIds = unstable_cache(
       const { data: upcoming } = await adminClient
         .from("events")
         .select("id, capacity")
-        .gte("start_time", new Date().toISOString());
+        .gte("start_time", new Date().toISOString())
+        .is("cancelled_at", null);
       const checked = await Promise.all(
         (upcoming ?? []).map(async (event) => {
           if (!event.capacity || event.capacity <= 0) return null;
@@ -102,12 +115,13 @@ export const getCachedEventBySlug = unstable_cache(
     const adminClient = createAdminSupabaseClient();
     const { data } = await adminClient
       .from("events")
-      .select(EVENT_COLUMNS)
+      .select(MEMBER_EVENT_COLUMNS)
       .eq("slug", slug)
       .maybeSingle();
 
-    return (data as Event | null) ?? null;
+    return (data as MemberEvent | null) ?? null;
   },
-  ["event-by-slug"],
+  // v2: the row now carries cancelled_at, cancel_note and changed_at.
+  ["event-by-slug-v2"],
   { tags: ["events"], revalidate: 60 },
 );

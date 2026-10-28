@@ -73,7 +73,7 @@ for (const path of ['/members/events', '/members/discounts', '/members/access', 
   eq(await redirectedTo(path, spa), '/members/membership', `paused: ${path} goes to the gate`);
 }
 const gate = await page('/members/membership', spa);
-ok(gate.status === 200 && gate.text.includes('Your membership is paused.'), 'paused: the gate page draws (placeholder words)');
+ok(gate.status === 200 && gate.text.includes('is paused.') && gate.text.includes('To get going again'), 'paused: the gate page draws (the r2a paused gate)');
 for (const path of ['/members/you/help', '/members/you/help/faq', '/members/you/help/contact', '/members/you/help/privacy']) {
   eq([(await page(path, spa)).status, await redirectedTo(path, spa)], [200, null], `paused: ${path} still opens`);
 }

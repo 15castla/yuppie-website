@@ -16,7 +16,11 @@ import Image from "next/image";
 // globals.css hides it unless <html data-native-app> is set (before the
 // first paint, by app/layout.tsx), so neither side flashes the other's
 // look on load.
-const WATERMARK_ROUTES = ["/member-login"];
+//
+// Members backend A (r2a section 7): the app's sign-in screen now draws its
+// own giant wordmark standing on a 3px rule, in the page's flow
+// (member-login-form-native.tsx), so this faint fixed one is shown nowhere.
+const WATERMARK_ROUTES: string[] = [];
 
 export function SiteWatermark() {
   const pathname = usePathname();
