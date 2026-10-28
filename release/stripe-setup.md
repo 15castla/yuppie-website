@@ -21,7 +21,7 @@ Every call below uses the live secret key from the environment, never pasted int
 | `customer.subscription.updated` | syncs the cancel date and a pause made in Stripe; status `canceled` ends the membership |
 | `customer.subscription.deleted` | ends the membership, cancels and refunds future bookings (A-D8), one email |
 | `charge.refunded` | records a refund (ours, or one made by hand in the Dashboard) on the booking |
-| `customer.updated` | a member whose membership payment failed saved a new default card in the portal: it becomes the subscription's card and the open invoice is paid now (QA3-02) |
+| `customer.updated` | a member saved a new default card in the portal. Payment failed: it becomes the subscription's card and the open invoice is paid now (QA3-02). Any other state: if the subscription has a card of its own (made before this release), the new card replaces it, so the next renewal charges it (N1) |
 | `payment_method.attached` | the same, when the portal attaches the card (whichever event comes first does it; the second finds nothing to do) |
 
 Every handler reads the subscription (and customer) from Stripe as it is now, not from the event, because
@@ -34,9 +34,10 @@ know them (it would answer 200 and ignore them, so nothing breaks, but the event
 **The card on new subscriptions (QA3-02).** Approving an application now sets the saved card as the
 customer's `invoice_settings.default_payment_method` and creates the subscription without a card of its own,
 so a card the member saves later in the portal is the one Stripe charges. Members approved before the release
-have a subscription-level `default_payment_method`; no data change is needed for them: the
-`customer.updated` / `payment_method.attached` handlers set the new card on the subscription when a member in
-the payment problem state saves one.
+have a subscription-level `default_payment_method`; no data change is needed for them: `customer.updated` sets
+the new card on the subscription whenever such a member saves one, in any state, and in the payment problem
+state also pays the open invoice. Optional: `release/clear-subscription-cards.mjs` removes those
+subscription-level cards so the customer's default applies (see live-migration-notes.md, release order 10).
 
 `checkout.session.completed` is not handled by any code (it is left from the old Checkout flow), so it can go.
 Today `payment_intent.succeeded` is not delivered at all, so a paid booking is only recorded when the

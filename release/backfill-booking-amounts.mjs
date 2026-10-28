@@ -73,16 +73,22 @@ for (const b of todo) {
       continue;
     }
     const update = { amount_pence: received };
-    if (refunded > 0 && (b.refund_status !== 'succeeded' || b.refund_pence !== refunded)) {
+    // In full: the booking's refund is done. In part (£5 of £15, by hand): recorded, and the booking stays
+    // refundable for the rest (refund_status unchanged; the app refunds only what is left).
+    const full = refunded >= received;
+    if (refunded > 0 && (b.refund_pence !== refunded || (full && b.refund_status !== 'succeeded'))) {
       Object.assign(update, {
         refund_pence: refunded,
-        refund_status: refunds.every((r) => r.status === 'succeeded') ? 'succeeded' : 'pending',
         stripe_refund_id: latest?.id ?? b.stripe_refund_id,
-        refund_error: null,
+        ...(full ? { refund_status: refunds.every((r) => r.status === 'succeeded') ? 'succeeded' : 'pending', refund_error: null } : {}),
       });
     }
     const parts = [`amount ${pounds(received)}`];
-    if ('refund_pence' in update) parts.push(`refund already made in Stripe: ${pounds(refunded)} (${latest?.id}), ${update.refund_status}`);
+    if ('refund_pence' in update) {
+      parts.push(full
+        ? `refund already made in Stripe: ${pounds(refunded)} (${latest?.id}), ${update.refund_status}`
+        : `part refund already made in Stripe: ${pounds(refunded)} of ${pounds(received)} (${latest?.id}); the other ${pounds(received - refunded)} stays refundable`);
+    }
     console.log(`  ${label}: ${parts.join('; ')}`);
     if (b.status === 'confirmed' && refunded >= received) checkByHand.push(`${label}: refunded in full in Stripe but still confirmed`);
     if (APPLY) {

@@ -1,7 +1,7 @@
 // Does the local stack's baseline plus the repo's migrations (everything before the Phase A migration) give
 // the live layout of 27 Oct 2026? Compares tables, columns (type, nullability, default), constraints, public
 // indexes, policies, enums and triggers with /home/claude/build-a/live-schema/supabase-layout-2026-10-27.md.
-// Then the same comparison after the full rebuild plus release/undo-members-core-backend.sql (the undo gives
+// Then the same comparison after the full rebuild plus release/undo-phase-a.sql (the undo gives
 // the live layout back). DESTRUCTIVE: rebuilds the public schema three times (apply_repo.sh) and ends with
 // every migration applied and seed.mjs run. Only when no one else is mid-test.
 //   node tests/e2e/phase-a/live-layout-check.mjs
@@ -73,8 +73,8 @@ compare('before Phase A');
 // ---- and back to everything, Phase A included
 execFileSync('/home/claude/stack/apply_repo.sh', [ROOT], { stdio: ['ignore', 'pipe', 'pipe'] });
 ok(true, 'rebuilt with every migration, Phase A included');
-execFileSync('psql', ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-q', '-v', 'ON_ERROR_STOP=1', '-f', `${ROOT}/release/undo-members-core-backend.sql`], { stdio: ['ignore', 'pipe', 'pipe'] });
-ok(true, 'release/undo-members-core-backend.sql applied');
+execFileSync('psql', ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-q', '-v', 'ON_ERROR_STOP=1', '-f', `${ROOT}/release/undo-phase-a.sql`], { stdio: ['ignore', 'pipe', 'pipe'] });
+ok(true, 'release/undo-phase-a.sql applied');
 compare('after the undo');
 execFileSync('/home/claude/stack/apply_repo.sh', [ROOT], { stdio: ['ignore', 'pipe', 'pipe'] });
 execFileSync('node', ['/home/claude/stack/tools/seed.mjs', '--prefix', 'f.', '--quiet'], { stdio: ['ignore', 'pipe', 'pipe'] });

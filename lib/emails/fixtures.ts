@@ -166,6 +166,17 @@ export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
       data: { reason: "member_late", event: PADEL, cancelled: { date: "Wed 28 Oct", time: "20:15" }, refund: null, notRefunded: "£25" },
     },
     {
+      id: "not-booked",
+      label: "Paid just as the event was cancelled: not booked, refunded (QA1-12)",
+      data: {
+        reason: "not_booked",
+        notBookedWhy: "event_cancelled",
+        event: PADEL,
+        cancelled: { date: "Wed 28 Oct", time: "20:15" },
+        refund: { amount: "£25", card: VISA, arrivesBy: "Wed 11 Nov" },
+      },
+    },
+    {
       id: "late-included",
       label: "Included event, cancelled inside 48 hours",
       data: { reason: "member_late", event: ROOFTOP, cancelled: { date: "Wed 28 Oct", time: "20:15" }, refund: null },

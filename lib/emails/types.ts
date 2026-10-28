@@ -216,7 +216,10 @@ export type BookingConfirmedIncludedData = {
  * - "membership_ended": the membership ended and this future booking went with it (A-D8, refunded in full).
  * Only "member" is drawn word for word; see renderers/booking-cancelled.ts for what the others reuse.
  */
-export type BookingCancelReason = "member" | "member_late" | "event_changed" | "membership_ended";
+export type BookingCancelReason = "member" | "member_late" | "event_changed" | "membership_ended" | "not_booked";
+
+/** For "not_booked" (QA1-12): why a payment that went through could not become a booking. */
+export type NotBookedWhy = "event_cancelled" | "event_started" | "event_gone" | "membership_paused" | "membership_ended";
 
 /** 14. One booking was cancelled. */
 export type BookingCancelledData = {
@@ -240,6 +243,11 @@ export type BookingCancelledData = {
    * email then says it is not refunded. Left out for an included booking.
    */
   notRefunded?: EmailMoney;
+  /**
+   * For "not_booked" (QA1-12): the payment went through just as booking stopped being possible, so nothing was
+   * booked and it was refunded in full automatically (refund is then required). One email per payment.
+   */
+  notBookedWhy?: NotBookedWhy;
   /** "See what’s on". Default "/members/events". */
   eventsUrl?: EmailLink;
 };

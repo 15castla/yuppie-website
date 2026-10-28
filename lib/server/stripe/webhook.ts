@@ -28,6 +28,7 @@ import {
   recordMembershipPaymentFailed,
   retryMembershipPayment,
   syncSubscription,
+  syncSubscriptionCard,
 } from "../membership-actions";
 import { currentSubscription, idOf, subscriptionEnded } from "./subscription";
 
@@ -39,7 +40,8 @@ export const HANDLED_EVENT_TYPES = [
   "customer.subscription.updated",
   "customer.subscription.deleted",
   "charge.refunded",
-  // QA3-02: a card saved in the billing portal pays the failed membership invoice.
+  // QA3-02: a card saved in the billing portal pays the failed membership invoice; N1: and is the card the
+  // next renewal charges, also for a subscription made before this release with a card of its own.
   "customer.updated",
   "payment_method.attached",
 ] as const;
@@ -154,15 +156,18 @@ async function dispatch(event: Stripe.Event): Promise<WebhookOutcome> {
       return { status: "processed", type, detail: await recordRefundFromCharge(event.data.object as Stripe.Charge) };
     }
     case "customer.updated": {
-      // Only a new invoice default card matters, and only for a member whose payment failed.
+      // Only a new invoice default card matters.
       if (!previous || !("invoice_settings" in previous)) return { status: "ignored", type };
       const payload = event.data.object as Stripe.Customer;
       const member = await memberForCustomer(payload.id);
-      if (!member?.payment_failed_at) return { status: "ignored", type };
+      if (!member || member.deleted_at || member.membership_status === "cancelled") return { status: "ignored", type };
       // The customer as it is now (a later change may have arrived first).
       const customer = await stripe.customers.retrieve(payload.id);
       const pm = "deleted" in customer && customer.deleted ? null : idOf((customer as Stripe.Customer).invoice_settings?.default_payment_method ?? null);
-      return { status: "processed", type, detail: { member: member.id, ...(await retryMembershipPayment(member.id, pm)) } };
+      // A failed payment: the new card becomes the subscription's and pays the open invoice now (QA3-02).
+      if (member.payment_failed_at) return { status: "processed", type, detail: { member: member.id, ...(await retryMembershipPayment(member.id, pm)) } };
+      // Otherwise: a subscription with a card of its own (made before this release) takes the new one (N1).
+      return { status: "processed", type, detail: { member: member.id, card: await syncSubscriptionCard(member.id, pm) } };
     }
     case "payment_method.attached": {
       const pm = event.data.object as Stripe.PaymentMethod;
