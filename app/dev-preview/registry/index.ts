@@ -4,6 +4,7 @@
 import { discountsScreens } from "./discounts";
 import { eventsScreens } from "./events";
 import { inviteScreens } from "./invite";
+import { memberFlowScreens } from "./member-flows";
 import { messagesScreens } from "./messages";
 import { shellDemoScreens } from "./shell-demo";
 import type { PreviewScreen } from "./types";
@@ -16,6 +17,7 @@ export const PREVIEW_SCREENS: PreviewScreen[] = [
   ...youScreens,
   ...inviteScreens,
   ...messagesScreens,
+  ...memberFlowScreens,
 ];
 
 export function findScreen(id: string): PreviewScreen | undefined {

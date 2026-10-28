@@ -1,69 +1,91 @@
 import { notFound } from "next/navigation";
 
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
-import { createClient } from "@/lib/supabase/server";
 import { requireMember } from "@/app/members/require-member";
+import { getMyBooking } from "@/app/members/events/actions";
 import { getCachedEventBySlug, hasEventStarted } from "@/components/members/events-data";
-import { EventDetailView } from "@/components/members/event-detail-view";
+import { EventPageView } from "@/components/members/event/event-page-view";
+import { toPageBooking, type ClubCancelledBooking, type EventPageData, type PaymentReturn } from "@/components/members/event/model";
+import { FREE_CANCEL_HOURS, freeCancelUntil } from "@/lib/server/bookings";
 
+// The event page (r2a sections 1 to 5). Everything that decides what the member may do is worked out here, on
+// the server, for this request: whether the event has started, how many are booked, the member's own confirmed
+// booking with the exact address (A-D3: only then; getMyBooking reads it through the server), whether
+// cancelling is free now (48 hours, A-D1 B; or the club moved it, C-D11), and whether the club cancelled it.
+// The view (components/members/event/event-page-view.tsx) is a pure component of this.
 export default async function EventDetailPage({
   params,
   searchParams,
 }: {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ payment_intent_client_secret?: string; redirect_status?: string }>;
+  searchParams: Promise<{ payment_intent?: string; payment_intent_client_secret?: string; redirect_status?: string }>;
 }) {
-  const { slug } = await params;
-  const { payment_intent_client_secret, redirect_status } = await searchParams;
-  // Set only when Stripe has redirected the browser back here (Apple Pay,
-  // some 3D Secure checks) rather than confirming the payment in place:
-  // this reopens the payment modal with the same PaymentIntent so
-  // EventPaymentForm's own redirect-return handling can pick up where it
-  // left off. A normal first visit to this page has neither param.
-  const initialClientSecret =
-    redirect_status && payment_intent_client_secret ? payment_intent_client_secret : null;
-
-  const event = await getCachedEventBySlug(slug);
-
-  if (!event) {
-    notFound();
-  }
-
-  // Booked count is an aggregate across all members, not this member's own
-  // data, so it's read via the service-role client like the event row
-  // above, but NOT cached (unlike getCachedEventBySlug), since "spots
-  // left" genuinely changes as members book and should stay accurate.
-  //
-  // Whether this member is already booked is their own row, so that one
-  // goes through the member-scoped client (same query as the duplicate
-  // check in app/members/events/actions.ts). It's what lets the button
-  // show "Booked" on any later visit, not just right after booking.
+  const [{ slug }, query] = await Promise.all([params, searchParams]);
   const member = await requireMember();
-  const adminClient = createAdminSupabaseClient();
-  const supabase = await createClient();
-  const [{ count: bookedCount }, { data: memberBooking }] = await Promise.all([
-    adminClient
-      .from("bookings")
-      .select("*", { count: "exact", head: true })
-      .eq("event_id", event.id)
-      .eq("status", "confirmed"),
-    supabase
-      .from("bookings")
-      .select("id")
-      .eq("member_id", member.id)
-      .eq("event_id", event.id)
-      .eq("status", "confirmed")
-      .limit(1)
-      .maybeSingle(),
+  const event = await getCachedEventBySlug(slug);
+  if (!event) notFound();
+
+  const db = createAdminSupabaseClient();
+  // The booked count is an aggregate across every member (the service-role client, never cached: spots change).
+  const [{ count: bookedCount }, myBooking, cancelledMine] = await Promise.all([
+    db.from("bookings").select("*", { count: "exact", head: true }).eq("event_id", event.id).eq("status", "confirmed"),
+    getMyBooking(event.id),
+    event.cancelled_at
+      ? db
+          .from("bookings")
+          .select("amount_pence, refund_status")
+          .eq("member_id", member.id)
+          .eq("event_id", event.id)
+          .eq("status", "cancelled")
+          .eq("cancel_reason", "event_cancelled")
+          .limit(1)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
 
-  return (
-    <EventDetailView
-      event={event}
-      bookedCount={bookedCount ?? 0}
-      initialBooked={Boolean(memberBooking)}
-      hasStarted={hasEventStarted(event)}
-      initialClientSecret={initialClientSecret}
-    />
-  );
+  const freeUntil = freeCancelUntil(event.start_time);
+  const clubCancelled: ClubCancelledBooking | null = cancelledMine.data
+    ? {
+        amountPence: cancelledMine.data.amount_pence ?? 0,
+        refunded: cancelledMine.data.refund_status === "succeeded" || cancelledMine.data.refund_status === "pending",
+      }
+    : null;
+
+  // Back from the bank (a redirect-based check or a wallet): Stripe adds these to the return address. The view
+  // checks the payment with the server (confirmEventPayment), never with what the address says.
+  const paymentReturn: PaymentReturn | null =
+    query.payment_intent && query.payment_intent_client_secret && query.redirect_status
+      ? { paymentIntentId: query.payment_intent, clientSecret: query.payment_intent_client_secret, redirectStatus: query.redirect_status }
+      : null;
+
+  const data: EventPageData = {
+    event: {
+      id: event.id,
+      slug: event.slug,
+      title: event.title,
+      description: event.description,
+      category: event.category,
+      location: event.location,
+      startTime: event.start_time,
+      endTime: event.end_time,
+      pricePence: event.price_pence ?? 0,
+      capacity: event.capacity ?? 0,
+      imageUrl: event.image_url,
+      focalX: event.image_focal_x ?? 50,
+      focalY: event.image_focal_y ?? 50,
+      cancelledAt: event.cancelled_at,
+      cancelNote: event.cancel_note,
+    },
+    bookedCount: bookedCount ?? 0,
+    booking: myBooking && !event.cancelled_at ? toPageBooking(myBooking) : null,
+    started: hasEventStarted(event),
+    freeUntil: freeUntil.toISOString(),
+    freeCancelHours: FREE_CANCEL_HOURS,
+    freeWindowOpen: Date.now() < freeUntil.getTime(),
+    memberEmail: member.email,
+    clubCancelled,
+    paymentReturn,
+  };
+
+  return <EventPageView data={data} />;
 }

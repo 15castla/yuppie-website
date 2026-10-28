@@ -11,7 +11,8 @@ import { getEventCapacity } from "./booking-capacity";
 import { confirmPaidBooking } from "./confirm-paid-booking";
 import { hasEventStarted } from "@/components/members/events-data";
 
-const EVENT_FULL_ERROR = "Sorry, this event is fully booked.";
+// The page showed a spot and the server found none: someone booked just before (r2a, the server message example).
+const EVENT_FULL_ERROR = "That was the last spot. Someone booked just before you.";
 const ALREADY_BOOKED_ERROR = "You’re already booked in for this event.";
 const EVENT_STARTED_ERROR = "This event has already started, so it can’t be booked.";
 const EVENT_CANCELLED_ERROR = "This event has been cancelled, so it can’t be booked.";
@@ -63,7 +64,15 @@ export async function rsvpToEvent(
 
 export type CreateEventPaymentIntentResult =
   | { success: true; clientSecret: string }
-  | { success: false; error: string };
+  | {
+      success: false;
+      error: string;
+      /**
+       * Why, for the page (r2a 2 and 3): "error" means payment could not be opened (the sheet's "We couldn't open
+       * payment"); the others are a message in the strip above the bar.
+       */
+      reason?: "not_found" | "started" | "cancelled" | "free" | "no_customer" | "already_booked" | "full" | "error";
+    };
 
 // Embedded payment flow. Reads the event straight from the table (not
 // getCachedEventBySlug) since price and title need to be current at the
@@ -76,7 +85,7 @@ export async function createEventPaymentIntent(
   const eventId = formData.get("event_id");
 
   if (typeof eventId !== "string" || !eventId) {
-    return { success: false, error: "Missing event." };
+    return { success: false, error: "Missing event.", reason: "not_found" };
   }
 
   const adminClient = createAdminSupabaseClient();
@@ -87,21 +96,21 @@ export async function createEventPaymentIntent(
     .maybeSingle();
 
   if (!event) {
-    return { success: false, error: "That event couldn’t be found." };
+    return { success: false, error: "That event couldn’t be found.", reason: "not_found" };
   }
 
   // Checked before a PaymentIntent exists, so payment for a past or
   // cancelled event is never started.
   if (hasEventStarted(event)) {
-    return { success: false, error: EVENT_STARTED_ERROR };
+    return { success: false, error: EVENT_STARTED_ERROR, reason: "started" };
   }
   if (event.cancelled_at) {
-    return { success: false, error: EVENT_CANCELLED_ERROR };
+    return { success: false, error: EVENT_CANCELLED_ERROR, reason: "cancelled" };
   }
 
   // Never trust the client on this: the price decides whether a charge happens.
   if (!event.price_pence) {
-    return { success: false, error: "This event doesn’t require payment." };
+    return { success: false, error: "This event doesn’t require payment.", reason: "free" };
   }
 
   if (!member.stripe_customer_id) {
@@ -109,6 +118,7 @@ export async function createEventPaymentIntent(
     return {
       success: false,
       error: "No payment details on file for your account. Please contact us.",
+      reason: "no_customer",
     };
   }
 
@@ -121,7 +131,7 @@ export async function createEventPaymentIntent(
     .maybeSingle();
 
   if (existingBooking) {
-    return { success: false, error: ALREADY_BOOKED_ERROR };
+    return { success: false, error: ALREADY_BOOKED_ERROR, reason: "already_booked" };
   }
 
   // Checked before a PaymentIntent exists, so a full event never gets as far
@@ -130,13 +140,14 @@ export async function createEventPaymentIntent(
   try {
     const capacity = await getEventCapacity(adminClient, eventId);
     if (capacity?.isFull) {
-      return { success: false, error: EVENT_FULL_ERROR };
+      return { success: false, error: EVENT_FULL_ERROR, reason: "full" };
     }
   } catch (err) {
     console.error(`createEventPaymentIntent: capacity check failed for event ${eventId}:`, err);
     return {
       success: false,
       error: "Something went wrong starting payment. Please try again.",
+      reason: "error",
     };
   }
 
@@ -159,6 +170,7 @@ export async function createEventPaymentIntent(
       return {
         success: false,
         error: "Something went wrong starting payment. Please try again.",
+        reason: "error",
       };
     }
 
@@ -168,6 +180,7 @@ export async function createEventPaymentIntent(
     return {
       success: false,
       error: "Something went wrong starting payment. Please try again.",
+      reason: "error",
     };
   }
 }
@@ -175,7 +188,17 @@ export async function createEventPaymentIntent(
 export type ConfirmEventPaymentResult =
   | { booked: true }
   | { booked: false; pending: true }
-  | { booked: false; pending?: false; error: string };
+  | {
+      booked: false;
+      pending?: false;
+      error: string;
+      /**
+       * What the page shows (r2a 3): not_paid, the card box again ("Your card was declined"); paid_not_booked,
+       * "Paid, but not booked yet." with no pay button; check_failed, Stripe could not be asked (treated as still
+       * processing: the webhook books it); mismatch, the payment is not for this member and event.
+       */
+      reason: "missing" | "check_failed" | "mismatch" | "not_paid" | "paid_not_booked";
+    };
 
 // Called by the payment form once Stripe's confirmPayment (or the return
 // from a redirect) resolves on the page, so the button only says "Booked"
@@ -190,7 +213,7 @@ export async function confirmEventPayment(
   const member = await requireMember({ allowGated: true });
 
   if (!paymentIntentId || !eventId) {
-    return { booked: false, error: "Missing payment details." };
+    return { booked: false, error: "Missing payment details.", reason: "missing" };
   }
 
   let paymentIntent;
@@ -201,6 +224,7 @@ export async function confirmEventPayment(
     return {
       booked: false,
       error: "We couldn’t check your payment. Please refresh the page, or contact us if you’ve been charged.",
+      reason: "check_failed",
     };
   }
 
@@ -213,7 +237,7 @@ export async function confirmEventPayment(
     console.error(
       `confirmEventPayment: payment intent ${paymentIntentId} metadata doesn't match member ${member.id}, event ${eventId}`,
     );
-    return { booked: false, error: "That payment doesn’t match this booking." };
+    return { booked: false, error: "That payment doesn’t match this booking.", reason: "mismatch" };
   }
 
   if (paymentIntent.status === "processing") {
@@ -224,6 +248,7 @@ export async function confirmEventPayment(
     return {
       booked: false,
       error: "Your payment didn’t go through. Please try again.",
+      reason: "not_paid",
     };
   }
 
@@ -234,6 +259,7 @@ export async function confirmEventPayment(
     return {
       booked: false,
       error: "Your payment went through, but we couldn’t confirm your booking. Please contact us.",
+      reason: "paid_not_booked",
     };
   }
 
@@ -307,6 +333,8 @@ export type MyBooking = {
   /** The club moved the event after this booking (C-D11). */
   moved: boolean;
   calendarUrl: string;
+  /** Google Calendar, filled in (the web shows it under Add to calendar). */
+  googleUrl: string | null;
 };
 
 /** The member's confirmed booking for an event, with what the booking card shows. Null when not booked. */
@@ -326,6 +354,7 @@ export async function getMyBooking(eventId: string): Promise<MyBooking | null> {
   const event = (Array.isArray(data.event) ? data.event[0] : data.event) as { slug: string; start_time: string; changed_at: string | null } | null;
   if (!event) return null;
   const terms = cancelTerms({ booked_at: data.booked_at }, event);
+  const calendar = await calendarForMember(member.id, { id: eventId });
   return {
     bookingId: data.id,
     amountPence: data.amount_pence,
@@ -335,6 +364,7 @@ export async function getMyBooking(eventId: string): Promise<MyBooking | null> {
     freeNow: terms.free,
     moved: terms.why === "changed",
     calendarUrl: eventCalendarHref(event.slug),
+    googleUrl: calendar?.googleUrl ?? null,
   };
 }
 
