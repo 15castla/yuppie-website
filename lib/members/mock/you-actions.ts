@@ -16,10 +16,39 @@ export async function previewSignOut(): Promise<void> {
   assertNotProduction();
 }
 
-export async function previewCancel(): Promise<{ success: boolean; error?: string }> {
+// Cancel membership, step 1: the example end date and the example retreat after it (D8).
+export async function previewCancelPreview(): Promise<{ ok: true; until: string; bookingsAfterEnd: { title: string; when: string }[] }> {
+  assertNotProduction();
+  await pause(300);
+  return { ok: true, until: "12 Nov", bookingsAfterEnd: [{ title: "Sunrise Wellness Retreat", when: "Sun 15 Nov" }] };
+}
+
+// Cancel membership, step 2.
+export async function previewRequestCancel(): Promise<{ ok: true; until: string }> {
   assertNotProduction();
   await pause(700);
-  return { success: true };
+  return { ok: true, until: "12 Nov" };
+}
+
+// Keep my membership.
+export async function previewKeep(): Promise<{ ok: true }> {
+  assertNotProduction();
+  await pause(700);
+  return { ok: true };
+}
+
+// Keep my membership, failing (the Stripe call did not go through).
+export async function previewKeepFails(): Promise<{ ok: false; error: string }> {
+  assertNotProduction();
+  await pause(500);
+  return { ok: false, error: "Your membership is still set to end. Try again." };
+}
+
+// Delete my account: the preview never deletes anything, so it says so as an error.
+export async function previewDeleteAccount(): Promise<{ ok: false; error: string }> {
+  assertNotProduction();
+  await pause(700);
+  return { ok: false, error: "This is the preview: nothing was deleted." };
 }
 
 export async function previewUpload(): Promise<{ success: boolean; error?: string; url?: string }> {

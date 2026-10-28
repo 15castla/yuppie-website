@@ -8,10 +8,10 @@
 // you-actions.ts): nothing is read or written.
 //
 // What `default` means: the approved design, with every flag that adds to You
-// switched on (Settings rows, Change photo) and the card buttons the design
-// draws (Manage, Keep my membership, Update card). The state `launch` is what a
-// member gets at launch: no Settings, no Change photo, a card with no button,
-// no Delete my account and a one-step Cancel.
+// switched on (Settings rows, Change photo, the hosted-plans lines in the
+// dialogs). The state `launch` is what a member gets in Phase A: no Settings,
+// no Change photo, and dialogs without the hosted-plans lines (Open Invite is
+// not real yet); the card buttons, the two-step Cancel and Delete are real.
 
 import { PhotoGateView, type GateDemo } from "@/components/members/photo/photo-gate-view";
 import { ChangePhotoSheet, type SheetDemo } from "@/components/members/photo/change-photo-sheet";
@@ -24,8 +24,12 @@ import { POLICY_SECTIONS, policyIntro, policyLastUpdated } from "@/components/si
 import { noFlags } from "@/lib/members/flags";
 import { EXAMPLE_PHOTO_CROP, EXAMPLE_PHOTO_NOFACE, EXAMPLE_PHOTO_WIDE } from "@/lib/members/mock/photo-examples";
 import {
-  previewCancel,
+  previewCancelPreview,
+  previewDeleteAccount,
+  previewKeep,
+  previewKeepFails,
   previewRemovePhoto,
+  previewRequestCancel,
   previewRequestEmailChange,
   previewSignOut,
   previewUpdateProfile,
@@ -61,6 +65,9 @@ type YouState =
   | "dialog-cancel-reason"
   | "dialog-cancel-live"
   | "dialog-cancel-done"
+  | "keep-working"
+  | "keep-error"
+  | "billing-error"
   | "dialog-delete"
   | "dialog-delete-ready"
   | "photo-changed";
@@ -84,6 +91,9 @@ const YOU_STATES: YouState[] = [
   "dialog-cancel-reason",
   "dialog-cancel-live",
   "dialog-cancel-done",
+  "keep-working",
+  "keep-error",
+  "billing-error",
   "dialog-delete",
   "dialog-delete-ready",
   "photo-changed",
@@ -115,14 +125,18 @@ function summariesFor(state: YouState, app: boolean): SettingsSummaries {
   };
 }
 
+const RETREAT = { title: "Sunrise Wellness Retreat", when: "Sun 15 Nov" };
+const BILLING = { href: "/dev-preview/you-home" };
+
 const MEMBERSHIPS: Partial<Record<YouState, MembershipCardData>> = {
-  launch: { state: "active", renews: "12 Nov" },
   ending: { state: "ending", endsOn: "12 Nov", action: { label: "Keep my membership" } },
-  problem: { state: "problem", failedOn: "12 Nov", updateBy: "15 Nov", action: { label: "Update card" } },
-  "problem-none": { state: "problem", failedOn: "12 Nov", updateBy: "15 Nov", action: { label: "Update card" } },
-  "ending-warn": { state: "ending", endsOn: "12 Nov", action: { label: "Keep my membership" } },
+  problem: { state: "problem", failedOn: "12 Nov", updateBy: "15 Nov", action: { label: "Update card", ...BILLING } },
+  "problem-none": { state: "problem", failedOn: "12 Nov", updateBy: "15 Nov", action: { label: "Update card", ...BILLING } },
+  "ending-warn": { state: "ending", endsOn: "12 Nov", afterEnd: [RETREAT], action: { label: "Keep my membership" } },
+  "keep-working": { state: "ending", endsOn: "12 Nov", afterEnd: [RETREAT], action: { label: "Keep my membership" } },
+  "keep-error": { state: "ending", endsOn: "12 Nov", action: { label: "Keep my membership" } },
   paused: { state: "paused" },
-  cancelled: { state: "cancelled" },
+  cancelled: { state: "cancelled", endsOn: "12 Nov" },
 };
 
 function youProps(params: PreviewParams, state: YouState): YouViewProps {
@@ -141,8 +155,13 @@ function youProps(params: PreviewParams, state: YouState): YouViewProps {
   if (state === "dialog-delete-ready") demo.dialog = "delete-ready";
   if (state === "photo-changed") demo.toast = true;
 
-  // The designed two-step cancel (with "Why are you leaving?") everywhere except the launch and one-step states.
-  const twoStepCancel = !launch && state !== "dialog-cancel-live";
+  // The hosted-plans lines need Open Invite's paid plans (Phase B): the launch and live states leave them out.
+  const hostedPlans = !launch && state !== "dialog-cancel-live";
+  if (state === "keep-working") demo.keeping = true;
+  if (state === "keep-error") demo.keepError = "Your membership is still set to end. Try again.";
+  if (demo.dialog === "cancel" || demo.dialog === "cancel-reason" || demo.dialog === "cancel-done") {
+    demo.cancelPreview = { until: "12 Nov", bookings: [RETREAT] };
+  }
   return {
     firstName,
     photoUrl: state === "no-photo" ? null : (params.member?.photoUrl ?? null),
@@ -150,7 +169,7 @@ function youProps(params: PreviewParams, state: YouState): YouViewProps {
       ? { fullName: "Bartholomew-Alexander Montgomery-Featherstonehaugh", email: "bartholomew-alexander.montgomery-featherstonehaugh@example.com", phone: "07912 345678" }
       : { fullName: "Sam Taylor", email: "sam@example.com", phone: "07912 345678" },
     memberSince: "Sep 2026",
-    membership: MEMBERSHIPS[state] ?? { state: "active", renews: "12 Nov", action: launch ? undefined : { label: "Manage" } },
+    membership: MEMBERSHIPS[state] ?? { state: "active", renews: "12 Nov", action: { label: "Manage", ...BILLING } },
     settingsRows: buildSettingsRows(flags, summariesFor(state, app)),
     changePhotoHref: flags.photoGate ? ROUTES.youPhoto : null,
     legal:
@@ -159,15 +178,12 @@ function youProps(params: PreviewParams, state: YouState): YouViewProps {
         : legalLines(2026),
     appVersion: app && !launch ? "1.0 (1)" : null,
     signOut: previewSignOut,
-    cancel: previewCancel,
-    cancelCopy: {
-      endsOn: "12 Nov",
-      // What the design adds to the first step. No live code finds either yet.
-      retreat: launch ? null : "Sunrise Wellness Retreat, Sun 15 Nov, is after that date. You’d lose your place.",
-      hostedPlans: !launch,
-    },
-    cancelWithReason: twoStepCancel,
-    canDelete: !launch,
+    keep: state === "keep-error" ? previewKeepFails : previewKeep,
+    cancelPreview: previewCancelPreview,
+    cancelMembership: previewRequestCancel,
+    deleteAccount: previewDeleteAccount,
+    billingError: state === "billing-error" ? "We couldn’t open billing. Try again." : null,
+    hostedPlans,
     demo,
   };
 }

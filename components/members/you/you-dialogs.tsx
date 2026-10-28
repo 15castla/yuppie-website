@@ -1,22 +1,40 @@
 "use client";
 
-// The three dialogs You opens: Log out, Cancel membership and Delete my
-// account. Bottom sheets on phones, a centred modal from 768px (Dialog).
-// Each body is mounted only while its dialog is open, so it starts fresh
-// every time.
-//
-// What is real: Log out (signOutMember) and Cancel membership
-// (cancelMembership: the subscription stops at the end of the billing
-// period). What is drawn but has no backend yet: the "Why are you leaving?"
-// step (nothing stores a reason) and Delete my account (nothing deletes an
-// account). The page gives them no way in unless it is the preview, which
-// passes `withReason` and `canDelete`.
+// The three dialogs You opens: Log out, Cancel membership (two steps) and Delete my account. Bottom sheets
+// on phones, a centred modal from 768px (Dialog). Each body is mounted only while its dialog is open, so it
+// starts fresh every time. All three are real (Phase A):
+//   Log out            signOutMember: ends this session, then Log in says "You’re logged out." (B-D1 B)
+//   Cancel membership  step 1 says what stays until the end date and which booked club events fall after it
+//                      (D8: they are cancelled and refunded when it ends); step 2 asks why (optional) and
+//                      cancels at the end of the billing period with that reason (requestCancelMembership)
+//   Delete my account  type "delete"; deleteMyAccount ends everything and lands on the public home page
+// The hosted-plans lines ("Plans you host ... refunded") are drawn only when Open Invite is real (paid plans
+// are Phase B), so the live dialogs leave them out; the preview passes `hostedPlans` to draw them.
 
 import { useState, useTransition, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 
 import { Button, Chip, FormField, Icon } from "@/components/members/kit";
 import { Dialog } from "./dialog";
+
+function ErrorLine({ error }: { error: string | null }) {
+  if (!error) return null;
+  return (
+    <p className="yu-dialog-err" role="alert">
+      <Icon name="circle-alert" size={16} />
+      <span>{error}</span>
+    </p>
+  );
+}
+
+function ListItem({ icon, children }: { icon: "calendar" | "users" | "credit-card"; children: ReactNode }) {
+  return (
+    <li>
+      <Icon name={icon} size={20} />
+      <span>{children}</span>
+    </li>
+  );
+}
 
 // ---------------------------------------------------------------- Log out
 
@@ -38,7 +56,7 @@ export function LogoutDialog({
   open: boolean;
   onClose: () => void;
   email: string;
-  /** signOutMember: clears the session and redirects to the main site. */
+  /** signOutMember: ends the session and goes to Log in ("You’re logged out."). */
   signOut: () => void | Promise<void>;
 }) {
   return (
@@ -61,64 +79,52 @@ export function LogoutDialog({
 
 // ---------------------------------------------------------------- Cancel membership
 
-export type CancelResult = { success: boolean; error?: string };
-
-export type CancelCopy = {
-  /** "12 Nov": when the membership ends (the next billing date). Null when Stripe gave none. */
-  endsOn: string | null;
-  /** Preview only: a booked event after that date. No live code looks for one yet. */
-  retreat?: string | null;
-  /** Preview only: Open Invite and paid plans are off, so the live dialog does not mention hosted plans. */
-  hostedPlans?: boolean;
+/** Step 1's facts, from getCancelMembershipPreview. */
+export type CancelPreview = {
+  /** "12 Nov": the day access ends (the end of the billing period). Null when Stripe could not say. */
+  until: string | null;
+  /** Club events booked after that day (D8): "Sunrise Wellness Retreat", "Sun 15 Nov". */
+  bookings: { title: string; when: string }[];
 };
+
+/** requestCancelMembership's answer, as the dialog needs it. */
+export type CancelOutcome = { ok: true; until: string } | { ok: false; error: string };
 
 export type CancelStep = "confirm" | "reason" | "done";
 
 const REASONS = ["Too expensive", "Not enough events", "Moving away", "Something else"];
 
-function ListItem({ icon, children }: { icon: "calendar" | "users" | "credit-card"; children: ReactNode }) {
-  return (
-    <li>
-      <Icon name={icon} size={20} />
-      <span>{children}</span>
-    </li>
-  );
-}
-
 function CancelBody({
-  copy,
+  preview,
+  hostedPlans,
   cancel,
-  withReason,
   initialStep,
   initialReason,
   onClose,
-  onCancelled,
 }: {
-  copy: CancelCopy;
-  cancel: (reason?: string) => Promise<CancelResult>;
-  withReason: boolean;
+  preview: CancelPreview;
+  hostedPlans: boolean;
+  cancel: (reason: string | null) => Promise<CancelOutcome>;
   initialStep: CancelStep;
   initialReason: string | null;
   onClose: () => void;
-  onCancelled: () => void;
 }) {
   const [step, setStep] = useState<CancelStep>(initialStep);
   const [reason, setReason] = useState<string | null>(initialReason);
   const [error, setError] = useState<string | null>(null);
+  const [until, setUntil] = useState<string | null>(preview.until);
   const [isCancelling, startCancelling] = useTransition();
-
-  const date = copy.endsOn;
 
   function handleCancel() {
     setError(null);
     startCancelling(async () => {
-      const result = withReason && reason ? await cancel(reason) : await cancel();
-      if (!result.success) {
-        setError(result.error ?? "Your membership wasn’t cancelled. Try again.");
+      const result = await cancel(reason);
+      if (!result.ok) {
+        setError(result.error || "Your membership wasn’t cancelled. Try again.");
         return;
       }
+      setUntil(result.until);
       setStep("done");
-      onCancelled();
     });
   }
 
@@ -126,10 +132,10 @@ function CancelBody({
     return (
       <>
         <h2 className="mk-h2" id="yu-cancel-title">
-          {date ? `Your membership ends ${date}` : "Cancel requested"}
+          {until ? `Your membership ends ${until}` : "Cancel requested"}
         </h2>
         <p className="yu-p" aria-live="polite">
-          {date
+          {until
             ? "You keep everything until then. Nothing more is taken."
             : "Your membership ends at the close of your current billing period. You keep everything until then."}
         </p>
@@ -139,13 +145,6 @@ function CancelBody({
       </>
     );
   }
-
-  const errorLine = error ? (
-    <p className="yu-dialog-err" role="alert">
-      <Icon name="circle-alert" size={16} />
-      <span>{error}</span>
-    </p>
-  ) : null;
 
   if (step === "reason") {
     return (
@@ -162,9 +161,9 @@ function CancelBody({
             </Chip>
           ))}
         </div>
-        {errorLine}
+        <ErrorLine error={error} />
         <div className="yu-acts">
-          <Button className="yu-danger" pending={isCancelling} onClick={handleCancel}>
+          <Button className="yu-danger" pending={isCancelling} onClick={isCancelling ? undefined : handleCancel}>
             {isCancelling ? "Working…" : "Cancel membership"}
           </Button>
           <Button variant="outline" onClick={onClose}>
@@ -175,49 +174,30 @@ function CancelBody({
     );
   }
 
-  const items: ReactNode[] = [];
-  if (copy.retreat) {
-    items.push(
-      <ListItem key="retreat" icon="calendar">
-        {copy.retreat}
-      </ListItem>,
-    );
-  }
-  if (copy.hostedPlans) {
-    items.push(
-      <ListItem key="hosted" icon="users">
-        Plans you host after that date are cancelled, and anyone who paid is refunded.
-      </ListItem>,
-    );
-  }
-  items.push(
-    <ListItem key="payments" icon="credit-card">
-      {date ? `No more payments after ${date}.` : "No more payments after that."}
-    </ListItem>,
-  );
-
   return (
     <>
-      {withReason ? <span className="mk-term">Step 1 of 2</span> : null}
+      <span className="mk-term">Step 1 of 2</span>
       <h2 className="mk-h2" id="yu-cancel-title">
         Cancel your membership?
       </h2>
       <p className="yu-p">
-        {date ? `You keep everything until ${date}.` : "You keep everything until the end of this billing period."} After that you’d need to apply again.
+        {until ? `You keep everything until ${until}.` : "You keep everything until the end of this billing period."} After that you’d need to apply
+        again.
       </p>
-      <ul className="yu-list">{items}</ul>
-      {errorLine}
+      <ul className="yu-list">
+        {preview.bookings.map((booking) => (
+          <ListItem key={`${booking.title}-${booking.when}`} icon="calendar">
+            {booking.title}, {booking.when}, is after that date. You’d lose your place.
+          </ListItem>
+        ))}
+        {hostedPlans ? <ListItem icon="users">Plans you host after that date are cancelled, and anyone who paid is refunded.</ListItem> : null}
+        <ListItem icon="credit-card">{until ? `No more payments after ${until}.` : "No more payments after that."}</ListItem>
+      </ul>
       <div className="yu-acts">
         <Button onClick={onClose}>Keep my membership</Button>
-        {withReason ? (
-          <Button variant="outline" onClick={() => setStep("reason")}>
-            Continue
-          </Button>
-        ) : (
-          <Button className="yu-danger" pending={isCancelling} onClick={handleCancel}>
-            {isCancelling ? "Working…" : "Cancel membership"}
-          </Button>
-        )}
+        <Button variant="outline" onClick={() => setStep("reason")}>
+          Continue
+        </Button>
       </div>
     </>
   );
@@ -226,35 +206,31 @@ function CancelBody({
 export function CancelDialog({
   open,
   onClose,
-  copy,
+  preview,
+  hostedPlans = false,
   cancel,
-  withReason = false,
   initialStep = "confirm",
   initialReason = null,
-  onCancelled,
 }: {
   open: boolean;
   onClose: () => void;
-  copy: CancelCopy;
-  /** cancelMembership: stops the subscription at the end of the billing period. */
-  cancel: (reason?: string) => Promise<CancelResult>;
-  /** Preview only: the two-step version with "Why are you leaving?". Nothing stores the reason yet. */
-  withReason?: boolean;
+  preview: CancelPreview;
+  /** Preview only: Open Invite's hosted plans line (paid plans are Phase B). */
+  hostedPlans?: boolean;
+  /** requestCancelMembership: cancels at the end of the billing period, saving the reason. */
+  cancel: (reason: string | null) => Promise<CancelOutcome>;
   initialStep?: CancelStep;
   initialReason?: string | null;
-  /** The cancel went through: the page notes it and refreshes. */
-  onCancelled: () => void;
 }) {
   return (
     <Dialog open={open} onClose={onClose} labelledBy="yu-cancel-title">
       <CancelBody
-        copy={copy}
+        preview={preview}
+        hostedPlans={hostedPlans}
         cancel={cancel}
-        withReason={withReason}
         initialStep={initialStep}
         initialReason={initialReason}
         onClose={onClose}
-        onCancelled={onCancelled}
       />
     </Dialog>
   );
@@ -262,55 +238,90 @@ export function CancelDialog({
 
 // ---------------------------------------------------------------- Delete my account
 
-// Drawn exactly as designed and NOT wired: nothing deletes an account yet
-// (the auth user, photos, messages, the Stripe customer, hosted plans). The
-// page never offers it, so this is reachable only from the preview.
 export function DeleteDialog({
   open,
   onClose,
+  deleteAccount,
+  hostedPlans = false,
   initialTyped = "",
 }: {
   open: boolean;
   onClose: () => void;
+  /** deleteMyAccount: on success the server signs out and goes to the public home page; it only returns on failure. */
+  deleteAccount: (confirmation: string) => Promise<{ ok: false; error: string } | void>;
+  /** Preview only: Open Invite's hosted plans line (paid plans are Phase B). */
+  hostedPlans?: boolean;
   initialTyped?: string;
 }) {
   return (
     <Dialog open={open} onClose={onClose} labelledBy="yu-delete-title">
-      <DeleteBody onClose={onClose} initialTyped={initialTyped} />
+      <DeleteBody onClose={onClose} deleteAccount={deleteAccount} hostedPlans={hostedPlans} initialTyped={initialTyped} />
     </Dialog>
   );
 }
 
-function DeleteBody({ onClose, initialTyped }: { onClose: () => void; initialTyped: string }) {
+function DeleteBody({
+  onClose,
+  deleteAccount,
+  hostedPlans,
+  initialTyped,
+}: {
+  onClose: () => void;
+  deleteAccount: (confirmation: string) => Promise<{ ok: false; error: string } | void>;
+  hostedPlans: boolean;
+  initialTyped: string;
+}) {
   const [typed, setTyped] = useState(initialTyped);
+  const [error, setError] = useState<string | null>(null);
+  const [isDeleting, startDeleting] = useTransition();
   const ready = typed.trim().toLowerCase() === "delete";
+
+  function handleDelete() {
+    if (!ready || isDeleting) return;
+    setError(null);
+    startDeleting(async () => {
+      const result = await deleteAccount(typed);
+      if (result && !result.ok) setError(result.error || "Your account wasn’t deleted. Try again.");
+    });
+  }
+
   return (
     <>
       <h2 className="mk-h2" id="yu-delete-title">
         Delete your account?
       </h2>
       <p className="yu-p">This removes your details, photo and messages for good. It also ends your membership today, with no refund.</p>
-      <ul className="yu-list">
-        <ListItem icon="users">Plans you host are cancelled, and anyone who paid is refunded.</ListItem>
-      </ul>
-      <FormField
-        label="Type delete to confirm"
-        name="confirm"
-        placeholder="delete"
-        autoComplete="off"
-        autoCapitalize="none"
-        spellCheck={false}
-        value={typed}
-        onChange={(event) => setTyped(event.target.value)}
-      />
-      <div className="yu-acts">
-        <Button className="yu-danger" aria-disabled={!ready} onClick={ready ? onClose : undefined}>
-          Delete my account
-        </Button>
-        <Button variant="outline" onClick={onClose}>
-          Keep my account
-        </Button>
-      </div>
+      {hostedPlans ? (
+        <ul className="yu-list">
+          <ListItem icon="users">Plans you host are cancelled, and anyone who paid is refunded.</ListItem>
+        </ul>
+      ) : null}
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          handleDelete();
+        }}
+      >
+        <FormField
+          label="Type delete to confirm"
+          name="confirm"
+          placeholder="delete"
+          autoComplete="off"
+          autoCapitalize="none"
+          spellCheck={false}
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+        />
+        <ErrorLine error={error} />
+        <div className="yu-acts">
+          <Button type="submit" className="yu-danger" aria-disabled={!ready || undefined} pending={isDeleting}>
+            {isDeleting ? "Deleting…" : "Delete my account"}
+          </Button>
+          <Button variant="outline" onClick={onClose}>
+            Keep my account
+          </Button>
+        </div>
+      </form>
     </>
   );
 }

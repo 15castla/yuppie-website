@@ -356,5 +356,6 @@ export async function signOutMember() {
   // Supabase's default (global) scope would also sign this member out
   // of any other session on another device signed into the same account.
   await supabase.auth.signOut({ scope: "local" });
-  redirect("/");
+  // Decision B-D1 B: Log in, with "You’re logged out." (the Log in page reads the state).
+  redirect("/member-login?state=logged-out");
 }
