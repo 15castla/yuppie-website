@@ -160,6 +160,26 @@ try {
   eq(messages(`application_id = ${q(d2.id)}`).length, 0, 'message_log: nothing sent');
   eq(audited('application.decline', d2.id)[0].details.send_email, false, 'and it records no email');
 
+  // ---- 3b. payment problems: plain banners, Stripe's words behind Details, the one safe thing to do
+  const pc = await application(`Kit Card${RUN}`);
+  exec(`update applications set payment_error = 'Your card was declined.' where id = ${q(pc.id)}`);
+  const pa = await application(`Rosa Account${RUN}`);
+  exec(`update applications set payment_error = 'Payment succeeded (Stripe subscription sub_x) but the member account could not be finished: boom. It''s safe to click Approve again: this will retry account creation without charging again.', stripe_subscription_id = 'sub_a_${RUN}' where id = ${q(pa.id)}`);
+  const pu = await application(`Uma Unsaved${RUN}`);
+  exec(`update applications set payment_error = 'Charged (Stripe subscription sub_y) but failed to save that. Do not approve again without checking Stripe and the database first. Error: timeout' where id = ${q(pu.id)}`);
+  await open('/admin');
+  ok((await page.locator('.ad-card').first().innerText()).includes('Payment problems'), 'the dashboard lists Payment problems');
+  await open(`/admin/applications/${pc.id}`);
+  ok(await page.getByText('The card was declined.').isVisible() && await button('Try again').isVisible(), 'card declined: a plain banner and Try again (r2b 16)');
+  ok(!(await page.locator('.ad-card').innerText()).includes('Your card was declined.'), 'Stripe’s own words are hidden');
+  await button('Details').click();
+  ok(await page.getByText('Your card was declined.').isVisible(), 'and shown behind Details');
+  await open(`/admin/applications/${pa.id}`);
+  ok(await page.getByText('The payment went through, but the account isn’t finished.').isVisible() && await button('Decline').isDisabled() && await button('Finish the account').isVisible(), 'paid, account not made: Finish the account, Decline switched off');
+  await open(`/admin/applications/${pu.id}`);
+  ok(await page.getByText('Charged, but we couldn’t save it.').isVisible() && await button('Approve').isDisabled() && await button('Decline').isDisabled(), 'charged, not saved: Approve and Decline both switched off');
+  exec(`update applications set status = 'rejected', reviewed_at = now() where id in (${[pc.id, pa.id, pu.id].map(q).join(',')})`);
+
   // ---- 4. Members: search by name, nine rows, then Show more
   const token = `Srch${RUN}`;
   const crowd = [];
@@ -387,6 +407,20 @@ try {
   eq(sql1(`select count(*)::int as n from partner_perks where id = ${q(discIds[1])}`).n, 0, 'Delete discount: gone');
   audited('perk.delete', discIds[1]);
   exec(`delete from partner_perks where id = ${q(discIds[0])}`);
+
+  // ---- the Menu below 1100px, then Account, Log out
+  await page.setViewportSize({ width: 768, height: 900 });
+  await open('/admin');
+  await button('Menu').click();
+  await page.locator('#ad-menu').getByRole('link', { name: /^Events/ }).click();
+  await page.waitForURL((u) => u.pathname === '/admin/events');
+  ok(await page.locator('#ad-menu').count() === 0, 'below 1100px: Menu opens the panel, a row goes there and the panel closes (B-D5)');
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await button('Account').click();
+  ok((await page.locator('.ad-pop').innerText()).includes(ADMIN.email), 'Account shows who is logged in');
+  await page.locator('.ad-pop').getByRole('menuitem', { name: 'Log out' }).click();
+  await page.waitForURL((u) => u.pathname === '/admin/login');
+  ok(true, 'Log out lands on the admin Log in');
 
   // ---- every action above left an admin_audit row naming the admin
   ok(expectAudit.length >= 16, `${expectAudit.length} admin actions, each with its admin_audit row`);

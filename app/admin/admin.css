@@ -440,3 +440,13 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 .ad-dcrow .of{grid-area:offer;min-width:0;margin-top:2px;font:400 15px/1.35 var(--font-body);overflow-wrap:anywhere}
 .ad-dcrow .mt{grid-area:meta;margin-top:2px;font:400 14px/1.3 var(--font-body);color:var(--muted)}
 .ad-full{margin-top:24px;max-width:760px}
+
+/* narrow phones: badge pills in rows shrink to their words, and names break between words first */
+.ad-prow .t,.ad-prow .m,.ad-dcrow .nm{overflow-wrap:break-word;word-break:normal}
+@media (max-width:480px){
+  .ad-prow .end .ad-pill,.ad-dcrow .pl .ad-pill{min-width:0}
+  .ad-prow{column-gap:10px}
+}
+@container adcard (max-width:300px){
+  .ad-dcrow{grid-template-columns:58px minmax(0,1fr) auto}
+}
