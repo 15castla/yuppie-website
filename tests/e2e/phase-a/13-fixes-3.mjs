@@ -259,8 +259,7 @@ try {
   const unknown = adminActions.filter((a) => !ARGS[a.name]).map((a) => a.name);
   eq(unknown, [], `QA2-01 every server action in app/admin (${adminActions.length}) has a call in this check`);
   const urlOf = (worker) => worker.replace(/^app/, '').replace(/\/\([^)]+\)/g, '').replace(/\/page$/, '').replace(/\[[^\]]+\]/g, 'x') || '/';
-  async function callAction(a, cookie) {
-    const args = ARGS[a.name];
+  async function callAction(a, cookie, args = ARGS[a.name]) {
     let body;
     const headers = { 'Next-Action': a.id, Accept: 'text/x-component', Cookie: cookie, Origin: BASE };
     if (args.fd) {
@@ -334,6 +333,60 @@ try {
   const again = await action('admin.applications.adminApproveApplication', [staleA.id], aal2Session);
   eq([again.result.ok, again.result.code], [false, 'approved'], 'QA2-04 approving it again is refused ("approved"), no second charge');
   eq(fakesSince(mark, 'stripe').filter((l) => l.method === 'POST' && l.path === '/v1/subscriptions').length, 0, 'QA2-04 one subscription only');
+
+  // ---- QA2-04, second round: Approve and Decline pressed at the same moment, by two admins, many times. Each
+  // claims the application first (claim_application, migration 20261028090300); the loser changes nothing.
+  const approveAct = adminActions.find((a) => a.name === 'adminApproveApplication');
+  const declineAct = adminActions.find((a) => a.name === 'declineApplication');
+  const cookieA = cookieFor(aal2Session);
+  const cookieB = cookieFor(await adminSession('f3r.'));
+  const resultOf = (r) => { const line = r.body.split('\n').find((l) => l.startsWith('1:')); try { return JSON.parse(line.slice(2)); } catch { return null; } };
+  const tally = { approved: 0, declined: 0, busy: 0 };
+  const bad = [];
+  const raced = [];
+  const raceMark = fakesMark();
+  for (let i = 0; i < 12; i += 1) {
+    const app = await application(`${MARK} Race ${i}`);
+    const calls = [() => callAction(approveAct, cookieA, [app.id]), () => callAction(declineAct, cookieB, [app.id, { sendEmail: true }])];
+    if (i % 2) calls.reverse();
+    const [r1, r2] = await Promise.all(calls.map((c) => c()));
+    const [ra, rd] = i % 2 ? [resultOf(r2), resultOf(r1)] : [resultOf(r1), resultOf(r2)];
+    raced.push({ app, ra, rd });
+    if (ra?.code === 'busy' || rd?.code === 'busy') tally.busy += 1;
+  }
+  await sleep(3000); // the approval email and text go after the response
+  for (const { app, ra, rd } of raced) {
+    const row = sql1(`select a.status, a.stripe_subscription_id, a.processing_at, a.card_released_at is not null as released, (select count(*)::int from members m where m.email = a.email) as members from applications a where a.id = ${q(app.id)}`);
+    const subs = fakesSince(raceMark, 'stripe').filter((l) => l.method === 'POST' && l.path === '/v1/subscriptions' && (l.idem ?? '').startsWith(`approve-sub-${app.id}`)).length;
+    const mails = messages(`application_id = ${q(app.id)} and template in ('approval', 'decline')`).map((m) => m.template);
+    const approvedOk = row.status === 'approved' && row.stripe_subscription_id && row.members === 1 && subs === 1 && ra?.ok === true && rd?.ok === false && !mails.includes('decline');
+    const declinedOk = row.status === 'rejected' && !row.stripe_subscription_id && row.members === 0 && subs === 0 && rd?.ok === true && ra?.ok === false && !mails.includes('approval') && row.released;
+    if (approvedOk) tally.approved += 1;
+    else if (declinedOk) tally.declined += 1;
+    else bad.push({ row, subs, mails, ra, rd });
+    if (row.processing_at) bad.push({ claimLeft: app.id });
+  }
+  eq(bad, [], `QA2-04 Approve and Decline at the same moment, 12 times (both orders): each ends approved (charged once, a member, no decline email) or declined (never charged, no member, card released, no welcome) — ${tally.approved} approved, ${tally.declined} declined, ${tally.busy} refused as busy; no claim left behind`);
+  ok(tally.busy >= 1, `QA2-04 the two really overlapped (${tally.busy} of 12 refused “… right now, so nothing changed.”)`);
+  const busyWords = raced.map(({ ra, rd }) => [ra, rd].find((r) => r?.code === 'busy')?.error).find(Boolean);
+  ok(/is (approving|declining) this application right now, so nothing changed\. If it doesn’t finish, try again in two minutes\./.test(busyWords ?? ''), 'QA2-04 the loser’s message is plain', busyWords);
+  // A claim left by an action that died: fresh, it blocks; older than two minutes, it is taken over.
+  const held = await application(`${MARK} Held Claim`);
+  exec(`update applications set processing_at = now(), processing_by = 'f3.someone@example.com', processing_action = 'approve', processing_token = gen_random_uuid() where id = ${q(held.id)}`);
+  const blocked = await action('admin.applications.declineApplication', [held.id, { sendEmail: false }], aal2Session);
+  eq([blocked.result.ok, blocked.result.code, sql1(`select status from applications where id = ${q(held.id)}`).status], [false, 'busy', 'pending'], 'QA2-04 a fresh claim (another admin approving): Decline is refused, nothing changes');
+  ok(blocked.result.error.startsWith('f3.someone@example.com is approving this application right now'), 'QA2-04 and it says who is approving', blocked.result.error);
+  exec(`update applications set processing_at = now() - interval '3 minutes' where id = ${q(held.id)}`);
+  const taken = await action('admin.applications.declineApplication', [held.id, { sendEmail: false }], aal2Session);
+  eq([taken.result.ok, sql1(`select status, processing_at from applications where id = ${q(held.id)}`)], [true, { status: 'rejected', processing_at: null }], 'QA2-04 a claim older than two minutes (an action that died) is taken over, and released after');
+  // QA2-15: an application declined after its first payment (a leftover of the old race): never "Nothing was charged".
+  const leftover = await application(`${MARK} Charged Declined`);
+  exec(`update applications set status = 'rejected', reviewed_at = now(), stripe_subscription_id = 'sub_f3_left_${RUN}' where id = ${q(leftover.id)}`);
+  const late = await action('admin.applications.adminApproveApplication', [leftover.id], aal2Session);
+  eq([late.result.code, late.result.error], ['declined', 'This application is declined, but its first payment was taken. Refund it in Stripe.'], 'QA2-15 approving it: “… declined, but its first payment was taken. Refund it in Stripe.”');
+  await open(`/admin/applications/${leftover.id}?done=was-declined`);
+  const leftText = await page.locator('.ad-card').innerText();
+  ok(!/nothing (was|is) charged/i.test(leftText) && leftText.includes('No account was made.') && leftText.includes('was charged, but the application is declined.'), 'QA2-15 its card never says “Nothing was charged”: “No account was made.” and the charged banner', leftText);
 
   // ======================================================================================== QA2-07
   const ap = await application(`${MARK} Preview Person`);
