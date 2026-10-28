@@ -119,7 +119,7 @@ eq(fullPi.result, { success: false, error: 'That was the last spot. Someone book
 const wrong = await stripe('POST', 'payment_intents', { amount: 100, currency: 'gbp', customer: m5.customer, metadata: { member_id: m5.id, event_id: paid.id } });
 await fakePay(wrong.json.id);
 eq(sql1(`select count(*)::int as n from bookings where stripe_payment_intent_id = ${q(wrong.json.id)}`).n, 0, 'a payment for the wrong amount is not booked');
-await waitFor(() => messages(`template = 'admin-alert' and dedupe_key = ${q(`admin-alert:paid-not-booked:${wrong.json.id}`)} and status = 'sent'`).length === 1, 'and the club is alerted (paid but not booked)');
+await waitFor(() => messages(`template = 'admin-booking-review' and dedupe_key = ${q(`admin-alert:paid-not-booked:${wrong.json.id}`)} and status = 'sent'`).length === 1, 'and the club is alerted (paid but not booked)');
 
 // ---- paid while the club cancelled the event
 const doomed = await makeEvent('bkdoomed', { price: 2000 });

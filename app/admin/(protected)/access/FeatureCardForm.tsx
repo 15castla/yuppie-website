@@ -1,121 +1,134 @@
 "use client";
 
-import { useState, useTransition, type FormEvent } from "react";
+// The Feature card form (r2b 18), in the admin look. What it features works as today: one event, discount or
+// door picked by name (the design's "first one in that list" would change the members' page, which is not
+// this phase's), with an optional label for the pill.
+
 import { useRouter } from "next/navigation";
+import { useState, useTransition, type FormEvent } from "react";
 
 import { setFeatureCard } from "@/app/admin/feature-card-actions";
-import { DEFAULT_FEATURE_LABEL, type FeatureCard } from "@/components/members/feature-card-data";
-import { cn } from "@/lib/utils";
-import { inputClasses, Select } from "@/app/admin/form-controls";
-import { ActionButton, useSavedFlash } from "../ActionForm";
+import { Banner, BusyButton } from "@/components/admin/bits";
+import { Icon } from "@/components/admin/icons";
+import { Pill, SavedLine, Section } from "@/components/admin/ui";
 
+type Kind = "event" | "discount" | "access";
 type Option = { id: string; label: string };
 
-// Was FeaturedEventForm.tsx, event-only. Generalized alongside
-// setFeatureCard (app/admin/feature-card-actions.ts) to spotlight any one
-// event, discount, or access perk. The <select>'s options are prefixed
-// with their content type (event:<id>, discount:<id>, access:<id>) so one
-// flat string value can be split back into content_type/content_id on
-// submit, grouped into three <optgroup>s so the three kinds of content
-// stay visually distinct in one dropdown.
+const STANDARD: Record<Kind, string> = { event: "Featured event", discount: "Featured discount", access: "Featured access" };
+const GROUP: Record<Kind, string> = { event: "Events", discount: "Discounts", access: "Access" };
+
 export function FeatureCardForm({
-  events,
-  discounts,
-  access,
+  options,
   current,
 }: {
-  events: Option[];
-  discounts: Option[];
-  access: Option[];
-  current: { contentType: FeatureCard["content_type"]; contentId: string; label: string | null } | null;
+  options: Record<Kind, Option[]>;
+  current: { type: Kind; id: string; label: string | null } | null;
 }) {
   const router = useRouter();
-  const [selected, setSelected] = useState(current ? `${current.contentType}:${current.contentId}` : "");
+  const [selected, setSelected] = useState(current ? `${current.type}:${current.id}` : "");
   const [label, setLabel] = useState(current?.label ?? "");
+  const [saving, start] = useTransition();
+  const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isSaving, startSaving] = useTransition();
-  const [saved, flashSaved] = useSavedFlash();
+  const kind = (selected.split(":")[0] || null) as Kind | null;
+  const all = { ...options };
+  if (current && !all[current.type].some((o) => o.id === current.id)) {
+    all[current.type] = [{ id: current.id, label: "The one featured now (no longer listed)" }, ...all[current.type]];
+  }
+  const chosen = kind ? all[kind].find((o) => `${kind}:${o.id}` === selected) : null;
 
-  const selectedType = selected.split(":")[0] as FeatureCard["content_type"] | "";
-  const labelPlaceholder = selectedType ? DEFAULT_FEATURE_LABEL[selectedType] : "";
-
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function onSubmit(e: FormEvent) {
+    e.preventDefault();
     setError(null);
-
+    setSaved(false);
     const [contentType, contentId] = selected.split(":");
-
-    const formData = new FormData();
-    formData.set("content_type", contentType ?? "");
-    formData.set("content_id", contentId ?? "");
-    formData.set("label", label);
-
-    startSaving(async () => {
-      const result = await setFeatureCard(formData);
+    const fd = new FormData();
+    fd.set("content_type", contentType ?? "");
+    fd.set("content_id", contentId ?? "");
+    fd.set("label", label);
+    start(async () => {
+      const result = await setFeatureCard(fd).catch(() => ({ success: false, error: "" }));
       if (!result.success) {
-        setError(result.error ?? "Something went wrong.");
+        setError(result.error || "We couldn’t save the feature card. Try again in a moment.");
         return;
       }
-      flashSaved();
+      setSaved(true);
       router.refresh();
     });
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <Select value={selected} onChange={(event) => setSelected(event.target.value)}>
-          <option value="">None (hide the card)</option>
-          {events.length > 0 && (
-            <optgroup label="Events">
-              {events.map((event) => (
-                <option key={event.id} value={`event:${event.id}`}>
-                  {event.label}
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {discounts.length > 0 && (
-            <optgroup label="Discounts">
-              {discounts.map((discount) => (
-                <option key={discount.id} value={`discount:${discount.id}`}>
-                  {discount.label}
-                </option>
-              ))}
-            </optgroup>
-          )}
-          {access.length > 0 && (
-            <optgroup label="Access">
-              {access.map((perk) => (
-                <option key={perk.id} value={`access:${perk.id}`}>
-                  {perk.label}
-                </option>
-              ))}
-            </optgroup>
-          )}
-        </Select>
-        <input
-          type="text"
-          value={label}
-          onChange={(event) => setLabel(event.target.value)}
-          disabled={!selected}
-          placeholder={labelPlaceholder}
-          className={cn(inputClasses, "disabled:cursor-not-allowed disabled:opacity-60")}
-        />
-        <ActionButton
-          pending={isSaving}
-          saved={saved}
-          pendingLabel="Saving…"
-          className="shrink-0 rounded-full bg-foreground px-5 py-2 text-sm font-bold text-background disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Save
-        </ActionButton>
+    <form onSubmit={onSubmit} noValidate aria-label="Feature card">
+      {error && <Banner title="We couldn’t save that.">{error}</Banner>}
+      <div className="ad-form c2">
+        <div className="ad-field">
+          <label htmlFor="feature-pick">Feature</label>
+          <span className="ad-select">
+            <select
+              id="feature-pick"
+              className="ad-input"
+              value={selected}
+              onChange={(e) => {
+                setSelected(e.target.value);
+                setSaved(false);
+              }}
+            >
+              <option value="">Nothing</option>
+              {(Object.keys(GROUP) as Kind[]).map((k) =>
+                all[k].length ? (
+                  <optgroup key={k} label={GROUP[k]}>
+                    {all[k].map((o) => (
+                      <option key={o.id} value={`${k}:${o.id}`}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null,
+              )}
+            </select>
+            <Icon name="chevron-down" size={20} />
+          </span>
+          <p className="hint">Pick Nothing to hide the card.</p>
+        </div>
+        <div className="ad-field">
+          <label htmlFor="feature-label">Label (optional)</label>
+          <input
+            id="feature-label"
+            className="ad-input"
+            value={label}
+            onChange={(e) => {
+              setLabel(e.target.value);
+              setSaved(false);
+            }}
+            disabled={!kind}
+            placeholder={kind ? STANDARD[kind] : ""}
+            autoComplete="off"
+            maxLength={40}
+          />
+          <p className="hint">The words on the pill. Leave it empty for the standard ones.</p>
+        </div>
       </div>
-      <p className="text-xs text-foreground/50">
-        Card label (optional): leave blank to use the default label shown
-        above for whichever type is selected.
-      </p>
-      {error && <p className="text-sm font-medium text-red-700">{error}</p>}
+      <Section title="How members see it" hint={kind ? "Updates as you choose." : undefined}>
+        {kind && chosen ? (
+          <div className="ad-well" style={{ padding: "16px 14px" }}>
+            <Pill kind="ink">{label.trim() || STANDARD[kind]}</Pill>
+            <p style={{ marginTop: 10, font: "800 20px/1.2 var(--font-body)" }}>{chosen.label}</p>
+          </div>
+        ) : (
+          <p className="ad-hint">No card. The Access page opens straight on the list.</p>
+        )}
+      </Section>
+      {saved && (
+        <div style={{ marginTop: 22 }}>
+          <SavedLine>{kind ? "Saved. Members see the new card now." : "Saved. Members see no card now."}</SavedLine>
+        </div>
+      )}
+      <div className="ad-acts" style={{ marginTop: 26 }}>
+        <BusyButton type="submit" className="sm" busy={saving} busyLabel="Saving…">
+          Save feature card
+        </BusyButton>
+      </div>
     </form>
   );
 }

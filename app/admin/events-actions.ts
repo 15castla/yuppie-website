@@ -36,7 +36,7 @@ type ParsedEventFields = {
 // (and a new event falls back to the column default, 50/50).
 function parseFocalPoint(
   formData: FormData,
-): { error: string } | { image_focal_x?: number; image_focal_y?: number } {
+): { error: string; field?: EventField } | { image_focal_x?: number; image_focal_y?: number } {
   const xInput = formData.get("image_focal_x");
   const yInput = formData.get("image_focal_y");
   if (xInput === null && yInput === null) return {};
@@ -44,7 +44,7 @@ function parseFocalPoint(
   const x = Number(xInput);
   const y = Number(yInput);
   if (!Number.isFinite(x) || !Number.isFinite(y) || x < 0 || x > 100 || y < 0 || y > 100) {
-    return { error: "The photo focal point is invalid. Please click the photo again." };
+    return { error: "The picture’s position didn’t save. Move it again, then save.", field: "photo" };
   }
   // numeric(5, 2) in the database.
   return { image_focal_x: Math.round(x * 100) / 100, image_focal_y: Math.round(y * 100) / 100 };
@@ -52,7 +52,10 @@ function parseFocalPoint(
 
 // Shared by createEvent and updateEventDetails so the two forms can't drift
 // into accepting different things as valid.
-function parseEventFields(formData: FormData): { error: string } | { fields: ParsedEventFields } {
+// The field a message belongs to, so the form can mark it (r2b Events: "Fix the fields marked below").
+export type EventField = "title" | "category" | "start_time" | "end_time" | "price_pounds" | "capacity" | "photo";
+
+function parseEventFields(formData: FormData): { error: string; field?: EventField } | { fields: ParsedEventFields } {
   const title = formData.get("title");
   const description = formData.get("description");
   const category = formData.get("category");
@@ -63,25 +66,26 @@ function parseEventFields(formData: FormData): { error: string } | { fields: Par
   const capacityInput = formData.get("capacity");
 
   if (typeof title !== "string" || !title.trim()) {
-    return { error: "Title is required." };
+    return { error: "Add a title.", field: "title" };
   }
   if (typeof category !== "string" || !CATEGORIES.includes(category as EventCategory)) {
-    return { error: "Please choose a valid category." };
+    return { error: "Choose a category.", field: "category" };
   }
   if (typeof startLocal !== "string" || !startLocal) {
-    return { error: "Start time is required." };
+    return { error: "Choose when it starts.", field: "start_time" };
   }
 
   const priceStr = typeof priceInput === "string" ? priceInput.trim() : "";
   const pricePounds = priceStr ? Number(priceStr) : 0;
   if (Number.isNaN(pricePounds) || pricePounds < 0) {
-    return { error: "Price must be a positive number (or 0 for included)." };
+    return { error: "The price must be a number, 0 or more.", field: "price_pounds" };
   }
 
   const capacityStr = typeof capacityInput === "string" ? capacityInput.trim() : "";
   const capacity = Number(capacityStr);
+  if (!capacityStr) return { error: "Add how many people can come.", field: "capacity" };
   if (!Number.isInteger(capacity) || capacity < 0) {
-    return { error: "Capacity must be a whole number." };
+    return { error: "The capacity must be a whole number.", field: "capacity" };
   }
 
   let startTime: string;
@@ -94,7 +98,11 @@ function parseEventFields(formData: FormData): { error: string } | { fields: Par
         : null;
   } catch (err) {
     console.error("parseEventFields: invalid date:", err);
-    return { error: "Please check the start/end times." };
+    return { error: "Check the start and end times.", field: "start_time" };
+  }
+
+  if (endTime && new Date(endTime).getTime() <= new Date(startTime).getTime()) {
+    return { error: "It has to end after it starts.", field: "end_time" };
   }
 
   const focalPoint = parseFocalPoint(formData);
@@ -149,11 +157,11 @@ function readAddress(formData: FormData): string | null | undefined {
 
 export async function createEvent(
   formData: FormData,
-): Promise<{ success: boolean; error?: string; warning?: string }> {
+): Promise<{ success: boolean; error?: string; field?: EventField; warning?: string; id?: string }> {
   const admin = await requireAdmin();
 
   const parsed = parseEventFields(formData);
-  if ("error" in parsed) return { success: false, error: parsed.error };
+  if ("error" in parsed) return { success: false, error: parsed.error, field: parsed.field };
 
   const photo = formData.get("photo");
   const hasPhoto = photo instanceof File && photo.size > 0;
@@ -197,17 +205,18 @@ export async function createEvent(
 
       revalidateTag("events", "minutes");
       revalidatePath("/admin/events");
-      return { success: true, warning };
+      return { success: true, warning, id: data.id as string };
     }
 
     if (error.code !== "23505") {
       console.error("createEvent failed:", error);
-      return { success: false, error: "Something went wrong creating that event." };
+      await audit(admin.id, "event.create_failed", { type: "event", id: null }, { title: parsed.fields.title, error: error.message });
+      return { success: false, error: `We couldn’t create the event. Try again in a moment. (${error.message})` };
     }
     // else: slug collision, loop and try the next suffix.
   }
 
-  return { success: false, error: "Couldn't find a free URL slug for that title. Try renaming it slightly." };
+  return { success: false, error: "Another event already uses a link made from that title. Change the title a little.", field: "title" };
 }
 
 // Deliberately doesn't accept a new slug, since event URLs may already be
@@ -224,7 +233,15 @@ export async function createEvent(
 // event-booking-actions.ts sends it later).
 export async function updateEventDetails(
   formData: FormData,
-): Promise<{ success: boolean; error?: string; moved?: EventMove | null; bookedCount?: number; emailing?: boolean }> {
+): Promise<{
+  success: boolean;
+  error?: string;
+  field?: EventField;
+  code?: "capacity" | "locked";
+  moved?: EventMove | null;
+  bookedCount?: number;
+  emailing?: boolean;
+}> {
   const admin = await requireAdmin();
 
   const eventId = formData.get("event_id");
@@ -233,20 +250,31 @@ export async function updateEventDetails(
   }
 
   const parsed = parseEventFields(formData);
-  if ("error" in parsed) return { success: false, error: parsed.error };
+  if ("error" in parsed) return { success: false, error: parsed.error, field: parsed.field };
 
   const adminClient = createAdminSupabaseClient();
-  const [{ data: beforeRow }, beforeAddress] = await Promise.all([
-    adminClient.from("events").select("start_time, location").eq("id", eventId).maybeSingle(),
+  const [{ data: beforeRow }, beforeAddress, { count: bookedNow }] = await Promise.all([
+    adminClient.from("events").select("start_time, location, cancelled_at").eq("id", eventId).maybeSingle(),
     getEventAddress(eventId),
+    adminClient.from("bookings").select("*", { count: "exact", head: true }).eq("event_id", eventId).eq("status", "confirmed"),
   ]);
   if (!beforeRow) return { success: false, error: "That event couldn’t be found." };
+  if (beforeRow.cancelled_at) return { success: false, code: "locked", error: "This event is cancelled, so its details are locked." };
+  // The capacity rule (r2b Events): never below the number already booked.
+  if (parsed.fields.capacity < (bookedNow ?? 0)) {
+    return {
+      success: false,
+      code: "capacity",
+      field: "capacity",
+      error: `Capacity can’t be lower than the ${bookedNow} already booked.`,
+    };
+  }
 
   const { error } = await adminClient.from("events").update(parsed.fields).eq("id", eventId);
 
   if (error) {
     console.error(`updateEventDetails failed for event ${eventId}:`, error);
-    return { success: false, error: "Something went wrong saving that event." };
+    return { success: false, error: `We couldn’t save that. (${error.message})` };
   }
 
   const address = readAddress(formData);
@@ -281,7 +309,7 @@ export async function updateEventDetails(
 export async function updateEventImage(
   formData: FormData,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   const eventId = formData.get("event_id");
   const photo = formData.get("photo");
@@ -291,7 +319,7 @@ export async function updateEventImage(
   }
 
   if (!(photo instanceof File)) {
-    return { success: false, error: "Please choose an image to upload." };
+    return { success: false, error: "Choose a picture to upload." };
   }
 
   const uploaded = await uploadMemberMedia("events", eventId, photo);
@@ -311,6 +339,7 @@ export async function updateEventImage(
     console.error(`updateEventImage failed for event ${eventId}:`, error);
     return { success: false, error: "Uploaded, but saving it to the event failed." };
   }
+  await audit(admin.id, "event.image", { type: "event", id: eventId }, { image_url: uploaded.url });
 
   // "events" is the cache tag components/members/events-data.ts's
   // getCachedEvents/getCachedEventBySlug are tagged with. Without this,
@@ -330,7 +359,7 @@ export async function updateEventImage(
 export async function removeEventImage(
   eventId: string,
 ): Promise<{ success: boolean; error?: string }> {
-  await requireAdmin();
+  const admin = await requireAdmin();
 
   if (!eventId) {
     return { success: false, error: "Missing event." };
@@ -344,8 +373,9 @@ export async function removeEventImage(
 
   if (error) {
     console.error(`removeEventImage failed for event ${eventId}:`, error);
-    return { success: false, error: "Something went wrong removing that photo." };
+    return { success: false, error: "We couldn’t remove the picture. Try again in a moment." };
   }
+  await audit(admin.id, "event.image_remove", { type: "event", id: eventId });
 
   revalidateTag("events", "minutes");
   revalidatePath("/admin/events");

@@ -35,9 +35,9 @@ import {
   type EventRow,
   type RefundStatus,
 } from "./db";
-import { dayDate, dayDateTime, pounds, time24 } from "./format";
+import { dayDate, pounds, time24 } from "./format";
 import { later } from "./later";
-import { sendAdminAlert, sendEmail } from "./messages";
+import { sendEmail } from "./messages";
 import { cardLabelForPaymentIntent } from "./stripe/card";
 
 export { FREE_CANCEL_HOURS };
@@ -246,18 +246,23 @@ async function alertPaidNotBooked(
   why: string,
 ): Promise<void> {
   console.error(`BOOKING_NEEDS_REVIEW paid_not_booked: payment intent ${paymentIntent.id}, member ${memberId}, event ${eventId}: ${why}`);
-  await sendAdminAlert({
-    subject: "Booking needs a look: paid but not booked",
-    heading: "Paid, but not booked.",
-    lines: [
-      `${await memberName(memberId)} paid ${pounds(paymentIntent.amount)} for ${event?.title ?? "an event"}, but no booking was made. ${why}`,
-      ...(event ? [`When: ${dayDateTime(event.start_time)}`] : []),
-      `Payment: ${paymentIntent.id}`,
-      `Open in Stripe: https://dashboard.stripe.com/payments/${paymentIntent.id}`,
-      "Nothing was refunded automatically. Refund it in Stripe, or book the member by hand.",
-    ],
+  // The admin booking review email (lib/emails, reason paid_not_booked). Same dedupe key as the plain alert it replaces.
+  await sendEmail({
+    template: "admin-booking-review",
+    to: adminAlertsEmail(),
+    data: {
+      reason: "paid_not_booked",
+      memberName: await memberName(memberId),
+      event: event
+        ? { title: event.title, start: { date: dayDate(event.start_time), time: time24(event.start_time) } }
+        : { title: "an event that no longer exists", start: { date: "Not known", time: "event deleted" } },
+      amount: pounds(paymentIntent.amount),
+      paymentIntentId: paymentIntent.id,
+      memberUrl: `/admin/members/${memberId}`,
+      detail: why,
+    },
     dedupeKey: `admin-alert:paid-not-booked:${paymentIntent.id}`,
-    refs: { memberId, eventId },
+    refs: { memberId, eventId: event ? eventId : null },
   });
 }
 
@@ -453,17 +458,22 @@ async function alertRefundFailed(
   error: string,
 ): Promise<void> {
   const { data: event } = await serviceDb().from("events").select("title, start_time").eq("id", booking.event_id).maybeSingle();
-  await sendAdminAlert({
-    subject: "Booking needs a look: refund failed",
-    heading: "A refund didn’t go through.",
-    lines: [
-      `${await memberName(booking.member_id)} should get ${pounds(booking.amount_pence)} back for ${event?.title ?? "an event"}, but Stripe refused the refund.`,
-      ...(event ? [`When: ${dayDateTime(event.start_time)}`] : []),
-      `Stripe said: ${error}`,
-      `Payment: ${booking.stripe_payment_intent_id}`,
-      `Open in Stripe: https://dashboard.stripe.com/payments/${booking.stripe_payment_intent_id}`,
-      "The booking is cancelled. Refund it in Stripe by hand; the member is emailed once the refund goes through.",
-    ],
+  // The admin booking review email (lib/emails, reason refund_failed). Same dedupe key as the plain alert it replaces.
+  await sendEmail({
+    template: "admin-booking-review",
+    to: adminAlertsEmail(),
+    data: {
+      reason: "refund_failed",
+      memberName: await memberName(booking.member_id),
+      event: event
+        ? { title: event.title, start: { date: dayDate(event.start_time), time: time24(event.start_time) } }
+        : { title: "an event that no longer exists", start: { date: "Not known", time: "event deleted" } },
+      amount: pounds(booking.amount_pence),
+      paymentIntentId: booking.stripe_payment_intent_id ?? "",
+      bookingId: booking.id,
+      memberUrl: `/admin/members/${booking.member_id}`,
+      detail: error,
+    },
     dedupeKey: `admin-alert:refund-failed:${booking.id}`,
     refs: { memberId: booking.member_id, bookingId: booking.id, eventId: booking.event_id },
   });
