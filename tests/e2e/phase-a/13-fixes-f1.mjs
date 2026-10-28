@@ -304,7 +304,7 @@ for (const delay of [0, 20]) {
   // QA1-08
   mark = fakesMark();
   const a1 = (await action('events.createEventPaymentIntent', [fd({ event_id: ev.id, price_pence: '2500', attempt_id: 'f1-attempt-aaaa' })], s)).result;
-  const a2 = (await action('events.createEventPaymentIntent', [fd({ event_id: ev.id, price_pence: '2500', attempt_id: 'f1-attempt-aaaa' })], s)).result;
+  await action('events.createEventPaymentIntent', [fd({ event_id: ev.id, price_pence: '2500', attempt_id: 'f1-attempt-aaaa' })], s);
   const a3 = (await action('events.createEventPaymentIntent', [fd({ event_id: ev.id, price_pence: '2500', attempt_id: 'f1-attempt-bbbb' })], s)).result;
   const idems = fakesSince(mark, 'stripe').filter((c) => c.path === '/v1/payment_intents' && c.method === 'POST').map((c) => c.idem);
   eq([idems[0] === idems[1], idems[1] === idems[2], idems[2].endsWith('-f1-attempt-bbbb')], [true, false, true], 'QA1-08 the idempotency key is per attempt (a double tap is one), not per minute');

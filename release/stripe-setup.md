@@ -8,7 +8,7 @@ there is no Billing Portal configuration.
 Every call below uses the live secret key from the environment, never pasted into a file or a chat:
 `-u "$STRIPE_SECRET_KEY:"` (the colon means "no password"). Nothing here touches customers or subscriptions.
 
-## 1. The webhook endpoint: the seven events the code handles
+## 1. The webhook endpoint: the nine events the code handles
 
 `app/api/stripe/webhook/route.ts` (through `lib/server/stripe/webhook.ts`) handles exactly these:
 
@@ -21,6 +21,22 @@ Every call below uses the live secret key from the environment, never pasted int
 | `customer.subscription.updated` | syncs the cancel date and a pause made in Stripe; status `canceled` ends the membership |
 | `customer.subscription.deleted` | ends the membership, cancels and refunds future bookings (A-D8), one email |
 | `charge.refunded` | records a refund (ours, or one made by hand in the Dashboard) on the booking |
+| `customer.updated` | a member whose membership payment failed saved a new default card in the portal: it becomes the subscription's card and the open invoice is paid now (QA3-02) |
+| `payment_method.attached` | the same, when the portal attaches the card (whichever event comes first does it; the second finds nothing to do) |
+
+Every handler reads the subscription (and customer) from Stripe as it is now, not from the event, because
+Stripe does not promise the order; and an event about another subscription of the same customer, or a one-off
+invoice, is ignored. A handler that cannot reach the database or Stripe answers 500, so Stripe retries it.
+
+**Switch the new events on only after the deploy** (QA3 checklist 8): the code before this release does not
+know them (it would answer 200 and ignore them, so nothing breaks, but the events would be spent).
+
+**The card on new subscriptions (QA3-02).** Approving an application now sets the saved card as the
+customer's `invoice_settings.default_payment_method` and creates the subscription without a card of its own,
+so a card the member saves later in the portal is the one Stripe charges. Members approved before the release
+have a subscription-level `default_payment_method`; no data change is needed for them: the
+`customer.updated` / `payment_method.attached` handlers set the new card on the subscription when a member in
+the payment problem state saves one.
 
 `checkout.session.completed` is not handled by any code (it is left from the old Checkout flow), so it can go.
 Today `payment_intent.succeeded` is not delivered at all, so a paid booking is only recorded when the
@@ -47,6 +63,8 @@ curl -sS https://api.stripe.com/v1/webhook_endpoints/we_REPLACE_ME -u "$STRIPE_S
   -d "enabled_events[]=customer.subscription.updated" \
   -d "enabled_events[]=customer.subscription.deleted" \
   -d "enabled_events[]=charge.refunded" \
+  -d "enabled_events[]=customer.updated" \
+  -d "enabled_events[]=payment_method.attached" \
   -d "description=Club Yuppie members backend (Phase A)"
 ```
 
@@ -70,7 +88,9 @@ curl -sS https://api.stripe.com/v1/webhook_endpoints -u "$STRIPE_SECRET_KEY:" \
   -d "enabled_events[]=invoice.paid" \
   -d "enabled_events[]=customer.subscription.updated" \
   -d "enabled_events[]=customer.subscription.deleted" \
-  -d "enabled_events[]=charge.refunded"
+  -d "enabled_events[]=charge.refunded" \
+  -d "enabled_events[]=customer.updated" \
+  -d "enabled_events[]=payment_method.attached"
 ```
 
 The answer holds a new `secret` (`whsec_...`): put it in Vercel production as `STRIPE_WEBHOOK_SECRET`,
@@ -117,7 +137,7 @@ If Stripe answers that a terms of service URL is required, the site has no terms
 ## 3. Check
 
 ```bash
-# the seven events, enabled
+# the nine events, enabled
 curl -sS https://api.stripe.com/v1/webhook_endpoints/we_REPLACE_ME -u "$STRIPE_SECRET_KEY:"
 # active, with the features above
 curl -sS https://api.stripe.com/v1/billing_portal/configurations/bpc_REPLACE_ME -u "$STRIPE_SECRET_KEY:"
@@ -137,4 +157,4 @@ Stripe retries it; the reason is in the Vercel logs and in `stripe_events.error`
 - C-D9: once our emails are live, switch off Stripe's own customer emails (successful payments, refunds,
   failed payments), so members do not get two of each.
 - The test-mode key in `.env.local` is invalid (`StripeAuthenticationError`); previews need a working test key
-  and a test-mode endpoint with the same seven events if they are to take payments.
+  and a test-mode endpoint with the same nine events if they are to take payments.
