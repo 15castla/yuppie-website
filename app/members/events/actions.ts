@@ -4,12 +4,17 @@ import { revalidatePath } from "next/cache";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { stripe } from "@/lib/stripe";
 import { eventCalendarHref } from "@/lib/members/routes";
-import { bookIncludedEvent, cancelBookingByMember, cancelTerms } from "@/lib/server/bookings";
+import { bookIncludedEvent, cancelBookingByMember } from "@/lib/server/bookings";
 import { calendarForMember, getEventAddressForMember } from "@/lib/server/events";
-import { requireMember } from "../require-member";
+import { memberForAction, requireMember } from "../require-member";
 import { getEventCapacity } from "./booking-capacity";
 import { confirmPaidBooking } from "./confirm-paid-booking";
+import { loadMyBooking, type MyBooking } from "./my-booking";
+import { paidNotBookedFor } from "./paid-not-booked";
 import { hasEventStarted } from "@/components/members/events-data";
+import { SESSION_ENDED, type SessionEnded } from "@/components/members/session-ended";
+
+export type { MyBooking } from "./my-booking";
 
 // The page showed a spot and the server found none: someone booked just before (r2a, the server message example).
 const EVENT_FULL_ERROR = "That was the last spot. Someone booked just before you.";
@@ -18,6 +23,10 @@ const EVENT_STARTED_ERROR = "This event has already started, so it can’t be bo
 const EVENT_CANCELLED_ERROR = "This event has been cancelled, so it can’t be booked.";
 const INACTIVE_ERROR = "Your membership isn’t active, so you can’t book.";
 const BOOKING_FAILED_ERROR = "We couldn’t book your spot. Nothing was taken. Please try again.";
+// r2a 3, "Payment didn’t open": the designed words (r2b: no generic error lines).
+const PAYMENT_OPEN_ERROR = "We couldn’t open payment. Nothing was taken. Check your connection and try again.";
+// r2a 3, "Paid, but not booked yet": a payment for this event already went through without a booking.
+const PAID_NOT_BOOKED_ERROR = "Paid, but not booked yet. Please don’t pay again: we’ll sort it out by email.";
 
 // Free and included events: one tap books (r2a section 3). The booking itself
 // is lib/server/bookings.ts bookIncludedEvent: book_event in the database
@@ -25,8 +34,9 @@ const BOOKING_FAILED_ERROR = "We couldn’t book your spot. Nothing was taken. P
 // race. The confirmation email goes after the response.
 export async function rsvpToEvent(
   formData: FormData,
-): Promise<{ success: boolean; error?: string; bookingId?: string }> {
-  const member = await requireMember();
+): Promise<{ success: boolean; error?: string; bookingId?: string } | SessionEnded> {
+  const member = await memberForAction();
+  if (!member) return SESSION_ENDED;
   const eventId = formData.get("event_id");
 
   if (typeof eventId !== "string" || !eventId) {
@@ -71,7 +81,7 @@ export type CreateEventPaymentIntentResult =
        * Why, for the page (r2a 2 and 3): "error" means payment could not be opened (the sheet's "We couldn't open
        * payment"); the others are a message in the strip above the bar.
        */
-      reason?: "not_found" | "started" | "cancelled" | "free" | "no_customer" | "already_booked" | "full" | "error";
+      reason?: "not_found" | "started" | "cancelled" | "free" | "no_customer" | "already_booked" | "paid_not_booked" | "full" | "error";
     };
 
 // Embedded payment flow. Reads the event straight from the table (not
@@ -80,8 +90,9 @@ export type CreateEventPaymentIntentResult =
 // payment succeeded (confirmEventPayment below, or the webhook), never here.
 export async function createEventPaymentIntent(
   formData: FormData,
-): Promise<CreateEventPaymentIntentResult> {
-  const member = await requireMember();
+): Promise<CreateEventPaymentIntentResult | SessionEnded> {
+  const member = await memberForAction();
+  if (!member) return SESSION_ENDED;
   const eventId = formData.get("event_id");
 
   if (typeof eventId !== "string" || !eventId) {
@@ -134,6 +145,12 @@ export async function createEventPaymentIntent(
     return { success: false, error: ALREADY_BOOKED_ERROR, reason: "already_booked" };
   }
 
+  // A payment for this event already went through without becoming a booking: never a second one, whatever
+  // tab this came from (the page shows "Paid, but not booked yet." and no Book button, QA1-04).
+  if (await paidNotBookedFor(member.id, eventId)) {
+    return { success: false, error: PAID_NOT_BOOKED_ERROR, reason: "paid_not_booked" };
+  }
+
   // Checked before a PaymentIntent exists, so a full event never gets as far
   // as taking payment. A booking that lands on a full event after payment
   // still books and alerts the club (no hold while paying, A-D7).
@@ -146,7 +163,7 @@ export async function createEventPaymentIntent(
     console.error(`createEventPaymentIntent: capacity check failed for event ${eventId}:`, err);
     return {
       success: false,
-      error: "Something went wrong starting payment. Please try again.",
+      error: PAYMENT_OPEN_ERROR,
       reason: "error",
     };
   }
@@ -169,7 +186,7 @@ export async function createEventPaymentIntent(
       console.error(`createEventPaymentIntent: PaymentIntent ${paymentIntent.id} has no client_secret`);
       return {
         success: false,
-        error: "Something went wrong starting payment. Please try again.",
+        error: PAYMENT_OPEN_ERROR,
         reason: "error",
       };
     }
@@ -179,7 +196,7 @@ export async function createEventPaymentIntent(
     console.error(`createEventPaymentIntent failed for member ${member.id}, event ${eventId}:`, err);
     return {
       success: false,
-      error: "Something went wrong starting payment. Please try again.",
+      error: PAYMENT_OPEN_ERROR,
       reason: "error",
     };
   }
@@ -209,8 +226,9 @@ export type ConfirmEventPaymentResult =
 export async function confirmEventPayment(
   paymentIntentId: string,
   eventId: string,
-): Promise<ConfirmEventPaymentResult> {
-  const member = await requireMember({ allowGated: true });
+): Promise<ConfirmEventPaymentResult | SessionEnded> {
+  const member = await memberForAction({ allowGated: true });
+  if (!member) return SESSION_ENDED;
 
   if (!paymentIntentId || !eventId) {
     return { booked: false, error: "Missing payment details.", reason: "missing" };
@@ -292,8 +310,9 @@ export type CancelBookingResult =
 export async function cancelBooking(
   bookingId: string,
   options: { withoutRefund?: boolean } = {},
-): Promise<CancelBookingResult> {
-  const member = await requireMember();
+): Promise<CancelBookingResult | SessionEnded> {
+  const member = await memberForAction();
+  if (!member) return SESSION_ENDED;
   if (!bookingId) return { ok: false, reason: "not_found", error: "That booking couldn’t be found." };
 
   const result = await cancelBookingByMember(member.id, bookingId, { withoutRefund: Boolean(options.withoutRefund) });
@@ -320,52 +339,11 @@ export async function cancelBooking(
 // The booking card, the address and Add to calendar (A-D3, r2a section 4)
 // ---------------------------------------------------------------------------
 
-export type MyBooking = {
-  bookingId: string;
-  amountPence: number;
-  bookedAt: string;
-  /** The exact address (null until the club has saved one). Only ever sent to a member with this confirmed booking. */
-  address: string | null;
-  /** The free-cancel deadline (start minus 48 hours), ISO. */
-  freeUntil: string;
-  /** Cancelling now gives the money back automatically (inside the window, or the club moved the event, C-D11). */
-  freeNow: boolean;
-  /** The club moved the event after this booking (C-D11). */
-  moved: boolean;
-  calendarUrl: string;
-  /** Google Calendar, filled in (the web shows it under Add to calendar). */
-  googleUrl: string | null;
-};
-
 /** The member's confirmed booking for an event, with what the booking card shows. Null when not booked. */
-export async function getMyBooking(eventId: string): Promise<MyBooking | null> {
-  const member = await requireMember();
-  if (!eventId) return null;
-  const db = createAdminSupabaseClient();
-  const { data } = await db
-    .from("bookings")
-    .select("id, amount_pence, booked_at, event:events(slug, start_time, changed_at)")
-    .eq("member_id", member.id)
-    .eq("event_id", eventId)
-    .eq("status", "confirmed")
-    .limit(1)
-    .maybeSingle();
-  if (!data) return null;
-  const event = (Array.isArray(data.event) ? data.event[0] : data.event) as { slug: string; start_time: string; changed_at: string | null } | null;
-  if (!event) return null;
-  const terms = cancelTerms({ booked_at: data.booked_at }, event);
-  const calendar = await calendarForMember(member.id, { id: eventId });
-  return {
-    bookingId: data.id,
-    amountPence: data.amount_pence,
-    bookedAt: data.booked_at,
-    address: await getEventAddressForMember(member.id, eventId),
-    freeUntil: terms.freeUntil.toISOString(),
-    freeNow: terms.free,
-    moved: terms.why === "changed",
-    calendarUrl: eventCalendarHref(event.slug),
-    googleUrl: calendar?.googleUrl ?? null,
-  };
+export async function getMyBooking(eventId: string): Promise<MyBooking | null | SessionEnded> {
+  const member = await memberForAction();
+  if (!member) return SESSION_ENDED;
+  return loadMyBooking(member.id, eventId);
 }
 
 /** The exact address, for a member with a confirmed booking; null for anyone else ("Exact address sent after booking"). */

@@ -23,6 +23,7 @@ import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-
 
 import { STRIPE_APPEARANCE, getStripeErrorMessage } from "@/lib/stripe-ui";
 import type { ConfirmEventPaymentResult } from "@/app/members/events/actions";
+import { isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import { PaySheetBody, payDismissable, payStatus, type PayState } from "./pay-sheet-body";
 import { EventSheet } from "./sheet-parts";
 import { gbp, type EventPageEvent } from "./model";
@@ -74,7 +75,7 @@ export function StripePaySheet({
   event: EventPageEvent;
   memberEmail: string;
   cancelLine: string;
-  confirm: (paymentIntentId: string, eventId: string) => Promise<ConfirmEventPaymentResult>;
+  confirm: (paymentIntentId: string, eventId: string) => Promise<ConfirmEventPaymentResult | SessionEnded>;
   /** The payment ended in a booking, a pending payment, or money taken with no booking. */
   onOutcome: (outcome: PayOutcome) => void;
   /** Try again from "We couldn't open payment": the page makes (or reuses) the PaymentIntent again. */
@@ -167,7 +168,7 @@ function PayFlow({
   state: PayState;
   setState: (state: PayState) => void;
   setDeclined: (words: string | null) => void;
-  confirm: (paymentIntentId: string, eventId: string) => Promise<ConfirmEventPaymentResult>;
+  confirm: (paymentIntentId: string, eventId: string) => Promise<ConfirmEventPaymentResult | SessionEnded>;
   onOutcome: (outcome: PayOutcome) => void;
   render: (fields: ReactNode, ready: boolean, onPay?: () => void, onCancelBank?: () => void) => ReactNode;
 }) {
@@ -204,12 +205,19 @@ function PayFlow({
       setState("declined");
       return;
     }
-    let result: ConfirmEventPaymentResult;
+    let result: ConfirmEventPaymentResult | SessionEnded;
     try {
       result = await confirm(paymentIntent.id, eventId);
     } catch (err) {
       // Stripe took it but the page could not reach us: the webhook books it; never offer Pay again.
       console.error("confirmEventPayment did not answer:", err);
+      setState("processing");
+      onOutcome("pending");
+      return;
+    }
+    // Stripe took it but the session has ended, so we cannot check it now: the webhook books it, and Pay is
+    // never offered again. Any next tap meets Log in with "Your session ended."
+    if (isSessionEnded(result)) {
       setState("processing");
       onOutcome("pending");
       return;

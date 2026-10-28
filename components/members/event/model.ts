@@ -5,7 +5,7 @@
 // how many are booked, the member's own booking (with the exact address, A-D3: only a confirmed booking ever
 // carries it) and whether cancelling now is free (48 hours, A-D1 B; or the club moved it, C-D11).
 
-import type { MyBooking } from "@/app/members/events/actions";
+import type { MyBooking } from "@/app/members/events/my-booking";
 import { dayDate, dayDateTime, pounds, time24 } from "@/lib/server/format";
 
 export type EventCategory = "entertainment" | "sport" | "personal_progression";
@@ -73,15 +73,21 @@ export type EventPageData = {
   memberEmail: string;
   clubCancelled?: ClubCancelledBooking | null;
   paymentReturn?: PaymentReturn | null;
+  /**
+   * A payment of this member's for this event went through but never became a booking, and is not refunded
+   * (app/members/events/paid-not-booked.ts): the page opens in "Paid, but not booked yet." with no Book button.
+   */
+  paidNotBooked?: boolean;
 };
 
 /** What the page is, before anything the member does on it. */
 export type EventPhase = "open" | "booked" | "full" | "past" | "cancelled";
 
+/** Started wins over booked: a booked member on an event that has started sees the past event (no calendar, no cancel; the booking card keeps the address). */
 export function eventPhase(data: Pick<EventPageData, "event" | "booking" | "started" | "bookedCount">): EventPhase {
   if (data.event.cancelledAt) return "cancelled";
-  if (data.booking) return "booked";
   if (data.started) return "past";
+  if (data.booking) return "booked";
   if (spotsLeft(data) <= 0) return "full";
   return "open";
 }

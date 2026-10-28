@@ -263,6 +263,8 @@ export function DesktopCard({
     <>
       <div className="ea-big">{big}</div>
       <div className="ea-sub">{sub}</div>
+      {/* A booked member on an event that has started: the address stays (they may be on their way), nothing else. */}
+      {state === "past" && booking ? <AddressTile place={event.location} address={booking.address} /> : null}
       <div className="ea-act">
         <Button href={ROUTES.events}>See other events</Button>
       </div>
@@ -366,10 +368,13 @@ export function BookingCard({
         ) : (
           <div className="mk-row ea-plain">{row(<Icon name="map-pin" size={22} />, place, "We’ll email you the exact address before the day.")}</div>
         )}
-        <a className="mk-row" href={booking.icsUrl} download>
-          {row(<EvIcon name="calendar-plus" size={22} />, "Add to calendar", showGoogle ? "Apple or Outlook" : "Opens your calendar", <Icon name="chevron-right" size={22} />)}
-        </a>
-        {showGoogle && booking.googleUrl ? (
+        {/* Started: nothing left to add to a calendar (QA1-09). */}
+        {started ? null : (
+          <a className="mk-row" href={booking.icsUrl} download>
+            {row(<EvIcon name="calendar-plus" size={22} />, "Add to calendar", showGoogle ? "Apple or Outlook" : "Opens your calendar", <Icon name="chevron-right" size={22} />)}
+          </a>
+        )}
+        {showGoogle && booking.googleUrl && !started ? (
           <a className="mk-row" href={booking.googleUrl} target="_blank" rel="noopener noreferrer">
             {row(<Icon name="calendar" size={22} />, "Google Calendar", "Adds it to your Google account", <Icon name="external" size={20} />)}
           </a>

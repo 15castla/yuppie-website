@@ -161,7 +161,7 @@ export function CancelSheetBody({
   if (state === "cancelling") {
     return (
       <>
-        <PayHead id={id} title={late ? "Too late to cancel here." : "Cancel your booking?"} onClose={onClose} closeOff />
+        <PayHead id={id} title={late && paid ? "Too late to cancel here." : "Cancel your booking?"} onClose={onClose} closeOff />
         <p className="pay-p">Cancelling now. Please stay on this screen.</p>
         {summary}
         <PayActions>
@@ -176,6 +176,27 @@ export function CancelSheetBody({
     );
   }
 
+  // An included event inside the 48 hours: there is no money to refund, so no refund words. The member can still
+  // give the spot back (QA1-05); the server takes it as a cancel without a refund (onCancelLate).
+  if (state === "late" && !paid) {
+    return (
+      <>
+        <PayHead id={id} title="Cancel your booking?" onClose={onClose} />
+        <p className="pay-p">Your spot goes back to the club. You can book again if there’s room.</p>
+        {summary}
+        <MoneyList items={[{ icon: "users", text: "Your spot goes back to the club, so someone else can take it." }]} />
+        <PayActions>
+          <Button block onClick={onKeep}>
+            Keep my booking
+          </Button>
+          <Button block variant="outline" className="pay-danger" onClick={onCancelLate}>
+            Cancel my booking
+          </Button>
+        </PayActions>
+      </>
+    );
+  }
+
   if (state === "late") {
     return (
       <>
@@ -184,13 +205,7 @@ export function CancelSheetBody({
           It’s less than {hours} hours until {event.title}, so we can’t refund you automatically. Email us and we’ll see what we can do.
         </p>
         {summary}
-        <MoneyList
-          items={[
-            paid
-              ? { icon: "banknote", text: `If you cancel without asking, your ${price} isn’t refunded.` }
-              : { icon: "users", text: "If you can’t come, tell us so someone else can take your spot." },
-          ]}
-        />
+        <MoneyList items={[{ icon: "banknote", text: `If you cancel without asking, your ${price} isn’t refunded.` }]} />
         <PayActions>
           <Button block href={mailtoClub(`Cancelling: ${event.title}`)} icon={<Icon name="mail" size={20} />}>
             Email us
@@ -199,7 +214,7 @@ export function CancelSheetBody({
             Keep my booking
           </Button>
           <Button variant="quiet" danger onClick={onCancelLate}>
-            {paid ? "Cancel without a refund" : "Cancel my booking"}
+            Cancel without a refund
           </Button>
         </PayActions>
       </>
@@ -262,7 +277,7 @@ export function CancelSheetBody({
   );
 }
 
-export function cancelStatus(state: CancelState): string {
+export function cancelStatus(state: CancelState, paid = true): string {
   switch (state) {
     case "cancelling":
       return "Cancelling now. Please stay on this screen.";
@@ -271,7 +286,7 @@ export function cancelStatus(state: CancelState): string {
     case "error":
       return "We couldn’t cancel. Your booking is still on.";
     case "late":
-      return "Too late to cancel here.";
+      return paid ? "Too late to cancel here." : "";
     default:
       return "";
   }

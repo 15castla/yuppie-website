@@ -22,6 +22,7 @@ import type {
   CreateEventPaymentIntentResult,
   MyBooking,
 } from "@/app/members/events/actions";
+import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import { CancelSheetBody, ConfirmedSheetBody, cancelDismissable, cancelStatus, type CancelOutcome, type CancelState } from "./booking-sheets";
 import { BookingCard, DesktopCard, EventBand, EventBar, EventHero, HeroNote, type BarState } from "./event-parts";
 import { PaySheetBody, payDismissable, payStatus, type PayState } from "./pay-sheet-body";
@@ -42,12 +43,14 @@ import {
 
 import "./event.css";
 
+// Each live action can also answer SessionEnded (the session ended while the page was open): the page then
+// sends the member to Log in with "Your session ended." (B-D1, components/members/session-ended.ts).
 export type EventActions = {
-  rsvp: (formData: FormData) => Promise<{ success: boolean; error?: string; bookingId?: string }>;
-  createPaymentIntent: (formData: FormData) => Promise<CreateEventPaymentIntentResult>;
-  confirmPayment: (paymentIntentId: string, eventId: string) => Promise<ConfirmEventPaymentResult>;
-  cancel: (bookingId: string, options?: { withoutRefund?: boolean }) => Promise<CancelBookingResult>;
-  getBooking: (eventId: string) => Promise<MyBooking | null>;
+  rsvp: (formData: FormData) => Promise<{ success: boolean; error?: string; bookingId?: string } | SessionEnded>;
+  createPaymentIntent: (formData: FormData) => Promise<CreateEventPaymentIntentResult | SessionEnded>;
+  confirmPayment: (paymentIntentId: string, eventId: string) => Promise<ConfirmEventPaymentResult | SessionEnded>;
+  cancel: (bookingId: string, options?: { withoutRefund?: boolean }) => Promise<CancelBookingResult | SessionEnded>;
+  getBooking: (eventId: string) => Promise<MyBooking | null | SessionEnded>;
 };
 
 const LIVE_ACTIONS: EventActions = {
@@ -60,6 +63,10 @@ const LIVE_ACTIONS: EventActions = {
 
 const BOOKING_FAILED = "We couldn’t book your spot. Nothing was taken. Please try again.";
 const PAID_NOT_BOOKED = "Paid, but not booked yet. Please don’t pay again: we’ll sort it out by email.";
+const PAYMENT_OPEN_FAILED = "We couldn’t open payment. Nothing was taken. Check your connection and try again.";
+// Back from the bank with a payment that is not this member's for this event (a shared or edited link): say so
+// plainly, claim nothing was taken from them, and leave the page bookable (QA1-07).
+const PAYMENT_NOT_MATCHED = "We couldn’t match that payment to your booking. Nothing was booked.";
 
 export type EventSheetState =
   | { kind: "pay"; state: PayState; clientSecret: string | null; attempt: number }
@@ -71,6 +78,8 @@ export type EventPageStart = {
   busy?: "booking" | null;
   /** A payment that is still processing (or paid but not booked): the bar says Processing. */
   pending?: boolean;
+  /** Paid, but not booked yet (with pending): the hero says so. */
+  paidNotBooked?: boolean;
   message?: string | null;
   sheet?: EventSheetState | null;
 };
@@ -95,9 +104,13 @@ export function EventPageView({
   const hours = data.freeCancelHours;
 
   const [, startRefresh] = useTransition();
+  // Paid, but not booked yet, also after a reload (the server found the payment: data.paidNotBooked): the bar
+  // says Processing with the message above it, and there is no Book button, so it cannot be paid twice.
+  const startUnbooked = start?.paidNotBooked ?? Boolean(data.paidNotBooked);
   const [busy, setBusy] = useState<"booking" | null>(start?.busy ?? null);
-  const [pending, setPending] = useState(start?.pending ?? false);
-  const [message, setMessage] = useState<string | null>(start?.message ?? null);
+  const [pending, setPending] = useState(start?.pending ?? startUnbooked);
+  const [unbooked, setUnbooked] = useState(startUnbooked);
+  const [message, setMessage] = useState<string | null>(start?.message ?? (startUnbooked ? PAID_NOT_BOOKED : null));
   const [sheet, setSheet] = useState<EventSheetState | null>(start?.sheet ?? null);
   const cardRef = useRef<HTMLDivElement>(null);
   const sheetId = useId();
@@ -116,9 +129,10 @@ export function EventPageView({
   // ------------------------------------------------------------------ words that depend on the 48-hour rule
   const until = freeUntilLine(booking?.freeUntil ?? data.freeUntil);
   const windowOpen = booking ? booking.freeNow : data.freeWindowOpen;
+  // Inside the 48 hours an included booking can still be given back (nothing to refund, QA1-05).
   const lateMoney = paid
     ? `It’s less than ${hours} hours to go, so there’s no refund if you cancel.`
-    : "Change of plan? Tell us, so someone else can take your spot.";
+    : "Change of plan? Cancel any time until it starts.";
   const bookableCancelLine = windowOpen
     ? paid
       ? `Cancel until ${until} and you get it all back.`
@@ -132,7 +146,7 @@ export function EventPageView({
         : `Cancel until ${freeUntilLine(b.freeUntil)} and your spot goes back to the club.`
       : b.amountPence > 0
         ? `It’s less than ${hours} hours to go, so this booking can’t be refunded.`
-        : "If you can’t come, tell us so someone else can take your spot.";
+        : "If you can’t come, cancel so someone else can take your spot.";
 
   let bookingFine = "";
   if (booking) {
@@ -140,7 +154,7 @@ export function EventPageView({
     if (data.started) bookingFine = "It has started, so it can’t be cancelled.";
     else if (booking.moved) bookingFine = bPaid ? "We moved this event, so you can cancel for a full refund until it starts." : "We moved this event, so you can cancel any time until it starts.";
     else if (booking.freeNow) bookingFine = bPaid ? `Free until ${until}. Your ${gbp(booking.amountPence)} goes back to your card.` : `Free until ${until}.`;
-    else bookingFine = bPaid ? `It’s less than ${hours} hours to go, so there’s no refund if you cancel now.` : `It’s less than ${hours} hours to go. If you can’t come, please tell us.`;
+    else bookingFine = bPaid ? `It’s less than ${hours} hours to go, so there’s no refund if you cancel now.` : "If you can’t come, cancel so someone else can take your spot.";
   }
   const canCancel = Boolean(booking) && !data.started && phase === "booked";
 
@@ -166,17 +180,24 @@ export function EventPageView({
     actions
       .confirmPayment(returning.paymentIntentId, event.id)
       .then(async (result) => {
-        if (result.booked) return showConfirmed();
-        if (result.pending || result.reason === "check_failed") {
+        // No session to check it with: the webhook books a payment that went through, so never offer Pay again.
+        if (isSessionEnded(result) || result.pending || (!result.booked && result.reason === "check_failed")) {
           setPending(true);
           setSheet({ kind: "pay", state: "processing", clientSecret: null, attempt: 0 });
           return;
         }
+        if (result.booked) return showConfirmed();
         if (result.reason === "not_paid") {
           setSheet({ kind: "pay", state: "declined", clientSecret: returning.clientSecret, attempt: 0 });
           return;
         }
+        if (result.reason === "mismatch" || result.reason === "missing") {
+          setSheet(null);
+          setMessage(PAYMENT_NOT_MATCHED);
+          return;
+        }
         setPending(true);
+        setUnbooked(true);
         setMessage(PAID_NOT_BOOKED);
         setSheet({ kind: "pay", state: "confirm-failed", clientSecret: null, attempt: 0 });
       })
@@ -192,7 +213,9 @@ export function EventPageView({
   async function showConfirmed() {
     let fresh: MyBooking | null = null;
     try {
-      fresh = await actions.getBooking(event.id);
+      const answer = await actions.getBooking(event.id);
+      if (isSessionEnded(answer)) return goToSessionEnded();
+      fresh = answer;
     } catch {
       fresh = null;
     }
@@ -211,12 +234,13 @@ export function EventPageView({
   async function startPayment(attempt: number) {
     const formData = new FormData();
     formData.set("event_id", event.id);
-    let result: CreateEventPaymentIntentResult;
+    let result: CreateEventPaymentIntentResult | SessionEnded;
     try {
       result = await actions.createPaymentIntent(formData);
     } catch {
-      result = { success: false, error: "Something went wrong starting payment. Please try again.", reason: "error" };
+      result = { success: false, error: PAYMENT_OPEN_FAILED, reason: "error" };
     }
+    if (isSessionEnded(result)) return goToSessionEnded();
     if (result.success) {
       setSheet({ kind: "pay", state: "ready", clientSecret: result.clientSecret, attempt });
       return;
@@ -227,6 +251,11 @@ export function EventPageView({
     }
     setSheet(null);
     setMessage(result.error);
+    if (result.reason === "paid_not_booked") {
+      setPending(true);
+      setUnbooked(true);
+      return;
+    }
     if (result.reason !== "no_customer") refresh();
   }
 
@@ -247,6 +276,7 @@ export function EventPageView({
       } catch {
         result = { success: false, error: BOOKING_FAILED };
       }
+      if (isSessionEnded(result)) return goToSessionEnded();
       if (!result.success) {
         setMessage(result.error ?? BOOKING_FAILED);
         refresh();
@@ -264,7 +294,10 @@ export function EventPageView({
       return;
     }
     setPending(true);
-    if (outcome === "paid-not-booked") setMessage(PAID_NOT_BOOKED);
+    if (outcome === "paid-not-booked") {
+      setUnbooked(true);
+      setMessage(PAID_NOT_BOOKED);
+    }
   }
 
   function seeBooking() {
@@ -284,12 +317,13 @@ export function EventPageView({
   async function doCancel(withoutRefund: boolean) {
     if (!booking) return;
     setSheet({ kind: "cancel", state: "cancelling", late: withoutRefund });
-    let result: CancelBookingResult;
+    let result: CancelBookingResult | SessionEnded;
     try {
       result = await actions.cancel(booking.bookingId, withoutRefund ? { withoutRefund: true } : {});
     } catch {
       result = { ok: false, reason: "error", error: "" };
     }
+    if (isSessionEnded(result)) return goToSessionEnded();
     if (result.ok) {
       setLocal({ key: serverKey, booking: null });
       setSheet({
@@ -348,13 +382,20 @@ export function EventPageView({
           : null}
       </HeroNote>
     );
+  } else if (bar === "processing" && unbooked) {
+    note = (
+      <HeroNote icon="circle-alert">
+        <b>Paid, but not booked yet.</b> We took your {gbp(event.pricePence)} but couldn’t confirm your booking. Email us and we’ll sort it
+        out. If we can’t book you in, we’ll refund you.
+      </HeroNote>
+    );
   } else if (bar === "processing") {
     note = (
       <HeroNote icon="hourglass">
         <b>Payment processing.</b> We’ll email you as soon as your booking is confirmed. Please don’t pay again.
       </HeroNote>
     );
-  } else if (phase === "past") {
+  } else if (phase === "past" && !booking) {
     note = (
       <HeroNote icon="info">
         <b>This event has already started,</b> so it can’t be booked.
@@ -450,7 +491,12 @@ export function EventPageView({
   } else if (sheet?.kind === "cancel" && (booking || sheet.state === "done")) {
     const shown = booking ?? data.booking;
     sheetEl = (
-      <EventSheet labelledBy={sheetId} onClose={() => setSheet(null)} dismissable={cancelDismissable(sheet.state)} status={cancelStatus(sheet.state)}>
+      <EventSheet
+        labelledBy={sheetId}
+        onClose={() => setSheet(null)}
+        dismissable={cancelDismissable(sheet.state)}
+        status={cancelStatus(sheet.state, (shown?.amountPence ?? 0) > 0)}
+      >
         <CancelSheetBody
           id={sheetId}
           state={sheet.state}
@@ -489,12 +535,20 @@ export function EventPageView({
     <>
       <Main className="ea-main">
         <BackRow href={ROUTES.events} label="Events" />
-        <EventHero event={event} pill={pill} note={note} spots={spots} booked={phase === "booked" || phase === "cancelled"} card={card} />
+        <EventHero
+          event={event}
+          pill={pill}
+          note={note}
+          spots={spots}
+          booked={phase === "booked" || phase === "cancelled" || (phase === "past" && Boolean(booking))}
+          card={card}
+        />
         <EventBand
           event={event}
           moneyLines={moneyLines}
           bookingCard={
-            phase === "booked" && booking ? (
+            // A booked member on an event that has started keeps the card, for the address (no calendar, no cancel).
+            (phase === "booked" || phase === "past") && booking ? (
               <BookingCard
                 event={event}
                 booking={booking}

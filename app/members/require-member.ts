@@ -1,5 +1,7 @@
 import { cache } from "react";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { SESSION_ENDED_LOGIN } from "@/components/members/session-ended";
 import { createClient } from "@/lib/supabase/server";
 import { flags } from "@/lib/members/flags";
 import { ROUTES } from "@/lib/members/routes";
@@ -122,7 +124,12 @@ export async function requireMember(options: RequireMemberOptions = {}): Promise
   const member = await getMember();
 
   if (!member) {
-    redirect("/member-login");
+    // A server action whose session has gone (the proxy lets actions through:
+    // lib/supabase/middleware.ts): Log in with "Your session ended." (B-D1).
+    // The member actions answer SESSION_ENDED themselves (memberForAction
+    // below); this covers any other action.
+    const isAction = (await headers()).has("next-action");
+    redirect(isAction ? SESSION_ENDED_LOGIN : "/member-login");
   }
 
   // THE MEMBERSHIP GATE. Decided here, on the server, on every request:
@@ -137,4 +144,16 @@ export async function requireMember(options: RequireMemberOptions = {}): Promise
   }
 
   return member;
+}
+
+// requireMember() for the member server actions (Book, Pay, Cancel booking,
+// the You actions): null when there is no member session any more (it ended
+// while the page was open), so the action answers SESSION_ENDED
+// (components/members/session-ended.ts) and the page sends the member to Log
+// in with "Your session ended." rather than failing. The membership and photo
+// gates still redirect, as for pages.
+export async function memberForAction(options: RequireMemberOptions = {}): Promise<Member | null> {
+  const member = await getMember();
+  if (!member) return null;
+  return requireMember(options);
 }
