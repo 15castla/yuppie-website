@@ -287,6 +287,42 @@ export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
         capacity: 24,
       },
     },
+    {
+      id: "refund-failed",
+      label: "Refund failed (added for the foundation)",
+      data: {
+        reason: "refund_failed",
+        memberName: "Sam Taylor",
+        event: PADEL,
+        amount: "£25",
+        paymentIntentId: "pi_3Qx7Ab2eZvKYlo2C0d4f2a9c",
+        bookingId: "7c1e9b52-3f0a-4d8e-9a61-2b5f0c8d4e17",
+        detail: "This charge has already been refunded.",
+      },
+    },
+    {
+      id: "paid-not-booked",
+      label: "Paid, not booked (added for the foundation)",
+      data: {
+        reason: "paid_not_booked",
+        memberName: "Sam Taylor",
+        event: PADEL,
+        amount: "£25",
+        paymentIntentId: "pi_3Qx7Ab2eZvKYlo2C0d4f2a9c",
+        detail: "The event was cancelled before the payment went through.",
+      },
+    },
+    {
+      id: "refund-failed-bare",
+      label: "Refund failed, no error text or booking id",
+      data: {
+        reason: "refund_failed",
+        memberName: "Sam Taylor",
+        event: PADEL,
+        amount: "£25",
+        paymentIntentId: "pi_3Qx7Ab2eZvKYlo2C0d4f2a9c",
+      },
+    },
   ],
 };
 

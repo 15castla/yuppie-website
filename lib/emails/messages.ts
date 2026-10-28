@@ -484,23 +484,65 @@ const adminNewApplication: Build<"admin-new-application"> = (d: AdminNewApplicat
   };
 };
 
+// Booking needs review. Drawn: paid twice, and over capacity (strings under
+// States). refund_failed and paid_not_booked were added for the foundation
+// in the same layout, in the drawn email's plain style (an internal email to
+// Albert): what happened, then what to do.
+function reviewWords(d: AdminBookingReviewData, member: string, title: string) {
+  switch (d.reason) {
+    case "paid_twice":
+      return {
+        subject: "Booking needs review: paid twice",
+        pre: `${member} paid twice for ${title}. One payment needs refunding.`,
+        intro: `${member} was already booked on ${title} when a second payment of ${d.amount} went through. No second booking was made. The extra payment probably needs refunding.`,
+        reason: "Paid twice",
+        detail: null,
+        below: "The booking stands. Nothing was refunded automatically.",
+      };
+    case "over_capacity":
+      return {
+        subject: "Booking needs review: over capacity",
+        pre: `${title} now has ${d.booked} of ${d.capacity} places booked after ${member} paid.`,
+        intro: `${title} now has ${d.booked} of ${d.capacity} places booked after ${member} paid ${d.amount}. The booking stands. You may want to refund one place.`,
+        reason: "Over capacity",
+        detail: null,
+        below: "The booking stands. Nothing was refunded automatically.",
+      };
+    case "refund_failed":
+      return {
+        subject: "Booking needs review: refund failed",
+        pre: `Stripe refused the ${d.amount} refund to ${member} for ${title}. Refund it by hand.`,
+        intro: `${member}’s booking on ${title} is cancelled, but Stripe refused the ${d.amount} refund. Refund it by hand in Stripe.`,
+        reason: "Refund failed",
+        detail: { label: "Error", value: d.detail },
+        below: "The booking stays cancelled. The money hasn’t gone back yet.",
+      };
+    case "paid_not_booked":
+      return {
+        subject: "Booking needs review: paid, not booked",
+        pre: `${member} paid ${d.amount} for ${title}, but no booking was made.`,
+        intro: `${member} paid ${d.amount} for ${title}, but the booking couldn’t be recorded. Book them in by hand, or refund the payment in Stripe.`,
+        reason: "Paid, not booked",
+        detail: { label: "Why", value: d.detail },
+        below: "Nothing was booked and nothing was refunded automatically.",
+      };
+  }
+}
+
+const mono = (id: string) =>
+  html(`<span style="font-size:14px;line-height:20px;font-weight:700;word-break:break-all;">${escapeText(id)}</span>`, id);
+
 const adminBookingReview: Build<"admin-booking-review"> = (d: AdminBookingReviewData, o) => {
   const { title, start } = d.event;
   const member = d.memberName.trim();
-  const twice = d.reason === "paid_twice";
   const pi = d.paymentIntentId;
+  const w = reviewWords(d, member, title);
   return {
-    subject: twice ? "Booking needs review: paid twice" : "Booking needs review: over capacity",
-    pre: twice
-      ? `${member} paid twice for ${title}. One payment needs refunding.`
-      : `${title} now has ${d.booked} of ${d.capacity} places booked after ${member} paid.`,
+    subject: w.subject,
+    pre: w.pre,
     label: "Needs review",
     h1: { a: "Booking needs", b: "a look.", br: true },
-    intro: [
-      twice
-        ? `${member} was already booked on ${title} when a second payment of ${d.amount} went through. No second booking was made. The extra payment probably needs refunding.`
-        : `${title} now has ${d.booked} of ${d.capacity} places booked after ${member} paid ${d.amount}. The booking stands. You may want to refund one place.`,
-    ],
+    intro: [w.intro],
     blocks: [
       {
         kind: "card",
@@ -508,12 +550,11 @@ const adminBookingReview: Build<"admin-booking-review"> = (d: AdminBookingReview
           row("Member", member),
           row("Event", title),
           row("When", at(start)),
-          row("Reason", twice ? "Paid twice" : "Over capacity"),
+          row("Reason", w.reason),
+          ...rowIf(w.detail?.label ?? "", w.detail?.value?.trim() || null),
           row("Amount", d.amount),
-          row(
-            "Payment",
-            html(`<span style="font-size:14px;line-height:20px;font-weight:700;word-break:break-all;">${escapeText(pi)}</span>`, pi),
-          ),
+          ...(d.bookingId?.trim() ? [row("Booking", mono(d.bookingId.trim()))] : []),
+          row("Payment", mono(pi)),
         ],
       },
     ],
@@ -522,7 +563,7 @@ const adminBookingReview: Build<"admin-booking-review"> = (d: AdminBookingReview
       url: absoluteUrl(d.stripeUrl ?? `https://dashboard.stripe.com/payments/${encodeURIComponent(pi)}`, o.site),
     },
     links2: [{ label: "Open the member", url: absoluteUrl(d.memberUrl ?? "/admin/members", o.site) }],
-    below: "The booking stands. Nothing was refunded automatically.",
+    below: w.below,
     foot: "admin",
     why: WHY_ADMIN,
   };

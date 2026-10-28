@@ -295,18 +295,26 @@ export type AdminNewApplicationData = {
   reviewUrl?: EmailLink;
 };
 
-/** Why a paid booking needs a look (flagBookingForReview). */
-export type BookingReviewReason = "paid_twice" | "over_capacity";
+/**
+ * Why a paid booking needs a look. Drawn: "paid_twice" and "over_capacity"
+ * (flagBookingForReview). Added for the foundation in the same layout:
+ * "refund_failed" (Stripe refused a refund: refund by hand) and
+ * "paid_not_booked" (the money was taken but no booking could be recorded:
+ * book them by hand or refund).
+ */
+export type BookingReviewReason = "paid_twice" | "over_capacity" | "refund_failed" | "paid_not_booked";
 
 /** 21. A paid booking needs a look. */
 export type AdminBookingReviewData = {
   /** "Sam Taylor". */
   memberName: string;
   event: EmailEvent;
-  /** The payment that went through: "£25". */
+  /** The payment that went through (for refund_failed: the refund Stripe refused): "£25". */
   amount: EmailMoney;
   /** The Stripe PaymentIntent id (the Payment row and the Stripe link). */
   paymentIntentId: string;
+  /** bookings.id, when there is one: adds a Booking row. Optional for every reason. */
+  bookingId?: string;
   /** "Open in Stripe". Default https://dashboard.stripe.com/payments/<paymentIntentId> (pass the /test/ one in test mode if wanted). */
   stripeUrl?: EmailLink;
   /** "Open the member". Default "/admin/members". */
@@ -318,6 +326,16 @@ export type AdminBookingReviewData = {
       /** Confirmed bookings now, this one included, and the capacity: "25 of 24 places". */
       booked: number;
       capacity: number;
+    }
+  | {
+      reason: "refund_failed";
+      /** Stripe's error text, as Stripe gave it (the Error row): "This charge has already been refunded." Optional. */
+      detail?: string;
+    }
+  | {
+      reason: "paid_not_booked";
+      /** Why the booking was blocked (the Why row): "The event was cancelled before the payment went through." Optional. */
+      detail?: string;
     }
 );
 

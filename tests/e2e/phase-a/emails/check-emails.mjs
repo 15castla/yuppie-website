@@ -93,6 +93,22 @@ for (const name of emails.EMAIL_NAMES) {
   check(two.text.startsWith('In 2 hours. See you there.\n\nPadel & Pints starts at 18:30. Here’s the address.\n'), 'event-reminder 2h: headline and first line');
 }
 
+// The review reasons added for the foundation (same layout, plain words).
+{
+  const fx = Object.fromEntries(EMAIL_FIXTURES['admin-booking-review'].map((f) => [f.id, f.data]));
+  const rf = emails.renderEmail('admin-booking-review', fx['refund-failed']);
+  check(rf.subject === 'Booking needs review: refund failed', 'review refund_failed: subject');
+  check(rf.text.includes('Sam Taylor’s booking on Padel & Pints is cancelled, but Stripe refused the £25 refund. Refund it by hand in Stripe.'), 'review refund_failed: says what happened and what to do');
+  check(rf.text.includes('Reason: Refund failed\nError: This charge has already been refunded.\nAmount: £25\nBooking: 7c1e9b52-3f0a-4d8e-9a61-2b5f0c8d4e17\nPayment: pi_3Qx7Ab2eZvKYlo2C0d4f2a9c\n'), 'review refund_failed: Error and Booking rows');
+  const pn = emails.renderEmail('admin-booking-review', fx['paid-not-booked']);
+  check(pn.subject === 'Booking needs review: paid, not booked', 'review paid_not_booked: subject');
+  check(pn.text.includes('Book them in by hand, or refund the payment in Stripe.') && pn.text.includes('Why: The event was cancelled before the payment went through.\n'), 'review paid_not_booked: why and what to do');
+  check(!pn.text.includes('Booking: '), 'review paid_not_booked: no Booking row without an id');
+  const bare = emails.renderEmail('admin-booking-review', fx['refund-failed-bare']);
+  check(!bare.text.includes('Error:') && !bare.text.includes('Booking:'), 'review refund_failed: rows left out without detail or booking id');
+  for (const r of [rf, pn]) check(r.html.includes('href="https://dashboard.stripe.com/payments/pi_3Qx7Ab2eZvKYlo2C0d4f2a9c"') && r.html.includes('href="https://clubyuppie.com/admin/members"'), 'review: Stripe and member links');
+}
+
 // ---------------------------------------------------------------- 3. escaping
 const EVIL = ` <b onclick="x">&'"</b>`;
 function poison(value, key = '') {
