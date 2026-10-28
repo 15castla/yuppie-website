@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/app/admin/require-admin";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 
@@ -16,7 +17,10 @@ async function ListData() {
   return <EventsList rows={await listEvents()} />;
 }
 
-export default function EventsLayout({ children }: { children: ReactNode }) {
+export default async function EventsLayout({ children }: { children: ReactNode }) {
+  // Every admin page and layout checks for itself (aal2): a soft navigation or router refresh can skip the
+  // layouts above it (QA2-01).
+  await requireAdmin();
   return (
     <AdminMain>
       <SplitShell

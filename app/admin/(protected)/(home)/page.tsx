@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/app/admin/require-admin";
 import Link from "next/link";
 
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
@@ -14,6 +15,9 @@ type PendingRow = { id: string; full_name: string | null; email: string; created
 type EventRow = { id: string; title: string; start_time: string; location: string | null; capacity: number | null };
 
 export default async function AdminDashboardPage() {
+  // Every admin page and layout checks for itself (aal2): a soft navigation or router refresh can skip the
+  // layouts above it (QA2-01).
+  await requireAdmin();
   const db = createAdminSupabaseClient();
   const now = new Date();
   const nowIso = now.toISOString();

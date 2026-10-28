@@ -155,6 +155,26 @@ function readAddress(formData: FormData): string | null | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+// QA2-05: an event that has started is read only (the card shows it as Finished and hides Save, the picture
+// controls and Cancel event). The actions refuse too, so a page left open, or a direct call, can't change it.
+const STARTED = "This event has started, so its details are locked.";
+
+async function lockedReason(eventId: string): Promise<string | null> {
+  const { data } = await createAdminSupabaseClient().from("events").select("start_time, cancelled_at").eq("id", eventId).maybeSingle();
+  if (!data) return "That event couldn’t be found.";
+  if (data.cancelled_at) return "This event is cancelled, so its details are locked.";
+  if (new Date(data.start_time as string).getTime() <= Date.now()) return STARTED;
+  return null;
+}
+
+/** lib/media-storage's words, in the admin's (no "Please", no "Something went wrong"). */
+function uploadWords(raw: string): string {
+  if (/choose an image/i.test(raw)) return "Choose a picture to upload.";
+  if (/JPG, PNG, WebP or GIF/i.test(raw)) return "Upload a JPG, PNG, WebP or GIF picture.";
+  if (/smaller than 5MB/i.test(raw)) return "The picture must be smaller than 5MB.";
+  return "The picture didn’t upload. Try again in a moment.";
+}
+
 export async function createEvent(
   formData: FormData,
 ): Promise<{ success: boolean; error?: string; field?: EventField; warning?: string; id?: string }> {
@@ -190,7 +210,7 @@ export async function createEvent(
       if (hasPhoto) {
         const uploaded = await uploadMemberMedia("events", data.id, photo as File);
         if (uploaded.error) {
-          warning = `Event created, but the photo failed to upload: ${uploaded.error}`;
+          warning = `Event created, but the picture didn’t upload: ${uploadWords(uploaded.error)}`;
         } else {
           const { error: imageError } = await adminClient
             .from("events")
@@ -260,6 +280,7 @@ export async function updateEventDetails(
   ]);
   if (!beforeRow) return { success: false, error: "That event couldn’t be found." };
   if (beforeRow.cancelled_at) return { success: false, code: "locked", error: "This event is cancelled, so its details are locked." };
+  if (new Date(beforeRow.start_time as string).getTime() <= Date.now()) return { success: false, code: "locked", error: STARTED };
   // The capacity rule (r2b Events): never below the number already booked.
   if (parsed.fields.capacity < (bookedNow ?? 0)) {
     return {
@@ -298,7 +319,13 @@ export async function updateEventDetails(
   });
   if (notify && move.moved) {
     const moved = move.moved;
-    later(`event-changed emails for ${eventId}`, () => emailEventMove(eventId, { moved, before, changedAt: move.changedAt }));
+    // QA2-06: the change counts as told from now (the emails go after the response); if any of them fails, the
+    // mark is taken off again so the card offers "Email them now" until every one has gone.
+    await adminClient.from("events").update({ change_emailed_at: new Date().toISOString() }).eq("id", eventId);
+    later(`event-changed emails for ${eventId}`, async () => {
+      const sent = await emailEventMove(eventId, { moved, before, changedAt: move.changedAt });
+      if (sent.failed > 0) await createAdminSupabaseClient().from("events").update({ change_emailed_at: null }).eq("id", eventId);
+    });
   }
 
   revalidateTag("events", "minutes");
@@ -321,10 +348,12 @@ export async function updateEventImage(
   if (!(photo instanceof File)) {
     return { success: false, error: "Choose a picture to upload." };
   }
+  const locked = await lockedReason(eventId);
+  if (locked) return { success: false, error: locked };
 
   const uploaded = await uploadMemberMedia("events", eventId, photo);
   if (uploaded.error) {
-    return { success: false, error: uploaded.error };
+    return { success: false, error: uploadWords(uploaded.error) };
   }
 
   const adminClient = createAdminSupabaseClient();
@@ -364,6 +393,8 @@ export async function removeEventImage(
   if (!eventId) {
     return { success: false, error: "Missing event." };
   }
+  const locked = await lockedReason(eventId);
+  if (locked) return { success: false, error: locked };
 
   const adminClient = createAdminSupabaseClient();
   const { error } = await adminClient

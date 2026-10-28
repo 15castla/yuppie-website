@@ -33,10 +33,17 @@ export type CancelEventResult =
  */
 export async function adminCancelEvent(eventId: string, options: { note?: string | null } = {}): Promise<CancelEventResult> {
   const admin = await requireAdmin();
-  if (!eventId) return { ok: false, error: "Missing event." };
+  if (!eventId) return { ok: false, error: "That event couldn’t be found." };
+  // QA2-05: an event that has started is read only. Nothing is cancelled or refunded (the card hides the button).
+  const { data: event } = await serviceDb().from("events").select("start_time, cancelled_at").eq("id", eventId).maybeSingle();
+  if (!event) return { ok: false, error: "That event couldn’t be found." };
+  if (!event.cancelled_at && new Date(event.start_time as string).getTime() <= Date.now()) {
+    await audit(admin.id, "event.cancel_refused", { type: "event", id: eventId }, { reason: "started" });
+    return { ok: false, error: "This event has started, so it can’t be cancelled. Nothing was refunded." };
+  }
   const summary = await cancelBookingsForEvent(eventId, admin.id, { note: options.note ?? null });
   await audit(admin.id, "event.cancel", { type: "event", id: eventId }, { note: options.note ?? null, ...summary });
-  if (!summary.ok) return { ok: false, error: summary.error === "not_found" ? "That event couldn’t be found." : "Something went wrong cancelling that event." };
+  if (!summary.ok) return { ok: false, error: summary.error === "not_found" ? "That event couldn’t be found." : "We couldn’t cancel that event. Try again in a moment." };
   revalidateTag("events", "minutes");
   revalidatePath("/admin/events");
   revalidatePath("/members", "layout");
@@ -50,7 +57,11 @@ export async function adminCancelEvent(eventId: string, options: { note?: string
  */
 export async function adminEmailEventChange(eventId: string): Promise<{ ok: true; emailed: number; failed: number } | { ok: false; error: string }> {
   const admin = await requireAdmin();
-  if (!eventId) return { ok: false, error: "Missing event." };
+  if (!eventId) return { ok: false, error: "That event couldn’t be found." };
+  const { data: event } = await serviceDb().from("events").select("start_time, cancelled_at, changed_at").eq("id", eventId).maybeSingle();
+  if (!event) return { ok: false, error: "That event couldn’t be found." };
+  if (event.cancelled_at) return { ok: false, error: "This event is cancelled, so there’s no change to tell anyone about." };
+  if (new Date(event.start_time as string).getTime() <= Date.now()) return { ok: false, error: "This event has started, so there’s no change to tell anyone about." };
   const { data: last } = await serviceDb()
     .from("admin_audit")
     .select("details")
@@ -64,7 +75,10 @@ export async function adminEmailEventChange(eventId: string): Promise<{ ok: true
   const details = last?.details as { moved?: EventMove | null; before?: EventPlaceTime; changed_at?: string | null } | undefined;
   if (!details?.moved || !details.before) return { ok: false, error: "There’s no date, time or place change to tell members about." };
   const result = await emailEventMove(eventId, { moved: details.moved, before: details.before, changedAt: details.changed_at ?? null });
+  // QA2-06: told. The card stops offering "Email them now" until the next change (or offers it again if any failed).
+  if (result.failed === 0) await serviceDb().from("events").update({ change_emailed_at: new Date().toISOString() }).eq("id", eventId);
   await audit(admin.id, "event.email_change", { type: "event", id: eventId }, { moved: details.moved, ...result });
+  revalidatePath("/admin/events");
   return { ok: true, ...result };
 }
 

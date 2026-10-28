@@ -3,10 +3,15 @@ import { notFound } from "next/navigation";
 
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { requireAdmin } from "@/app/admin/require-admin";
-import { dayDateTime, dayDateYear, dayMonthYear, firstNameOf, phoneWords } from "@/components/admin/format";
+import { Banner } from "@/components/admin/bits";
+import { dayDateTime, dayDateYear, dayMonthYear, firstNameOf, phoneWords, stripeCustomerUrl, stripeSubscriptionUrl } from "@/components/admin/format";
+import { Icon } from "@/components/admin/icons";
 import { Avatar, Card, DL, Pill, Receipt, Section } from "@/components/admin/ui";
 import { renderEmail, renderText } from "@/lib/emails";
-import { ApplicationActions, type ApplicationPreviews } from "./ApplicationActions";
+import { dayDate, pounds } from "@/lib/server/format";
+import { periodEndSeconds } from "@/lib/server/stripe/period";
+import { stripe } from "@/lib/stripe";
+import { ApplicationActions, ReleaseCardAgain, type ApplicationPreviews } from "./ApplicationActions";
 import { paymentProblem, tabOf } from "./applications-data";
 
 // The application card (r2b 16). Waiting: Approve and Decline, each behind a confirm dialog (B-D17) that
@@ -31,6 +36,44 @@ type AppRow = {
   stripe_subscription_id: string | null;
   card_released_at: string | null;
 };
+
+/**
+ * One billing interval after `from`, the way Stripe sets a new subscription's first renewal: a month is the same
+ * day next month (the last day when that month is shorter), in UTC like Stripe's billing anchor.
+ */
+function oneIntervalAfter(from: Date, recurring: { interval?: string | null; interval_count?: number | null } | null | undefined): Date {
+  const count = recurring?.interval_count && recurring.interval_count > 0 ? recurring.interval_count : 1;
+  const interval = recurring?.interval ?? "month";
+  if (interval === "day" || interval === "week") return new Date(from.getTime() + count * (interval === "week" ? 7 : 1) * 86400000);
+  const months = interval === "year" ? 12 * count : count;
+  const y = from.getUTCFullYear();
+  const m = from.getUTCMonth() + months;
+  const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+  return new Date(Date.UTC(y, m, Math.min(from.getUTCDate(), lastDay), from.getUTCHours(), from.getUTCMinutes(), from.getUTCSeconds()));
+}
+
+/**
+ * What the approval email's Paid and Renews rows will say (QA2-07), the way sendApprovalMessages fills them:
+ * from the subscription when one was made already (the account is half made), otherwise from the membership
+ * price, with the first renewal one billing interval from now. Without Stripe: £10 and no Renews row.
+ */
+async function approvalMoney(subscriptionId: string | null): Promise<{ paid: string | null; renewsOn: string | null }> {
+  try {
+    if (subscriptionId) {
+      const sub = await stripe.subscriptions.retrieve(subscriptionId);
+      const amount = sub.items?.data?.[0]?.price?.unit_amount;
+      const end = periodEndSeconds(sub);
+      return { paid: amount ? pounds(amount) : null, renewsOn: end ? dayDate(new Date(end * 1000)) : null };
+    }
+    const priceId = process.env.STRIPE_PRICE_ID_MEMBERSHIP;
+    if (!priceId) return { paid: "£10", renewsOn: null };
+    const price = await stripe.prices.retrieve(priceId);
+    return { paid: price.unit_amount ? pounds(price.unit_amount) : null, renewsOn: dayDate(oneIntervalAfter(new Date(), price.recurring)) };
+  } catch (err) {
+    console.error("admin application card: reading the membership price failed:", err);
+    return { paid: "£10", renewsOn: null };
+  }
+}
 
 export async function ApplicationCard({ applicationId, done }: { applicationId: string; done?: string | null }) {
   await requireAdmin();
@@ -98,7 +141,8 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
 
   if (tab === "waiting") {
     // What the person will get, word for word (lib/emails): the welcome email and text, the decline email.
-    const approval = renderEmail("approval", { firstName: first, loginEmail: app.email, paid: "£10", renewsOn: null });
+    const money = await approvalMoney(app.stripe_subscription_id);
+    const approval = renderEmail("approval", { firstName: first, loginEmail: app.email, paid: money.paid, renewsOn: money.renewsOn });
     // The card is released on decline (C-D8), so the email says so whenever one is saved.
     const decline = renderEmail("decline", { cardReleased: Boolean(app.stripe_payment_method_id || app.card_released_at) });
     const previews: ApplicationPreviews = {
@@ -121,6 +165,7 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
           rawError={app.payment_error}
           subscriptionId={app.stripe_subscription_id}
           previews={previews}
+          cardSaved={Boolean(app.stripe_payment_method_id) && !app.card_released_at}
         />
       </Card>
     );
@@ -135,6 +180,13 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
       <Card labelledBy={headId}>
         {head}
         {details}
+        {done === "was-approved" && (
+          <section className="ad-sec">
+            <Banner title={`${first} was approved already.`} info>
+              Nothing was charged again, and nothing was sent.
+            </Banner>
+          </section>
+        )}
         {done === "approved" ? (
           <section className="ad-sec">
             <Receipt title={`${first} is in.`}>
@@ -167,10 +219,18 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
   }
 
   const emailed = sent("decline");
+  const cardStuck = !app.card_released_at && Boolean(app.stripe_payment_method_id);
   return (
     <Card labelledBy={headId}>
       {head}
       {details}
+      {done === "was-declined" && (
+        <section className="ad-sec">
+          <Banner title={`${first}’s application was declined already.`} info>
+            Nothing was charged and no account was made.
+          </Banner>
+        </section>
+      )}
       {done === "declined" && (
         <section className="ad-sec">
           <Receipt title={`${first} is declined.`}>{emailed ? "A decline email was sent." : "No email was sent."}</Receipt>
@@ -179,6 +239,27 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
               Back to waiting
             </Link>
           </div>
+        </section>
+      )}
+      {app.stripe_subscription_id && (
+        <section className="ad-sec">
+          <Banner title={`${first} was charged, but the application is declined.`}>
+            There is no account. Refund the first payment and cancel the subscription in Stripe.
+          </Banner>
+          <div className="ad-acts">
+            <a className="ad-btn sm secondary" href={stripeSubscriptionUrl(app.stripe_subscription_id)} target="_blank" rel="noopener noreferrer">
+              Open in Stripe
+              <Icon name="external" size={16} />
+            </a>
+          </div>
+        </section>
+      )}
+      {cardStuck && (
+        <section className="ad-sec">
+          <Banner title="Stripe didn’t remove the saved card.">
+            {emailed ? "The decline email left out the line about the card. " : ""}Nothing is charged. Try again, or remove it in Stripe. The club inbox has the details.
+          </Banner>
+          <ReleaseCardAgain applicationId={app.id} stripeUrl={app.stripe_customer_id ? stripeCustomerUrl(app.stripe_customer_id) : null} />
         </section>
       )}
       <Section title="Review">

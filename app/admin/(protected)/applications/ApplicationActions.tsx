@@ -8,8 +8,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 
-import { adminApproveApplication, declineApplication } from "@/app/admin/applications-actions";
-import { Banner, BusyButton, SaveFailed } from "@/components/admin/bits";
+import { adminApproveApplication, adminReleaseApplicationCard, declineApplication } from "@/app/admin/applications-actions";
+import { Banner, BusyButton } from "@/components/admin/bits";
 import { Dialog, MailFrame, SwitchRow } from "@/components/admin/dialog";
 import { stripeSubscriptionUrl } from "@/components/admin/format";
 import { Icon } from "@/components/admin/icons";
@@ -28,6 +28,7 @@ export function ApplicationActions({
   rawError,
   subscriptionId,
   previews,
+  cardSaved = false,
 }: {
   applicationId: string;
   name: string;
@@ -38,6 +39,8 @@ export function ApplicationActions({
   rawError: string | null;
   subscriptionId: string | null;
   previews: ApplicationPreviews;
+  /** A card is saved, so the decline email says it was removed (when Stripe removes it). */
+  cardSaved?: boolean;
 }) {
   const router = useRouter();
   const [dialog, setDialog] = useState<"approve" | "decline" | null>(null);
@@ -45,7 +48,7 @@ export function ApplicationActions({
   const [readMail, setReadMail] = useState(false);
   const [approving, startApprove] = useTransition();
   const [declining, startDecline] = useTransition();
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ title: string; body: string } | null>(null);
 
   function open(which: "approve" | "decline") {
     setError(null);
@@ -54,27 +57,33 @@ export function ApplicationActions({
     setDialog(which);
   }
 
+  // A page left open while someone else decided (QA2-04): the server refuses, nothing is charged, and the card
+  // opens on what happened ("… was declined already.").
+  function goTo(done: string) {
+    router.replace(`/admin/applications/${applicationId}?done=${done}`, { scroll: false });
+    router.refresh();
+  }
+
   function approve() {
     setDialog(null);
     startApprove(async () => {
-      const result = await adminApproveApplication(applicationId).catch(() => ({ ok: false as const, error: "" }));
-      if (result.ok) {
-        router.replace(`/admin/applications/${applicationId}?done=approved`, { scroll: false });
-      }
+      const result = await adminApproveApplication(applicationId).catch(() => ({ ok: false as const, code: undefined, error: "" }));
+      if (result.ok) return goTo("approved");
+      if (result.code === "approved") return goTo("was-approved");
+      if (result.code === "declined") return goTo("was-declined");
+      if (result.code === "not_found") setError({ title: "The application wasn’t approved.", body: result.error });
       router.refresh();
     });
   }
 
   function decline() {
     startDecline(async () => {
-      const result = await declineApplication(applicationId, { sendEmail }).catch(() => ({ ok: false as const, error: "" }));
+      const result = await declineApplication(applicationId, { sendEmail }).catch(() => ({ ok: false as const, code: undefined, error: "" }));
       setDialog(null);
-      if (!result.ok) {
-        setError(result.error);
-        return;
-      }
-      router.replace(`/admin/applications/${applicationId}?done=declined`, { scroll: false });
-      router.refresh();
+      if (result.ok) return goTo("declined");
+      if (result.code === "approved") return goTo("was-approved");
+      setError({ title: "The application wasn’t declined.", body: result.error || "We couldn’t decline that application. Try again in a moment." });
+      if (result.code === "charged") router.refresh();
     });
   }
 
@@ -112,7 +121,7 @@ export function ApplicationActions({
   return (
     <section className="ad-sec" aria-label="Review">
       {banner}
-      {error !== null && <SaveFailed title="The application wasn’t declined." raw={error || null} />}
+      {error && <Banner title={error.title}>{error.body}</Banner>}
       <div className="ad-acts" style={banner ? undefined : { marginTop: 0 }}>
         {problem === "unsaved" ? (
           <>
@@ -222,9 +231,52 @@ export function ApplicationActions({
             ) : null
           }
         />
-        {sendEmail && readMail && <MailFrame html={previews.decline.html} title={`The email ${first} gets`} />}
+        {sendEmail && readMail && (
+          <>
+            <MailFrame html={previews.decline.html} title={`The email ${first} gets`} />
+            {cardSaved && <p className="ad-hint">If Stripe can’t remove the saved card, the email leaves out the line about it.</p>}
+          </>
+        )}
       </Dialog>
     </section>
+  );
+}
+
+/** QA2-08: Try again, on a declined application whose saved card Stripe didn’t remove. */
+export function ReleaseCardAgain({ applicationId, stripeUrl }: { applicationId: string; stripeUrl: string | null }) {
+  const router = useRouter();
+  const [busy, start] = useTransition();
+  const [message, setMessage] = useState<string | null>(null);
+  function retry() {
+    setMessage(null);
+    start(async () => {
+      const result = await adminReleaseApplicationCard(applicationId).catch(() => ({ ok: false as const, error: "We couldn’t reach Stripe. Try again in a moment." }));
+      if (result.ok && result.cardReleased) {
+        router.refresh();
+        return;
+      }
+      setMessage(result.ok ? "Stripe still didn’t remove it. Remove it in Stripe instead." : result.error);
+    });
+  }
+  return (
+    <>
+      <div className="ad-acts">
+        <BusyButton type="button" className="sm" busy={busy} busyLabel="Trying again…" onClick={retry}>
+          Try again
+        </BusyButton>
+        {stripeUrl && (
+          <a className="ad-btn sm secondary" href={stripeUrl} target="_blank" rel="noopener noreferrer">
+            Open in Stripe
+            <Icon name="external" size={16} />
+          </a>
+        )}
+      </div>
+      {message && (
+        <p className="ad-hint" role="status">
+          {message}
+        </p>
+      )}
+    </>
   );
 }
 
