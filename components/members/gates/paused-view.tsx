@@ -81,7 +81,7 @@ export function MembershipPausedView({
           </div>
         </section>
 
-        <section className="mk-band yu-gate-band" aria-label="To get going again">
+        <section className="mk-band" aria-label="To get going again">
           <div className="mk-wrap">
             <div className="mk-inner">
               <SectionTitle title="To get going again" />

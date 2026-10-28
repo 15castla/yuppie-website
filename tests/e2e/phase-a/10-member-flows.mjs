@@ -186,7 +186,6 @@ async function text(page) {
 }
 
 // ================================================================= 2. a paid event: PaymentIntent through the action, the fake pays, the page books on the way back
-let paid;
 {
   const m = await mMember('paid');
   const ev = await mEvent('paid', { price: 2500, address: '9 Paid Street, Anytown AB1 2CD', category: 'sport' });
@@ -226,7 +225,6 @@ let paid;
   eq(refunds.map((l) => [l.idem, l.body.amount]), [[`refund-booking-${row.id}`, '2500']], 'one Stripe refund, idempotency key refund-booking-<id>, in fakes.jsonl');
   await waitFor(() => messages(`booking_id = ${q(row.id)} and template = 'booking-cancelled' and status = 'sent' and to_address = ${q(m.email)}`).length === 1, 'the cancel email is in message_log');
   await ctx.close();
-  paid = { m, ev };
 }
 
 // ================================================================= 3. the pay sheet's server states on the real page

@@ -260,7 +260,8 @@ export function MemberLoginForm({ notice = null }: { notice?: LoginNotice | null
         >
           {/* Static across both steps; only the helper text below and the
               card's contents change when a code is sent. */}
-          <h1 className={PAGE_H1_CLASS}>
+          {/* r2a: two lines at every width, so 38px under 360 (the public h1 is 44px there and wraps). */}
+          <h1 className={cn(PAGE_H1_CLASS, "max-[359px]:text-[38px]!")}>
             Welcome back.
             <br />
             <span className={HEADLINE_ACCENT_CLASS}>Let’s see what’s on.</span>
