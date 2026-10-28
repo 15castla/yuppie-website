@@ -20,6 +20,11 @@ import { EventForm } from "./EventForm";
 const TZ = "Europe/London";
 const CATEGORY: Record<string, string> = { sport: "Sport", entertainment: "Entertainment", personal_progression: "Personal progression" };
 
+/** Started already (then the details are locked, as Past). */
+function hasStarted(startIso: string): boolean {
+  return new Date(startIso).getTime() < Date.now();
+}
+
 type EventRow = Event & { cancelled_at: string | null; cancel_note: string | null };
 
 function Capacity({ booked, capacity, right }: { booked: number; capacity: number | null; right: string }) {
@@ -64,7 +69,7 @@ export async function EventCard({
 
   const [address, list] = await Promise.all([getEventAddress(event.id), listAttendees(event.id)]);
   const booked = list.confirmedCount;
-  const past = new Date(event.start_time).getTime() < Date.now();
+  const past = hasStarted(event.start_time);
   const cancelled = Boolean(event.cancelled_at);
   const full = !cancelled && !past && event.capacity !== null && booked >= event.capacity;
   const when = `${dayDateTime(event.start_time)}${event.location ? ` · ${event.location}` : ""}`;

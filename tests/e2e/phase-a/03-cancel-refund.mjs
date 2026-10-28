@@ -86,7 +86,7 @@ eq([c5.result.ok, c5.result.refund], [true, 'failed'], 'refund refused by Stripe
 const r5 = row(badBook.booking_id);
 eq([r5.status, r5.refund_status], ['cancelled', 'failed'], 'refund_status failed');
 ok(/No such payment_intent/.test(r5.refund_error ?? ''), 'with Stripe’s reason saved', r5);
-await waitFor(() => messages(`template = 'admin-alert' and dedupe_key = ${q(`admin-alert:refund-failed:${badBook.booking_id}`)} and status = 'sent'`).length === 1, 'the club is alerted');
+await waitFor(() => messages(`template = 'admin-booking-review' and dedupe_key = ${q(`admin-alert:refund-failed:${badBook.booking_id}`)} and status = 'sent'`).length === 1, 'the club is alerted');
 await new Promise((r) => setTimeout(r, 1500));
 eq(messages(`booking_id = ${q(badBook.booking_id)} and template = 'booking-cancelled'`).length, 0, 'the member is not told "on its way" while it failed');
 const piId = sql1(`select stripe_payment_intent_id as p from bookings where id = ${q(badBook.booking_id)}`).p;

@@ -5,6 +5,7 @@
 // required fields, and a capacity never below the number booked. Moving a booked event (date, time or place)
 // asks whether to email the people booked (C-D11: they may then cancel for a full refund, whatever the date).
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 
@@ -434,9 +435,9 @@ export function EventForm({
           {isNew ? "Create event" : "Save changes"}
         </BusyButton>
         {isNew ? (
-          <a className="ad-btn sm secondary" href="/admin/events">
+          <Link className="ad-btn sm secondary" href="/admin/events">
             Cancel
-          </a>
+          </Link>
         ) : (
           extraActions
         )}

@@ -1,39 +1,27 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+
 import { createClient } from "@/lib/supabase/client";
-import { Button } from "@/components/Button";
-import { MessageSlot, StepStack } from "@/components/StableLayout";
+import { LoginMessage, LoginShell } from "@/components/admin/login-shell";
 
-const inputClasses =
-  "w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
-
-const linkClasses =
-  "text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline";
+// Choose a new admin password (r2b 13), reached from the link in the password-reset email
+// (/admin/reset-confirm?token_hash=...&type=recovery). Deliberately does NOT call verifyOtp on page load:
+// mail apps often open links before a person does, and a token_hash works once, so an auto-verifying page
+// would burn it before the real click. The page waits for "Continue"; only that click verifies.
 
 type Stage = "confirm" | "verified" | "invalid";
 
-const INVALID_LINK_ERROR = "This link is invalid, expired, or has already been used.";
+const INVALID_LINK = "This link is invalid, expired, or has already been used.";
 // Every message the set-password form can show, in one place.
 const SET_PASSWORD_ERRORS = {
   tooShort: "Password must be at least 8 characters.",
-  mismatch: "Passwords don't match.",
-  failed: "Something went wrong setting your password. Please try again.",
+  mismatch: "The two passwords don’t match.",
+  failed: "We couldn’t set your password. Try again in a moment.",
 };
 
-// Reached via the link in a Supabase password-recovery email. Deliberately
-// does NOT call verifyOtp on page load: mail apps commonly prefetch/scan
-// links before a person ever clicks them, and a token_hash is one-time-use,
-// so an auto-verifying page would silently burn it before the real click.
-// Instead this just parses token_hash/type out of the URL on mount and
-// waits for an explicit "Continue" click to actually verify. A page
-// *load* (even a bot's) can't consume the token, only that click can. The
-// Supabase email template has to link straight here with
-// ?token_hash={{ .TokenHash }}&type=recovery rather than using the default
-// {{ .ConfirmationURL }}, which hits Supabase's own hosted verify endpoint
-// (and burns the token) as soon as it's requested, not when it's clicked.
 export default function ResetConfirmPage() {
   const router = useRouter();
   const [tokenHash, setTokenHash] = useState<string | null>(null);
@@ -48,41 +36,31 @@ export default function ResetConfirmPage() {
     const params = new URLSearchParams(window.location.search);
     const hash = params.get("token_hash");
     const type = params.get("type");
-
+    /* eslint-disable react-hooks/set-state-in-effect -- read once from the address (the link in the email) */
     if (!hash || type !== "recovery") {
       setStage("invalid");
       return;
     }
-
     setTokenHash(hash);
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   async function handleContinue() {
     if (!tokenHash) return;
-
     setError(null);
     setConfirming(true);
-
     const supabase = createClient();
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      token_hash: tokenHash,
-      type: "recovery",
-    });
-
+    const { error: verifyError } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type: "recovery" });
     setConfirming(false);
-
     if (verifyError) {
       setStage("invalid");
-      setError(INVALID_LINK_ERROR);
       return;
     }
-
     setStage("verified");
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     if (password.length < 8) {
       setError(SET_PASSWORD_ERRORS.tooShort);
       return;
@@ -91,108 +69,75 @@ export default function ResetConfirmPage() {
       setError(SET_PASSWORD_ERRORS.mismatch);
       return;
     }
-
     setError(null);
     setSubmitting(true);
-
     const supabase = createClient();
     const { error: updateError } = await supabase.auth.updateUser({ password });
-
     if (updateError) {
       setSubmitting(false);
       setError(SET_PASSWORD_ERRORS.failed);
       return;
     }
-
     await supabase.auth.signOut();
     router.push("/admin/login?passwordSet=1");
   }
 
-  // Stages hidden by StepStack are still rendered, so each one only shows
-  // the error while it's the active stage.
-  const invalidStage = (
-    <>
-      <h1 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
-        Link invalid
-      </h1>
-      <p className="mt-4 text-center text-sm font-medium text-red-700">
-        {(stage === "invalid" && error) || INVALID_LINK_ERROR}
-      </p>
-      <div className="mt-8 text-center">
-        <Link href="/admin/login" className={linkClasses}>
-          Back to login to request a new one
+  if (stage === "invalid") {
+    return (
+      <LoginShell title="That link has gone" lead={INVALID_LINK}>
+        <Link className="ad-btn block" href="/admin/login">
+          Back to log in
         </Link>
-      </div>
-    </>
-  );
+      </LoginShell>
+    );
+  }
 
-  const verifiedStage = (
-    <>
-      <h1 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
-        Set your password
-      </h1>
-      <p className="mt-2 text-center text-sm text-foreground/60">
-        Choose a password for your admin account.
-      </p>
-
-      <form onSubmit={handleSubmit} noValidate className="mt-8 flex flex-col gap-4">
-        <input
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          placeholder="New password"
-          autoComplete="new-password"
-          className={inputClasses}
-        />
-        <input
-          type="password"
-          value={confirmPassword}
-          onChange={(event) => setConfirmPassword(event.target.value)}
-          placeholder="Confirm password"
-          autoComplete="new-password"
-          className={inputClasses}
-        />
-
-        <MessageSlot parentGap={16} className="text-sm font-medium text-red-700">
-          {stage === "verified" && error && <p>{error}</p>}
-        </MessageSlot>
-
-        <Button type="submit" disabled={submitting} className="w-full">
-          {submitting ? "Saving…" : "Set password"}
-        </Button>
-      </form>
-    </>
-  );
-
-  const confirmStage = (
-    <>
-      <h1 className="text-center text-2xl font-bold tracking-tight sm:text-3xl">
-        Continue to set your admin password
-      </h1>
-
-      {stage === "confirm" && error && (
-        <p className="mt-4 text-center text-sm font-medium text-red-700">{error}</p>
-      )}
-
-      <Button
-        type="button"
-        onClick={handleContinue}
-        disabled={!tokenHash || confirming}
-        className="mt-8 w-full"
-      >
-        {confirming ? "Confirming…" : "Continue"}
-      </Button>
-    </>
-  );
+  if (stage === "verified") {
+    return (
+      <LoginShell title="Choose a password" lead="Choose a password for your admin account.">
+        <form onSubmit={handleSubmit} noValidate className="ad-lform" style={{ marginTop: 0 }}>
+          <div className="ad-field">
+            <label htmlFor="new-password">New password</label>
+            <input
+              id="new-password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="New password"
+              autoComplete="new-password"
+              className={`ad-input${error === SET_PASSWORD_ERRORS.tooShort ? " is-error" : ""}`}
+              aria-describedby="new-password-hint"
+            />
+            <p className="hint" id="new-password-hint">
+              At least 8 characters.
+            </p>
+          </div>
+          <div className="ad-field">
+            <label htmlFor="confirm-password">Confirm password</label>
+            <input
+              id="confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(event) => setConfirmPassword(event.target.value)}
+              placeholder="Confirm password"
+              autoComplete="new-password"
+              className={`ad-input${error === SET_PASSWORD_ERRORS.mismatch ? " is-error" : ""}`}
+            />
+          </div>
+          <LoginMessage error={error} />
+          <button type="submit" className="ad-btn block" disabled={submitting} aria-busy={submitting || undefined}>
+            {submitting ? "Saving…" : "Set password"}
+          </button>
+        </form>
+      </LoginShell>
+    );
+  }
 
   return (
-    <main className="flex flex-1 items-center justify-center bg-background px-6 py-16 text-foreground">
-      <div className="w-full max-w-sm rounded-3xl border border-foreground/10 bg-[#F5F3E7] p-8">
-        <StepStack
-          active={stage}
-          steps={{ confirm: confirmStage, verified: verifiedStage, invalid: invalidStage }}
-        />
-      </div>
-    </main>
+    <LoginShell title="Choose a password" lead="Continue to set a new password for your admin account.">
+      <button type="button" className="ad-btn block" onClick={handleContinue} disabled={!tokenHash || confirming} aria-busy={confirming || undefined}>
+        {confirming ? "Checking the link…" : "Continue"}
+      </button>
+    </LoginShell>
   );
 }

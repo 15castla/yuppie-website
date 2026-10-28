@@ -4,6 +4,7 @@
 // Badge and Logo (discounts), a preview drawn as the members' row ("Updates as you type"), Order with Move up
 // and Move down (B-D19), Save changes, and Delete behind a confirm (B-D17).
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 
@@ -389,9 +390,9 @@ export function PerkForm({
           {isNew ? `Add ${words.one}` : "Save changes"}
         </BusyButton>
         {isNew ? (
-          <a className="ad-btn sm secondary" href={words.base}>
+          <Link className="ad-btn sm secondary" href={words.base}>
             Cancel
-          </a>
+          </Link>
         ) : (
           <button type="button" className="ad-btn sm danger" onClick={() => setDeleteOpen(true)}>
             Delete {words.one}
