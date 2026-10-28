@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/app/admin/require-admin";
 import Link from "next/link";
 import { Suspense, type ReactNode } from "react";
 
@@ -11,7 +12,10 @@ async function ListData() {
   return <PerksList type="discount" rows={await listPerks("discount")} />;
 }
 
-export default function DiscountsLayout({ children }: { children: ReactNode }) {
+export default async function DiscountsLayout({ children }: { children: ReactNode }) {
+  // Every admin page and layout checks for itself (aal2): a soft navigation or router refresh can skip the
+  // layouts above it (QA2-01).
+  await requireAdmin();
   return (
     <AdminMain>
       <SplitShell

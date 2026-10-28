@@ -6,10 +6,10 @@
 // a paused membership asks about Stripe the same way.
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 import { adminCancelMemberNow, adminPauseMember, adminResumeMember, type MemberStatusResult } from "@/app/admin/member-status-actions";
-import { BusyButton, SaveFailed } from "@/components/admin/bits";
+import { Banner, BusyButton, SaveFailed } from "@/components/admin/bits";
 import { CheckRow, Dialog } from "@/components/admin/dialog";
 import { Pill, SavedLine, Section } from "@/components/admin/ui";
 
@@ -36,10 +36,21 @@ export function MembershipControl({ view }: { view: MembershipView }) {
   const [stripeBox, setStripeBox] = useState(true);
   const [busy, startBusy] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [stale, setStale] = useState<string | null>(null);
   const [done, setDone] = useState<Done | null>(null);
+  const choicesRef = useRef<HTMLFieldSetElement>(null);
+
+  // Change membership opens the three choices with the keyboard on the chosen one (QA2-11), the radio group's
+  // own stop: Active for an active member, the first choice.
+  useEffect(() => {
+    if (mode !== "change") return;
+    const checked = choicesRef.current?.querySelector<HTMLInputElement>("input[type=radio]:checked") ?? choicesRef.current?.querySelector<HTMLInputElement>("input[type=radio]");
+    checked?.focus();
+  }, [mode]);
 
   function openDialog(which: Choice) {
     setError(null);
+    setStale(null);
     setStripeBox(which === "active" ? view.pausedWithStripe !== false : true);
     setDialog(which);
   }
@@ -59,8 +70,15 @@ export function MembershipControl({ view }: { view: MembershipView }) {
         result = { ok: false, error: "" };
       }
       if (!result.ok) {
-        setError(result.error || null);
         setDialog(null);
+        if (result.stale) {
+          // Someone changed it since the page opened: say what it is now and show the card as it is.
+          setStale(result.error);
+          setMode("view");
+          router.refresh();
+          return;
+        }
+        setError(result.error || null);
         return;
       }
       const inStripe = result.stripe;
@@ -113,7 +131,7 @@ export function MembershipControl({ view }: { view: MembershipView }) {
   } else if (mode === "change") {
     body = (
       <>
-        <fieldset className="ad-opts">
+        <fieldset className="ad-opts" ref={choicesRef}>
           <legend>Membership</legend>
           {options.map((o) => (
             <label className="ad-opt" key={o.key}>
@@ -177,6 +195,7 @@ export function MembershipControl({ view }: { view: MembershipView }) {
             onClick={() => {
               setDone(null);
               setError(null);
+              setStale(null);
               setPick(current);
               setMode("change");
             }}
@@ -198,6 +217,11 @@ export function MembershipControl({ view }: { view: MembershipView }) {
 
   return (
     <Section title="Membership">
+      {stale !== null && (
+        <Banner title="Nothing changed." info>
+          {stale}
+        </Banner>
+      )}
       {error !== null && <SaveFailed raw={error || null} />}
       {body}
 

@@ -8,7 +8,7 @@ import { useSearchParams } from "next/navigation";
 
 import { EmptyCard } from "@/components/admin/empty-card";
 import { dateParts, time24 } from "@/components/admin/format";
-import { MoreLine, PAGE_SIZE, useListParams } from "@/components/admin/list-controls";
+import { MoreLine, PAGE_SIZE, rowsToShow, useListParams } from "@/components/admin/list-controls";
 import { useOpenId } from "@/components/admin/split-shell";
 import { DateCol, Pill, Tabs } from "@/components/admin/ui";
 import { currentListTab, eventsIn, type EventListRow } from "./event-list-types";
@@ -37,8 +37,9 @@ export function EventsList({ rows }: { rows: EventListRow[] }) {
   const { params, update } = useListParams();
   const tab = currentListTab(params.get("list"));
   const openId = useOpenId();
-  const show = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
+  const asked = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
   const inTab = eventsIn(rows, tab);
+  const show = rowsToShow(inTab, asked, openId);
   const visible = inTab.slice(0, show);
   const first = inTab[0]?.id ?? null;
   const qs = new URLSearchParams();

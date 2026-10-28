@@ -63,14 +63,14 @@ export async function MemberCard({ memberId }: { memberId: string }) {
   const member = data as MemberRow | null;
   if (!member) notFound();
 
-  const name = member.full_name?.trim() || member.email;
-  const first = firstNameOf(member.full_name, member.email);
+  const name = member.deleted_at ? "Deleted member" : member.full_name?.trim() || member.email;
+  const first = member.deleted_at ? "The member" : firstNameOf(member.full_name, member.email);
   const now = new Date();
   const base = membershipState(member, now);
   const renews = base.state === "active" ? await renewsAt(member.stripe_subscription_id) : null;
   const info = renews ? membershipState(member, now, { renewsAt: renews }) : base;
 
-  const [bookingsRes, appRes, pauseAudit] = await Promise.all([
+  const [bookingsRes, appRes, pauseAudit, deleteAudit] = await Promise.all([
     db
       .from("bookings")
       .select("id, status, booked_at, amount_pence, cancel_reason, refund_status, refund_pence, event:events(id, title, start_time, location)")
@@ -86,12 +86,17 @@ export async function MemberCard({ memberId }: { memberId: string }) {
     member.membership_status === "paused"
       ? db.from("admin_audit").select("details").eq("action", "member.pause").eq("target_id", member.id).order("created_at", { ascending: false }).limit(1).maybeSingle()
       : Promise.resolve({ data: null }),
+    member.deleted_at
+      ? db.from("admin_audit").select("created_at").eq("action", "member.delete").eq("target_id", member.id).limit(1).maybeSingle()
+      : Promise.resolve({ data: null }),
   ]);
   const bookings = (bookingsRes.data ?? []) as BookingRow[];
-  const futureBookings = bookings.filter((b) => {
+  const future = bookings.filter((b) => {
     const e = Array.isArray(b.event) ? b.event[0] : b.event;
     return b.status === "confirmed" && e && new Date(e.start_time) > now;
-  }).length;
+  });
+  const futureBookings = future.length;
+  const futurePaidPence = future.reduce((sum, b) => sum + (b.amount_pence > 0 ? b.amount_pence : 0), 0);
   const app = appRes.data;
   const pausedWithStripe = (pauseAudit.data?.details as { stripe?: boolean } | undefined)?.stripe ?? null;
 
@@ -121,6 +126,12 @@ export async function MemberCard({ memberId }: { memberId: string }) {
       note = `Cancelled is final. To come back, ${first} applies again and goes through approval.`;
       break;
     }
+  }
+  if (member.deleted_at) {
+    // A deleted account (Delete member here, or the member's own Delete my account): the details are gone, the
+    // bookings and payments stay for the record. Nothing to change and nothing to delete.
+    line = `Deleted on ${dayDate(member.deleted_at)}. ${deleteAudit.data ? "Deleted here by the club." : "The member deleted the account."}`;
+    note = "The details are gone. Bookings and payment records are kept. To come back, they apply again.";
   }
   const view: MembershipView = {
     memberId: member.id,
@@ -232,13 +243,22 @@ export async function MemberCard({ memberId }: { memberId: string }) {
         </Section>
       )}
 
-      <Section title="Danger zone" danger>
-        <p className="ad-hint">
-          Permanently deletes {first}’s account
-          {member.stripe_subscription_id ? " and cancels their Stripe subscription straight away" : ""}. This can’t be undone.
-        </p>
-        <DeleteMember memberId={member.id} name={name} hasSubscription={Boolean(member.stripe_subscription_id)} />
-      </Section>
+      {!member.deleted_at && (
+        <Section title="Danger zone" danger>
+          <p className="ad-hint">
+            Deletes {first}’s account the way Delete my account does: the subscription is cancelled, future bookings are cancelled and
+            refunded, and their details are removed. This can’t be undone.
+          </p>
+          <DeleteMember
+            memberId={member.id}
+            name={name}
+            first={first}
+            hasSubscription={view.hasSubscription}
+            futureBookings={futureBookings}
+            futurePaidPence={futurePaidPence}
+          />
+        </Section>
+      )}
     </Card>
   );
 }

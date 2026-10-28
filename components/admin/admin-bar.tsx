@@ -42,6 +42,9 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
   const [menuOpen, setMenuOpen] = useState(false);
   const [acctOpen, setAcctOpen] = useState(false);
   const acctRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const acctButtonRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const [openedOn, setOpenedOn] = useState(pathname);
 
   // A new page closes both.
@@ -55,8 +58,22 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
     if (!menuOpen && !acctOpen) return;
     function onKey(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        // Escape closes what is open and puts the keyboard back on the button that opened it (QA2-11).
+        if (menuOpen) menuButtonRef.current?.focus();
+        else if (acctOpen) acctButtonRef.current?.focus();
         setMenuOpen(false);
         setAcctOpen(false);
+        return;
+      }
+      // While the Menu panel is open the keyboard stays in it: Close, the rows, Log out, then round again,
+      // never the page behind the wash (QA2-11).
+      if (event.key === "Tab" && menuOpen && panelRef.current && menuButtonRef.current) {
+        const items = [menuButtonRef.current, ...Array.from(panelRef.current.querySelectorAll<HTMLElement>("a[href], button:not(:disabled)"))];
+        const at = items.indexOf(document.activeElement as HTMLElement);
+        if (at === -1 || (event.shiftKey && at === 0) || (!event.shiftKey && at === items.length - 1)) {
+          event.preventDefault();
+          items[event.shiftKey ? items.length - 1 : 0].focus();
+        }
       }
     }
     function onDown(event: PointerEvent) {
@@ -104,6 +121,7 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
           </nav>
           <div className="ad-acct" ref={acctRef}>
             <button
+              ref={menuButtonRef}
               type="button"
               className="ad-bare menu-b"
               aria-expanded={menuOpen}
@@ -114,6 +132,7 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
               <span>{menuOpen ? "Close" : "Menu"}</span>
             </button>
             <button
+              ref={acctButtonRef}
               type="button"
               className="ad-bare acct"
               aria-haspopup="menu"
@@ -142,7 +161,7 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
         </div>
         {menuOpen && (
           <>
-            <div className="ad-menu" id="ad-menu">
+            <div className="ad-menu" id="ad-menu" ref={panelRef}>
               <div className="ad-wrap">
                 <nav aria-label="Admin">
                   {NAV.map((item) => {

@@ -8,7 +8,7 @@ import { useSearchParams } from "next/navigation";
 
 import { EmptyCard } from "@/components/admin/empty-card";
 import { agoWords, dayMonth, dayMonthYear } from "@/components/admin/format";
-import { MoreLine, PAGE_SIZE, useListParams } from "@/components/admin/list-controls";
+import { MoreLine, PAGE_SIZE, rowsToShow, useListParams } from "@/components/admin/list-controls";
 import { useOpenId } from "@/components/admin/split-shell";
 import { Avatar, Pill, Tabs } from "@/components/admin/ui";
 import { currentTab, tabHref, type AppTab } from "./app-tabs";
@@ -39,8 +39,9 @@ export function ApplicationsList({ rows }: { rows: AppListRow[] }) {
   const { params, update } = useListParams();
   const tab = currentTab(params.get("tab"));
   const openId = useOpenId();
-  const show = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
-  const inTab = rows.filter((r) => r.tab === tab);
+  const asked = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
+  const inTab = tab === "all" ? rows : rows.filter((r) => r.tab === tab);
+  const show = rowsToShow(inTab, asked, openId);
   const visible = inTab.slice(0, show);
   const first = inTab[0]?.id ?? null;
   const qs = new URLSearchParams();
@@ -59,7 +60,7 @@ export function ApplicationsList({ rows }: { rows: AppListRow[] }) {
     return (
       <div className="ad-q">
         <div className="ad-nomatch" role="status">
-          <b>{tab === "approved" ? "No one has been approved yet." : "No one has been declined."}</b>
+          <b>{tab === "all" ? "No one has applied yet." : tab === "approved" ? "No one has been approved yet." : "No one has been declined."}</b>
         </div>
       </div>
     );
@@ -82,20 +83,26 @@ export function ApplicationsList({ rows }: { rows: AppListRow[] }) {
             </span>
             <span>
               <span className="t">{a.name}</span>
-              {tab === "waiting" ? (
+              {a.tab === "waiting" ? (
                 a.problem ? (
                   <span className="m flag">{FLAG[a.problem]}</span>
                 ) : (
                   <span className="m">{[a.employer, a.role].filter(Boolean).join(" · ") || a.email}</span>
                 )
-              ) : tab === "approved" ? (
+              ) : a.tab === "approved" ? (
                 <span className="m">Approved {a.reviewedAt ? dayMonthYear(a.reviewedAt) : ""}</span>
               ) : (
                 <span className="m">Declined {a.reviewedAt ? dayMonth(a.reviewedAt) : ""}</span>
               )}
             </span>
             <span className="end">
-              {tab === "waiting" ? <small>{agoWords(a.createdAt)}</small> : tab === "approved" ? <Pill kind="ink">Approved</Pill> : <Pill kind="muted">Declined</Pill>}
+              {a.tab === "waiting" ? (
+                tab === "all" ? <Pill>Waiting</Pill> : <small>{agoWords(a.createdAt)}</small>
+              ) : a.tab === "approved" ? (
+                <Pill kind="ink">Approved</Pill>
+              ) : (
+                <Pill kind="muted">Declined</Pill>
+              )}
             </span>
           </Link>
         ))}
@@ -104,7 +111,15 @@ export function ApplicationsList({ rows }: { rows: AppListRow[] }) {
         shown={visible.length}
         total={inTab.length}
         onMore={() => update({ show: String(show + PAGE_SIZE) })}
-        summary={tab === "waiting" ? `${inTab.length} waiting, oldest first` : tab === "declined" ? `${inTab.length} declined` : `${inTab.length} approved`}
+        summary={
+          tab === "all"
+            ? `${inTab.length} ${inTab.length === 1 ? "application" : "applications"}, all time`
+            : tab === "waiting"
+              ? `${inTab.length} waiting, oldest first`
+              : tab === "declined"
+                ? `${inTab.length} declined`
+                : `${inTab.length} approved`
+        }
       />
     </div>
   );

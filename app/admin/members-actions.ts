@@ -4,71 +4,47 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
-import { stripe } from "@/lib/stripe";
 import { audit } from "@/lib/server/audit";
+import { deleteAccount } from "@/lib/server/membership-actions";
 
-// Permanently deletes a member's row from `members`. If they have a Stripe
-// subscription on file, it's cancelled immediately first (not
-// cancel_at_period_end like the member's own self-service cancelMembership
-// in app/members/profile/actions.ts, since there's no reason to let billing
-// continue for an account that's about to stop existing in our system).
-// Cancellation happens before the delete and blocks it on failure, so this
-// can't leave an orphaned Stripe subscription with no member row left to
-// find it from.
-export async function deleteMember(
-  memberId: string,
-): Promise<{ success: boolean; error?: string }> {
+// Delete member (r2b 15, Danger zone), QA2-02 / QA3-06: the same path as the member's own Delete my account
+// (lib/server/membership-actions.ts deleteAccount, brief 5.6), never a hard delete. It cancels the Stripe
+// subscription now, cancels and refunds every future booking (account_deleted), removes the photo, emails the
+// member, anonymises the members row (kept, so bookings and payment records survive), frees the email for a
+// new application and bans the auth user. Safe to press again: what is done is skipped. Audited.
+
+export type DeleteMemberResult = { success: true; refunded: number } | { success: false; error: string };
+
+const ERRORS: Record<string, string> = {
+  not_found: "That member couldn’t be found.",
+  stripe: "Stripe didn’t cancel the subscription, so nothing was deleted. Try again in a moment.",
+};
+
+export async function deleteMember(memberId: string): Promise<DeleteMemberResult> {
   const admin = await requireAdmin();
+  if (!memberId) return { success: false, error: ERRORS.not_found };
 
-  if (!memberId) {
-    return { success: false, error: "Missing member." };
-  }
-
-  const adminClient = createAdminSupabaseClient();
-  const { data: member, error: fetchError } = await adminClient
+  const { data: before } = await createAdminSupabaseClient()
     .from("members")
-    .select("stripe_subscription_id")
+    .select("id, stripe_subscription_id, deleted_at")
     .eq("id", memberId)
     .maybeSingle();
+  if (!before) return { success: false, error: ERRORS.not_found };
 
-  if (fetchError || !member) {
-    console.error(`deleteMember: member ${memberId} not found:`, fetchError);
-    return { success: false, error: "Member not found." };
+  const result = await deleteAccount(memberId);
+  await audit(admin.id, "member.delete", { type: "member", id: memberId }, {
+    subscription: before.stripe_subscription_id ?? null,
+    already_deleted: Boolean(before.deleted_at),
+    ...(result.ok ? { refunded: result.refunded } : { code: result.code, error: result.error }),
+  });
+  if (!result.ok) {
+    return {
+      success: false,
+      error: ERRORS[result.code] ?? "The member wasn’t fully deleted. Try again: anything already done is skipped.",
+    };
   }
-
-  if (member.stripe_subscription_id) {
-    try {
-      await stripe.subscriptions.cancel(member.stripe_subscription_id, {}, { idempotencyKey: `sub-cancel-now-${member.stripe_subscription_id}` });
-    } catch (err) {
-      // Already cancelled/gone on Stripe's side isn't a reason to block
-      // deletion, since there's nothing left to cancel. This is a real,
-      // expected case: a member who self-cancelled via cancelMembership sets
-      // cancel_at_period_end, and once that period actually ends Stripe
-      // cancels the subscription on its own. There's no webhook in this
-      // codebase to sync that back, so stripe_subscription_id stays
-      // populated here even though Stripe already considers it gone (see
-      // cancelMembership's own comment on the missing webhook).
-      const code = err && typeof err === "object" && "code" in err ? err.code : undefined;
-      if (code !== "resource_missing") {
-        console.error(`deleteMember: Stripe cancellation failed for member ${memberId}:`, err);
-        const message = err instanceof Error ? err.message : "Stripe cancellation failed.";
-        return {
-          success: false,
-          error: `Couldn't cancel their Stripe subscription, so the account wasn't deleted: ${message}`,
-        };
-      }
-    }
-  }
-
-  const { error } = await adminClient.from("members").delete().eq("id", memberId);
-
-  if (error) {
-    console.error(`deleteMember failed for member ${memberId}:`, error);
-    return { success: false, error: "Something went wrong deleting that member." };
-  }
-
-  await audit(admin.id, "member.delete", { type: "member", id: memberId }, { subscription: member.stripe_subscription_id });
   revalidatePath("/admin/members");
+  revalidatePath(`/admin/members/${memberId}`);
   revalidatePath("/admin");
-  return { success: true };
+  return { success: true, refunded: result.refunded };
 }

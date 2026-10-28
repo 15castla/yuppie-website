@@ -1,3 +1,4 @@
+import { requireAdmin } from "@/app/admin/require-admin";
 import { Suspense, type ReactNode } from "react";
 
 import { SplitShell } from "@/components/admin/split-shell";
@@ -11,7 +12,10 @@ async function MembersListData() {
   return <MembersList rows={rows} />;
 }
 
-export default function MembersLayout({ children }: { children: ReactNode }) {
+export default async function MembersLayout({ children }: { children: ReactNode }) {
+  // Every admin page and layout checks for itself (aal2): a soft navigation or router refresh can skip the
+  // layouts above it (QA2-01).
+  await requireAdmin();
   return (
     <AdminMain>
       <SplitShell
