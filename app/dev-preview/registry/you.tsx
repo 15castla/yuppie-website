@@ -1,7 +1,8 @@
 // Preview screens for You, its sub pages (Edit details, Help), the membership-ended
 // gate, the photo gate and Change photo. OWNED BY THE YOU BUILDER.
 // Ids: you-home, you-edit, help-index, help-faq, help-contact, help-privacy,
-// you-ended, photo-gate, photo-change.
+// you-ended, photo-gate, photo-change; and the system screens (r2b Part 1):
+// sys-not-found, sys-error, sys-maintenance, sys-loading-you, sys-loading-event.
 //
 // EXAMPLE CONTENT: Sam Taylor and every date, price, plan and photo below are
 // the mockups' fictional ones. The actions are stand-ins (lib/members/mock/
@@ -15,6 +16,12 @@
 
 import { PhotoGateView, type GateDemo } from "@/components/members/photo/photo-gate-view";
 import { ChangePhotoSheet, type SheetDemo } from "@/components/members/photo/change-photo-sheet";
+import { TopActions } from "@/components/members/shell/top-actions";
+import { ErrorView } from "@/components/members/system/error-view";
+import { EventLoading, YouLoading } from "@/components/members/system/loading-views";
+import { MaintenanceView } from "@/components/members/system/maintenance-view";
+import { MembersNotFoundView } from "@/components/members/system/not-found-view";
+import { BareBar } from "@/components/members/system/standalone";
 import { EditDetailsView, type EditDemo } from "@/components/members/you/edit-details";
 import { MembershipEndedView } from "@/components/members/you/ended-view";
 import { FaqView } from "@/components/members/you/faq-view";
@@ -39,7 +46,7 @@ import {
 } from "@/lib/members/mock/you-actions";
 import { helpFaqGroups } from "@/lib/members/you/help";
 import { legalLines } from "@/lib/members/you/format";
-import { ROUTES } from "@/lib/members/routes";
+import { landingLabel, landingPath, ROUTES } from "@/lib/members/routes";
 import { buildSettingsRows } from "@/lib/members/you/settings";
 import type { MembershipCardData, SettingsSummaries } from "@/lib/members/you/types";
 import type { PreviewParams, PreviewScreen } from "./types";
@@ -316,6 +323,9 @@ const SHEET_DEMOS: Record<SheetState, SheetDemo> = {
 
 // ---------------------------------------------------------------- the screens
 
+// The error the preview's error page stands for (a plain value: an Error cannot be passed to the client view).
+const PREVIEW_ERROR = "preview";
+
 function pick<T extends string>(state: string, states: readonly T[]): T {
   return (states as readonly string[]).includes(state) ? (state as T) : states[0];
 }
@@ -457,5 +467,58 @@ export const youScreens: PreviewScreen[] = [
         />
       );
     },
+  },
+  // ---------------------------------------------------------------- system screens (r2b Part 1)
+  {
+    id: "sys-not-found",
+    title: "Not on the list. (members 404)",
+    states: ["default"],
+    tab: null,
+    render: () => <MembersNotFoundView landingHref={landingPath()} landingLabel={landingLabel()} titleActions={<TopActions />} />,
+  },
+  {
+    id: "sys-error",
+    title: "That didn’t load. (members page error)",
+    states: ["default", "trying", "no-reference"],
+    tab: null,
+    render: ({ state }) => (
+      <ErrorView
+        variant="members"
+        error={PREVIEW_ERROR}
+        reference={state === "no-reference" ? null : "3071294816"}
+        back={{ href: landingPath(), label: `Back to ${landingLabel()}` }}
+        titleActions={<TopActions />}
+        initialTrying={state === "trying"}
+      />
+    ),
+  },
+  {
+    id: "sys-maintenance",
+    title: "Back in a moment. (maintenance)",
+    states: ["default", "no-time", "trying"],
+    chrome: "bare",
+    dock: "own",
+    render: ({ state, shell }) => (
+      <>
+        {shell === "web" ? <BareBar /> : null}
+        <MaintenanceView mode={shell} until={state === "no-time" ? null : "14:00"} initialTrying={state === "trying"} />
+      </>
+    ),
+  },
+  {
+    id: "sys-loading-you",
+    title: "You, loading",
+    states: ["default"],
+    tab: null,
+    youCurrent: true,
+    render: () => <YouLoading />,
+  },
+  {
+    id: "sys-loading-event",
+    title: "Event page, loading",
+    states: ["default"],
+    tab: "events",
+    dock: "own",
+    render: () => <EventLoading />,
   },
 ];

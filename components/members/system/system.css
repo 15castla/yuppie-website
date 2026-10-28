@@ -72,7 +72,7 @@
 .sy-load-rows{border-top:1.5px solid var(--ink);margin-top:14px}
 .sy-ev-wrap{padding-top:20px}
 .mk-screen.mk-app .sy-ev-wrap{padding-top:12px}
-.sy-ev-hero{height:208px;border-radius:20px}
+.sy-ev-hero{height:208px;border-radius:20px;margin-top:12px}
 @media (min-width:768px){ .sy-ev-wrap{padding-top:48px} .sy-ev-hero{height:360px} }
 /* the event page's fixed price and booking bar, as shapes (phones only, like the real bar) */
 .sy-ev-bar-space{flex:none;height:calc(77px + var(--safe-bottom))}

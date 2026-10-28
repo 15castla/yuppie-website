@@ -35,7 +35,8 @@ export function ErrorView({
   variant: "members" | "public";
   /** The error being shown: a retry that fails hands over a new one, which ends "Trying…". */
   error: unknown;
-  retry: () => void;
+  /** The boundary's retry. Absent in the preview (nothing to retry). */
+  retry?: () => void;
   /** error.digest. */
   reference: string | null;
   /** Where the quiet link goes: the landing page ("Back to Events") or the home page ("Back to home"). */
@@ -63,7 +64,7 @@ export function ErrorView({
             onClick={() => {
               if (trying) return;
               setRetried(error);
-              retry();
+              retry?.();
             }}
           >
             <TryAgainLabel trying={trying} />

@@ -87,7 +87,7 @@ try {
   const s2 = await memberSession(newEmail);
   const redeem = (await action('redemption.getRedemptionStatus', [], s2)).result;
   eq([redeem.full_name, redeem.membership_status], ['Ex One', 'active'], 'the redeem card reads the member fresh');
-  eq((await action('profile.signOutMember', [], s2)).redirect, '/', 'log out: back to the home page');
+  eq((await action('profile.signOutMember', [], s2)).redirect, '/member-login?state=logged-out', 'log out: to Log in, "You’re logged out." (B-D1 B)');
 
   // The preview harness still draws the example screens.
   eq((await page('/dev-preview')).status, 200, 'the preview harness index opens');
