@@ -1,6 +1,7 @@
 // The stage 2 migration (20261030090000_open_invite_messages.sql), in the live-layout-check style.
-// DESTRUCTIVE (apply_repo.sh drops public three times): only when no one else is mid-test. It ends with every
-// migration applied, so run-all.mjs seeds after it.
+// Without --rebuild (what run-all.mjs runs): the migration applies twice more on the database as it is, and
+// step 4's checks. With --rebuild, DESTRUCTIVE (apply_repo.sh drops public three times; only when no one else
+// is mid-test; reseed after it: run-all.mjs --rebuild does):
 //
 //   1. stage 1 alone (every migration before this one): picture S1;
 //   2. everything, then this file twice more on top of itself: picture S2. The stage 1 tables are unchanged
@@ -30,8 +31,16 @@ const psqlFile = (file) => {
 const dump = () => execFileSync('pg_dump', ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-s', '-n', 'public', '--no-owner', 'postgres'], { encoding: 'utf8' }).replace(/^--.*$/gm, '').replace(/^\\(un)?restrict .*$/gm, '').replace(/\n{2,}/g, '\n');
 const NEW_TABLES = ['member_photos', 'plans', 'plan_members', 'chats', 'chat_members', 'messages', 'updates', 'blocks', 'reports', 'notification_preferences'];
 
-// ---- 1. stage 1 alone
+const REBUILD = process.argv.includes('--rebuild');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-b-pre-'));
+if (!REBUILD) {
+  psqlFile(FILE);
+  ok(true, 'the stage 2 migration applies again on the database as it is');
+  psqlFile(FILE);
+  ok(true, 'and a third time');
+}
+if (REBUILD) {
+// ---- 1. stage 1 alone
 fs.mkdirSync(path.join(tmp, 'supabase/migrations'), { recursive: true });
 for (const f of fs.readdirSync(path.join(ROOT, 'supabase/migrations'))) {
   if (f < MINE) fs.copyFileSync(path.join(ROOT, 'supabase/migrations', f), path.join(tmp, 'supabase/migrations', f));
@@ -95,6 +104,7 @@ eq(dump() === D1, true, 'and pg_dump -s of public agrees, byte for byte');
 // ---- 4. everything again, and the new tables' rules
 execFileSync('/home/claude/stack/apply_repo.sh', [ROOT], { stdio: ['ignore', 'pipe', 'pipe'] });
 ok(true, 'rebuilt with every migration');
+}
 for (const t of NEW_TABLES) {
   eq(sql1(`select relrowsecurity r from pg_class where oid = 'public.${t}'::regclass`).r, true, `${t}: RLS on`);
   const grants = sql(`select grantee g, string_agg(privilege_type, ',' order by privilege_type) p from information_schema.role_table_grants where table_schema = 'public' and table_name = '${t}' and grantee in ('anon', 'authenticated') group by 1`);
