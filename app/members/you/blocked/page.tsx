@@ -1,27 +1,19 @@
 import { BlockedView } from "@/components/members/messages/blocked-view";
 import { requireFlag } from "@/lib/members/flags";
-import { ExampleScope } from "@/components/members/kit";
-import { assertMockAllowed } from "@/lib/members/mock/guard";
-import { listBlockedMembers } from "@/lib/members/mock/messages";
 import type { BlockedMember } from "@/lib/members/messages/types";
+import { listBlockedMembers } from "@/lib/server/blocks";
 import { requireMember } from "../../require-member";
 
-// Blocked members. Switched off (flag `messages`, the block itself is made in a
-// chat) and running on the example-data adapter until the backend exists.
+// You > Blocked members, real data. Unblock is app/members/you/blocked/actions.ts.
 export default async function BlockedMembersPage() {
   requireFlag("messages");
-  assertMockAllowed();
-  await requireMember();
+  const member = await requireMember();
   let members: BlockedMember[] = [];
   try {
-    members = await listBlockedMembers();
-  } catch {
-    // A list that cannot load reads as empty here; the backend's page owns the error state.
-    members = [];
+    members = await listBlockedMembers(member.id);
+  } catch (err) {
+    // A list that cannot load reads as empty here; the screen agent owns an error state if the design has one.
+    console.error(`blocked members failed for ${member.id}:`, err);
   }
-  return (
-    <ExampleScope>
-      <BlockedView members={members} />
-    </ExampleScope>
-  );
+  return <BlockedView members={members} />;
 }

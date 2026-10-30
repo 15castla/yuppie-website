@@ -10,7 +10,7 @@
 // Adding a route: add it to ROUTES, then one entry to ROUTE_TABLE. The shell
 // picks the tab, the messages icon and the dock up from the table.
 
-import { flags as liveFlags, type FlagName, type Flags } from "./flags";
+import { flags as liveFlags, openInviteOn, type FlagName, type Flags } from "./flags";
 
 export type TabKey = "invite" | "events" | "concierge" | "discounts" | "access";
 
@@ -152,13 +152,14 @@ export function matchRoute(pathname: string): RouteDef | null {
 }
 
 // Where a member lands after login: Open Invite when it is on, else Events.
-export function landingPath(f: Pick<Flags, "openInvite"> = liveFlags): string {
-  return f.openInvite ? ROUTES.openInvite : ROUTES.events;
+// With a mode, the app follows its own switch (openInviteApp, Open Invite decision 6); without one, the web.
+export function landingPath(f: Pick<Flags, "openInvite"> & Partial<Pick<Flags, "openInviteApp">> = liveFlags, mode: "web" | "app" = "web"): string {
+  return openInviteOn(mode, { openInvite: f.openInvite, openInviteApp: f.openInviteApp ?? false }) ? ROUTES.openInvite : ROUTES.events;
 }
 
 // What a "back to the start" link calls the landing page.
-export function landingLabel(f: Pick<Flags, "openInvite"> = liveFlags): string {
-  return f.openInvite ? "Open Invite" : "Events";
+export function landingLabel(f: Pick<Flags, "openInvite"> & Partial<Pick<Flags, "openInviteApp">> = liveFlags, mode: "web" | "app" = "web"): string {
+  return landingPath(f, mode) === ROUTES.openInvite ? "Open Invite" : "Events";
 }
 
 export function activeTabFor(pathname: string): TabKey | null {

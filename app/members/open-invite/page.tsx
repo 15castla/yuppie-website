@@ -1,19 +1,14 @@
 import { requireMember } from "@/app/members/require-member";
 import { OpenInviteView } from "@/components/members/invite/browse-view";
-import { flags, requireFlag } from "@/lib/members/flags";
-import { ExampleScope } from "@/components/members/kit";
-import { assertMockAllowed } from "@/lib/members/mock/guard";
-import { listOpenInvites } from "@/lib/members/mock/open-invite";
+import { openInviteFeed } from "@/lib/server/plans";
+import { paidPlansShown, requireOpenInvite } from "./guard";
 
-// Open Invite > Browse. Hidden (404) until NEXT_PUBLIC_MEMBERS_OPEN_INVITE=on,
-// and a 404 on the live site unless MEMBERS_SHOW_EXAMPLES=on: it runs on example data (lib/members/mock).
+// Open Invite > Browse: the real feed (lib/server/plans.ts openInviteFeed: upcoming, not cancelled, hosts with an
+// active membership, never a plan of someone you blocked or who blocked you, soonest first). A 404 while the
+// flag is off, and in the app while its own switch is off (Open Invite decision 6).
 export default async function OpenInvitePage() {
-  requireFlag("openInvite");
-  assertMockAllowed();
-  const [, feed] = await Promise.all([requireMember(), listOpenInvites()]);
-  return (
-    <ExampleScope>
-      <OpenInviteView feed={feed} paidPlans={flags.paidPlans} />
-    </ExampleScope>
-  );
+  await requireOpenInvite();
+  const member = await requireMember();
+  const feed = await openInviteFeed({ id: member.id, email: member.email });
+  return <OpenInviteView feed={feed} paidPlans={paidPlansShown()} />;
 }

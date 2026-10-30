@@ -2,21 +2,17 @@ import { notFound } from "next/navigation";
 
 import { requireMember } from "@/app/members/require-member";
 import { PlanView } from "@/components/members/invite/plan-view";
-import { flags, requireFlag } from "@/lib/members/flags";
-import { ExampleScope } from "@/components/members/kit";
-import { assertMockAllowed } from "@/lib/members/mock/guard";
-import { getOpenInvite } from "@/lib/members/mock/open-invite";
+import { openInvitePage } from "@/lib/server/plans";
+import { paidPlansShown, requireOpenInvite } from "../guard";
 
-// Open Invite > a plan. A plan with a cost is a 404 while paid plans are off.
+// Open Invite > a plan, in every state (open, you're in, your own, full, cancelled, past, asked). A 404 when the
+// member may not see it (not found, removed by the club, a block either way) and for a plan with a cost while
+// paid plans are not live.
 export default async function OpenInvitePlanPage({ params }: { params: Promise<{ id: string }> }) {
-  requireFlag("openInvite");
-  assertMockAllowed();
+  await requireOpenInvite();
   const { id } = await params;
-  const [, page] = await Promise.all([requireMember(), getOpenInvite(id)]);
-  if (!page || (page.invite.cost && !flags.paidPlans)) notFound();
-  return (
-    <ExampleScope>
-      <PlanView page={page} paidPlans={flags.paidPlans} />
-    </ExampleScope>
-  );
+  const member = await requireMember();
+  const page = await openInvitePage({ id: member.id, email: member.email }, id);
+  if (!page || (page.invite.cost && !paidPlansShown())) notFound();
+  return <PlanView page={page} paidPlans={paidPlansShown()} />;
 }
