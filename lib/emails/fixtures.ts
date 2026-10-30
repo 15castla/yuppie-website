@@ -15,6 +15,11 @@ const MEWS = { venue: "The Mews Terrace", address: "4 Sample Mews, Anytown AB1 2
 const VISA = "Visa ending 4242";
 const SENT = { date: "Sun 25 Oct", time: "09:41" };
 const padelLinks = { bookingUrl: "/members/events/padel-and-pints" };
+// Open Invite (stage 2). The designs draw /members/invite/<slug>: the route is /members/open-invite/<id>.
+const WALK = { title: "Sunday walk and coffee", start: { date: "Sun 25 Oct", time: "11:00" } };
+const CLASS = { title: "Saturday morning class + brunch", start: { date: "Sat 24 Oct", time: "10:00" } };
+const CLIMB = { title: "Climbing and a pint", start: { date: "Thu 29 Oct", time: "19:00" } };
+const classUrl = "/members/open-invite/saturday-morning-class";
 
 export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
   "application-received": [{ id: "design", label: "As drawn", data: { fullName: "Hannah Reed", sent: SENT } }],
@@ -352,8 +357,205 @@ export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
       },
     },
   ],
+
+  // ---------------------------------------------------------------- stage 2
+  "plan-changed": [
+    {
+      id: "design",
+      label: "As drawn (time moved)",
+      data: {
+        moved: "time",
+        hostName: "Priya",
+        plan: { title: "Sunday walk and coffee", start: { date: "Sun 25 Oct", time: "11:30" } },
+        wasStart: WALK.start,
+        place: "Calder Park",
+        planUrl: "/members/open-invite/sunday-walk",
+      },
+    },
+    {
+      id: "place",
+      label: "Place moved",
+      data: {
+        moved: "place",
+        hostName: "Priya",
+        plan: WALK,
+        wasPlace: "Calder Park",
+        place: "Riverside Gardens, south gate",
+        planUrl: "/members/open-invite/sunday-walk",
+      },
+    },
+    {
+      id: "both",
+      label: "Date, time and place moved",
+      data: {
+        moved: "both",
+        hostName: "Priya",
+        plan: { title: "Sunday walk and coffee", start: { date: "Mon 26 Oct", time: "18:00" } },
+        wasStart: WALK.start,
+        wasPlace: "Calder Park",
+        place: "Riverside Gardens, south gate",
+        planUrl: "/members/open-invite/sunday-walk",
+      },
+    },
+    {
+      id: "long",
+      label: "Longest title (50) and a long place",
+      data: {
+        moved: "time",
+        hostName: "Alexandra-Grace",
+        plan: { title: "Sunday long run by the canal, then a big breakfast", start: { date: "Sun 1 Nov", time: "08:30" } },
+        wasStart: { date: "Sun 1 Nov", time: "08:00" },
+        place: "The bandstand by the north gate of Calder Park, near the cafe",
+        planUrl: "/members/open-invite/canal-run",
+      },
+    },
+  ],
+  "plan-cancelled": [
+    {
+      id: "design",
+      label: "As drawn (free plan)",
+      data: { hostName: "Priya", plan: WALK, place: "Calder Park" },
+    },
+    {
+      id: "long",
+      label: "Longest title (50) and a long place",
+      data: {
+        hostName: "Alexandra-Grace",
+        plan: { title: "Sunday long run by the canal, then a big breakfast", start: { date: "Sun 1 Nov", time: "08:00" } },
+        place: "The bandstand by the north gate of Calder Park, near the cafe",
+      },
+    },
+  ],
+  "plan-reminder": [
+    {
+      id: "design",
+      label: "24 hours before (round 3, as drawn)",
+      data: { window: "24h", plan: CLASS, place: "Psycle, Oxford Circus", others: ["Jasmin", "Priya"], planUrl: classUrl },
+    },
+    {
+      id: "2h",
+      label: "2 hours before",
+      data: { window: "2h", plan: CLASS, place: "Psycle, Oxford Circus", others: ["Jasmin", "Priya"], planUrl: classUrl },
+    },
+    {
+      id: "one-other",
+      label: "One other person going",
+      data: { window: "24h", plan: CLASS, place: "Psycle, Oxford Circus", others: ["Jasmin"], planUrl: classUrl },
+    },
+    {
+      id: "many",
+      label: "Six others going",
+      data: {
+        window: "24h",
+        plan: CLASS,
+        place: "Psycle, Oxford Circus",
+        others: ["Jasmin", "Priya", "Tom", "Ollie", "Chloe", "Dan"],
+        planUrl: classUrl,
+      },
+    },
+    {
+      id: "alone",
+      label: "Nobody else going yet",
+      data: { window: "2h", plan: CLASS, place: "Psycle, Oxford Circus", others: [], planUrl: classUrl },
+    },
+  ],
+  "new-message": [
+    {
+      id: "design",
+      label: "As drawn (plan chat, 2 new)",
+      data: { plan: CLASS, place: "Psycle, Oxford Circus", newCount: 2 },
+    },
+    { id: "one", label: "Plan chat, 1 new", data: { plan: CLASS, place: "Psycle, Oxford Circus", newCount: 1 } },
+    {
+      id: "question",
+      label: "A question to the host",
+      data: { kind: "question", plan: CLIMB, place: "The Arch, Bermondsey Wall", newCount: 1 },
+    },
+    {
+      id: "reply",
+      label: "The host replied",
+      data: { kind: "reply", plan: CLIMB, place: "The Arch, Bermondsey Wall", newCount: 3, chatUrl: "/members/messages/chat-climb-ask" },
+    },
+  ],
+  "photo-removed": [
+    { id: "design", label: "As drawn (not a clear photo)", data: { reason: "not_clear" } },
+    { id: "not-member", label: "Not a photo of the member", data: { reason: "not_member" } },
+    { id: "not-suitable", label: "Not suitable for the club", data: { reason: "not_suitable" } },
+  ],
+  "admin-new-report": [
+    {
+      id: "design",
+      label: "As drawn (a message)",
+      data: {
+        kind: "message",
+        reason: "Pressure to pay outside the app",
+        about: "Ollie",
+        by: "Sam",
+        planTitle: "Saturday morning class + brunch",
+        sent: SENT,
+        open: 2,
+      },
+    },
+    {
+      id: "member",
+      label: "A member",
+      data: { kind: "member", reason: "Harassment or unwanted attention", about: "Ollie", by: "Sam", sent: SENT, open: 3 },
+    },
+    {
+      id: "photo",
+      label: "A photo",
+      data: { kind: "photo", reason: "It isn’t them", about: "Chloe", by: "Aisha", sent: SENT, open: 1 },
+    },
+    {
+      id: "plan",
+      label: "A plan (not drawn)",
+      data: { kind: "plan", reason: "Not a real plan", about: "Dan", by: "Priya", planTitle: "Comedy night, two spare tickets", sent: SENT, open: 4 },
+    },
+  ],
 };
 
 export const TEXT_FIXTURES: { [N in TextName]: { id: string; label: string; data: TextData[N] }[] } = {
   welcome: [{ id: "design", label: "Welcome (C-D4 A)", data: {} }],
+  "reminders-on": [{ id: "design", label: "Reminders switched on (the check text)", data: {} }],
+  "event-reminder": [
+    { id: "design", label: "Club event, 24 hours before", data: { window: "24h", title: "Padel & Pints", time: "18:30", place: "Northgate Courts" } },
+    { id: "2h", label: "Club event, 2 hours before", data: { window: "2h", title: "Padel & Pints", time: "18:30", place: "Northgate Courts" } },
+    {
+      id: "held-today",
+      label: "Club event, held by quiet hours to 07:00 on the day",
+      data: { window: "2h", title: "Padel & Pints", time: "08:30", place: "Northgate Courts", day: "today" },
+    },
+  ],
+  "plan-reminder": [
+    {
+      id: "design",
+      label: "Open Invite plan, 24 hours before",
+      data: { window: "24h", title: "Saturday morning class + brunch", time: "10:00", place: "Psycle, Oxford Circus" },
+    },
+    {
+      id: "2h",
+      label: "Open Invite plan, 2 hours before",
+      data: { window: "2h", title: "Saturday morning class + brunch", time: "10:00", place: "Psycle, Oxford Circus" },
+    },
+    {
+      id: "longest",
+      label: "Longest title and place (cut at 40 and 30)",
+      data: {
+        window: "2h",
+        title: "Sunday long run along the canal, then a big breakfast",
+        time: "08:00",
+        place: "The bandstand by the north gate of Calder Park",
+      },
+    },
+    {
+      id: "typed-apostrophe",
+      label: "A host typed a curly apostrophe (kept Standard)",
+      data: { window: "24h", title: "Sam’s birthday drinks – rooftop", time: "19:00", place: "The Mews Terrace" },
+    },
+    {
+      id: "unicode",
+      label: "A letter outside the standard alphabet (Unicode)",
+      data: { window: "24h", title: "Zoë’s leaving drinks", time: "19:00", place: "The Mews Terrace" },
+    },
+  ],
 };

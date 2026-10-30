@@ -11,7 +11,7 @@
 
 import { BUILDERS, EMAIL_NAMES } from "./messages";
 import { renderSpec, resolveOptions, type RenderOptions } from "./shell";
-import { renderTextWith } from "./texts";
+import { renderTextWith, smsCount, type SmsCount } from "./texts";
 import type { EmailData, EmailName, RenderedEmail, TextData, TextName } from "./types";
 
 export type * from "./types";
@@ -25,9 +25,13 @@ export {
   absoluteUrl,
   siteUrl,
   mapsUrl,
+  MESSAGES_PATH,
+  NOTIFICATIONS_PATH,
+  OPEN_INVITE_PATH,
   type EmailColorScheme,
 } from "./config";
-export { smsCount, TEXT_NAMES, type SmsCount } from "./texts";
+export { smsCount, TEXT_NAMES, PLAN_TITLE_MAX, PLAN_PLACE_MAX, type SmsCount } from "./texts";
+export { PHOTO_REMOVED_REASONS } from "./messages";
 export { EMAIL_NAMES };
 export type { RenderOptions };
 
@@ -49,6 +53,13 @@ export const EMAIL_AUDIENCE: Record<EmailName, "member" | "applicant" | "admin">
   "event-reminder": "member",
   "admin-new-application": "admin",
   "admin-booking-review": "admin",
+  // stage 2
+  "plan-changed": "member",
+  "plan-cancelled": "member",
+  "plan-reminder": "member",
+  "new-message": "member",
+  "photo-removed": "member",
+  "admin-new-report": "admin",
 };
 
 /** One email: subject, preheader, html and the plain-text part. Every value in `data` is escaped. */
@@ -67,4 +78,10 @@ export function renderEmailWith<N extends EmailName>(name: N, data: EmailData[N]
 /** One text message body. */
 export function renderText<N extends TextName>(name: N, data: TextData[N]): string {
   return renderTextWith(name, data);
+}
+
+/** One text message body with its count (characters, Standard or Unicode, parts), for message_log. */
+export function renderTextCounted<N extends TextName>(name: N, data: TextData[N]): { body: string; count: SmsCount } {
+  const body = renderTextWith(name, data);
+  return { body, count: smsCount(body) };
 }
