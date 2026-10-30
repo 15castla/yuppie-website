@@ -29,3 +29,5 @@
 .pve-text p{margin:0 0 6px}
 .pve-bubble{display:inline-block;background:#E9E9EB;border-radius:18px;padding:10px 14px;font-family:-apple-system,system-ui,sans-serif;font-size:16px;line-height:21px}
 .pve-count{font-size:13px;color:#57514C}
+.pve-count-warn{color:#1B1512;font-weight:700}
+.pve-texts-intro{font-size:14px;line-height:20px;color:#57514C;margin:0 0 16px}

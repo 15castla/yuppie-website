@@ -35,19 +35,25 @@ function Texts() {
   return (
     <section className="pve-texts" aria-labelledby="pve-texts-h">
       <h2 id="pve-texts-h">Texts</h2>
+      <p className="pve-texts-intro">
+        Sender name ClubYuppie. A text is one part up to 160 standard characters; one character outside the standard
+        alphabet (a curly apostrophe, an ellipsis, most accents) makes the whole text Unicode, 70 a part. Plan titles are
+        cut at 40 characters and places at 30, with no ellipsis; typed punctuation is written plain.
+      </p>
       {TEXT_NAMES.map((name) =>
         TEXT_FIXTURES[name].map((fx) => {
           const body = renderText(name, fx.data);
           const c = smsCount(body);
           return (
-            <div key={`${name}-${fx.id}`} className="pve-text">
+            <div key={`${name}-${fx.id}`} className="pve-text" data-text={`${name}/${fx.id}`}>
               <p className="pve-text-name">
                 <b>{name}</b> {fx.label}
               </p>
               <p className="pve-bubble">{body}</p>
-              <p className="pve-count">
+              <p className={`pve-count${c.parts > 1 ? " pve-count-warn" : ""}`}>
                 {c.characters} of {c.limit} characters, {c.encoding}
-                {c.encoding === "Unicode" ? " (a curly apostrophe makes it Unicode)" : ""}, {c.parts} {c.parts === 1 ? "text" : "texts"}
+                {c.encoding === "Unicode" ? " (a character outside the standard alphabet makes it Unicode)" : ""}, {c.parts}{" "}
+                {c.parts === 1 ? "text" : "texts"}
               </p>
             </div>
           );
