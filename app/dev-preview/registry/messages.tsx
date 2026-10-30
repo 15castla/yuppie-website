@@ -226,7 +226,7 @@ const YOU_SUB_FRAME = {
   youCurrent: true,
 };
 
-type NotificationState = { preferences: (shell: ShellMode) => NotificationPreferences; failedKey?: "reminder24" };
+type NotificationState = { preferences: (shell: ShellMode) => NotificationPreferences; failedKey?: "reminder24"; pushChannel?: boolean };
 
 const NOTIFICATION_STATES: Record<string, NotificationState> = {
   // the defaults: on the web push is "App only", in the app it is a switch
@@ -241,6 +241,9 @@ const NOTIFICATION_STATES: Record<string, NotificationState> = {
   denied: { preferences: (shell) => (shell === "app" ? EXAMPLE_PREFERENCES_VARIANTS.denied : EXAMPLE_PREFERENCES_WEB) },
   // host updates off, 2 hours off, text on
   mixed: { preferences: (shell) => withPush(EXAMPLE_PREFERENCES_VARIANTS.mixed, shell) },
+  // stage 2 as it ships: no Push row anywhere until push exists (MEMBERS_PUSH_LIVE)
+  "no-push": { preferences: (shell) => withPush(EXAMPLE_PREFERENCES_WEB, shell), pushChannel: false },
+  "no-push-text-on": { preferences: (shell) => withPush(EXAMPLE_PREFERENCES_VARIANTS.textOn, shell), pushChannel: false },
 };
 
 // Push follows the shell: a switch in the app, an "App only" row on the web.
@@ -262,6 +265,7 @@ const notificationsScreen: PreviewScreen = {
         key={`${params.shell}-${params.state}`}
         preferences={state.preferences(params.shell)}
         failedKey={state.failedKey ?? null}
+        pushChannel={state.pushChannel ?? true}
       />
     );
   },

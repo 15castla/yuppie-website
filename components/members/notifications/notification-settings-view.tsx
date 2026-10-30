@@ -9,20 +9,27 @@
 // channels are a section after the three groups; from 768px they are a card
 // under them, and from 1024px the kit's right-hand rail.
 //
-// Local state only: a switch flips at once, and (as the spec says of the real
-// save) when the save fails the switch goes back and the row says so. Here the
-// save "fails" when the browser is offline, so the state is reachable by hand.
-// The backend saves each switch as it flips (see NotificationPreferences in
-// lib/members/messages/types.ts).
+// A switch flips at once and saves at once (saveTopic / saveChannel: the real
+// server actions in app/members/you/notifications/actions.ts). When the save
+// fails the switch goes back and the row says so; an offline browser fails
+// before anything is sent. Switching Text on sends one check text first: the
+// tick line ("We sent a text to check it’s you.") shows once the server says
+// it went. Without the save props (the preview harness) the switches are local.
 //
-// Not designed, so inert here: the number step ("Change number", "Add a
-// number", a tap on the Text row with no number) and the phone's settings
-// hand-off ("Open Settings"). Pass onNumberStep / onOpenSettings when they exist.
+// Push is not in stage 2: the page passes pushChannel false and the Push row,
+// its banner and its foot line are not drawn at all (MEMBERS_PUSH_LIVE).
+//
+// The number step is not designed: "Change number", "Add a number" and a tap
+// on the Text row with no number go to Edit details (numberHref), where the
+// phone number is edited. A changed number needs Text switched on again (a new
+// check text). The phone's settings hand-off ("Open Settings") stays inert
+// until the app has push (onOpenSettings).
 //
 // Kit counterparts: pages_notif.settings_main(), topic_sections(),
 // channels_block(), srow(), sw().
 
-import { useId, useState, type ReactNode } from "react";
+import { useId, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 import { BackLink, BackRow, Button, Card, Icon, Main, Pill, Rows, SectionTitle, TitleBlock } from "@/components/members/kit";
 import type {
@@ -31,18 +38,34 @@ import type {
   NotificationTopic,
 } from "@/lib/members/messages/types";
 import { ROUTES } from "@/lib/members/routes";
+import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import { cn } from "@/lib/utils";
 import "./notifications.css";
 
 type SettingKey = NotificationTopic | NotificationChannel;
 
+/** What a save answers (app/members/you/notifications/actions.ts): the preferences as saved, or the row's words. */
+export type NotificationSaveResult =
+  | { ok: true; preferences: NotificationPreferences }
+  | { ok: false; error: string; reason?: string }
+  | SessionEnded;
+
+/** The page's own failure line (notifications spec 3.1). */
+const SAVE_FAILED = "Couldn’t save that. Check your connection and try again.";
+
 export type NotificationSettingsViewProps = {
   preferences: NotificationPreferences;
+  /** Whether the Push channel exists at all. False in stage 2 (MEMBERS_PUSH_LIVE off): no Push row. The preview harness draws the design's rows. */
+  pushChannel?: boolean;
+  /** Save one topic switch. Without it (the preview harness) the switches are local only. */
+  saveTopic?: (topic: NotificationTopic, on: boolean) => Promise<NotificationSaveResult>;
+  /** Save one channel switch (Text on sends the check text first). */
+  saveChannel?: (channel: NotificationChannel, on: boolean) => Promise<NotificationSaveResult>;
   /** Preview only: the row whose save failed (the switch stays where it was, the row says so). */
   failedKey?: SettingKey | null;
-  /** The number step: "Change number", "Add a number", a tap on the Text row with no number. Not designed yet. */
-  onNumberStep?: () => void;
-  /** The phone's own notification settings (app only). Not designed yet. */
+  /** The number step ("Change number", "Add a number", a tap on the Text row with no number): Edit details. */
+  numberHref?: string;
+  /** The phone's own notification settings (app only, once push exists). Not designed yet. */
   onOpenSettings?: () => void;
 };
 
@@ -100,6 +123,13 @@ function SettingRow({
   /** The id of the row's switch: the title and detail become a label for it, so a tap on the words flips it. The link stays outside the label. */
   labelFor?: string;
 }) {
+  // A tap on a link inside the row is the link's own; the row only takes the taps around it.
+  const activate = onActivate
+    ? (event: MouseEvent<HTMLDivElement>) => {
+        if ((event.target as HTMLElement).closest("a")) return;
+        onActivate();
+      }
+    : undefined;
   const metaId = `${id}-meta`;
   const className = cn("mk-row ntf-row", extra ? "has-x" : null, fixed && "is-fixed", labelFor && "is-labelled");
   const words = (
@@ -127,7 +157,7 @@ function SettingRow({
   );
   if (fixed || interactive) {
     return (
-      <div className={className} onClick={onActivate}>
+      <div className={className} onClick={activate}>
         {inner}
       </div>
     );
@@ -135,12 +165,17 @@ function SettingRow({
   return <label className={className}>{inner}</label>;
 }
 
-function SaveError() {
+// What happened in bold, then what to do: "Couldn’t save that. Check your connection and try again."
+function SaveError({ message = SAVE_FAILED }: { message?: string }) {
+  const at = message.search(/\.\s/);
+  const head = at > 0 ? message.slice(0, at + 1) : message;
+  const rest = at > 0 ? message.slice(at + 1) : "";
   return (
     <p className="ntf-e" role="alert">
       <Icon name="circle-alert" size={15} />
       <span>
-        <b>Couldn’t save that.</b> Check your connection and try again.
+        <b>{head}</b>
+        {rest}
       </span>
     </p>
   );
@@ -148,36 +183,70 @@ function SaveError() {
 
 export function NotificationSettingsView({
   preferences,
+  pushChannel = true,
+  saveTopic,
+  saveChannel,
   failedKey = null,
-  onNumberStep,
+  numberHref,
   onOpenSettings,
 }: NotificationSettingsViewProps) {
   const base = useId();
+  const router = useRouter();
   const [topics, setTopics] = useState(preferences.topics);
   const [channels, setChannels] = useState(preferences.channels);
   const [textCheck, setTextCheck] = useState(preferences.textCheck);
-  const [failed, setFailed] = useState<SettingKey | null>(failedKey);
+  const [failed, setFailed] = useState<{ key: SettingKey; error: string } | null>(failedKey ? { key: failedKey, error: SAVE_FAILED } : null);
+  // A switch whose save is on its way takes no second tap until the answer is in.
+  const saving = useRef(new Set<SettingKey>());
 
   const number = preferences.mobileNumber;
   const permission = preferences.pushPermission;
+  const failedOn = (key: SettingKey) => (failed?.key === key ? <SaveError message={failed.error} /> : null);
+  const numberStep = numberHref ? () => router.push(numberHref) : undefined;
 
-  // A switch flips at once. If the save cannot go (offline here), it stays where it was and its row says so.
-  function flip(key: SettingKey, kind: "topic" | "channel") {
+  function apply(key: SettingKey, kind: "topic" | "channel", on: boolean) {
+    if (kind === "topic") setTopics((previous) => ({ ...previous, [key]: on }));
+    else setChannels((previous) => ({ ...previous, [key]: on }));
+  }
+
+  // A switch flips at once and saves. If the save fails (or cannot go: offline), it goes back and its row says so.
+  async function flip(key: SettingKey, kind: "topic" | "channel") {
+    if (saving.current.has(key)) return;
+    const next = kind === "topic" ? !topics[key as NotificationTopic] : !channels[key as NotificationChannel];
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      setFailed(key);
+      setFailed({ key, error: SAVE_FAILED });
       return;
     }
     setFailed(null);
-    if (kind === "topic") {
-      const topic = key as NotificationTopic;
-      setTopics((previous) => ({ ...previous, [topic]: !previous[topic] }));
+    apply(key, kind, next);
+    const save = kind === "topic" ? saveTopic && (() => saveTopic(key as NotificationTopic, next)) : saveChannel && (() => saveChannel(key as NotificationChannel, next));
+    if (!save) {
+      // The preview harness: local only. Switching Text on "sends" the check text; off clears the tick line.
+      if (key === "text") setTextCheck(next ? "sent" : "none");
       return;
     }
-    const channel = key as NotificationChannel;
-    const next = !channels[channel];
-    setChannels((previous) => ({ ...previous, [channel]: next }));
-    // Switching Text on sends one check text; off clears the tick line.
-    if (channel === "text") setTextCheck(next ? "sent" : "none");
+    if (key === "text" && !next) setTextCheck("none");
+    saving.current.add(key);
+    let result: NotificationSaveResult;
+    try {
+      result = await save();
+    } catch {
+      result = { ok: false, error: SAVE_FAILED };
+    }
+    saving.current.delete(key);
+    if (isSessionEnded(result)) {
+      goToSessionEnded();
+      return;
+    }
+    if (!result.ok) {
+      apply(key, kind, !next);
+      setFailed({ key, error: result.error || SAVE_FAILED });
+      return;
+    }
+    // Only this switch (and the check text) is taken from the answer, so a second switch still saving keeps its place.
+    const saved = result.preferences;
+    apply(key, kind, kind === "topic" ? saved.topics[key as NotificationTopic] : saved.channels[key as NotificationChannel]);
+    if (key === "text") setTextCheck(saved.textCheck);
   }
 
   function topicRow(scope: string, key: NotificationTopic, title: string, meta: string) {
@@ -187,9 +256,9 @@ export function NotificationSettingsView({
         id={id}
         title={title}
         meta={meta}
-        extra={failed === key ? <SaveError /> : null}
+        extra={failedOn(key)}
         end={(describedBy) => (
-          <Switch on={topics[key]} label={title} describedBy={describedBy} onToggle={() => flip(key, "topic")} />
+          <Switch on={topics[key]} label={title} describedBy={describedBy} onToggle={() => void flip(key, "topic")} />
         )}
       />
     );
@@ -199,39 +268,40 @@ export function NotificationSettingsView({
     const id = (key: string) => `${base}-${scope}-${key}`;
     const pushSwitchable = permission !== "unavailable";
     const pushOff = permission === "denied";
-    return (
-      <Rows>
-        {pushSwitchable ? (
-          <SettingRow
-            id={id("push")}
-            title="Push"
-            meta={pushOff ? "Off in your iPhone’s settings." : "On this iPhone."}
-            extra={failed === "push" ? <SaveError /> : null}
-            end={(describedBy) => (
-              <Switch
-                on={!pushOff && channels.push}
-                label="Push"
-                describedBy={describedBy}
-                onToggle={pushOff ? undefined : () => flip("push", "channel")}
-              />
-            )}
-          />
-        ) : (
-          <SettingRow
-            id={id("push")}
-            title="Push"
-            meta="Needs our app, which isn’t out yet. Email and text work now."
-            fixed
-            end={() => <Pill>App only</Pill>}
+    const pushRow = !pushChannel ? null : pushSwitchable ? (
+      <SettingRow
+        id={id("push")}
+        title="Push"
+        meta={pushOff ? "Off in your iPhone’s settings." : "On this iPhone."}
+        extra={failedOn("push")}
+        end={(describedBy) => (
+          <Switch
+            on={!pushOff && channels.push}
+            label="Push"
+            describedBy={describedBy}
+            onToggle={pushOff ? undefined : () => void flip("push", "channel")}
           />
         )}
+      />
+    ) : (
+      <SettingRow
+        id={id("push")}
+        title="Push"
+        meta="Needs our app, which isn’t out yet. Email and text work now."
+        fixed
+        end={() => <Pill>App only</Pill>}
+      />
+    );
+    return (
+      <Rows>
+        {pushRow}
         <SettingRow
           id={id("email")}
           title="Email"
           meta={`Reminders, bookings and chat nudges, to ${preferences.email}.`}
-          extra={failed === "email" ? <SaveError /> : null}
+          extra={failedOn("email")}
           end={(describedBy) => (
-            <Switch on={channels.email} label="Email" describedBy={describedBy} onToggle={() => flip("email", "channel")} />
+            <Switch on={channels.email} label="Email" describedBy={describedBy} onToggle={() => void flip("email", "channel")} />
           )}
         />
         {number ? (
@@ -250,11 +320,15 @@ export function NotificationSettingsView({
                   </p>
                 ) : null}
                 <span className="ntf-link">
-                  <Button variant="quiet" onClick={onNumberStep}>
-                    Change number
-                  </Button>
+                  {numberHref ? (
+                    <Button variant="quiet" href={numberHref}>
+                      Change number
+                    </Button>
+                  ) : (
+                    <Button variant="quiet">Change number</Button>
+                  )}
                 </span>
-                {failed === "text" ? <SaveError /> : null}
+                {failedOn("text")}
               </>
             }
             end={(describedBy) => (
@@ -263,7 +337,7 @@ export function NotificationSettingsView({
                 on={channels.text}
                 label="Text"
                 describedBy={describedBy}
-                onToggle={() => flip("text", "channel")}
+                onToggle={() => void flip("text", "channel")}
               />
             )}
           />
@@ -274,11 +348,20 @@ export function NotificationSettingsView({
             title="Text"
             meta="Add a mobile number to get reminders by text."
             interactive
-            onActivate={onNumberStep}
+            onActivate={numberStep}
             extra={
-              <span className="ntf-link">
-                <Button variant="quiet">Add a number</Button>
-              </span>
+              <>
+                <span className="ntf-link">
+                  {numberHref ? (
+                    <Button variant="quiet" href={numberHref}>
+                      Add a number
+                    </Button>
+                  ) : (
+                    <Button variant="quiet">Add a number</Button>
+                  )}
+                </span>
+                {failedOn("text")}
+              </>
             }
             end={(describedBy) => <Switch on={false} label="Text" describedBy={describedBy} />}
           />
@@ -289,7 +372,7 @@ export function NotificationSettingsView({
 
   function channelsBlock(scope: string, card: boolean) {
     const banner =
-      permission === "denied" ? (
+      pushChannel && permission === "denied" ? (
         <div className="ntf-banner">
           <Icon name="bell-off" size={22} />
           <div>
@@ -303,7 +386,7 @@ export function NotificationSettingsView({
         </div>
       ) : null;
     const foot =
-      permission === "granted" || permission === "not_asked" ? (
+      pushChannel && (permission === "granted" || permission === "not_asked") ? (
         <p className="ntf-foot">You can also change push in your phone’s settings.</p>
       ) : null;
     const inner = (

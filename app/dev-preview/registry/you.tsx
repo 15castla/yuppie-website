@@ -259,6 +259,8 @@ type GateState =
   | "start-unreadable"
   | "start-drag"
   | "removed"
+  | "removed-not-member"
+  | "removed-not-suitable"
   | "existing"
   | "camera-ask"
   | "camera-off"
@@ -266,6 +268,7 @@ type GateState =
   | "preview"
   | "saving"
   | "failed"
+  | "failed-small"
   | "noface"
   | "saved";
 
@@ -277,6 +280,8 @@ const GATE_STATES: GateState[] = [
   "start-unreadable",
   "start-drag",
   "removed",
+  "removed-not-member",
+  "removed-not-suitable",
   "existing",
   "camera-ask",
   "camera-off",
@@ -284,6 +289,7 @@ const GATE_STATES: GateState[] = [
   "preview",
   "saving",
   "failed",
+  "failed-small",
   "noface",
   "saved",
 ];
@@ -299,6 +305,9 @@ const GATE_DEMOS: Record<GateState, GateDemo> = {
   "start-unreadable": { screen: "start", error: "unreadable" },
   "start-drag": { screen: "start", over: true },
   removed: { screen: "start", notice: "removed" },
+  // the other two reasons the admin can pick (the design draws "not a clear photo")
+  "removed-not-member": { screen: "start", notice: "removed", reason: "not_member" },
+  "removed-not-suitable": { screen: "start", notice: "removed", reason: "not_suitable" },
   existing: { screen: "start", variant: "existing" },
   "camera-ask": { screen: "camera-ask" },
   "camera-off": { screen: "camera-off" },
@@ -306,12 +315,14 @@ const GATE_DEMOS: Record<GateState, GateDemo> = {
   preview: { screen: "preview", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP },
   saving: { screen: "saving", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP },
   failed: { screen: "failed", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP, error: "upload" },
+  // the server turned the cropped photo down for a rule (here: too small), so Choose another, not Try again
+  "failed-small": { screen: "failed", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP, error: "small" },
   noface: { screen: "noface", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_NOFACE },
   saved: { screen: "saved", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP, savedUrl: EXAMPLE_PHOTO_CROP },
 };
 
-type SheetState = "start" | "error" | "crop" | "saving" | "failed";
-const SHEET_STATES: SheetState[] = ["start", "error", "crop", "saving", "failed"];
+type SheetState = "start" | "camera-ask" | "error" | "crop" | "noface" | "saving" | "failed" | "failed-small";
+const SHEET_STATES: SheetState[] = ["start", "camera-ask", "error", "crop", "noface", "saving", "failed", "failed-small"];
 
 const SHEET_DEMOS: Record<SheetState, SheetDemo> = {
   start: { step: "start" },
@@ -319,6 +330,11 @@ const SHEET_DEMOS: Record<SheetState, SheetDemo> = {
   crop: { step: "crop", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP },
   saving: { step: "saving", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP },
   failed: { step: "failed", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, error: "upload" },
+  // the app's camera pre-prompt (the gate's words) in the sheet, before the phone's own dialog
+  "camera-ask": { step: "camera-ask" },
+  // the soft face check found no face in the crop: the gate's warning, Use it anyway
+  noface: { step: "noface", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_NOFACE },
+  "failed-small": { step: "failed", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, error: "small" },
 };
 
 // ---------------------------------------------------------------- the screens

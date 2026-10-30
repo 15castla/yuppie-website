@@ -1,19 +1,15 @@
 import { BlockedView } from "@/components/members/messages/blocked-view";
 import { requireFlag } from "@/lib/members/flags";
-import type { BlockedMember } from "@/lib/members/messages/types";
 import { listBlockedMembers } from "@/lib/server/blocks";
 import { requireMember } from "../../require-member";
+import { unblockMember } from "./actions";
 
-// You > Blocked members, real data. Unblock is app/members/you/blocked/actions.ts.
+// You > Blocked members, real data (lib/server/blocks.ts listBlockedMembers: first name, signed photo, the date).
+// Unblock is ./actions.ts (asks first; the row goes once the server says so). A list that cannot load goes to the
+// error page rather than reading as "No one blocked." (the design has no error state for this page).
 export default async function BlockedMembersPage() {
   requireFlag("messages");
   const member = await requireMember();
-  let members: BlockedMember[] = [];
-  try {
-    members = await listBlockedMembers(member.id);
-  } catch (err) {
-    // A list that cannot load reads as empty here; the screen agent owns an error state if the design has one.
-    console.error(`blocked members failed for ${member.id}:`, err);
-  }
-  return <BlockedView members={members} />;
+  const members = await listBlockedMembers(member.id);
+  return <BlockedView members={members} unblock={unblockMember} />;
 }

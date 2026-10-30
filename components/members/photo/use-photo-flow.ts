@@ -1,12 +1,21 @@
 "use client";
 
 // The photo flow's state, shared by the gate and the Change photo sheet:
-// choose a file, check it, move and zoom, (preview,) save, saved or failed.
-// Saving goes through the EXISTING server action (updateAvatar) with the
-// cropped JPEG as a File; nothing here talks to storage. The checks and the
-// crop run in the browser (lib/members/photo).
+// choose a file, check it, move and zoom, the soft face check, (preview,)
+// save, saved or failed. Saving goes through the server action
+// (app/members/photo/actions.ts uploadMyPhoto: the private bucket) with the
+// cropped JPEG as a File and, where the browser could look, "face": "found" or
+// "none"; nothing here talks to storage. The checks and the crop run in the
+// browser (lib/members/photo); the server checks type, size and width again
+// and answers which rule failed (`reason`), which the flow shows as that
+// error, not as a failed upload.
 //
-// The caller passes `upload` (updateAvatar, or a stub in the preview) and
+// The face check (./face-check.ts, the browser's FaceDetector) runs on the
+// cropped photo. No face: the "noface" step, which warns and never blocks
+// ("Use it anyway" saves it marked "none" for the admin queue). No detector:
+// no check, and the server records it as skipped.
+//
+// The caller passes `upload` (the action, or a stub in the preview) and
 // `review`: true shows the "Looking good?" step between the crop and the
 // save (the gate); false saves straight from the crop (the sheet).
 
@@ -14,10 +23,23 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from "reac
 
 import { START_CROP, exportCrop, type CropState } from "@/lib/members/photo/crop";
 import { readPhoto, type PhotoErrorKind, type PhotoSource } from "@/lib/members/photo/validate";
+import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
+import { checkFace, type FaceResult } from "./face-check";
 
-export type FlowStep = "start" | "crop" | "preview" | "saving" | "failed" | "saved";
+export type FlowStep = "start" | "crop" | "preview" | "noface" | "saving" | "failed" | "saved";
 
-export type UploadResult = { success: boolean; error?: string; url?: string };
+/** What the save answers (uploadMyPhoto's shape; updateAvatar and the preview stub answer the first three only). */
+export type UploadResult = {
+  success: boolean;
+  error?: string;
+  url?: string;
+  /** Which rule the server turned the photo down for; "session": the session ended (with sessionEnded). */
+  reason?: "type" | "large" | "small" | "upload" | "session";
+  sessionEnded?: true;
+};
+
+/** The server's reasons the member can act on, shown as the matching photo error (the rest read as a failed upload). */
+const SERVER_ERRORS: Partial<Record<NonNullable<UploadResult["reason"]>, PhotoErrorKind>> = { type: "type", large: "large", small: "small" };
 
 export type FlowInitial = {
   step?: FlowStep;
@@ -35,12 +57,15 @@ export function usePhotoFlow({
   review,
   initial,
   onSaved,
+  faceCheck = checkFace,
 }: {
   upload: (formData: FormData) => Promise<UploadResult>;
   review: boolean;
   initial?: FlowInitial;
   /** The photo is saved. The sheet closes itself here; the gate shows its success screen. */
   onSaved?: (url: string | null) => void;
+  /** The soft face check (the browser's FaceDetector); the preview passes none. */
+  faceCheck?: ((photo: Blob) => Promise<FaceResult | null>) | null;
 }) {
   const [step, setStep] = useState<FlowStep>(initial?.step ?? "start");
   const [source, setSource] = useState<PhotoSource | null>(initial?.source ?? null);
@@ -51,6 +76,8 @@ export function usePhotoFlow({
   const [busy, setBusy] = useState(false);
 
   const blob = useRef<Blob | null>(null);
+  // What the face check found for the current crop: null when this browser could not look (sent as nothing: "skipped").
+  const face = useRef<FaceResult | null>(null);
   const urls = useRef(new Set<string>());
   const cameraInput = useRef<HTMLInputElement>(null);
   const libraryInput = useRef<HTMLInputElement>(null);
@@ -97,6 +124,7 @@ export function usePhotoFlow({
         return null;
       });
       blob.current = null;
+      face.current = null;
       setCropState(START_CROP);
       setStep("crop");
     },
@@ -140,6 +168,7 @@ export function usePhotoFlow({
       setError(null);
       const formData = new FormData();
       formData.set("photo", new File([file], "photo.jpg", { type: "image/jpeg" }));
+      if (face.current) formData.set("face", face.current);
       let result: UploadResult;
       try {
         result = await upload(formData);
@@ -147,9 +176,14 @@ export function usePhotoFlow({
         result = { success: false };
       }
       if (!alive.current) return;
+      if (isSessionEnded(result)) {
+        goToSessionEnded();
+        return;
+      }
       setBusy(false);
       if (!result.success) {
-        setError("upload");
+        // A rule the server checked again (type, size, width) reads as that rule; anything else as a failed upload.
+        setError((result.reason && SERVER_ERRORS[result.reason]) || "upload");
         setStep("failed");
         return;
       }
@@ -161,36 +195,52 @@ export function usePhotoFlow({
     [onSaved, upload],
   );
 
-  // Crop done: draw the circle's square into a JPEG. The gate shows it
-  // ("Looking good?") before saving; the sheet saves it at once.
+  // Crop done: draw the circle's square into a JPEG and look for a face in
+  // it. The gate shows it ("Looking good?") before saving; the sheet saves it
+  // at once. No face: the warning first, either way.
   const confirmCrop = useCallback(async () => {
     if (!source || busy) return;
     setBusy(true);
     const exported = await exportCrop(source.url, source, crop);
     if (!alive.current) return;
-    setBusy(false);
     if (!exported) {
+      setBusy(false);
       setError("unreadable");
       setStep("crop");
       return;
     }
+    face.current = faceCheck ? await faceCheck(exported) : null;
+    if (!alive.current) return;
+    setBusy(false);
     blob.current = exported;
-    if (review) {
+    if (review || face.current === "none") {
       const url = URL.createObjectURL(exported);
       urls.current.add(url);
       setPreviewUrl((previous) => {
         release(previous);
         return url;
       });
+    }
+    if (face.current === "none") {
+      setError(null);
+      setStep("noface");
+    } else if (review) {
       setStep("preview");
     } else {
       await save(exported);
     }
-  }, [busy, crop, release, review, save, source]);
+  }, [busy, crop, faceCheck, release, review, save, source]);
 
   const saveNow = useCallback(async () => {
     if (blob.current) await save(blob.current);
   }, [save]);
+
+  // "Use it anyway": the warning never blocks. The photo is saved marked "none" (the admin queue: "No face found").
+  const saveAnyway = useCallback(async () => {
+    if (!blob.current || busy) return;
+    face.current = "none";
+    await save(blob.current);
+  }, [busy, save]);
 
   const backToCrop = useCallback(() => {
     setError(null);
@@ -207,6 +257,7 @@ export function usePhotoFlow({
       return null;
     });
     blob.current = null;
+    face.current = null;
     setCropState(START_CROP);
     setError(null);
     setStep("start");
@@ -227,6 +278,7 @@ export function usePhotoFlow({
     choose,
     confirmCrop,
     saveNow,
+    saveAnyway,
     backToCrop,
     startOver,
   };
