@@ -6,32 +6,40 @@
 // computer (the CSS puts the card beside the lists from 768px).
 //
 // A view of plain props, so the preview harness draws every state with
-// example data. The page (app/members/you/load-you.tsx) fetches the member
-// and passes the real server actions in. A button appears only when the
-// action behind it exists: `cancelMembership` is passed only for a member
-// who can cancel, `canDelete` is false on the live page (nothing deletes an
-// account yet), and the membership card carries no button (there is no
-// billing page link and no undo for a cancel).
+// example data. The page (app/members/you/load-you.ts) fetches the member and
+// the card's real dates and passes the real server actions in: Manage and
+// Update card (the billing portal), Keep my membership, the two-step Cancel
+// membership, Delete my account and Log out. The actions call revalidatePath,
+// so after Keep or Cancel the card redraws from the server with no reload.
 
 import "./you.css";
 
-import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, useTransition, type ReactNode } from "react";
 
 import { Button, Icon, Main, Rows, SectionTitle, TitleBlock } from "@/components/members/kit";
 import { takePhotoChanged } from "@/lib/members/photo/notice";
 import { ROUTES } from "@/lib/members/routes";
+import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import type { MembershipCardData, SettingsRow, YouDetails } from "@/lib/members/you/types";
-import { CancelDialog, DeleteDialog, LogoutDialog, type CancelCopy, type CancelResult } from "./you-dialogs";
+import { CancelDialog, DeleteDialog, LogoutDialog, type CancelOutcome, type CancelPreview, type CancelStep } from "./you-dialogs";
 import { MembershipCard } from "./membership-card";
 import { DetailRow, HelpGroup, PhotoBlock, SettingsGroup, YouFoot } from "./you-parts";
 
 export type YouDemo = {
   /** Open a dialog on the first draw (the preview only). */
   dialog?: "logout" | "cancel" | "cancel-reason" | "cancel-done" | "delete" | "delete-ready";
+  /** Step 1's facts for a dialog opened on the first draw. */
+  cancelPreview?: CancelPreview;
   /** Show the "Photo changed" note on the first draw (the preview only). */
   toast?: boolean;
+  /** Draw the card's button as working (the preview only). */
+  keeping?: boolean;
+  /** Draw Keep my membership's error under the card (the preview only). */
+  keepError?: string;
 };
+
+/** getCancelMembershipPreview's answer, as the view needs it. */
+export type CancelPreviewResult = { ok: true; until: string | null; bookingsAfterEnd: { title: string; when: string }[] } | { ok: false; error: string };
 
 export type YouViewProps = {
   /** First name, for the greeting. Empty: "Hey there." */
@@ -51,13 +59,18 @@ export type YouViewProps = {
   appVersion?: string | null;
   /** signOutMember. */
   signOut: () => void | Promise<void>;
-  /** cancelMembership, passed only when this member can cancel (an active membership with a subscription). Null: no Cancel link. */
-  cancel: ((reason?: string) => Promise<CancelResult>) | null;
-  cancelCopy: CancelCopy;
-  /** Preview only: draw the designed two-step cancel (nothing stores a reason yet). */
-  cancelWithReason?: boolean;
-  /** Preview only: show Delete my account (nothing deletes an account yet). */
-  canDelete?: boolean;
+  /** Keep my membership (keepMyMembership): undoes a cancel. Used by the ending card's button. */
+  keep: (() => Promise<{ ok: true } | { ok: false; error: string } | SessionEnded>) | null;
+  /** Cancel membership, step 1's facts (getCancelMembershipPreview). Null: no Cancel link (no subscription to cancel). */
+  cancelPreview: (() => Promise<CancelPreviewResult | SessionEnded>) | null;
+  /** Cancel membership, step 2 (requestCancelMembership, with the reason). */
+  cancelMembership: ((reason: string | null) => Promise<CancelOutcome | SessionEnded>) | null;
+  /** Delete my account (deleteMyAccount). */
+  deleteAccount: ((confirmation: string) => Promise<{ ok: false; error: string } | SessionEnded | void>) | null;
+  /** The billing portal did not open (/members/billing sent the member back with ?billing=unavailable). */
+  billingError?: string | null;
+  /** Preview only: Open Invite's hosted-plans lines in the dialogs (paid plans are Phase B, so never live). */
+  hostedPlans?: boolean;
   demo?: YouDemo;
   /** The Change photo sheet, when this render is /members/you/photo. */
   sheet?: ReactNode;
@@ -90,6 +103,12 @@ function initialDialog(demo: YouDemo | undefined): DialogName {
   }
 }
 
+function initialStep(demo: YouDemo | undefined): CancelStep {
+  if (demo?.dialog === "cancel-reason") return "reason";
+  if (demo?.dialog === "cancel-done") return "done";
+  return "confirm";
+}
+
 export function YouView({
   firstName,
   photoUrl,
@@ -101,20 +120,21 @@ export function YouView({
   legal,
   appVersion,
   signOut,
-  cancel,
-  cancelCopy,
-  cancelWithReason = false,
-  canDelete = false,
+  keep,
+  cancelPreview,
+  cancelMembership,
+  deleteAccount,
+  billingError = null,
+  hostedPlans = false,
   demo,
   sheet,
 }: YouViewProps) {
-  const router = useRouter();
   const [dialog, setDialog] = useState<DialogName>(() => initialDialog(demo));
-  // This visit's cancel went through. Nothing reads the "cancel at period end"
-  // setting back yet (see lib/members/you/types.ts), so until the page is
-  // reloaded the card says what was just done.
-  const [requested, setRequested] = useState(false);
+  const [preview, setPreview] = useState<CancelPreview>(() => demo?.cancelPreview ?? { until: membership.renews ?? null, bookings: [] });
   const [toast, setToast] = useState(Boolean(demo?.toast));
+  const [isOpening, startOpening] = useTransition();
+  const [isKeeping, startKeeping] = useTransition();
+  const [keepError, setKeepError] = useState<string | null>(demo?.keepError ?? null);
 
   // "Photo changed", handed over by the Change photo sheet. Read after the
   // first paint, because the server cannot see sessionStorage.
@@ -130,12 +150,39 @@ export function YouView({
     return () => window.clearTimeout(timer);
   }, [toast, demo?.toast]);
 
-  const card: MembershipCardData = requested
-    ? { state: "ending", endsOn: membership.renews ?? cancelCopy.endsOn }
-    : membership;
-  const canCancel = Boolean(cancel) && !requested && (membership.state === "active" || membership.state === "problem");
+  // No Cancel link while a cancel is pending (you.md: the link goes), nor for a membership with nothing to cancel.
+  const canCancel = Boolean(cancelPreview && cancelMembership) && (membership.state === "active" || membership.state === "problem");
   const greeting = firstName ? `Hey, ${firstName}.` : "Hey there.";
   const name = details.fullName?.trim() || firstName;
+
+  // Step 1 needs the end date and the bookings after it, fresh from the server, so the link fetches them
+  // and then opens the sheet. If that fails the sheet still opens, on the card's renewal date.
+  function openCancel() {
+    if (!cancelPreview || isOpening) return;
+    startOpening(async () => {
+      const result = await cancelPreview().catch(() => null);
+      // The session ended while You was open: Log in with "Your session ended." (B-D1).
+      if (isSessionEnded(result)) return goToSessionEnded();
+      setPreview(
+        result && result.ok
+          ? { until: result.until ?? membership.renews ?? null, bookings: result.bookingsAfterEnd.map(({ title, when }) => ({ title, when })) }
+          : { until: membership.renews ?? null, bookings: [] },
+      );
+      setDialog("cancel");
+    });
+  }
+
+  function handleKeep() {
+    if (!keep || isKeeping) return;
+    setKeepError(null);
+    startKeeping(async () => {
+      const result = await keep().catch(() => ({ ok: false as const, error: "Your membership is still set to end. Try again." }));
+      if (isSessionEnded(result)) return goToSessionEnded();
+      if (!result.ok) setKeepError(result.error);
+    });
+  }
+
+  const cardError = keepError ?? (membership.state === "active" || membership.state === "problem" ? billingError : null);
 
   return (
     <Main pad={false} className="yu-main">
@@ -149,7 +196,7 @@ export function YouView({
             <PhotoBlock photoUrl={photoUrl} name={name} changeHref={changePhotoHref} />
           </div>
           <div className="yu-card-slot" data-needs-device-check="true">
-            <MembershipCard data={card} />
+            <MembershipCard data={membership} onAction={handleKeep} pending={isKeeping || Boolean(demo?.keeping)} error={cardError} />
           </div>
           <div className="yu-main-col">
             <section className="mk-section yu-first">
@@ -169,11 +216,11 @@ export function YouView({
                 </Button>
                 <div className="yu-quiet-row">
                   {canCancel ? (
-                    <Button variant="quiet" className="yu-quiet" onClick={() => setDialog("cancel")}>
+                    <Button variant="quiet" className="yu-quiet" pending={isOpening} onClick={openCancel}>
                       Cancel membership
                     </Button>
                   ) : null}
-                  {canDelete ? (
+                  {deleteAccount ? (
                     <Button variant="quiet" danger className="yu-quiet" onClick={() => setDialog("delete")}>
                       Delete my account
                     </Button>
@@ -188,23 +235,25 @@ export function YouView({
       <YouFoot legal={legal} appVersion={appVersion} />
 
       <LogoutDialog open={dialog === "logout"} onClose={() => setDialog(null)} email={details.email} signOut={signOut} />
-      {cancel ? (
+      {cancelMembership ? (
         <CancelDialog
           open={dialog === "cancel"}
           onClose={() => setDialog(null)}
-          copy={cancelCopy}
-          cancel={cancel}
-          withReason={cancelWithReason || demo?.dialog === "cancel-reason"}
-          initialStep={demo?.dialog === "cancel-reason" ? "reason" : demo?.dialog === "cancel-done" ? "done" : "confirm"}
+          preview={preview}
+          hostedPlans={hostedPlans}
+          cancel={cancelMembership}
+          initialStep={initialStep(demo)}
           initialReason={demo?.dialog === "cancel-reason" ? "Not enough events" : null}
-          onCancelled={() => {
-            setRequested(true);
-            router.refresh();
-          }}
         />
       ) : null}
-      {canDelete ? (
-        <DeleteDialog open={dialog === "delete"} onClose={() => setDialog(null)} initialTyped={demo?.dialog === "delete-ready" ? "delete" : ""} />
+      {deleteAccount ? (
+        <DeleteDialog
+          open={dialog === "delete"}
+          onClose={() => setDialog(null)}
+          deleteAccount={deleteAccount}
+          hostedPlans={hostedPlans}
+          initialTyped={demo?.dialog === "delete-ready" ? "delete" : ""}
+        />
       ) : null}
 
       {sheet}

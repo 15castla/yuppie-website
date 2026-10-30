@@ -1,0 +1,175 @@
+-- UNDO for the four Phase A migrations, back to the live layout of 27 Oct 2026
+-- (live-schema/supabase-layout-2026-10-27.md), in one transaction:
+--   20261028090300_application_claim.sql, 20261028090200_admin_fixes.sql, 20261028090100_backend_fixes.sql,
+--   20261028090000_members_core_backend.sql
+-- (newest first). Read release/live-migration-notes.md ("Undo") first. Proved on a live-like copy: the schema
+-- after the four migrations and this file is the live layout exactly (pg_dump -s, no difference).
+--
+-- It deletes data: the new tables (message_log, stripe_events, admin_audit, event_addresses) and the new
+-- columns (cancel dates, refund records and retries, reminders, addresses, change emails). Export them first.
+-- To put the old unique rule back it also deletes cancelled booking rows that share a member and event with
+-- another row (a member who cancelled and booked again keeps only the newer row).
+-- Exactly as live, so these come back too: approve_application_and_create_member executable by anon and
+-- authenticated (it runs as the caller, so row security still applies), the "Anyone can apply" policy and the
+-- INSERT grant on applications for anon and authenticated (QA3-12's hole, reopened).
+-- Run it with the previous release's code deployed (or about to be): this code needs the new columns.
+begin;
+
+-- ======================================================================== 20261028090300_application_claim.sql
+drop function if exists public.release_application(uuid, uuid);
+drop function if exists public.claim_application(uuid, text, text, interval);
+alter table public.applications drop constraint if exists applications_processing_action_check;
+alter table public.applications drop column if exists processing_token;
+alter table public.applications drop column if exists processing_action;
+alter table public.applications drop column if exists processing_by;
+alter table public.applications drop column if exists processing_at;
+
+-- ======================================================================== 20261028090200_admin_fixes.sql
+alter table public.events drop column if exists change_emailed_at;
+-- The live definition (no "not pending" check), and its live grants.
+create or replace function public.approve_application_and_create_member(p_application_id uuid, p_auth_user_id uuid, p_reviewed_by text) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+declare
+  v_application applications%rowtype;
+begin
+  select * into v_application
+  from applications
+  where id = p_application_id
+  for update;
+
+  if not found then
+    raise exception 'Application % not found', p_application_id;
+  end if;
+
+  if v_application.stripe_subscription_id is null then
+    raise exception 'Application % has no recorded Stripe subscription, refusing to create a member without a confirmed charge', p_application_id;
+  end if;
+
+  insert into members (
+    id,
+    email,
+    full_name,
+    phone,
+    employer,
+    role_title,
+    membership_status,
+    stripe_customer_id,
+    stripe_subscription_id
+  )
+  values (
+    p_auth_user_id,
+    v_application.email,
+    v_application.full_name,
+    v_application.phone,
+    v_application.employer,
+    v_application.role_title,
+    'active',
+    v_application.stripe_customer_id,
+    v_application.stripe_subscription_id
+  );
+
+  update applications
+  set status = 'approved',
+      reviewed_at = now(),
+      reviewed_by = p_reviewed_by,
+      payment_error = null
+  where id = p_application_id;
+end;
+$$;
+-- Revoked from everyone first, then granted in live's order, so the privilege list reads exactly as live's.
+revoke all on function public.approve_application_and_create_member(uuid, uuid, text) from public, anon, authenticated, service_role;
+grant all on function public.approve_application_and_create_member(uuid, uuid, text) to anon;
+grant all on function public.approve_application_and_create_member(uuid, uuid, text) to authenticated;
+grant all on function public.approve_application_and_create_member(uuid, uuid, text) to service_role;
+
+-- ======================================================================== 20261028090100_backend_fixes.sql
+drop index if exists public.bookings_refund_due_idx;
+alter table public.bookings drop constraint if exists bookings_refund_attempts_check;
+alter table public.bookings drop column if exists refund_attempts, drop column if exists refund_attempted_at;
+drop policy if exists "Anyone can apply" on public.applications;
+create policy "Anyone can apply" on public.applications for insert to anon, authenticated with check (true);
+grant insert on public.applications to anon, authenticated;
+
+-- ======================================================================== 20261028090000_members_core_backend.sql
+-- ---- policies back exactly as live
+do $$
+declare p record;
+begin
+  for p in select policyname, tablename from pg_policies where schemaname = 'public' and tablename in ('members', 'bookings') loop
+    execute format('drop policy %I on public.%I', p.policyname, p.tablename);
+  end loop;
+end $$;
+create policy "Members can update their own row" on public.members for update to public using (auth.uid() = id) with check (auth.uid() = id);
+create policy "Members can view their own row" on public.members for select to public using (auth.uid() = id);
+create policy "Members read own profile" on public.members for select to public using (auth.uid() = id);
+create policy "Members update own profile" on public.members for update to public using (auth.uid() = id);
+create policy "Members can insert their own bookings" on public.bookings for insert to public with check (auth.uid() = member_id);
+create policy "Members can view their own bookings" on public.bookings for select to public using (auth.uid() = member_id);
+create policy "Members cancel own bookings" on public.bookings for update to public using (auth.uid() = member_id);
+create policy "Members create own bookings" on public.bookings for insert to public with check (auth.uid() = member_id);
+create policy "Members read own bookings" on public.bookings for select to public using (auth.uid() = member_id);
+
+-- ---- grants back (live: the full set on every table)
+revoke update (full_name, phone, employer, role_title, bio, avatar_url) on public.members from authenticated;
+grant all on public.members, public.bookings to anon, authenticated;
+
+-- ---- bookings: the old unique rule, the old columns and checks
+delete from public.bookings b
+ using public.bookings c
+ where b.member_id = c.member_id and b.event_id = c.event_id and b.id <> c.id
+   and b.status = 'cancelled' and (c.status = 'confirmed' or c.booked_at > b.booked_at);
+drop index if exists public.bookings_one_confirmed_per_member_event;
+drop index if exists public.bookings_stripe_payment_intent_unique;
+drop index if exists public.bookings_event_status_idx;
+drop index if exists public.bookings_member_status_idx;
+alter table public.bookings add constraint bookings_member_id_event_id_key unique (member_id, event_id);
+alter table public.bookings drop constraint if exists bookings_status_check;
+alter table public.bookings drop constraint if exists bookings_cancelled_by_check;
+alter table public.bookings drop constraint if exists bookings_cancel_reason_check;
+alter table public.bookings drop constraint if exists bookings_refund_status_check;
+alter table public.bookings drop constraint if exists bookings_amount_pence_check;
+drop trigger if exists bookings_set_updated_at on public.bookings;
+alter table public.bookings
+  drop column if exists amount_pence, drop column if exists cancelled_at, drop column if exists cancelled_by,
+  drop column if exists cancel_reason, drop column if exists refund_status, drop column if exists refund_pence,
+  drop column if exists stripe_refund_id, drop column if exists refund_error, drop column if exists reminder_24h_sent_at,
+  drop column if exists reminder_2h_sent_at, drop column if exists updated_at;
+
+-- ---- members
+alter table public.members drop constraint if exists members_ended_reason_check;
+drop index if exists public.members_stripe_subscription_id_idx;
+drop index if exists public.members_stripe_customer_id_idx;
+drop trigger if exists members_set_updated_at on public.members;
+alter table public.members
+  drop column if exists cancel_at, drop column if exists cancel_requested_at, drop column if exists cancel_reason,
+  drop column if exists payment_failed_at, drop column if exists grace_until, drop column if exists paused_at,
+  drop column if exists ended_at, drop column if exists ended_reason, drop column if exists deleted_at,
+  drop column if exists updated_at;
+
+-- ---- events (tier NOT NULL again only if every event has one; otherwise it stays optional)
+drop trigger if exists events_set_updated_at on public.events;
+alter table public.events
+  drop column if exists cancelled_at, drop column if exists cancel_note, drop column if exists updated_at,
+  drop column if exists changed_at;
+do $$
+begin
+  if not exists (select 1 from public.events where tier is null) then
+    alter table public.events alter column tier set not null;
+  else
+    raise notice 'events.tier left optional: % events have no tier', (select count(*) from public.events where tier is null);
+  end if;
+end $$;
+
+-- ---- applications
+alter table public.applications drop column if exists card_released_at;
+
+-- ---- the new tables and functions
+drop function if exists public.book_event(uuid, uuid, integer, text, boolean);
+drop table if exists public.message_log;
+drop table if exists public.stripe_events;
+drop table if exists public.admin_audit;
+drop table if exists public.event_addresses;
+drop function if exists public.set_updated_at();
+
+commit;

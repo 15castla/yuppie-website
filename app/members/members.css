@@ -473,3 +473,10 @@ textarea.mk-input{display:block;min-height:120px;padding:12px 14px;line-height:1
   .mk-empty-art{margin:0 8px 0 0;padding-top:0}
   .mk-empty-words .mk-lead{max-width:36ch}
 }
+
+/* B-D6 C (r2b section 8, You and system agent): a loading page shows its pale shapes only when the page has
+   not arrived after about 300 ms, so a fast page never flickers. The real title and labels show at once; the
+   shapes wait. No motion: they appear in one step. main keeps aria-busy="true" the whole time (the app's
+   launch picture waits for it), and nothing spins. */
+.mk-main[aria-busy="true"] .mk-sk{animation:mk-sk-wait .3s step-end both}
+@keyframes mk-sk-wait{from{visibility:hidden}to{visibility:visible}}

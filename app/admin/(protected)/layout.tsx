@@ -1,46 +1,21 @@
-import Image from "next/image";
-import Link from "next/link";
-
 import { requireAdmin } from "@/app/admin/require-admin";
-import { AdminNav } from "./AdminNav";
-import { AdminUserMenu } from "./AdminUserMenu";
+import { createAdminSupabaseClient } from "@/app/admin/admin-client";
+import { AdminBar } from "@/components/admin/admin-bar";
 
-export default async function AdminProtectedLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// The console's shell (r2b 12): the black ADMIN band with who is logged in, the yellow bar with the wordmark,
+// the nav (with the number of applications waiting) and Account. Each page draws its own <main>, so a loading
+// page can mark it aria-busy (B-D6). requireAdmin() enforces aal2 (password plus the authenticator code).
+export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAdmin();
+  const { count } = await createAdminSupabaseClient()
+    .from("applications")
+    .select("*", { count: "exact", head: true })
+    .eq("status", "pending");
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
-      {/* Same brand yellow as the rest of the page, not a separate cream
-          bar: a full-width block of the paler cream read as a flat grey
-          box against the yellow everywhere else. The nav pill below carries
-          the cream instead, echoing the same yellow-page/cream-pill
-          pairing used by the member bottom tab bar (members-nav.tsx). The
-          hairline shadow (rather than a border) gives it just enough
-          separation from scrolled content without reintroducing a box. */}
-      <header className="sticky top-0 z-30 bg-background shadow-[0_1px_0_rgba(27,21,18,0.08)]">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-6 gap-y-3 px-6 py-3.5">
-          <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
-            <Link href="/admin" className="shrink-0">
-              <Image
-                src="/yuppie_logo_forte_forward.png"
-                alt="Yuppie"
-                width={1942}
-                height={641}
-                priority
-                className="h-6 w-auto sm:h-7"
-              />
-            </Link>
-            <AdminNav />
-          </div>
-          <AdminUserMenu email={user.email ?? "?"} />
-        </div>
-      </header>
-
-      <div className="mx-auto max-w-5xl px-6 py-12">{children}</div>
-    </div>
+    <>
+      <AdminBar email={user.email ?? ""} counts={{ applications: count ?? 0 }} />
+      {children}
+    </>
   );
 }

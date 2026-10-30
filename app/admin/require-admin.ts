@@ -1,8 +1,10 @@
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminSupabaseClient } from "./admin-client";
 
-export async function requireAdmin() {
+// cache(): the layout, the list and the card each check, but one request asks Supabase once.
+export const requireAdmin = cache(async function requireAdmin() {
   const supabase = await createClient();
   const {
     data: { user },
@@ -35,4 +37,4 @@ export async function requireAdmin() {
   }
 
   return user;
-}
+});

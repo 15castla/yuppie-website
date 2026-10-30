@@ -2,42 +2,67 @@
 
 // The native app's sign-in form: a deliberate full copy of the website's
 // (member-login-form.tsx) so each can change independently; don't
-// re-share code between them beyond site-wide components.
+// re-share code between them beyond site-wide components and the error
+// reading in login-errors.ts.
+//
+// r2a section 7: no public header, no Apply link, no Privacy link (the app
+// cannot sell or sign people up). The whole column (badge, "Members App",
+// headline, helper, card) is centred above the giant wordmark standing on a
+// 3px rule. Every state of the web form, with the app's own "not recognised"
+// line. needs_device_check: all of it (the keyboard, the strip under the
+// clock, the safe areas).
 
-import { useEffect, useId, useRef, useState, type FormEvent } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
+import { Check, CircleAlert, Info, LogOut, WifiOff } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/Button";
 import { MessageSlot } from "@/components/StableLayout";
-import { PAGE_EYEBROW_CLASS } from "@/components/page-header";
+import { CARD_CLASS, INPUT_CLASS, LABEL_CLASS, PRIMARY_BUTTON_CLASS, TERM_LABEL_CLASS } from "@/components/site/ui";
 import { useKeyboardReveal } from "./use-keyboard-reveal-native";
 import {
   almarai,
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
-// Every error the screen can show. Shown under the input (MessageSlot),
-// growing in when one appears; nothing is reserved for them.
-const SEND_CODE_ERRORS = {
+import {
+  NOTICE_WORDS,
+  classifySendError,
+  classifyVerifyError,
+  looksLikeEmail,
+  type LoginNotice,
+  type SendErrorKey,
+  type VerifyErrorKey,
+} from "./login-errors";
+
+// Every message the screen can show (r2a section 7). The app's "not
+// recognised" has no "apply to join below": the app has no Apply link.
+const MESSAGES: Record<SendErrorKey | VerifyErrorKey, string> = {
   required: "Email is required.",
-  notMember:
-    "We don't recognise that email as a Yuppie member. Check for typos and try again.",
-  rateLimited: "Too many attempts. Please wait a few minutes and try again.",
-  invalidEmail: "That doesn't look like a valid email address.",
-  generic: "Something went wrong sending the login code. Please try again.",
+  invalid: "That doesn’t look like a valid email address.",
+  "not-found": "We don’t recognise that email as a Club Yuppie member. Check for typos and try again.",
+  rate: "Too many attempts. Please wait a few minutes and try again.",
+  network: "We couldn’t reach Club Yuppie. Check your connection and try again.",
+  // Auth answered with something unexpected (a 5xx): the network words, the nearest designed line (r2b: no
+  // generic error line).
+  generic: "We couldn’t reach Club Yuppie. Check your connection and try again.",
+  "code-required": "Enter the 6-digit code from your email.",
+  wrong: "That code isn’t right. Check the email and try again.",
+  expired: "That code has expired. Send a new code and try again.",
+  "too-many": "Too many tries. Wait a few minutes, then send a new code.",
 };
-const VERIFY_CODE_ERRORS = {
-  required: "Enter the 6-digit code from your email.",
-  incorrect: "That code is incorrect or has expired. Please try again.",
-};
+// Decision A-D5.
+const APPLIED_LINE = "Applied already? We’ll email you when you’re approved.";
+// Not in the designs: Auth answered with something unexpected while checking a code.
+const VERIFY_GENERIC = "We couldn’t reach Club Yuppie. Check your connection and try again.";
 
-const EMAIL_STEP_HELPER = "Enter your email and we'll send you a one-time code.";
+const EMAIL_STEP_HELPER = "Enter your email and we’ll send you a one-time code.";
 
-const inputClasses =
-  "w-full rounded-xl border-2 border-foreground/20 bg-[#F5F3E7] px-4 py-3.5 text-base text-foreground placeholder:text-foreground/40 outline-none transition-colors focus:border-foreground";
+// The giant wordmark at the foot (the You page's foot drawing): the file, and the box its ink fills.
+const WORDMARK_INK = { left: 16, top: 16, width: 1911, height: 610 };
+const WORDMARK_FILE = { width: 1942, height: 641 };
 
 // Same curve/pattern as Hero's entrance animation
 // (components/templates/creative-studio/hero.tsx), reused here so
@@ -48,7 +73,9 @@ const EASE_OUT_EXPO: [number, number, number, number] = [0.16, 1, 0.3, 1];
 // Verify code).
 const LABEL_FADE_MS = 180;
 
-export function MemberLoginFormNative() {
+type ErrorKey = SendErrorKey | VerifyErrorKey;
+
+export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice | null }) {
   const router = useRouter();
   const reduce = useReducedMotion();
 
@@ -61,51 +88,54 @@ export function MemberLoginFormNative() {
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");
   const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [resending, setResending] = useState(false);
+  const [error, setError] = useState<ErrorKey | null>(null);
+  const [resent, setResent] = useState(false);
+  // When the code now in use was sent: Auth answers the same for a wrong code and an expired one (login-errors.ts).
+  const sentAt = useRef<number | null>(null);
+
+  async function sendCode(address: string): Promise<SendErrorKey | null> {
+    const supabase = createClient();
+    try {
+      const { error: signInError } = await supabase.auth.signInWithOtp({
+        email: address,
+        options: { shouldCreateUser: false },
+      });
+      if (signInError) {
+        console.error("signInWithOtp error:", signInError);
+        return classifySendError(signInError);
+      }
+      sentAt.current = Date.now();
+      return null;
+    } catch (err) {
+      console.error("signInWithOtp threw:", err);
+      return classifySendError({ name: "AuthRetryableFetchError", status: 0 });
+    }
+  }
 
   async function handleSendCode(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const address = email.trim();
 
-    if (!email.trim()) {
-      setError(SEND_CODE_ERRORS.required);
+    if (!address) {
+      setError("required");
+      return;
+    }
+    if (!looksLikeEmail(address)) {
+      setError("invalid");
       return;
     }
 
     setError(null);
     setSubmitting(true);
-
-    const supabase = createClient();
-    const { error: signInError } = await supabase.auth.signInWithOtp({
-      email,
-      options: { shouldCreateUser: false },
-    });
-
+    const failure = await sendCode(address);
     setSubmitting(false);
 
-    if (signInError) {
-      // Logged so we can see the real shape of Supabase's error during
-      // testing and tighten the checks below if the wording differs.
-      console.error("signInWithOtp error:", signInError);
-
-      const code = (signInError as { code?: string }).code;
-      const message = signInError.message?.toLowerCase() ?? "";
-
-      if (
-        code === "otp_disabled" ||
-        message.includes("signup") ||
-        message.includes("not allowed")
-      ) {
-        setError(SEND_CODE_ERRORS.notMember);
-      } else if (signInError.status === 429 || message.includes("rate limit")) {
-        setError(SEND_CODE_ERRORS.rateLimited);
-      } else if (message.includes("invalid") || message.includes("valid email")) {
-        setError(SEND_CODE_ERRORS.invalidEmail);
-      } else {
-        setError(SEND_CODE_ERRORS.generic);
-      }
+    if (failure) {
+      setError(failure);
       return;
     }
-
+    setResent(false);
     setStep("code");
   }
 
@@ -113,27 +143,51 @@ export function MemberLoginFormNative() {
     event.preventDefault();
 
     if (!code.trim()) {
-      setError(VERIFY_CODE_ERRORS.required);
+      setError("code-required");
       return;
     }
 
     setError(null);
+    setResent(false);
     setSubmitting(true);
 
     const supabase = createClient();
-    const { error: verifyError } = await supabase.auth.verifyOtp({
-      email,
-      token: code,
-      type: "email",
-    });
+    let verifyError: Parameters<typeof classifyVerifyError>[0] = null;
+    try {
+      ({ error: verifyError } = await supabase.auth.verifyOtp({
+        email: email.trim(),
+        token: code,
+        type: "email",
+      }));
+    } catch (err) {
+      console.error("verifyOtp threw:", err);
+      verifyError = { name: "AuthRetryableFetchError", status: 0 };
+    }
 
     if (verifyError) {
+      console.error("verifyOtp error:", verifyError);
       setSubmitting(false);
-      setError(VERIFY_CODE_ERRORS.incorrect);
+      setError(classifyVerifyError(verifyError, sentAt.current));
       return;
     }
 
     router.push("/members");
+  }
+
+  async function handleResend() {
+    if (resending || submitting) return;
+    setResending(true);
+    setResent(false);
+    const failure = await sendCode(email.trim());
+    setResending(false);
+    if (failure) {
+      setError(failure);
+      return;
+    }
+    setError(null);
+    setCode("");
+    setResent(true);
+    inputRef.current?.focus({ preventScroll: true });
   }
 
   // One input and one button serve both steps (only their content
@@ -172,8 +226,25 @@ export function MemberLoginFormNative() {
       ? "Verifying…"
       : "Verify code";
 
-  const codeStepHelper = `We sent a 6-digit code to ${email}.`;
+  const codeStepHelper = `We sent a 6-digit code to ${email.trim()}.`;
   const errorId = useId();
+  const inputId = useId();
+  const resendOn = error === "expired" || error === "too-many";
+
+  let errorBody: ReactNode = null;
+  if (error) {
+    const Mark = error === "network" ? WifiOff : CircleAlert;
+    const text = error === "generic" && step === "code" ? VERIFY_GENERIC : MESSAGES[error];
+    errorBody = (
+      <p className="m-0 flex items-start justify-center gap-1.5 text-center">
+        <Mark aria-hidden size={16} strokeWidth={2} className="mt-[1px] shrink-0" />
+        <span>
+          {text}
+          {error === "not-found" ? <span className="mt-1.5 block text-foreground">{APPLIED_LINE}</span> : null}
+        </span>
+      </p>
+    );
+  }
 
   return (
     <div
@@ -186,24 +257,19 @@ export function MemberLoginFormNative() {
         fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
       }}
     >
-      <section className="relative flex flex-1 flex-col">
-        {/* The whole column (icon down to the card) is centered in the
-            space between the status bar and the bottom watermark
-            (SiteWatermark: full width at its image's 1942:641 ratio, so
-            33.01vw tall), keeping at least 24px from each. Centering on
-            the whole screen put the bottom of the column over the
-            watermark on short phones. min-h-dvh, not just flex-1: with the keyboard
-            up, useKeyboardReveal grows the spacer below <main> to make
-            scroll room, and <main> filling only what was left would
-            shrink instead, re-centering the column rather than letting
-            the page scroll. */}
-        <main className="relative z-10 flex min-h-dvh flex-1 flex-col items-center justify-center px-4 pt-[calc(1.5rem+var(--safe-top))] pb-[calc(33.01vw+1.5rem)] sm:px-6">
-          {/* The "y" mark, framed here by CSS to read as the app icon. Its
-              own file, not public/yuppie_app_icon_1024.png: that's the
-              real icon now, which already bakes this frame in. The ink
-              keyline isn't decorative: the art's background is the same
-              yellow as the page, so without it its edges disappear.
-              Radius is ~22% of the width, the ratio iOS masks icons with. */}
+      {/* With the keyboard up the page scrolls under the clock: a solid strip
+          keeps it readable (r2a 7, NEW; needs_device_check). Invisible otherwise:
+          the same yellow as the page. */}
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[var(--safe-top)] bg-background" />
+      <section className="relative flex min-h-dvh flex-1 flex-col">
+        {/* The whole column (badge down to the card) is centred in the space
+            between the status area and the wordmark at the foot, keeping at
+            least 16px from the top inset and 24px from the foot. With the
+            keyboard up, useKeyboardReveal grows the spacer below to make
+            scroll room. */}
+        <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 pt-[calc(1rem+var(--safe-top))] pb-6 text-center">
+          {/* The "y" mark, framed by CSS to read as the app icon (3px ink keyline:
+              the art's background is the page's yellow). Radius ~22%, as iOS masks icons. */}
           <motion.div {...fade(0.1)}>
             <Image
               src="/yuppie_app_badge_y.png"
@@ -212,14 +278,11 @@ export function MemberLoginFormNative() {
               width={180}
               height={180}
               priority
-              className="h-[60px] w-[60px] rounded-[22%] border-[3px] border-foreground shadow-[0_8px_16px_rgba(27,21,18,0.28)]"
+              className="h-[60px] w-[60px] rounded-[22%] border-[3px] border-foreground"
             />
           </motion.div>
 
-          <motion.span
-            {...fade(0.2)}
-            className={cn("mt-6", PAGE_EYEBROW_CLASS)}
-          >
+          <motion.span {...fade(0.2)} className={cn(TERM_LABEL_CLASS, "mt-5 block")}>
             Members App
           </motion.span>
 
@@ -227,58 +290,73 @@ export function MemberLoginFormNative() {
               card's contents change when a code is sent. */}
           <motion.h1
             {...fade(0.3)}
-            className="mt-3 text-center text-3xl font-extrabold leading-[0.95] text-foreground sm:text-4xl sm:leading-[0.9] md:text-5xl optical-trim"
+            className="mt-3 text-center text-[36px] font-extrabold leading-[0.95] tracking-[-0.03em] text-foreground [text-wrap:balance]"
           >
-            One quick sign-in.
+            Welcome back.
             <br />
-            <em className="italic [font-family:var(--font-instrument-serif)] font-normal">
-              Then let&apos;s see what&apos;s on.
+            <em className="italic [font-family:var(--font-instrument-serif)] font-normal tracking-[-0.01em]">
+              Let’s see what’s on.
             </em>
           </motion.h1>
           {/* Purely instructional, never an error. Both steps' lines are
               stacked in one grid cell so swapping them at the step change
-              can't move the card below. The code-step line includes the
-              typed email, so it's only reserved once on that step (typing a
-              long email can't shift the page). Polite live region, so the
-              step change ("We sent a 6-digit code to…") is announced. */}
+              can't move the card below. Polite live region, so the step
+              change ("We sent a 6-digit code to…") is announced. */}
           <motion.div
             {...fade(0.45)}
             aria-live="polite"
-            className="mx-auto mt-3 grid w-full max-w-sm text-center text-sm text-foreground-muted sm:text-base"
+            className="mx-auto mt-3 grid w-full max-w-[320px] text-center text-[17px] leading-normal [text-wrap:balance]"
           >
-            <p aria-hidden className="invisible [grid-area:1/1]">
+            <p aria-hidden className="invisible m-0 [grid-area:1/1]">
               {EMAIL_STEP_HELPER}
             </p>
             {step === "code" && (
-              <p aria-hidden className="invisible [grid-area:1/1]">
+              <p aria-hidden className="invisible m-0 break-words [grid-area:1/1]">
                 {codeStepHelper}
               </p>
             )}
-            <p className="[grid-area:1/1]">
+            <p className="m-0 break-words [grid-area:1/1]">
               {step === "email" ? EMAIL_STEP_HELPER : codeStepHelper}
             </p>
           </motion.div>
 
-          <motion.div
-            {...fade(0.6)}
-            className="mt-6 w-full max-w-sm rounded-2xl border border-foreground/10 bg-background-muted p-8 shadow-[0_24px_48px_-28px_rgba(27,21,18,0.45)]"
-          >
+          {notice && isEmailStep ? (
+            <motion.div
+              {...fade(0.5)}
+              role="status"
+              className="mt-5 flex w-full max-w-[354px] items-start gap-3 rounded-2xl border-[1.5px] border-foreground bg-background-muted px-4 py-3.5 text-left text-[15px] leading-[1.4]"
+            >
+              {notice === "logged-out" ? (
+                <LogOut aria-hidden size={22} strokeWidth={2} className="mt-[1px] shrink-0" />
+              ) : (
+                <Info aria-hidden size={22} strokeWidth={2} className="mt-[1px] shrink-0" />
+              )}
+              <div>
+                <b className="block text-base font-extrabold">{NOTICE_WORDS[notice].title}</b>
+                {NOTICE_WORDS[notice].body}
+              </div>
+            </motion.div>
+          ) : null}
+
+          <motion.div {...fade(0.6)} className={cn(CARD_CLASS, "mt-6 mr-1.5 w-full max-w-[354px] text-left")}>
             {/* A single form, input and button for both steps, so they're
-                literally the same boxes: only their content changes. h-14
-                pins the input at exactly 56px whatever the text styling
-                inside it (the code step's larger, letter-spaced digits). */}
+                literally the same boxes: only their content changes. h-[50px]
+                pins the input at 50px whatever the text styling inside it. */}
             <form
               onSubmit={isEmailStep ? handleSendCode : handleVerifyCode}
               noValidate
               className="flex flex-col"
             >
+              <label htmlFor={inputId} className={cn(LABEL_CLASS, "mb-2")}>
+                {isEmailStep ? "Email address" : "6-digit code"}
+              </label>
               <input
                 ref={inputRef}
+                id={inputId}
                 type={isEmailStep ? "email" : "text"}
                 inputMode={isEmailStep ? "email" : "numeric"}
                 autoComplete={isEmailStep ? "email" : "one-time-code"}
                 maxLength={isEmailStep ? undefined : 6}
-                aria-label={isEmailStep ? "Email address" : "6-digit code"}
                 aria-invalid={error ? true : undefined}
                 aria-describedby={error ? errorId : undefined}
                 value={isEmailStep ? email : code}
@@ -289,29 +367,29 @@ export function MemberLoginFormNative() {
                 }
                 placeholder={isEmailStep ? "you@example.com" : "123456"}
                 className={cn(
-                  inputClasses,
-                  "h-14",
-                  !isEmailStep && "text-center text-lg tracking-[0.5em]",
-                  // Important, to win over the base and focus border colors
-                  // (cn is a plain join, not a Tailwind conflict merge).
+                  INPUT_CLASS,
+                  "h-[50px]",
+                  // The code step's digits: 28px, bold, letter-spaced (r2a .lg-code); the placeholder stays light.
+                  !isEmailStep && "text-center text-[28px]! font-extrabold! tracking-[0.38em] pl-[calc(14px+0.38em)]! placeholder:font-normal!",
+                  // Important, to win over the base border colour (cn is a
+                  // plain join, not a Tailwind conflict merge).
                   error && "border-[#B3261E]!",
                 )}
               />
 
-              {/* No reserved space: with no error the button sits the usual
-                  12px below the input. An error mounts under the input and
-                  grows in (see MessageSlot). */}
+              {/* No reserved space: an error mounts under the input and grows in (see MessageSlot). */}
               <MessageSlot
                 id={errorId}
-                className="text-center text-[13px] leading-[1.35] text-[#B3261E]"
+                className="text-center text-sm leading-[1.35] text-[#B3261E]"
               >
-                {error && <p>{error}</p>}
+                {errorBody}
               </MessageSlot>
 
-              {/* The label crossfades in place (Send login code -> Sending…
-                  -> Verify code); stacking old and new in one grid cell keeps
-                  the button's size independent of either label. */}
-              <Button type="submit" disabled={submitting} className="mt-3 w-full">
+              <button
+                type="submit"
+                disabled={submitting}
+                className={cn(PRIMARY_BUTTON_CLASS, "mt-4 w-full")}
+              >
                 <span className="grid">
                   <AnimatePresence initial={false}>
                     <motion.span
@@ -326,24 +404,40 @@ export function MemberLoginFormNative() {
                     </motion.span>
                   </AnimatePresence>
                 </span>
-              </Button>
+              </button>
 
-              {/* Code step only. It used to stay rendered (transparent and
-                  inert) on the email step to hold its row, which left the
-                  email step's card 32px heavier at the bottom than the top.
-                  Now it mounts on the code step and grows in like a
-                  message (.message-grow-in), 12px below the button. */}
+              {/* Code step only: mounts on the code step and grows in like a message. */}
               {!isEmailStep && (
-                <div className="message-grow-in [--message-gap-to:12px]">
-                  <div>
+                <div className="message-grow-in [--message-gap-to:4px]">
+                  <div className="flex flex-col items-center">
+                    <p aria-live="polite" className="m-0 w-full">
+                      {resent ? (
+                        <span className="flex min-h-7 items-center justify-center gap-1.5 text-sm font-bold text-[#2F6B3A]">
+                          <Check aria-hidden size={16} strokeWidth={2} />
+                          New code sent.
+                        </span>
+                      ) : null}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleResend}
+                      disabled={resending}
+                      className={cn(
+                        "block min-h-11 border-0 bg-transparent text-sm font-bold underline underline-offset-2 outline-none focus-visible:text-foreground focus-visible:decoration-[3px]",
+                        resendOn ? "text-foreground" : "text-site-muted",
+                      )}
+                    >
+                      {resending ? "Sending…" : "Send a new code"}
+                    </button>
                     <button
                       type="button"
                       onClick={() => {
                         setStep("email");
                         setCode("");
                         setError(null);
+                        setResent(false);
                       }}
-                      className="block w-full text-sm font-medium text-foreground/50 outline-none transition-colors hover:text-foreground hover:underline focus-visible:text-foreground focus-visible:underline"
+                      className="block min-h-11 border-0 bg-transparent text-sm font-bold text-site-muted underline underline-offset-2 outline-none focus-visible:text-foreground focus-visible:decoration-[3px]"
                     >
                       Use a different email
                     </button>
@@ -353,6 +447,36 @@ export function MemberLoginFormNative() {
             </form>
           </motion.div>
         </main>
+
+        {/* The giant wordmark standing on a 3px rule, above the home indicator. */}
+        <div
+          aria-hidden
+          className="shrink-0"
+          style={{ paddingBottom: "var(--native-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))" }}
+        >
+          <div className="px-5">
+            <span
+              className="relative block w-full overflow-hidden"
+              style={{ aspectRatio: `${WORDMARK_INK.width} / ${WORDMARK_INK.height}` }}
+            >
+              <Image
+                src="/yuppie_logo_forte_forward.png"
+                alt=""
+                width={WORDMARK_FILE.width}
+                height={WORDMARK_FILE.height}
+                sizes="100vw"
+                className="absolute block h-auto max-w-none"
+                style={{
+                  width: `${(WORDMARK_FILE.width / WORDMARK_INK.width) * 100}%`,
+                  height: `${(WORDMARK_FILE.height / WORDMARK_INK.height) * 100}%`,
+                  left: `${(-WORDMARK_INK.left / WORDMARK_INK.width) * 100}%`,
+                  top: `${(-WORDMARK_INK.top / WORDMARK_INK.height) * 100}%`,
+                }}
+              />
+            </span>
+          </div>
+          <hr className="m-0 border-0 border-t-[3px] border-foreground" />
+        </div>
         {/* Extra scroll room while the keyboard covers part of the screen;
             0px otherwise. Sized by useKeyboardReveal. */}
         <div ref={keyboardSpacerRef} aria-hidden className="shrink-0" />

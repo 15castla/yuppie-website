@@ -1,19 +1,18 @@
 // What the You page draws, as plain data (BUILD_BRIEF 6: types first). The
-// page file fetches the real member and the real billing date and builds
-// these; the view is a pure component of them, so the preview harness can
-// draw every state with no login and no database.
+// page file fetches the real member and builds these; the view is a pure
+// component of them, so the preview harness can draw every state with no
+// login and no database.
 //
-// Real today: the member's details, "active", "paused" and "cancelled" (the
-// three membership_status values), the next billing date from Stripe, and
-// the two actions that exist (Cancel membership, Log out).
-// NEEDS BACKEND (drawn, never built by the live page): "ending" (the
-// subscription is set to cancel at period end; nothing flips the status or
-// reads it back), "problem" (a failed payment; the Stripe webhook only
-// handles event payments), the card's own actions (Manage and Update card
-// need a Stripe billing page link; Keep my membership needs an undo for the
-// cancel), and the three Settings summaries (notification channels, Get paid
-// status, the blocked list) which have no data until Notifications, Payments
-// and Messages have a backend.
+// Real (Phase A): the member's details, the five membership states with real
+// dates (lib/server/membership-actions.ts membershipCardFor: active, ending,
+// problem, paused, cancelled; paused and cancelled members see the gate, so
+// only the preview draws those two on You), the card's buttons (Manage and
+// Update card open the Stripe billing portal through /members/billing; Keep
+// my membership undoes a cancel), the D8 warning line, the two-step Cancel
+// membership with its reason, Delete my account and Log out.
+// NEEDS BACKEND (Phase B): the three Settings summaries (notification
+// channels, Get paid status, the blocked list), and the hosted-plans lines in
+// the cancel and delete dialogs (Open Invite and paid plans are not real yet).
 
 export type MembershipState = "active" | "ending" | "problem" | "paused" | "cancelled";
 
@@ -27,8 +26,14 @@ export type MembershipCardData = {
   failedOn?: string | null;
   /** "15 Nov". Update the card by this date (the problem state). */
   updateBy?: string | null;
-  /** The one button in the card ("Manage", "Keep my membership", "Update card"). Only the preview sets it: no live code supports any of them yet. */
-  action?: { label: string; href?: string };
+  /** ending: club events booked after the end date (D8), "Sunrise Wellness Retreat" and "Sun 15 Nov". */
+  afterEnd?: { title: string; when: string }[];
+  /**
+   * The one button in the card: "Manage" and "Update card" (href: the billing portal route; external in the
+   * app, so the native shell hands it on rather than navigating its own WebView), "Keep my membership" (no
+   * href: the view's keep action).
+   */
+  action?: { label: string; href?: string; external?: boolean };
 };
 
 export type SettingsKey = "notifications" | "payments" | "blocked";

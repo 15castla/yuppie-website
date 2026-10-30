@@ -42,6 +42,10 @@ export const ROUTES = {
   youPhoto: "/members/you/photo",
   /** The photo gate: full screen, no tabs, shown until a photo is saved. */
   photo: "/members/photo",
+  /** The membership gate (A-D4): a paused or ended member sees this and nothing else. Full screen, no tabs. */
+  membership: "/members/membership",
+  /** Not a page: opens the Stripe billing portal (Manage, Update card; the payment-failed email links here). */
+  billing: "/members/billing",
   /** Kept: edit your details. Not renamed, so saved links keep working. */
   profileEdit: "/members/profile/edit",
   /** Legacy: redirects to You. Do not link to it. */
@@ -50,6 +54,8 @@ export const ROUTES = {
 
 // Dynamic routes.
 export const openInviteHref = (id: string) => `${ROUTES.openInvite}/${encodeURIComponent(id)}`;
+/** An event's calendar file (Add to calendar; the booking email links here). */
+export const eventCalendarHref = (slug: string) => `${eventHref(slug)}/calendar.ics`;
 /** A paid plan's receipt (paid plans flag). A sub page of the plan. */
 export const openInviteReceiptHref = (id: string) => `${openInviteHref(id)}/receipt`;
 /** One paid plan's payments, for its host (You > Payments > a plan). */
@@ -103,6 +109,7 @@ export const ROUTE_TABLE: readonly RouteDef[] = [
   { id: "youHelpPrivacy", pattern: ROUTES.youHelpPrivacy, tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youPhoto", pattern: ROUTES.youPhoto, flag: "photoGate", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "photo", pattern: ROUTES.photo, flag: "photoGate", tab: null, messages: "none", dock: "own", chrome: "bare" },
+  { id: "membership", pattern: ROUTES.membership, tab: null, messages: "none", dock: "own", chrome: "bare" },
   { id: "profileEdit", pattern: ROUTES.profileEdit, tab: null, messages: "none", dock: "tabs", you: true },
 ];
 

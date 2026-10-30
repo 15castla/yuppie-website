@@ -2,13 +2,21 @@ import type Stripe from "stripe";
 import { NextResponse } from "next/server";
 
 import { stripe } from "@/lib/stripe";
-import { confirmPaidBooking } from "@/app/members/events/confirm-paid-booking";
+import { processStripeEvent } from "@/lib/server/stripe/webhook";
 
-// Route handlers default to the Node.js runtime already (only opting
-// into "edge" is special-cased), but the Stripe SDK specifically
-// requires Node, so this is set explicitly rather than left implicit.
+// Route handlers default to the Node.js runtime already, but the Stripe SDK
+// specifically requires Node, so this is set explicitly.
 export const runtime = "nodejs";
 
+// Stripe webhooks: verify the signature, then lib/server/stripe/webhook.ts
+// records the event id (a retried delivery that was processed is skipped) and
+// runs one handler per type: payment_intent.succeeded (a paid booking, the
+// same idempotent path the page uses), payment_intent.payment_failed,
+// invoice.payment_failed and invoice.paid (membership payment trouble and its
+// fix), customer.subscription.updated and .deleted (cancel dates, pause, the
+// end of a membership with its D8 refunds) and charge.refunded.
+//
+// A handler that throws answers 500 so Stripe retries; anything else is 200.
 export async function POST(request: Request) {
   const signature = request.headers.get("stripe-signature");
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -28,39 +36,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature." }, { status: 400 });
   }
 
-  if (event.type !== "payment_intent.succeeded") {
-    return NextResponse.json({ received: true });
+  try {
+    const outcome = await processStripeEvent(event);
+    return NextResponse.json({ received: true, ...outcome });
+  } catch (err) {
+    console.error(`Stripe webhook ${event.type} ${event.id} failed:`, err);
+    return NextResponse.json({ received: false, error: "Handler failed." }, { status: 500 });
   }
-
-  const paymentIntent = event.data.object as Stripe.PaymentIntent;
-  const memberId = paymentIntent.metadata?.member_id;
-  const eventId = paymentIntent.metadata?.event_id;
-  const paymentIntentId = paymentIntent.id;
-
-  if (!memberId || !eventId) {
-    // Not every payment_intent.succeeded event is an event booking: the
-    // membership subscription flow's invoice payments fire this same
-    // event type too, they just don't carry this metadata (subscriptions
-    // are created synchronously in app/admin/applications-actions.ts, not
-    // through this webhook), so this just isn't one of ours to handle.
-    return NextResponse.json({ received: true });
-  }
-
-  // Same idempotent insert the page itself calls (confirmEventPayment in
-  // app/members/events/actions.ts) once a payment completes in place. This
-  // stays as the path for payments that finish elsewhere: Apple Pay or 3D
-  // Secure redirects, or a member closing the app mid-payment. Stripe also
-  // retries delivery, which the same idempotency makes a no-op.
-  const { booked } = await confirmPaidBooking(paymentIntentId, memberId, eventId);
-
-  if (!booked) {
-    // confirmPaidBooking has logged the details. Still a 200: Stripe
-    // would otherwise keep retrying an event whose failure is on this end
-    // (e.g. a schema issue), not something a retry could fix on its own,
-    // and the payment has already succeeded either way, so this needs
-    // manual follow-up rather than an automatic retry loop.
-    return NextResponse.json({ received: true, error: "Booking insert failed." });
-  }
-
-  return NextResponse.json({ received: true });
 }

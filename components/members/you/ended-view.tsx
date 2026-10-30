@@ -1,9 +1,8 @@
 // The membership-ended gate: a full screen with no tabs, no photo and no Open
-// Invite. Drawn from the approved design (specs/you.md "Membership states") and
-// NOT used by any live page. NEEDS BACKEND: nothing enforces it yet. A paused
-// or cancelled member can still log in and reach every page, and the status
-// that would send them here ("ended on 12 Nov") has no date column. The
-// preview draws it so the screen is ready when the rule exists.
+// Invite. Drawn from the approved design (specs/you.md "Membership states").
+// The gate page (app/members/membership) shows it to ended members; Delete my
+// account opens the members area's one Delete dialog (deleteMyAccount, which
+// works from the gate).
 //
 // Web: Rejoin (to the public application) and Contact us. App: only "Get in
 // touch", because Apple's rules keep billing and sign-up links out of the app.
@@ -16,7 +15,9 @@ import { Wordmark } from "@/components/members/shell/wordmark";
 import type { ShellMode } from "@/components/members/shell/types";
 import { Button, Icon, KitLink, Main, PerkDrawing, SectionTitle, Serif, cssVars } from "@/components/members/kit";
 import { CONTACT_EMAIL } from "@/components/site/links";
+import { DeleteAccountLink } from "./delete-account-link";
 import { YouFoot } from "./you-parts";
+import type { SessionEnded } from "@/components/members/session-ended";
 
 const REASONS = [
   { title: "Events", text: "Supper clubs, Padel & Pints and nights out. Run by us, at cost.", art: "coupes" },
@@ -30,6 +31,7 @@ export function MembershipEndedView({
   legal,
   appVersion,
   signOut,
+  deleteAccount,
 }: {
   mode: ShellMode;
   /** "12 Nov". */
@@ -37,6 +39,8 @@ export function MembershipEndedView({
   legal: string[];
   appVersion?: string | null;
   signOut: () => void | Promise<void>;
+  /** The preview's stand-in for deleteMyAccount (the live gate leaves it out: the dialog's default is the real action). */
+  deleteAccount?: (confirmation: string) => Promise<{ ok: false; error: string } | SessionEnded | void>;
 }) {
   const isApp = mode === "app";
   const logOut = (
@@ -121,10 +125,7 @@ export function MembershipEndedView({
           <div className="mk-wrap">
             <div className="yu-quiet-row">
               {isApp ? logOut : null}
-              {/* Drawn, not wired: nothing deletes an account yet. */}
-              <Button variant="quiet" danger className="yu-quiet">
-                Delete my account
-              </Button>
+              <DeleteAccountLink deleteAccount={deleteAccount} />
             </div>
           </div>
         </section>

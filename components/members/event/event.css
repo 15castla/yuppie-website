@@ -1,0 +1,143 @@
+/* The event page, the price and booking bar, the booking card and the booking sheets (r2a sections 1 to 5).
+   Ported from the approved design (/home/claude/rebrand/v4/r2a.css) the way FOUNDATION_NOTES section 3 says:
+   kit classes became mk-*, @container became @media and cqw became vw, the board furniture is left out.
+   Area classes keep the design's own prefixes: ea- (event page), bk- (booking sheets). The sheets themselves are
+   the approved pay sheet's grammar (components/members/payments/payments.css, components/members/invite/sheet.tsx).
+   Values are the kit's tokens; spacing stays on the scale (4 8 12 16 20 24 32 40 48 64). */
+
+/* ---- 0. the page: no bottom padding (the cream band runs to the bar), the band fills a tall screen ---- */
+.mk-screen .mk-main-pad.ea-main{padding-bottom:0;display:flex;flex-direction:column}
+.ea-main>*{flex:0 0 auto}
+.ea-main>.ea-band{flex:1 0 auto}
+
+/* ---- 1. event detail: the hero --------------------------------------------------------------------- */
+.ea-hero{position:relative;border-bottom:3px solid var(--ink)}
+.ea-crumb{display:none}
+.ea-hero-in{position:relative;padding-top:20px}
+.ea-pills{display:flex;flex-wrap:wrap;gap:8px}
+.ea-h1{margin-top:16px;font-size:36px;font-weight:800;line-height:1.02;letter-spacing:-.03em;overflow-wrap:anywhere;text-wrap:balance}
+.ea-h1 .mk-serif{letter-spacing:-.01em}
+.ea-h1 .mk-serif.ea-block{display:block}
+.ea-note{display:flex;gap:12px;align-items:flex-start;margin-top:20px;padding:14px 16px;border:2px solid var(--ink);border-radius:16px;background:var(--pale);font:400 15px/1.4 var(--font-body)}
+.ea-note .mk-ico{margin-top:1px;flex:none}
+.ea-note b{font-weight:700}
+.ea-factsrow{display:flex;align-items:flex-end;gap:16px;margin-top:20px}
+.ea-facts{flex:1 1 auto;min-width:0;padding-bottom:24px;display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px 0;font-size:16px;line-height:1.35}
+.ea-facts dt{font-weight:700}
+.ea-facts dd{min-width:0;overflow-wrap:anywhere}
+.ea-facts .ea-sub{display:block;margin-top:2px;font-size:14px;line-height:1.35;color:var(--muted)}
+.ea-facts .ea-bad{color:var(--ink);font-weight:700}
+.ea-art{flex:none;display:flex;justify-content:flex-end;padding-right:2px;margin-bottom:0}
+.ea-art svg{display:block;overflow:visible}
+@media (max-width:359px){ .ea-h1{font-size:32px} .ea-factsrow{flex-direction:column;align-items:stretch;gap:0} .ea-facts{grid-template-columns:64px minmax(0,1fr);padding-bottom:16px} .ea-art{align-self:flex-end} }
+.ea-hero-side{display:none}
+.ea-photo{display:block;position:relative;width:100%;aspect-ratio:16/9;overflow:hidden;background:var(--pale);border-bottom:3px solid var(--ink)}
+.ea-photo img{display:block;width:100%;height:100%;object-fit:cover}
+.ea-hero.ea-has-photo .ea-hero-in{padding-top:24px}
+
+/* the band below the hero: cream, the public site's rhythm */
+.ea-band{background:var(--cream);padding-top:40px;padding-bottom:40px}
+.ea-band-grid{display:flex;flex-direction:column;gap:40px}
+.ea-col-a,.ea-col-b{display:flex;flex-direction:column;gap:40px;min-width:0}
+.ea-col-a:empty,.ea-col-b:empty{display:none}
+.ea-p{font-size:17px;line-height:1.45;text-wrap:pretty;white-space:pre-line;overflow-wrap:anywhere}
+.ea-incl{padding:18px 20px 20px}
+.ea-incl h2{font:800 18px/1.25 var(--font-body);letter-spacing:-.01em}
+.ea-incl p{margin-top:8px;font-size:16px;line-height:1.45;text-wrap:pretty}
+.ea-money{display:flex;flex-direction:column;gap:12px;list-style:none;padding:0;margin:0}
+.ea-money li{display:flex;gap:12px;align-items:flex-start;font:400 15px/1.4 var(--font-body)}
+.ea-money li .mk-ico{flex:none;margin-top:1px}
+.ea-money li b{font-weight:700}
+
+/* the booking card in the page (booked, phone): address, calendar, receipt, cancel */
+.ea-book{display:flex;flex-direction:column;scroll-margin-top:16px}
+.ea-book:focus{outline:none}
+.ea-book:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+.ea-book-top{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:22px}
+.ea-book-h{margin-top:12px;font:800 28px/1.1 var(--font-body);letter-spacing:-.025em}
+.ea-book-p{margin-top:8px;font:400 16px/1.45 var(--font-body)}
+.ea-book .mk-rows{margin-top:16px;border-top:1.5px solid var(--ink)}
+.ea-book .mk-rows>.mk-row{min-height:76px}
+.ea-book .mk-row .mk-meta{white-space:normal;overflow-wrap:anywhere}
+.ea-book .mk-row.ea-plain{cursor:default}
+.ea-book-foot{display:flex;flex-direction:column;align-items:flex-start;gap:0;margin-top:8px}
+.ea-book-foot .mk-small{color:var(--muted);margin-top:2px;font-size:14px;line-height:1.4}
+.ea-book-foot .mk-link{gap:8px}
+.ea-gcal{display:inline-flex;align-items:center;gap:6px;min-height:44px;font:700 14px/1.2 var(--font-body);color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+.ea-addr{display:flex;gap:12px;align-items:flex-start;margin-top:16px;padding:14px 16px;border:1.5px solid var(--ink);border-radius:16px;background:var(--cream)}
+.ea-addr .mk-ico{flex:none;margin-top:2px}
+.ea-addr b{display:block;font:700 16px/1.3 var(--font-body)}
+.ea-addr span{display:block;margin-top:2px;font:400 14px/1.4 var(--font-body);color:var(--muted);overflow-wrap:anywhere}
+
+/* ---- 2. the fixed price and booking bar (replaces the tab bar on this page; phone only) ------------------
+   The shell's dock rules carry the fixed position, the solid background-color and the compositor hints (.mk-dock);
+   the spacer in the page keeps the end of the band above it (it holds an invisible copy of the message strip, so it
+   is always exactly as tall as the bar). needs_device_check: safe area, Safari's toolbar tint, the keyboard. */
+.ea-bar-wrap{display:flex;flex-direction:column}
+.ea-msg{display:flex;gap:12px;align-items:flex-start;padding:12px var(--gutter);background:var(--pale);border-top:3px solid var(--ink);font:400 14px/1.4 var(--font-body)}
+.ea-msg .mk-ico{flex:none;color:var(--error);margin-top:1px}
+.ea-msg b{font-weight:700;color:var(--error)}
+.ea-msg + .mk-tabbar.ea-bar{border-top-width:1.5px}
+.mk-tabbar.ea-bar{justify-content:space-between;align-items:center;gap:16px;padding-left:var(--gutter);padding-right:var(--gutter)}
+.ea-bar .ea-pr{min-width:0}
+.ea-bar .ea-pr b{display:block;font:800 17px/1.15 var(--font-body);letter-spacing:-.01em;white-space:nowrap}
+.ea-bar .ea-pr span{display:block;margin-top:2px;font:400 13px/1.25 var(--font-body);color:var(--muted);white-space:nowrap}
+.ea-bar .mk-btn{flex:none;min-height:48px;width:168px;min-width:168px;padding:0 16px;font-size:16px;gap:8px;position:relative}
+.mk-btn.mk-is-pending{cursor:progress}
+.ea-spacer{flex:none;margin-top:auto;visibility:hidden}
+.ea-spacer .ea-bar-h{height:var(--dock-h)}
+@media (max-width:359px){ .ea-bar .mk-btn{width:148px;min-width:148px;padding:0 12px} .ea-bar .ea-pr b{font-size:16px} .mk-tabbar.ea-bar{gap:10px} }
+/* the bar and the phone-only blocks give way to the computer's card from 768px (their own display rules come
+   after the kit's .mk-dock and .mk-show-phone, so they say so again here) */
+@media (min-width:768px){ .ea-spacer,.mk-dock.ea-bar-wrap,.ea-money.mk-show-phone{display:none} }
+
+/* the booking card, computer: pale, hard shadow, the drawing stands on its top edge */
+.ea-card{position:relative;background:var(--pale);border:2px solid var(--ink);border-radius:20px;padding:28px;box-shadow:8px 8px 0 var(--ink)}
+.ea-card .ea-big{font-size:28px;font-weight:800;line-height:1.1;letter-spacing:-.02em}
+.ea-card .ea-sub{margin-top:4px;font-size:15px;color:var(--muted)}
+.ea-card .ea-act{display:flex;flex-direction:column;gap:12px;margin-top:20px}
+.ea-card .ea-act .mk-btn{width:100%}
+.ea-card .ea-addr+.ea-act{margin-top:20px}
+.ea-card .mk-link{gap:8px}
+.ea-card hr{border:0;border-top:1.5px solid var(--ink);margin:16px 0 4px}
+.ea-card .ea-links{display:flex;flex-direction:column;align-items:flex-start}
+.ea-card .ea-fine{margin-top:16px;font:400 14px/1.4 var(--font-body);color:var(--muted)}
+.ea-card .ea-gcal{margin-top:4px;align-self:center}
+.ea-card .ea-msg-desk{display:flex;gap:10px;align-items:flex-start;margin-top:16px;font:400 14px/1.4 var(--font-body)}
+.ea-card .ea-msg-desk .mk-ico{flex:none;color:var(--error);margin-top:1px}
+.ea-card .ea-msg-desk b{font-weight:700;color:var(--error)}
+.ea-card-art{position:absolute;right:48px;bottom:100%;margin-bottom:-2px;display:block}
+.ea-card-art svg{display:block;overflow:visible}
+
+@media (min-width:768px){
+  .ea-crumb{display:inline-flex;align-items:center;gap:4px;min-height:44px;margin-left:-8px;padding-right:8px;font:700 15px/1.2 var(--font-body);color:var(--ink);text-decoration:none}
+  .ea-hero-in{padding-top:8px}
+  .ea-hero.ea-has-photo .ea-hero-in{padding-top:8px}
+  .ea-hero-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,440px);column-gap:var(--col-gap);align-items:start}
+  .ea-hero-main{padding-top:24px;padding-bottom:64px}
+  .ea-h1{font-size:clamp(44px,5.2vw,72px);line-height:1;margin-top:20px}
+  .ea-facts{margin-top:32px;grid-template-columns:116px minmax(0,1fr);gap:12px 0;font-size:19px}
+  .ea-facts .ea-sub{font-size:16px}
+  .ea-art{display:none}
+  .ea-hero-side{display:block;position:relative;margin-top:120px;margin-bottom:64px;padding-right:8px}
+  .ea-hero.ea-has-photo .ea-hero-side{margin-top:32px}
+  .ea-hero-side .ea-photo{border:2px solid var(--ink);border-radius:20px;box-shadow:8px 8px 0 var(--ink);margin-bottom:32px}
+  .ea-photo-phone{display:none}
+  .ea-band{padding-top:64px;padding-bottom:72px}
+  .ea-band-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:var(--col-gap);align-items:start}
+  .ea-p{font-size:19px}
+  .ea-incl p{font-size:17px}
+}
+@media (min-width:768px) and (max-width:1023px){ .ea-hero-grid{grid-template-columns:minmax(0,1fr) 340px} .ea-hero-main{padding-bottom:48px} }
+
+/* ---- 3. booking sheets (the approved pay sheet's grammar, with an event in the summary) ------------------ */
+.bk-sum .hd .mk-date{margin-right:2px}
+.bk-sum .hd .mk-date .mk-wd{color:var(--muted)}
+.bk-addr{margin-top:16px}
+.mk-btn.bk-dim{opacity:.45;cursor:not-allowed}
+.bk-fields{margin-top:20px;min-height:120px}
+.bk-fields.is-off{pointer-events:none;opacity:.6}
+.pay-act2 .bk-gcal{align-self:center;margin-top:-4px}
+.pay-act2 .mk-link.mk-danger{align-self:center}
+/* Stripe's own fields (the Payment Element) sit where the drawn Apple Pay and card box are in the design. */
+.bk-stripe{min-height:120px}
