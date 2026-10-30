@@ -7,30 +7,49 @@
 // previews the plan the selected update is about.
 //
 // States: ready, empty (a cream band with a drawing), loading (one muted line,
-// aria-busy), error (a status card with "Try again"). Local state only: the
-// tab, "Mark all as read", the update picked on a computer. Marking read in a
-// real inbox is the backend's (see types.ts).
+// aria-busy), error (a status card with "Try again").
+//
+// Real data (app/members/messages/actions.ts): the page draws the lists; while
+// the inbox is open they are asked for again on a slow timer and when the tab
+// comes back into view (polling, not sockets). The tab numbers count what the
+// lists show, the same rows the messages icon adds up (the server's
+// unread_counts). "Mark all as read", opening an update (a tap on a phone, a
+// click on a computer) and the update shown in the computer's card are read on
+// the server, and the icon is asked to look again. `local` (the preview
+// harness) keeps all of that on the screen.
 //
 // Kit counterparts: pages_msg.inbox_page(), tab_seg(), inbox_rows(),
 // upd_rows(), inbox_empty_band(), upd_empty_band().
 
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useId, useState, type KeyboardEvent, type ReactNode } from "react";
+import { Fragment, useCallback, useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 
-import { BackLink, Button, ExampleNote, Icon, KitLink, Main } from "@/components/members/kit";
+import {
+  getChats,
+  getUpdates,
+  markAllUpdatesRead,
+  markUpdateRead,
+} from "@/app/members/messages/actions";
+import { BackLink, Button, Icon, KitLink, Main } from "@/components/members/kit";
+import { announceUnreadChanged } from "@/components/members/shell/use-unread";
+import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 import { updateGroup } from "@/lib/members/messages/format";
 import type { Chat, UpdateItem } from "@/lib/members/messages/types";
 import { ROUTES } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import "./messages.css";
 import { StandingArt } from "./art";
-import { markChatOpened, wasChatOpened } from "./read-state";
 import { ChatRow, UpdateRow } from "./rows";
 import { UpdatePane } from "./update-pane";
 import { useTwoPanes } from "./use-wide";
 
 export type InboxTab = "chats" | "updates";
 export type InboxState = "ready" | "loading" | "error";
+
+/** How often an open inbox asks for its lists again (the icon itself asks every minute). */
+const REFRESH_MS = 30_000;
+/** Lists drawn longer ago than this (the browser's Back brought them back) are asked for again at once. */
+const STALE_MS = 5000;
 
 export type InboxViewProps = {
   chats: Chat[];
@@ -51,6 +70,8 @@ export type InboxViewProps = {
   youId?: string | null;
   /** Preview only: a thread as tall as the whole conversation (no inner scroll). */
   auto?: boolean;
+  /** Preview harness only: nothing goes to the server (reading and refreshing stay on this screen). */
+  local?: boolean;
 };
 
 function EmptyBand({ tab, settingsHref }: { tab: InboxTab; settingsHref: string | null }) {
@@ -106,8 +127,8 @@ function EmptyBand({ tab, settingsHref }: { tab: InboxTab; settingsHref: string 
 }
 
 export function InboxView({
-  chats,
-  updates,
+  chats: chatsProp,
+  updates: updatesProp,
   now,
   mode = "inbox",
   initialTab = "chats",
@@ -117,33 +138,113 @@ export function InboxView({
   settingsHref = null,
   youId = null,
   auto = false,
+  local = false,
 }: InboxViewProps) {
   const router = useRouter();
   const twoPanes = useTwoPanes();
   const ids = useId();
   const [tab, setTab] = useState<InboxTab>(initialTab);
-  const [allRead, setAllRead] = useState(false);
   const [readUpdates, setReadUpdates] = useState<readonly string[]>([]);
   const [pickedUpdate, setPickedUpdate] = useState<string | null>(null);
+  const [announce, setAnnounce] = useState("");
+
+  // The lists as the server last gave them: the page's, then the timer's. A new page (a navigation, a
+  // refresh) brings its own.
+  const [lists, setLists] = useState({ chats: chatsProp, updates: updatesProp });
+  const [given, setGiven] = useState({ chats: chatsProp, updates: updatesProp });
+  if (given.chats !== chatsProp || given.updates !== updatesProp) {
+    setGiven({ chats: chatsProp, updates: updatesProp });
+    setLists({ chats: chatsProp, updates: updatesProp });
+  }
+  const { chats, updates } = lists;
+  const live = !local && state === "ready";
+
+  const refresh = useCallback(async () => {
+    const [nextChats, nextUpdates] = await Promise.all([getChats(), getUpdates()]);
+    if (isSessionEnded(nextChats) || isSessionEnded(nextUpdates)) return goToSessionEnded();
+    setLists((previous) => ({
+      chats: Array.isArray(nextChats) ? nextChats : previous.chats,
+      updates: Array.isArray(nextUpdates) ? nextUpdates : previous.updates,
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (!live) return;
+    let alive = true;
+    let busy = false;
+    const tick = async () => {
+      if (busy || !alive || document.visibilityState === "hidden") return;
+      busy = true;
+      try {
+        await refresh();
+      } catch {
+        // offline: keep the lists on screen and try again next time
+      } finally {
+        busy = false;
+      }
+    };
+    // Lists drawn a while ago (the browser's Back brings the inbox back as it was) are asked for again at once.
+    if (Date.now() - Date.parse(now) > STALE_MS) void tick();
+    const timer = window.setInterval(tick, REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [live, refresh, now]);
 
   const isThread = mode === "thread";
-  // The chat you are looking at is read: the thread page, or the chat beside the list on a computer.
-  const reading = isThread || twoPanes ? openChatId : null;
-  useEffect(() => {
-    if (reading) markChatOpened(reading);
-  }, [reading]);
   const empty = state === "ready" && (tab === "chats" ? chats.length === 0 : updates.length === 0);
   const selectedUpdate = updates.find((update) => update.id === pickedUpdate) ?? updates[0] ?? null;
 
-  // What counts as unread right now. On a computer the open chat, and the
-  // update shown in the card, are being read.
+  // What counts as unread right now. The chat that is open (the thread page, or beside the list on a
+  // computer) is being read, and so is the update shown in the computer's card.
   const chatUnread = (chat: Chat) =>
-    chat.unreadCount > 0 && !wasChatOpened(chat.id) && !(twoPanes && tab === "chats" && chat.id === openChatId);
+    chat.unreadCount > 0 && !((isThread || (twoPanes && tab === "chats")) && chat.id === openChatId);
   const updateUnread = (update: UpdateItem) =>
-    !update.read &&
-    !allRead &&
-    !readUpdates.includes(update.id) &&
-    !(twoPanes && tab === "updates" && update.id === selectedUpdate?.id);
+    !update.read && !readUpdates.includes(update.id) && !(twoPanes && tab === "updates" && update.id === selectedUpdate?.id);
+
+  // Reading an update on the server: the icon looks again once it is done. A failure leaves it unread there
+  // (it shows unread again on the next refresh); nothing on screen asks the member to do anything.
+  const readOnServer = useRef(new Set<string>());
+  const readUpdate = useCallback(
+    (id: string) => {
+      if (local || readOnServer.current.has(id)) return;
+      readOnServer.current.add(id);
+      markUpdateRead(id)
+        .then((answer) => {
+          if (isSessionEnded(answer)) return goToSessionEnded();
+          if (answer.ok) announceUnreadChanged();
+          else readOnServer.current.delete(id);
+        })
+        .catch(() => readOnServer.current.delete(id));
+    },
+    [local],
+  );
+  // The update in the computer's card is open, so it is read.
+  const shownInCard = twoPanes && tab === "updates" && selectedUpdate && !selectedUpdate.read ? selectedUpdate.id : null;
+  useEffect(() => {
+    if (shownInCard) readUpdate(shownInCard);
+  }, [shownInCard, readUpdate]);
+
+  async function markAll() {
+    const unread = updates.filter((update) => !update.read).map((update) => update.id);
+    setReadUpdates((previous) => [...new Set([...previous, ...unread])]);
+    if (local) return;
+    try {
+      const answer = await markAllUpdatesRead();
+      if (isSessionEnded(answer)) return goToSessionEnded();
+      if (!answer.ok) throw new Error("not saved");
+      announceUnreadChanged();
+    } catch {
+      setReadUpdates((previous) => previous.filter((id) => !unread.includes(id)));
+      setAnnounce("That didn’t go through. Try again in a moment.");
+    }
+  }
 
   const chatsUnread = chats.filter(chatUnread).length;
   const updatesUnread = updates.filter(updateUnread).length;
@@ -171,6 +272,7 @@ export function InboxView({
   function pickUpdate(update: UpdateItem) {
     setPickedUpdate(update.id);
     setReadUpdates((previous) => (previous.includes(update.id) ? previous : [...previous, update.id]));
+    if (!update.read) readUpdate(update.id);
   }
 
   // Updates, grouped by day, in the order given (newest first).
@@ -252,7 +354,7 @@ export function InboxView({
             <div className={cn("msg-group-label", index === 0 && "is-first")}>
               <span className="mk-term">{group.label}</span>
               {index === 0 && updatesUnread > 0 ? (
-                <Button variant="quiet" onClick={() => setAllRead(true)}>
+                <Button variant="quiet" onClick={markAll}>
                   Mark all as read
                 </Button>
               ) : null}
@@ -271,7 +373,10 @@ export function InboxView({
                           event.preventDefault();
                           pickUpdate(update);
                         }
-                      : undefined
+                      : () => {
+                          // A phone: the tap opens the plan, and the update is read.
+                          if (!update.read) readUpdate(update.id);
+                        }
                   }
                 />
               ))}
@@ -318,7 +423,6 @@ export function InboxView({
                 <h1 className="mk-h1">Messages.</h1>
                 <p className="mk-sub-serif">Details, sorted.</p>
               </div>
-              <ExampleNote inside className="msg-ex-inbox" />
               <div className="msg-segwrap">
                 <div className="mk-seg msg-seg" role="tablist" aria-label="Messages" onKeyDown={onTabKey}>
                   {tabs.map((item) => (
@@ -351,6 +455,9 @@ export function InboxView({
           </div>
         </div>
         {empty ? <EmptyBand tab={tab} settingsHref={settingsHref} /> : null}
+        <div className="msg-sr" role="status" aria-live="polite">
+          {announce}
+        </div>
       </Main>
     </>
   );

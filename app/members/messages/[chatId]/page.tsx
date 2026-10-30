@@ -9,8 +9,10 @@ import { listUpdates } from "@/lib/server/updates";
 import { requireMember } from "../../require-member";
 
 // One chat: a plan chat or a question, real data. "ask-<plan id>" is a question not asked yet (the first send
-// makes it). A chat that is not the member's is a 404. Opening it reads it (after the "N new messages" divider
-// is worked out); the thread's polling and sending are app/members/messages/[chatId]/actions.ts.
+// makes it and moves the address to the real chat). A chat that is not the member's is a 404. Opening it reads
+// it (after the "N new messages" divider is worked out); the thread's polling and sending are
+// app/members/messages/[chatId]/actions.ts. The asker's question keeps one view from "ask-" to the real chat (its
+// key is their question on that plan), so the composer keeps its focus when the address moves.
 export default async function MessageThreadPage({ params }: { params: Promise<{ chatId: string }> }) {
   requireFlag("messages");
   const member = await requireMember();
@@ -20,6 +22,7 @@ export default async function MessageThreadPage({ params }: { params: Promise<{ 
   if (!thread) notFound();
   if (!thread.chat.id.startsWith("ask-")) await markChatRead(member.id, thread.chat.id);
   const [chats, updates] = await Promise.all([listChats(member.id, now), listUpdates(member.id, now)]);
+  const asking = thread.chat.kind === "question" && thread.chat.plan.host.id !== member.id;
 
   return (
     <InboxView
@@ -28,7 +31,14 @@ export default async function MessageThreadPage({ params }: { params: Promise<{ 
       updates={updates}
       now={now.toISOString()}
       openChatId={thread.chat.id}
-      pane={<ThreadView key={thread.chat.id} thread={thread} now={now.toISOString()} youId={member.id} />}
+      pane={
+        <ThreadView
+          key={asking ? `question-${thread.chat.plan.id}` : thread.chat.id}
+          thread={thread}
+          now={now.toISOString()}
+          youId={member.id}
+        />
+      }
       settingsHref={flags.notifications ? ROUTES.youNotifications : null}
       youId={member.id}
     />

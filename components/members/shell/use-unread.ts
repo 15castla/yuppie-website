@@ -10,6 +10,12 @@ import { useEffect, useState } from "react";
 import { getMessagesBadge } from "@/app/members/shell-actions";
 
 const EVERY_MS = 60_000;
+const CHANGED = "members:unread-changed";
+
+/** A screen that just changed what is unread (read a chat or an update, blocked someone) asks the icon to look again. */
+export function announceUnreadChanged(): void {
+  if (typeof window !== "undefined") window.dispatchEvent(new Event(CHANGED));
+}
 
 export function useUnread(active: boolean, pathname: string): number {
   const [count, setCount] = useState(0);
@@ -30,10 +36,12 @@ export function useUnread(active: boolean, pathname: string): number {
       if (document.visibilityState === "visible") load();
     };
     document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener(CHANGED, load);
     return () => {
       alive = false;
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener(CHANGED, load);
     };
   }, [active, pathname]);
   return active ? count : 0;

@@ -1,7 +1,8 @@
 // Preview screens for Messages (Chats, Updates, threads) and Notification settings. OWNED BY THE MESSAGES BUILDER.
 // Export an array of PreviewScreen (see ./types.ts). One id per screen: "msg-<name>", "notif-<name>", "blocked-<name>".
-// Every screen draws on the example data adapter (lib/members/mock/messages.ts); web, app and computer are the
-// harness's ?shell= and the viewport width, so each state below is one drawing at every width.
+// Every screen draws on the fixtures (lib/members/mock/messages.ts, example data for the harness only: the real
+// pages read the server); web, app and computer are the harness's ?shell= and the viewport width, so each state
+// below is one drawing at every width. The views are told `local`: nothing they do goes to the server here.
 
 import { BlockedView } from "@/components/members/messages/blocked-view";
 import { ChatEntryButtons, type ChatEntry } from "@/components/members/messages/chat-entry-buttons";
@@ -66,9 +67,10 @@ function inbox(params: PreviewParams, tab: InboxTab, state: InboxState, empty: b
       initialTab={tab}
       state={state}
       openChatId={thread?.chat.id ?? null}
-      pane={thread ? <ThreadView thread={thread} now={EXAMPLE_NOW} youId={EXAMPLE_YOU.id} /> : null}
+      pane={thread ? <ThreadView thread={thread} now={EXAMPLE_NOW} youId={EXAMPLE_YOU.id} local beside /> : null}
       settingsHref={settingsHref(params)}
       youId={EXAMPLE_YOU.id}
+      local
     />
   );
 }
@@ -205,9 +207,10 @@ function threadScreen(id: string, title: string, states: Record<string, ThreadSt
           now={EXAMPLE_NOW}
           openChatId={state.open ?? state.thread.chat.id}
           auto={state.auto}
-          pane={<ThreadView thread={state.thread} now={EXAMPLE_NOW} youId={EXAMPLE_YOU.id} preview={state.preview} />}
+          pane={<ThreadView thread={state.thread} now={EXAMPLE_NOW} youId={EXAMPLE_YOU.id} preview={state.preview} local />}
           settingsHref={settingsHref(params)}
           youId={EXAMPLE_YOU.id}
+          local
         />
       );
     },
@@ -342,6 +345,7 @@ const blockedScreen: PreviewScreen = {
       key={`${params.shell}-${params.state}`}
       members={params.state === "empty" ? [] : EXAMPLE_BLOCKED}
       initialConfirmId={params.state === "unblock" ? EXAMPLE_BLOCKED[0].member.id : null}
+      local
     />
   ),
 };

@@ -8,7 +8,8 @@ import { listUpdates } from "@/lib/server/updates";
 import { requireMember } from "../require-member";
 
 // Messages: the inbox (Chats | Updates), real data (lib/server/chats.ts, updates.ts). On a computer the newest
-// open chat sits beside the list. Refreshing while open is the screen's (app/members/messages/actions.ts).
+// open chat sits beside the list (it reads itself and polls only once it is on screen: ThreadView `beside`).
+// Refreshing while open is the screen's (app/members/messages/actions.ts).
 export default async function MessagesPage() {
   requireFlag("messages");
   const member = await requireMember();
@@ -35,7 +36,7 @@ export default async function MessagesPage() {
       now={now.toISOString()}
       state={failed ? "error" : "ready"}
       openChatId={first?.chat.id ?? null}
-      pane={first ? <ThreadView thread={first} now={now.toISOString()} youId={member.id} /> : null}
+      pane={first ? <ThreadView key={first.chat.id} thread={first} now={now.toISOString()} youId={member.id} beside /> : null}
       settingsHref={flags.notifications ? ROUTES.youNotifications : null}
       youId={member.id}
     />

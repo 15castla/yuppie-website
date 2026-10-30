@@ -10,17 +10,27 @@
 // the middle) over a card-wide scrim. messages.css does the placing; the markup
 // is one drawing.
 //
+// Send report, Block and Leave chat wait for the server (the button stays the
+// full ink button, aria-busy) and say so in the sheet or dialog when it did not
+// go through; mute switches at once and goes back if it was not saved.
+//
 // Not designed, so built from the same pieces and listed in the hand-over:
 //   - the "who?" step. A plan chat has several people, so "Report a member",
 //     "Report a photo" and "Block a member" first ask who (a question chat has
 //     one other person and goes straight on);
 //   - what block and leave do afterwards (block hides that member's messages
-//     in this view; leave goes back to the inbox).
+//     at once, and a question with them goes from your chats; leave goes back
+//     to the inbox);
+//   - the permanent copy of the safety note in chat info (decision 5 A), the
+//     stream's note without "Got it", under the rows;
+//   - the host of a plan has no "Leave chat" in its plan chat (the server keeps
+//     the host in it: mute is the way to quiet it), and a question not asked
+//     yet has nothing to leave or to report a message from.
 //
 // Kit counterparts: pages_msg.info_sheet_html(), sheet_report(),
 // sheet_report_sent(), dialog_block(), dialog_leave().
 
-import { useEffect, useRef, type Dispatch, type KeyboardEvent, type ReactNode, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type KeyboardEvent, type ReactNode, type SetStateAction } from "react";
 
 import { Avatar, Button, Icon, type IconName } from "@/components/members/kit";
 import { weekdayTime } from "@/lib/members/messages/format";
@@ -33,10 +43,11 @@ import {
   type ReportWhat,
 } from "@/lib/members/messages/report-reasons";
 import { threadSub, threadTitle } from "@/lib/members/messages/thread-copy";
-import type { Chat, ChatMessage, ChatParticipant } from "@/lib/members/messages/types";
+import type { Chat, ChatMessage, ChatParticipant, ReportDraft } from "@/lib/members/messages/types";
 import { openInviteHref } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import type { Overlay } from "./overlay-types";
+import { SafetyNote } from "./thread-parts";
 import { useDrawer } from "./use-wide";
 
 type Props = {
@@ -47,10 +58,43 @@ type Props = {
   muted: boolean;
   onMute: () => void;
   blockedIds: string[];
-  onBlock: (memberId: string) => void;
+  /** Null when done; otherwise the words to show in the dialog. */
+  onBlock: (memberId: string) => Promise<string | null>;
+  /** Null when sent; otherwise the words to show in the sheet. */
+  onReport: (draft: ReportDraft) => Promise<string | null>;
   messageById: (id: string) => ChatMessage | null;
-  onLeave: () => void;
+  /** Null when done; otherwise the words to show in the dialog. */
+  onLeave: () => Promise<string | null>;
 };
+
+/** A question not asked yet ("ask-<plan id>"): there is no chat on the server until the first message. */
+const notAskedYet = (chat: Chat) => chat.id.startsWith("ask-");
+
+/** The server's words when Send report, Block or Leave chat did not go through. */
+function ErrorLine({ text }: { text: string | null }) {
+  if (!text) return null;
+  return (
+    <p className="msg-sheet-err" role="alert">
+      <Icon name="circle-alert" size={18} />
+      <span>{text}</span>
+    </p>
+  );
+}
+
+/** Run an action that answers null (done) or words (not done), with the button busy meanwhile. */
+function useServerStep() {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function run(step: () => Promise<string | null>) {
+    if (busy) return;
+    setBusy(true);
+    setError(null);
+    const words = await step();
+    setBusy(false);
+    setError(words);
+  }
+  return { busy, error, run };
+}
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -198,13 +242,16 @@ function InfoRow({
 
 function InfoSheet({
   chat,
+  youId,
   muted,
   onMute,
   setOverlay,
   under = false,
-}: Pick<Props, "chat" | "muted" | "onMute" | "setOverlay"> & { under?: boolean }) {
+}: Pick<Props, "chat" | "youId" | "muted" | "onMute" | "setOverlay"> & { under?: boolean }) {
   const close = () => setOverlay({ kind: "none" });
   const isQuestion = chat.kind === "question";
+  const unasked = notAskedYet(chat);
+  const hostOfPlanChat = !isQuestion && chat.plan.host.id === youId;
   const others = chat.participants.filter((p) => !p.isYou);
   // The host first, you last.
   const people = [...chat.participants].sort((a, b) => Number(b.role === "host") - Number(a.role === "host") || Number(a.isYou) - Number(b.isYou));
@@ -255,18 +302,22 @@ function InfoSheet({
           </span>
           <span className={cn("msg-switch", !muted && "is-off")} aria-hidden="true" />
         </button>
-        <InfoRow
-          icon="flag"
-          title="Report a message"
-          meta="Pick a message that breaks the rules."
-          onClick={() => setOverlay({ kind: "select" })}
-        />
-        <InfoRow
-          icon="user-x"
-          title={isQuestion ? `Report ${name}` : "Report a member"}
-          meta={isQuestion ? `Tell us if ${name} is making things unpleasant.` : "Tell us if someone is making things unpleasant."}
-          onClick={() => aboutMember("member")}
-        />
+        {unasked ? null : (
+          <InfoRow
+            icon="flag"
+            title="Report a message"
+            meta="Pick a message that breaks the rules."
+            onClick={() => setOverlay({ kind: "select" })}
+          />
+        )}
+        {unasked ? null : (
+          <InfoRow
+            icon="user-x"
+            title={isQuestion ? `Report ${name}` : "Report a member"}
+            meta={isQuestion ? `Tell us if ${name} is making things unpleasant.` : "Tell us if someone is making things unpleasant."}
+            onClick={() => aboutMember("member")}
+          />
+        )}
         <InfoRow
           icon="image"
           title={isQuestion ? `Report ${name}’s photo` : "Report a photo"}
@@ -283,15 +334,18 @@ function InfoSheet({
           }
           onClick={() => aboutMember("block")}
         />
-        <InfoRow
-          icon="log-out"
-          title="Leave chat"
-          meta="Your place in the plan stays."
-          danger
-          chevron={false}
-          onClick={() => setOverlay({ kind: "leave", from: "info" })}
-        />
+        {unasked || hostOfPlanChat ? null : (
+          <InfoRow
+            icon="log-out"
+            title="Leave chat"
+            meta="Your place in the plan stays."
+            danger
+            chevron={false}
+            onClick={() => setOverlay({ kind: "leave", from: "info" })}
+          />
+        )}
       </div>
+      <SafetyNote className="is-info" />
     </Layer>
   );
 }
@@ -337,6 +391,12 @@ function PickSheet({
 
 // ---- report ---------------------------------------------------------------------------------------
 
+function reportDraft(chat: Chat, what: ReportWhat, memberId: string, messageId: string | undefined, reason: string): ReportDraft {
+  if (what === "message" && messageId) return { target: { kind: "message", chatId: chat.id, messageId }, reason };
+  if (what === "photo") return { target: { kind: "photo", chatId: notAskedYet(chat) ? null : chat.id, memberId }, reason };
+  return { target: { kind: "member", chatId: chat.id, memberId }, reason };
+}
+
 function ReportSheet({
   chat,
   what,
@@ -345,7 +405,8 @@ function ReportSheet({
   reason,
   messageById,
   setOverlay,
-}: Pick<Props, "chat" | "messageById" | "setOverlay"> & {
+  onReport,
+}: Pick<Props, "chat" | "messageById" | "setOverlay" | "onReport"> & {
   what: ReportWhat;
   memberId: string;
   messageId?: string;
@@ -361,6 +422,17 @@ function ReportSheet({
 
   const choose = (id: string) => setOverlay({ kind: "report", what, memberId, messageId, reason: id });
   const selectedIndex = reasons.findIndex((r) => r.id === reason);
+  const step = useServerStep();
+
+  function send() {
+    if (!reason) return;
+    const target = who?.id ?? memberId;
+    void step.run(async () => {
+      const words = await onReport(reportDraft(chat, what, target, messageId, reason));
+      if (!words) setOverlay({ kind: "sent", what, memberId: target });
+      return words;
+    });
+  }
 
   function onRadioKey(event: KeyboardEvent<HTMLButtonElement>, index: number) {
     const step = event.key === "ArrowDown" || event.key === "ArrowRight" ? 1 : event.key === "ArrowUp" || event.key === "ArrowLeft" ? -1 : 0;
@@ -429,13 +501,9 @@ function ReportSheet({
           );
         })}
       </div>
+      <ErrorLine text={step.error} />
       <div style={{ marginTop: 16 }}>
-        <Button
-          disabled={!reason}
-          onClick={() => {
-            if (reason) setOverlay({ kind: "sent", what, memberId: who?.id ?? memberId });
-          }}
-        >
+        <Button disabled={!reason} pending={step.busy} onClick={send}>
           Send report
         </Button>
       </div>
@@ -498,6 +566,7 @@ function BlockDialog({
   // Cancel goes back to where it was opened from.
   const cancel = () => setOverlay(from === "info" ? { kind: "info" } : { kind: "none" });
   const name = memberOf(chat, memberId)?.member.firstName ?? "They";
+  const step = useServerStep();
   return (
     <Layer kind="dialog" labelledBy="msg-block-title" onClose={cancel}>
       <h2 className="mk-h2" id="msg-block-title">
@@ -520,8 +589,11 @@ function BlockDialog({
           <span>{name} isn’t told. You can unblock anyone on your You page.</span>
         </li>
       </ul>
+      <ErrorLine text={step.error} />
       <div className="acts">
-        <Button onClick={() => onBlock(memberId)}>Block {name}</Button>
+        <Button pending={step.busy} onClick={() => void step.run(() => onBlock(memberId))}>
+          Block {name}
+        </Button>
         <Button variant="outline" onClick={cancel} data-autofocus>
           Cancel
         </Button>
@@ -538,6 +610,7 @@ function LeaveDialog({
   onLeave,
 }: Pick<Props, "chat" | "setOverlay" | "onLeave"> & { from?: "info" }) {
   const stay = () => setOverlay(from === "info" ? { kind: "info" } : { kind: "none" });
+  const step = useServerStep();
   return (
     <Layer kind="dialog" labelledBy="msg-leave-title" onClose={stay}>
       <h2 className="mk-h2" id="msg-leave-title">
@@ -547,8 +620,11 @@ function LeaveDialog({
         You’ll stop getting messages from {chat.plan.title}. Your place in the plan stays, and you can rejoin from the
         invite.
       </p>
+      <ErrorLine text={step.error} />
       <div className="acts">
-        <Button onClick={onLeave}>Leave chat</Button>
+        <Button pending={step.busy} onClick={() => void step.run(onLeave)}>
+          Leave chat
+        </Button>
         <Button variant="outline" onClick={stay} data-autofocus>
           Stay in chat
         </Button>
@@ -561,10 +637,13 @@ function LeaveDialog({
 // ---- the one the thread view draws ------------------------------------------------------------------
 
 export function ThreadOverlays(props: Props) {
-  const { overlay, setOverlay, chat, muted, onMute, blockedIds, onBlock, messageById, onLeave } = props;
+  const { overlay, setOverlay, chat, youId, muted, onMute, blockedIds, onBlock, onReport, messageById, onLeave } = props;
+  const info = (under: boolean) => (
+    <InfoSheet chat={chat} youId={youId} muted={muted} onMute={onMute} setOverlay={setOverlay} under={under} />
+  );
   switch (overlay.kind) {
     case "info":
-      return <InfoSheet chat={chat} muted={muted} onMute={onMute} setOverlay={setOverlay} />;
+      return info(false);
     case "pick":
       return <PickSheet chat={chat} purpose={overlay.purpose} setOverlay={setOverlay} />;
     case "report":
@@ -577,6 +656,7 @@ export function ThreadOverlays(props: Props) {
           reason={overlay.reason}
           messageById={messageById}
           setOverlay={setOverlay}
+          onReport={onReport}
         />
       );
     case "sent":
@@ -592,14 +672,14 @@ export function ThreadOverlays(props: Props) {
     case "block":
       return (
         <>
-          {overlay.from === "info" ? <InfoSheet chat={chat} muted={muted} onMute={onMute} setOverlay={setOverlay} under /> : null}
+          {overlay.from === "info" ? info(true) : null}
           <BlockDialog chat={chat} memberId={overlay.memberId} from={overlay.from} setOverlay={setOverlay} onBlock={onBlock} />
         </>
       );
     case "leave":
       return (
         <>
-          {overlay.from === "info" ? <InfoSheet chat={chat} muted={muted} onMute={onMute} setOverlay={setOverlay} under /> : null}
+          {overlay.from === "info" ? info(true) : null}
           <LeaveDialog chat={chat} from={overlay.from} setOverlay={setOverlay} onLeave={onLeave} />
         </>
       );

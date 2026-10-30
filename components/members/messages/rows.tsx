@@ -112,7 +112,10 @@ export function UpdateRow({
   unread?: boolean;
   /** Where a tap goes: the plan (or the event), never a chat. Default: the plan page. */
   href?: string;
-  /** From 1024px the list sits beside a preview of the plan, so a tap picks the update instead of leaving Messages. */
+  /**
+   * Called on the tap. From 1024px the list sits beside a preview of the plan, so the tap picks the update
+   * (preventDefault) instead of leaving Messages; on a phone it reads the update on its way to the plan.
+   */
   onSelect?: (event: { preventDefault: () => void }) => void;
 }) {
   const isUnread = unread ?? !update.read;
