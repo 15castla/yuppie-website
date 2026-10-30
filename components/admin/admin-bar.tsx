@@ -2,7 +2,8 @@
 
 // The admin bar (r2b 12): the wordmark, the nav with counts and Account (its menu has your email and Log out).
 // Below 1100px the links fold into one Menu button and a panel of ruled 56px rows over a cream wash (B-D5);
-// the page underneath does not move. Reports, Photos and Payments are Phase B (B-D22): not in the nav yet.
+// the page underneath does not move. Stage 2 adds Reports and Photos with their counts (the r2b nav); Payments
+// waits for paid plans (stage 3).
 
 import Image from "next/image";
 import Link from "next/link";
@@ -13,7 +14,7 @@ import { useFormStatus } from "react-dom";
 import { signOut } from "@/app/admin/actions";
 import { Icon } from "./icons";
 
-export type AdminNavCounts = { applications: number };
+export type AdminNavCounts = { applications: number; reports: number; photos: number };
 
 const NAV: { href: string; label: string; count?: keyof AdminNavCounts }[] = [
   { href: "/admin", label: "Dashboard" },
@@ -22,7 +23,12 @@ const NAV: { href: string; label: string; count?: keyof AdminNavCounts }[] = [
   { href: "/admin/events", label: "Events" },
   { href: "/admin/discounts", label: "Discounts" },
   { href: "/admin/access", label: "Access" },
+  { href: "/admin/reports", label: "Reports", count: "reports" },
+  { href: "/admin/photos", label: "Photos", count: "photos" },
 ];
+
+/** What a count means, for screen readers: "Reports (3 open)". */
+const COUNT_WORD: Record<keyof AdminNavCounts, string> = { applications: "waiting", reports: "open", photos: "to check" };
 
 function isCurrent(pathname: string, href: string) {
   return href === "/admin" ? pathname === "/admin" : pathname === href || pathname.startsWith(`${href}/`);
@@ -112,7 +118,7 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
                     <span className="n">
                       <span className="ad-sr"> (</span>
                       {n}
-                      <span className="ad-sr"> waiting)</span>
+                      <span className="ad-sr"> {COUNT_WORD[item.count!]})</span>
                     </span>
                   )}
                 </Link>
@@ -179,7 +185,12 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
                           <span className="mk" />
                           {item.label}
                         </span>
-                        {n !== null && <span className="n">{n}</span>}
+                        {n !== null && (
+                          <span className="n">
+                            {n}
+                            <span className="ad-sr"> {COUNT_WORD[item.count!]}</span>
+                          </span>
+                        )}
                       </Link>
                     );
                   })}

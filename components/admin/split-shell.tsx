@@ -2,7 +2,8 @@
 
 // The list | card page (B-D4), as a layout: the list stays where it is while the card beside it changes.
 // From 768 the two sit side by side (300 | 1fr, 400 | 1fr from 1000). On a phone they are two steps: the list,
-// then the card with a Back link (the page head and tabs hide while a card is open).
+// then the card with a Back link (the page head and tabs hide while a card is open). Reports and Photos are
+// `stack`ed instead, as approved (B-D22 A): on a phone the list stays above the card and there is no Back link.
 
 import Link from "next/link";
 import { useSearchParams, useSelectedLayoutSegment } from "next/navigation";
@@ -18,6 +19,7 @@ export function SplitShell({
   backLabel,
   keepParams = [],
   fullSegments = [],
+  stack = false,
 }: {
   head: ReactNode;
   list: ReactNode;
@@ -28,6 +30,8 @@ export function SplitShell({
   keepParams?: string[];
   /** Child segments that take the whole width with no list (Access, Feature card). */
   fullSegments?: string[];
+  /** On a phone: the list above the card, no Back link (Reports and Photos, B-D22 A). */
+  stack?: boolean;
 }) {
   const segment = useSelectedLayoutSegment();
   const params = useSearchParams();
@@ -47,7 +51,7 @@ export function SplitShell({
     );
   }
   return (
-    <div className="ad-page" data-open={open ? "true" : "false"}>
+    <div className="ad-page" data-open={open ? "true" : "false"} data-stack={stack ? "true" : undefined}>
       <div className="ad-pagehead">{head}</div>
       <div className="ad-grid" data-open={open ? "true" : "false"}>
         <div className="ad-list-col">{list}</div>

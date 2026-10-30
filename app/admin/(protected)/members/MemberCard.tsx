@@ -9,6 +9,7 @@ import { Avatar, Card, DL, Pill, Section, StatusPill } from "@/components/admin/
 import { stripe } from "@/lib/stripe";
 import { MEMBER_ROW_COLUMNS, type MemberRow } from "@/lib/server/db";
 import { membershipState } from "@/lib/server/membership";
+import { currentPhotoUrl } from "@/lib/server/photos";
 import { periodEndSeconds } from "@/lib/server/stripe/period";
 import { DeleteMember } from "./DeleteMember";
 import { MembershipControl, type MembershipView } from "./MembershipControl";
@@ -70,7 +71,7 @@ export async function MemberCard({ memberId }: { memberId: string }) {
   const renews = base.state === "active" ? await renewsAt(member.stripe_subscription_id) : null;
   const info = renews ? membershipState(member, now, { renewsAt: renews }) : base;
 
-  const [bookingsRes, appRes, pauseAudit, deleteAudit] = await Promise.all([
+  const [bookingsRes, appRes, pauseAudit, deleteAudit, photoUrl] = await Promise.all([
     db
       .from("bookings")
       .select("id, status, booked_at, amount_pence, cancel_reason, refund_status, refund_pence, event:events(id, title, start_time, location)")
@@ -89,6 +90,8 @@ export async function MemberCard({ memberId }: { memberId: string }) {
     member.deleted_at
       ? db.from("admin_audit").select("created_at").eq("action", "member.delete").eq("target_id", member.id).limit(1).maybeSingle()
       : Promise.resolve({ data: null }),
+    // The member's current photo from the private bucket (a signed link), not the old public avatar_url (stage 2).
+    member.deleted_at ? Promise.resolve(null) : currentPhotoUrl(member.id, "thumb"),
   ]);
   const bookings = (bookingsRes.data ?? []) as BookingRow[];
   const future = bookings.filter((b) => {
@@ -148,7 +151,7 @@ export async function MemberCard({ memberId }: { memberId: string }) {
   return (
     <Card labelledBy={headId}>
       <div className="ad-dh">
-        <Avatar name={name} photoUrl={member.avatar_url} size={56} />
+        <Avatar name={name} photoUrl={photoUrl} size={56} />
         <div className="tt">
           <h2 id={headId} className="ad-h2">
             {name}
