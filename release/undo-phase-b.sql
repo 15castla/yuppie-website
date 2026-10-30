@@ -16,6 +16,7 @@ drop policy if exists "Member photos are server only" on storage.objects;
 delete from storage.buckets where id = 'member-photos' and not exists (select 1 from storage.objects where bucket_id = 'member-photos');
 
 -- Functions (the tables' own triggers go with the tables).
+drop function if exists public.chat_nudges_due(timestamptz, integer, integer);
 drop function if exists public.unread_counts(uuid);
 drop function if exists public.chat_unread(uuid);
 drop function if exists public.mark_chat_read(uuid, uuid);

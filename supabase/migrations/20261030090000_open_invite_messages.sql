@@ -308,7 +308,10 @@ alter table public.updates add constraint updates_role_check check (role in ('ho
 alter table public.updates drop constraint if exists updates_reminder_hours_check;
 alter table public.updates add constraint updates_reminder_hours_check check (reminder_hours is null or reminder_hours in (24, 2));
 
-create unique index if not exists updates_dedupe_key on public.updates (dedupe_key) where dedupe_key is not null;
+-- A plain unique constraint (NULLs stay distinct), so the dispatcher's upsert can name it (on_conflict).
+drop index if exists public.updates_dedupe_key;
+alter table public.updates drop constraint if exists updates_dedupe_key_key;
+alter table public.updates add constraint updates_dedupe_key_key unique (dedupe_key);
 create index if not exists updates_member_idx on public.updates (member_id, created_at desc);
 
 -- ---------------------------------------------------------------------------
@@ -981,11 +984,45 @@ as $$
   );
 $$;
 
+-- The chat emails that are due (messages spec 3.7: unread after 15 minutes, at most one an hour per chat,
+-- none for a muted chat): one row per member and chat whose oldest unread message since the last email is at
+-- least p_after_minutes old, and whose last email was p_every_minutes ago or more. The dispatcher still checks
+-- the member's switches and their membership before it sends.
+create or replace function public.chat_nudges_due(p_now timestamptz, p_after_minutes integer default 15, p_every_minutes integer default 60)
+returns table (chat_id uuid, member_id uuid, role text, unread integer, first_unread_id uuid, first_unread_at timestamptz)
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select cm.chat_id,
+         cm.member_id,
+         cm.role,
+         count(m.id)::integer,
+         (array_agg(m.id order by m.created_at))[1],
+         min(m.created_at)
+    from public.chat_members cm
+    join public.messages m on m.chat_id = cm.chat_id
+   where cm.left_at is null
+     and not cm.muted
+     and (cm.nudged_at is null or cm.nudged_at <= p_now - make_interval(mins => p_every_minutes))
+     and m.kind = 'text'
+     and m.removed_at is null
+     and m.sender_id is distinct from cm.member_id
+     and m.created_at > coalesce(cm.last_read_at, '-infinity'::timestamptz)
+     and m.created_at > coalesce(cm.nudged_at, '-infinity'::timestamptz)
+     and m.created_at <= p_now
+     and not exists (select 1 from public.blocks b where b.blocker_id = cm.member_id and b.blocked_id = m.sender_id)
+   group by cm.chat_id, cm.member_id, cm.role
+  having min(m.created_at) <= p_now - make_interval(mins => p_after_minutes);
+$$;
+
 do $$
 declare
   f text;
 begin
   foreach f in array array[
+    'public.chat_nudges_due(timestamptz, integer, integer)',
     'public.member_can_take_part(uuid)',
     'public.blocked_between(uuid, uuid)',
     'public.post_plan(uuid, text, text, timestamptz, text, text, integer, boolean)',

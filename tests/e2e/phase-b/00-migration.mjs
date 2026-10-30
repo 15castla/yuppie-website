@@ -102,8 +102,8 @@ for (const t of NEW_TABLES) {
   const policies = sql(`select cmd from pg_policies where schemaname = 'public' and tablename = '${t}'`).map((r) => r.cmd);
   ok(policies.length >= 1 && policies.every((c) => c === 'SELECT'), `${t}: read policies only`, policies);
 }
-const fns = sql(`select p.proname n, p.prosecdef s, coalesce((select string_agg(g.grantee, ',' order by g.grantee) from information_schema.routine_privileges g where g.specific_name = p.proname || '_' || p.oid and g.grantee in ('PUBLIC', 'anon', 'authenticated')), '') g from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ('member_can_take_part','blocked_between','post_plan','join_plan','leave_plan','edit_plan','cancel_plan','open_question','mark_chat_read','chat_unread','unread_counts','messages_touch_chat')`);
-eq(fns.length, 12, 'the twelve new functions exist');
+const fns = sql(`select p.proname n, p.prosecdef s, coalesce((select string_agg(g.grantee, ',' order by g.grantee) from information_schema.routine_privileges g where g.specific_name = p.proname || '_' || p.oid and g.grantee in ('PUBLIC', 'anon', 'authenticated')), '') g from pg_proc p where p.pronamespace = 'public'::regnamespace and p.proname in ('member_can_take_part','blocked_between','post_plan','join_plan','leave_plan','edit_plan','cancel_plan','open_question','mark_chat_read','chat_unread','unread_counts','messages_touch_chat','chat_nudges_due')`);
+eq(fns.length, 13, 'the thirteen new functions exist');
 ok(fns.every((f) => f.s === true && f.g === ''), 'every new function is security definer and not executable by PUBLIC, anon or authenticated', fns);
 const memberCols = sql(`select column_name c from information_schema.column_privileges where table_schema = 'public' and table_name = 'members' and grantee = 'authenticated' and privilege_type = 'UPDATE' order by 1`).map((r) => r.c);
 eq(memberCols, ['bio', 'employer', 'full_name', 'phone', 'role_title'], 'members: a member may update their profile fields only (not avatar_url, photo_id or chat_safety_seen_at)');

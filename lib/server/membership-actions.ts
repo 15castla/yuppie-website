@@ -13,6 +13,8 @@ import { ROUTES } from "@/lib/members/routes";
 import { absoluteUrl, PAYMENT_GRACE_DAYS, tombstoneEmail } from "./config";
 import { cancelFutureBookingsForMember, bookingsAfter, type CancelledFutureBooking } from "./bookings";
 import { MEMBER_ROW_COLUMNS, errorMessage, serviceDb, stripeErrorCode, type EndedReason, type MemberRow } from "./db";
+import { deleteMemberPhotos } from "./photos";
+import { leaveOpenInviteForDeletion } from "./plans";
 import { dayDate, londonEndOfDay, pounds } from "./format";
 import { later } from "./later";
 import { membershipCardData, membershipState, type MemberStateFields } from "./membership";
@@ -302,6 +304,10 @@ export async function deleteAccount(memberId: string, options: { by?: "member" |
       const { error } = await db.storage.from("member-media").remove([path]);
       if (error) console.error(`deleteAccount: removing the photo failed for member ${memberId}:`, error);
     }
+    // Stage 2: the private photos, and Open Invite and Messages (hosted plans cancelled, places given up, chats
+    // left, messages removed, blocks, Updates and switches deleted). Both never throw.
+    await deleteMemberPhotos(memberId);
+    await leaveOpenInviteForDeletion(memberId);
 
     // To the address they have now, before it is replaced.
     await sendEmail({
