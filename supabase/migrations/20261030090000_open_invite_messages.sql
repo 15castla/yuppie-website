@@ -1017,6 +1017,37 @@ as $$
   having min(m.created_at) <= p_now - make_interval(mins => p_after_minutes);
 $$;
 
+-- May the signed-in member (auth.uid()) open this plan's page? The proxy asks, so a plan they cannot see is a
+-- real 404 (decision B-D10), with the member's own token. The same rule as the page (lib/server/plans.ts
+-- canSeePlan): the host and people going always; others not when the club removed it, it has a price (stage 3),
+-- or there is a block either way with the host. Answers a boolean about the caller only, so it is the one new
+-- function members may run.
+create or replace function public.plan_visible_to_me(p_plan uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public, pg_temp
+as $$
+  select exists (
+    select 1 from public.plans p
+     where p.id = p_plan
+       and (
+         p.host_id = auth.uid()
+         or exists (select 1 from public.plan_members pm where pm.plan_id = p.id and pm.member_id = auth.uid() and pm.status = 'going')
+         or (
+           p.removed_at is null
+           and p.price_pence is null
+           and auth.uid() is not null
+           and not public.blocked_between(auth.uid(), p.host_id)
+         )
+       )
+  );
+$$;
+
+revoke all on function public.plan_visible_to_me(uuid) from public, anon, authenticated;
+grant execute on function public.plan_visible_to_me(uuid) to authenticated, service_role;
+
 do $$
 declare
   f text;
