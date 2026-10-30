@@ -51,7 +51,10 @@ for (const t of ['event_addresses', 'message_log', 'stripe_events', 'admin_audit
 }
 eq(policies('stripe_events').length, 0, 'stripe_events: no policies (server only)');
 const memberGrants = sql(`select column_name from information_schema.column_privileges where table_schema = 'public' and table_name = 'members' and grantee = 'authenticated' and privilege_type = 'UPDATE' order by 1`).map((r) => r.column_name);
-eq(memberGrants, ['avatar_url', 'bio', 'employer', 'full_name', 'phone', 'role_title'], 'members: authenticated may update only the profile columns');
+// Stage 2 (20261030090000) takes avatar_url away from members too: photos are uploaded and recorded by the
+// server only (private bucket, members.photo_id). With only the stage 1 migrations it is still there.
+const stage2 = sql1(`select to_regclass('public.member_photos') is not null as on`).on;
+eq(memberGrants, stage2 ? ['bio', 'employer', 'full_name', 'phone', 'role_title'] : ['avatar_url', 'bio', 'employer', 'full_name', 'phone', 'role_title'], 'members: authenticated may update only the profile columns');
 const fnGrants = sql(`select grantee from information_schema.routine_privileges where routine_schema = 'public' and routine_name = 'book_event'`).map((r) => r.grantee);
 ok(fnGrants.includes('service_role') && !fnGrants.includes('anon') && !fnGrants.includes('authenticated') && !fnGrants.includes('PUBLIC'), 'book_event: service role only', fnGrants);
 ok(sql1(`select prosecdef from pg_proc where proname = 'book_event'`).prosecdef === true, 'book_event: security definer');
