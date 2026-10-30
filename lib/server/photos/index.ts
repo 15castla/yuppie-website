@@ -251,7 +251,6 @@ export type AdminPhotoQueue = {
 
 type QueueRow = PhotoRow & {
   member: { id: string; full_name: string | null; email: string } | null;
-  previous: { path: string } | null;
 };
 
 const PHOTO_REPORT_FILTER = "kind.eq.photo,and(kind.eq.member,reason.eq.photo_not_them_or_unsuitable)";
@@ -273,16 +272,18 @@ async function openPhotoReports(): Promise<Map<string, { id: string; reason: str
 
 export async function adminPhotoQueue(tab: "check" | "done", now: Date = new Date()): Promise<AdminPhotoQueue> {
   const db = serviceDb();
-  const select = `${PHOTO_ROW_COLUMNS}, member:members!member_photos_member_id_fkey(id, full_name, email), previous:member_photos!member_photos_previous_photo_id_fkey(path)`;
+  const select = `${PHOTO_ROW_COLUMNS}, member:members!member_photos_member_id_fkey(id, full_name, email)`;
   const reports = await openPhotoReports();
   const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
 
-  const { data: pendingRows } = await db.from("member_photos").select(select).eq("status", "pending").order("created_at", { ascending: true }).limit(200);
+  const { data: pendingRows, error: pendingError } = await db.from("member_photos").select(select).eq("status", "pending").order("created_at", { ascending: true }).limit(200);
+  if (pendingError) throw pendingError;
   const pending = (pendingRows ?? []) as unknown as QueueRow[];
   const reportedIds = [...reports.keys()].filter((id) => !pending.some((p) => p.id === id));
-  const { data: reportedRows } = reportedIds.length
+  const { data: reportedRows, error: reportedError } = reportedIds.length
     ? await db.from("member_photos").select(select).in("id", reportedIds).in("status", ["pending", "approved"])
-    : { data: [] };
+    : { data: [], error: null };
+  if (reportedError) throw reportedError;
   const reported = (reportedRows ?? []) as unknown as QueueRow[];
   const { count: removedThisMonth } = await db.from("member_photos").select("id", { count: "exact", head: true }).eq("status", "removed").gte("removed_at", monthStart);
 
@@ -291,24 +292,29 @@ export async function adminPhotoQueue(tab: "check" | "done", now: Date = new Dat
     const withReport = [...reported, ...pending.filter((p) => reports.has(p.id))].sort((a, b) => (reports.get(b.id)!.at > reports.get(a.id)!.at ? 1 : -1));
     rows = [...withReport, ...pending.filter((p) => !reports.has(p.id))];
   } else {
-    const { data } = await db
+    const { data, error } = await db
       .from("member_photos")
       .select(select)
       .not("reviewed_at", "is", null)
       .gte("reviewed_at", new Date(now.getTime() - 30 * 86400000).toISOString())
       .order("reviewed_at", { ascending: false })
       .limit(50);
+    if (error) throw error;
     rows = (data ?? []) as unknown as QueueRow[];
   }
 
-  const urls = await signedUrls(rows.flatMap((r) => [r.path, r.previous?.path ?? null]));
+  // The Before of a changed photo: the photo it replaced (a second query; a self-referencing embed is ambiguous).
+  const previousIds = [...new Set(rows.map((r) => r.previous_photo_id).filter((id): id is string => Boolean(id)))];
+  const { data: previousRows } = previousIds.length ? await db.from("member_photos").select("id, path").in("id", previousIds) : { data: [] };
+  const previousPath = new Map(((previousRows ?? []) as { id: string; path: string }[]).map((p) => [p.id, p.path]));
+  const urls = await signedUrls([...rows.map((r) => r.path), ...previousPath.values()]);
   const items: AdminPhotoItem[] = rows.map((r) => {
     const report = reports.get(r.id) ?? null;
     return {
       photoId: r.id,
       member: { id: r.member_id, name: r.member?.full_name?.trim() || "Member", firstName: firstNameOf(r.member?.full_name) || "Member", email: r.member?.email ?? "" },
       photoUrl: urls.get(r.path) ?? null,
-      previousPhotoUrl: r.source === "changed" && r.previous ? urls.get(r.previous.path) ?? null : null,
+      previousPhotoUrl: r.source === "changed" && r.previous_photo_id && previousPath.has(r.previous_photo_id) ? urls.get(previousPath.get(r.previous_photo_id)!) ?? null : null,
       pill: report && tab === "check" ? "reported" : r.source === "changed" ? "changed" : "new",
       faceCheck: r.face_check,
       uploadedAt: r.created_at,
