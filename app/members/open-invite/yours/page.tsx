@@ -1,18 +1,12 @@
 import { requireMember } from "@/app/members/require-member";
 import { YoursView } from "@/components/members/invite/yours-view";
-import { flags, requireFlag } from "@/lib/members/flags";
-import { ExampleScope } from "@/components/members/kit";
-import { assertMockAllowed } from "@/lib/members/mock/guard";
-import { listYours } from "@/lib/members/mock/open-invite";
+import { openInviteYours } from "@/lib/server/plans";
+import { paidPlansShown, requireOpenInvite } from "../guard";
 
-// Open Invite > Yours: the plans you posted, the plans you are in, and the past ones.
+// Open Invite > Yours: the plans you posted, the plans you are in, and the past ones (real data).
 export default async function OpenInviteYoursPage() {
-  requireFlag("openInvite");
-  assertMockAllowed();
-  const [, yours] = await Promise.all([requireMember(), listYours()]);
-  return (
-    <ExampleScope>
-      <YoursView yours={yours} paidPlans={flags.paidPlans} />
-    </ExampleScope>
-  );
+  await requireOpenInvite();
+  const member = await requireMember();
+  const yours = await openInviteYours({ id: member.id, email: member.email });
+  return <YoursView yours={yours} paidPlans={paidPlansShown()} />;
 }

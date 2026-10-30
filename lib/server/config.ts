@@ -39,3 +39,64 @@ export function absoluteUrl(path: string): string {
 export function tombstoneEmail(id: string): string {
   return `deleted+${id}@invalid.clubyuppie.com`;
 }
+
+// ---------------------------------------------------------------------------- stage 2 (Phase B)
+
+/** Chat messages: 500 characters (types.ts MESSAGE_MAX_LENGTH), and at most this many a minute from one member (messages spec 8). */
+export const MESSAGE_RATE_LIMIT = { count: 20, perSeconds: 60 } as const;
+
+/** A thread shows the latest this many items (older ones are not sent to the page). */
+export const THREAD_ITEM_LIMIT = 200;
+
+/** The chat email (msg-email-new-message): unread after 15 minutes, at most one per chat an hour (messages spec 3.7). */
+export const CHAT_NUDGE = { afterMinutes: 15, everyMinutes: 60 } as const;
+
+/** The Updates tab keeps 30 days (messages spec 8); older rows are deleted by the reminders job. */
+export const UPDATES_KEEP_DAYS = 30;
+
+/**
+ * Quiet hours (notifications decision 2 B): no push or text from 22:00 to 07:00, Europe/London. A reminder text
+ * due then goes at 07:00 if the plan or event is still more than an hour away, otherwise it is skipped. Email is
+ * not held.
+ */
+export const QUIET_HOURS = { from: 22, until: 7, minLeadMinutes: 60 } as const;
+
+/** A reminder text sent this long after it fell due was held (quiet hours) or late (the job was down). */
+export const REMINDER_LATE_MINUTES = 20;
+
+/** Member photos: the private bucket, the sizes the server makes, and how long a signed URL lasts. */
+export const PHOTO_BUCKET = "member-photos";
+export const PHOTO_SIZES = { full: 480, thumb: 160 } as const;
+/** The browser checks the chosen photo is 400px or more (photo decision 2 A); the cropped square it uploads can be smaller after a zoom, so the server's floor is the thumb size. */
+export const PHOTO_MIN_UPLOAD_PX = 160;
+export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
+/** Signed photo URLs last an hour; a cached one is handed out again while it has 15 minutes or more left. */
+export const PHOTO_URL_TTL_SECONDS = 60 * 60;
+export const PHOTO_URL_MIN_LEFT_SECONDS = 15 * 60;
+
+/**
+ * Members who joined before this date (or MEMBERS_PHOTO_GATE_SINCE) are "existing" at the photo gate: they see
+ * "Every member has one now, so people know who they're meeting." (photo spec 1).
+ */
+export function photoGateSince(): Date {
+  const raw = process.env.MEMBERS_PHOTO_GATE_SINCE?.trim();
+  const date = raw ? new Date(raw) : new Date("2026-11-01T00:00:00Z");
+  return Number.isNaN(date.getTime()) ? new Date("2026-11-01T00:00:00Z") : date;
+}
+
+/**
+ * Push is not in stage 2 (it needs the native release's keys): the preference is stored, nothing is sent, and the
+ * Push channel stays hidden until this server-only switch is "on".
+ */
+export function pushLive(): boolean {
+  return process.env.MEMBERS_PUSH_LIVE === "on";
+}
+
+/**
+ * Paid plans are stage 3 (Stripe Connect). Until this server-only switch is "on" (never in stage 2), nothing may
+ * take or pretend to take money: the post form offers free plans only, no plan with a price is shown, and no
+ * server path makes a PaymentIntent or a hold.
+ */
+export function paidPlansLive(): boolean {
+  return process.env.MEMBERS_PAID_PLANS_LIVE === "on";
+}

@@ -4,7 +4,7 @@
 // Concierge in the middle in the app only. You is never a tab: it is the
 // member's photo, top right. Kit counterparts: k2.TABS and k2.tab_keys().
 
-import { flags as liveFlags, type Flags } from "@/lib/members/flags";
+import { flags as liveFlags, openInviteOn, type Flags } from "@/lib/members/flags";
 import { ROUTES, type TabKey } from "@/lib/members/routes";
 import type { IconName } from "../kit/icons";
 import type { ShellMode } from "./types";
@@ -32,11 +32,12 @@ export function tabsFor({
   badges = {},
 }: {
   mode: ShellMode;
-  flags?: Pick<Flags, "openInvite" | "concierge">;
+  flags?: Pick<Flags, "openInvite" | "concierge"> & Partial<Pick<Flags, "openInviteApp">>;
   badges?: Partial<Record<TabKey, number>>;
 }): TabSpec[] {
   const keys: TabKey[] = [
-    ...(flags.openInvite ? (["invite"] as const) : []),
+    // The app shows Open Invite only with its own switch on too (Open Invite decision 6).
+    ...(openInviteOn(mode, { openInvite: flags.openInvite, openInviteApp: flags.openInviteApp ?? false }) ? (["invite"] as const) : []),
     "events",
     ...(mode === "app" && flags.concierge ? (["concierge"] as const) : []),
     "discounts",

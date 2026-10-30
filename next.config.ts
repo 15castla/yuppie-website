@@ -7,6 +7,12 @@ const MEMBERS_LANDING =
   process.env.NEXT_PUBLIC_MEMBERS_OPEN_INVITE === "on"
     ? "/members/open-invite"
     : "/members/events";
+// In the app Open Invite also needs its own switch (Open Invite decision 6: hidden in the app until the feed is
+// busier). The app is told by its User-Agent marker or the is-native-app cookie (lib/native-app.ts).
+const MEMBERS_APP_LANDING =
+  process.env.NEXT_PUBLIC_MEMBERS_OPEN_INVITE === "on" && process.env.NEXT_PUBLIC_MEMBERS_OPEN_INVITE_APP === "on"
+    ? "/members/open-invite"
+    : "/members/events";
 
 const nextConfig: NextConfig = {
   // There is no members Home page. Redirected before anything renders, so a
@@ -14,6 +20,8 @@ const nextConfig: NextConfig = {
   // landing page with no shell flash. The old profile page is now You.
   async redirects() {
     return [
+      { source: "/members", has: [{ type: "header", key: "user-agent", value: ".*YuppieNativeApp.*" }], destination: MEMBERS_APP_LANDING, permanent: false },
+      { source: "/members", has: [{ type: "cookie", key: "is-native-app", value: "1" }], destination: MEMBERS_APP_LANDING, permanent: false },
       { source: "/members", destination: MEMBERS_LANDING, permanent: false },
       { source: "/members/profile", destination: "/members/you", permanent: false },
     ];

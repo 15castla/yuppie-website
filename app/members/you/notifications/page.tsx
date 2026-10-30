@@ -1,22 +1,16 @@
 import { NotificationSettingsView } from "@/components/members/notifications/notification-settings-view";
 import { requireFlag } from "@/lib/members/flags";
-import { ExampleScope } from "@/components/members/kit";
-import { assertMockAllowed } from "@/lib/members/mock/guard";
-import { getNotificationPreferences } from "@/lib/members/mock/messages";
 import { detectShellMode } from "@/lib/members/shell-mode";
+import { getNotificationPreferences } from "@/lib/server/notification-prefs";
 import { requireMember } from "../../require-member";
 
-// Notification settings. Switched off (flag `notifications`) and running on the
-// example-data adapter until the backend exists.
+// You > Notifications, real switches (lib/server/notification-prefs.ts; saving is ./actions.ts). Push is stored
+// and never sent in stage 2: pushPermission reads "unavailable" (the view's "App only" row) until
+// MEMBERS_PUSH_LIVE=on; hiding the Push row entirely is the screen's (getNotificationSettings().pushChannel).
 export default async function NotificationSettingsPage() {
   requireFlag("notifications");
-  assertMockAllowed();
-  await requireMember();
+  const member = await requireMember();
   const mode = await detectShellMode();
-  const preferences = await getNotificationPreferences(mode);
-  return (
-    <ExampleScope>
-      <NotificationSettingsView preferences={preferences} />
-    </ExampleScope>
-  );
+  const preferences = await getNotificationPreferences(member, mode);
+  return <NotificationSettingsView preferences={preferences} />;
 }

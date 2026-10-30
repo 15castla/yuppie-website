@@ -30,6 +30,11 @@ export type MessageRefs = {
   applicationId?: string | null;
   bookingId?: string | null;
   eventId?: string | null;
+  // stage 2
+  planId?: string | null;
+  chatId?: string | null;
+  reportId?: string | null;
+  photoId?: string | null;
 };
 
 export type SendResult = {
@@ -49,6 +54,10 @@ type LogRow = {
   application_id: string | null;
   booking_id: string | null;
   event_id: string | null;
+  plan_id: string | null;
+  chat_id: string | null;
+  report_id: string | null;
+  photo_id: string | null;
   status: SendResult["status"];
   provider_id: string | null;
   error: string | null;
@@ -77,6 +86,15 @@ async function writeLog(row: LogRow): Promise<void> {
   if (result.error) console.error(`message_log write failed (${row.template}, ${row.dedupe_key ?? "no key"}):`, result.error);
 }
 
+function stage2Refs(refs: MessageRefs | undefined) {
+  return {
+    plan_id: refs?.planId ?? null,
+    chat_id: refs?.chatId ?? null,
+    report_id: refs?.reportId ?? null,
+    photo_id: refs?.photoId ?? null,
+  };
+}
+
 async function deliver(
   channel: Channel,
   template: string,
@@ -94,6 +112,7 @@ async function deliver(
     application_id: refs?.applicationId ?? null,
     booking_id: refs?.bookingId ?? null,
     event_id: refs?.eventId ?? null,
+    ...stage2Refs(refs),
   };
   try {
     if (await alreadySent(dedupeKey)) return { status: "skipped", error: "already sent" };
@@ -187,4 +206,43 @@ export async function sendAdminAlert(input: {
   return deliver("email", "admin-alert", adminAlertsEmail(), input.dedupeKey, input.refs, async (to) =>
     resendSend(to, renderAdminAlert(input), input.dedupeKey),
   );
+}
+
+/**
+ * Record a send that did not happen on purpose (a text held for quiet hours, a reminder skipped because the plan
+ * is too close now): a "skipped" row under the same dedupe key, so a later send with that key still goes (only a
+ * "sent" row stops it). Never throws.
+ */
+export async function logSkipped(input: {
+  channel: Channel;
+  template: string;
+  to: string | null | undefined;
+  dedupeKey: string;
+  reason: string;
+  refs?: MessageRefs;
+}): Promise<void> {
+  try {
+    if (await alreadySent(input.dedupeKey)) return;
+    await writeLog({
+      channel: input.channel,
+      template: input.template,
+      dedupe_key: input.dedupeKey,
+      to_address: input.to ?? null,
+      member_id: input.refs?.memberId ?? null,
+      application_id: input.refs?.applicationId ?? null,
+      booking_id: input.refs?.bookingId ?? null,
+      event_id: input.refs?.eventId ?? null,
+      ...stage2Refs(input.refs),
+      status: "skipped",
+      provider_id: null,
+      error: input.reason,
+    });
+  } catch (err) {
+    console.error(`message service: logging a skipped ${input.template} failed:`, err);
+  }
+}
+
+/** Whether a send under this key has gone out already (for callers that claim before rendering). */
+export async function wasSent(dedupeKey: string): Promise<boolean> {
+  return alreadySent(dedupeKey);
 }

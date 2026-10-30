@@ -10,6 +10,17 @@ import * as events from "@/app/members/events/actions";
 import * as profile from "@/app/members/profile/actions";
 import * as redemption from "@/app/members/redemption-actions";
 import * as you from "@/app/members/you/actions";
+// stage 2
+import * as adminPhotos from "@/app/admin/photos-actions";
+import * as adminReports from "@/app/admin/reports-actions";
+import * as messages from "@/app/members/messages/actions";
+import * as thread from "@/app/members/messages/[chatId]/actions";
+import * as invite from "@/app/members/open-invite/actions";
+import * as plan from "@/app/members/open-invite/[id]/actions";
+import * as photo from "@/app/members/photo/actions";
+import * as shell from "@/app/members/shell-actions";
+import * as blocked from "@/app/members/you/blocked/actions";
+import * as notifications from "@/app/members/you/notifications/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -36,18 +47,32 @@ const MODULES: Record<string, Record<string, unknown>> = {
   profile,
   redemption,
   you,
+  "admin.photos": adminPhotos,
+  "admin.reports": adminReports,
+  messages,
+  thread,
+  invite,
+  plan,
+  photo,
+  shell,
+  blocked,
+  notifications,
 };
 
 function enabled(): boolean {
   return process.env.MEMBERS_TEST_HOOKS === "on" && process.env.VERCEL_ENV !== "production";
 }
 
+// {"$formData": {...}, "$files": {"photo": {"name": "p.jpg", "type": "image/jpeg", "base64": "..."}}}: a FormData
+// with files in it (the photo upload).
 function decodeArg(arg: unknown): unknown {
   if (arg && typeof arg === "object" && "$formData" in arg) {
     const fd = new FormData();
     for (const [k, v] of Object.entries((arg as { $formData: Record<string, string | string[]> }).$formData)) {
       for (const value of Array.isArray(v) ? v : [v]) fd.append(k, value);
     }
+    const files = (arg as { $files?: Record<string, { name: string; type: string; base64: string }> }).$files ?? {};
+    for (const [k, f] of Object.entries(files)) fd.append(k, new File([Buffer.from(f.base64, "base64")], f.name, { type: f.type }));
     return fd;
   }
   return arg;

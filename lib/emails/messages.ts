@@ -5,13 +5,19 @@
 // strings it reuses; nothing here is new copy except the decline email's
 // card line (C-D8, marked).
 
-import { MEMBERSHIP_PRICE, SUPPORT_EMAIL, absoluteUrl, firstWord, shortDate } from "./config";
+import { MEMBERSHIP_PRICE, MESSAGES_PATH, OPEN_INVITE_PATH, SUPPORT_EMAIL, absoluteUrl, firstWord, shortDate } from "./config";
 import { html, inlineLink, join, escapeText, type Inline } from "./escape";
 import { whereValue, type CardRow, type EmailSpec, type ResolvedOptions } from "./shell";
 import type {
   AccountDeletedData,
   AdminBookingReviewData,
   AdminNewApplicationData,
+  AdminNewReportData,
+  NewMessageData,
+  PhotoRemovedData,
+  PlanCancelledData,
+  PlanChangedData,
+  PlanReminderData,
   ApplicationReceivedData,
   ApprovalData,
   BookingCancelledData,
@@ -637,6 +643,232 @@ const adminBookingReview: Build<"admin-booking-review"> = (d: AdminBookingReview
   };
 };
 
+// ---------------------------------------------------------------- 6. stage 2: Open Invite, Messages, photos, reports
+
+/** "Jasmin", "Jasmin and Priya", "Jasmin, Priya and Tom"; four or more: "Jasmin, Priya and 2 others". */
+export function namesList(names: string[]): string {
+  const n = names.map((x) => x.trim()).filter(Boolean);
+  if (n.length <= 1) return n[0] ?? "";
+  if (n.length <= 3) return `${n.slice(0, -1).join(", ")} and ${n[n.length - 1]}`;
+  return `${n.slice(0, 2).join(", ")} and ${n.length - 2} others`;
+}
+
+/** "Jasmin and Priya are going too." / "Jasmin is going too." / "" for nobody. */
+function goingToo(names: string[]): string {
+  const n = names.map((x) => x.trim()).filter(Boolean);
+  if (n.length === 0) return "";
+  return `${namesList(n)} ${n.length === 1 ? "is" : "are"} going too.`;
+}
+
+/** The Where row for a place a host typed: one line, with Open in Maps. */
+const placeRow = (place: string): CardRow => where({ venue: place.trim() });
+const WHY_PLAN_IN = "You’re getting this because you’re in an Open Invite plan on Club Yuppie.";
+
+// 17. Plan changed. Drawn: the time moved. "time" | "place" | "both" as the
+// event-changed email (the same rules: the plan-changed words with "place"
+// or "time and place" where the drawn email says "time", and a Was row for
+// the place). Free plans: nothing about money.
+const planChanged: Build<"plan-changed"> = (d: PlanChangedData, o) => {
+  const { title, start } = d.plan;
+  const host = d.hostName.trim();
+  const was = d.wasStart;
+  const moved = d.moved;
+  const timeMoved = moved !== "place" && was !== undefined;
+  const placeMoved = moved !== "time";
+  const nowWhen = was && was.date !== start.date ? at(start) : start.time;
+  const place = d.place.trim();
+  const to = moved === "place" ? place : moved === "both" ? `${nowWhen} at ${place}` : nowWhen;
+  const what = moved === "place" ? "place" : moved === "both" ? "time and place" : "time";
+  const rows: CardRow[] = [row("Plan", title)];
+  if (timeMoved && was) rows.push(row("Was", at(was)), row("Now", at(start)));
+  else rows.push(row("When", at(start)));
+  if (placeMoved && d.wasPlace?.trim()) rows.push(row("Was", d.wasPlace.trim()));
+  rows.push(placeRow(place), row("Host", host));
+  return {
+    subject: `Date or place changed: ${title}`,
+    pre: `${host} moved it to ${to}. You’re still in.`,
+    label: "Open Invite update",
+    h1: { a: "Something’s moved.", b: "You’re still in.", br: true },
+    intro: [`${host} changed the ${what} for ${title}.`],
+    blocks: [{ kind: "card", rows }],
+    button: { label: "See the plan", url: absoluteUrl(d.planUrl, o.site) },
+    below: "Can’t make it now? Open the plan and let the others know.",
+    foot: "member",
+    switchLink: true,
+    why: WHY_PLAN_IN,
+  };
+};
+
+// 18. Plan cancelled, free plans only. The drawn headline's serif line is
+// "The walk’s off." for the example (a walk): any plan says "The plan’s off."
+// (the one word generalised).
+const planCancelled: Build<"plan-cancelled"> = (d: PlanCancelledData, o) => {
+  const { title, start } = d.plan;
+  const host = d.hostName.trim();
+  return {
+    subject: `Cancelled: ${title}`,
+    pre: `${host} cancelled it. Nothing to pay and nothing to do.`,
+    label: "Open Invite update",
+    h1: { a: `${host} cancelled.`, b: "The plan’s off.", br: true },
+    intro: [`${host} cancelled ${title} on ${at(start)}. Nothing to pay and nothing to do.`],
+    blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Where", d.place.trim()), row("Host", host)] }],
+    button: { label: "See Open Invite", url: absoluteUrl(d.openInviteUrl ?? OPEN_INVITE_PATH, o.site) },
+    foot: "member",
+    switchLink: true,
+    why: "You’re getting this because you were in an Open Invite plan on Club Yuppie.",
+  };
+};
+
+// Plan reminder (round 3, notif-email-reminder-plan and the 2-hour row on
+// notif-board-text): only the subject, headline and first line change. With
+// nobody else going, the "going too" words and the Going row are left out.
+const planReminder: Build<"plan-reminder"> = (d: PlanReminderData, o) => {
+  const { title, start } = d.plan;
+  const two = d.window === "2h";
+  const place = d.place.trim();
+  const others = d.others.map((x) => x.trim()).filter(Boolean);
+  const too = goingToo(others);
+  return {
+    subject: two ? `In 2 hours, ${start.time}: ${title}` : `Tomorrow, ${start.time}: ${title}`,
+    pre: too ? `${place}. ${too}` : `${place}.`,
+    label: "Open Invite reminder",
+    h1: { a: two ? "In 2 hours." : `Tomorrow at ${start.time}.`, b: "See you there.", br: true },
+    intro: [`${two ? `${title} starts at ${start.time}.` : `You’re in ${title}.`}${too ? ` ${too}` : ""}`],
+    blocks: [
+      {
+        kind: "card",
+        rows: [
+          row("Plan", title),
+          row("When", at(start)),
+          placeRow(place),
+          ...(others.length ? [row("Going", `${others.join(", ")} and you`)] : []),
+        ],
+      },
+    ],
+    button: { label: "See the plan", url: absoluteUrl(d.planUrl, o.site) },
+    below: "Can’t make it? Open the plan and let the others know.",
+    art: "coupes",
+    foot: "member",
+    switchLink: true,
+    why: WHY_PLAN_IN,
+  };
+};
+
+// The chat nudge (round 3, msg-email-new-message). Never the message or the
+// sender: the chat is named by its plan. Drawn: a plan chat with 2 new
+// messages. Question threads use the push bodies' words ("New question
+// about …", "New reply about …") and the inbox's "About …" for the chat.
+const newMessage: Build<"new-message"> = (d: NewMessageData, o) => {
+  const { title, start } = d.plan;
+  const kind = d.kind ?? "plan";
+  const n = Math.max(1, Math.trunc(d.newCount));
+  const prep = kind === "plan" ? "in" : "about";
+  return {
+    subject: kind === "plan" ? `New message in ${title}` : kind === "question" ? `New question about ${title}` : `New reply about ${title}`,
+    pre: "Log in to read it. We never put messages in emails.",
+    label: "New message",
+    h1: { a: kind === "reply" ? "You’ve got a reply." : "Your plan is talking.", b: "Over to you.", br: true },
+    intro: [
+      n === 1
+        ? `There’s 1 new message ${prep} ${title}. Log in to read it and reply.`
+        : `There are ${n} new messages ${prep} ${title}. Log in to read them and reply.`,
+    ],
+    blocks: [
+      {
+        kind: "card",
+        rows: [
+          row("Chat", kind === "plan" ? title : `About ${title}`),
+          row("When", at(start)),
+          row("Where", d.place.trim()),
+          row("New", `${n} message${n === 1 ? "" : "s"}`),
+        ],
+      },
+    ],
+    button: { label: "Read the chat", url: absoluteUrl(d.chatUrl ?? MESSAGES_PATH, o.site) },
+    below: "We never put messages in emails. You’ll need to log in to read them.",
+    art: "coupes",
+    foot: "member",
+    why: "You’re getting this because you’re in a chat on Club Yuppie.",
+    always: "We send at most one of these an hour for each chat.",
+    switchLink: true,
+    switchLabel: "Turn these emails off",
+    switchOwnLine: true,
+  };
+};
+
+/** The photo spec's three reasons, as the clause after "because". */
+export const PHOTO_REMOVED_REASONS: Record<PhotoRemovedData["reason"], string> = {
+  not_clear: "it wasn’t a clear photo of you",
+  not_member: "it wasn’t a photo of the member",
+  not_suitable: "it wasn’t suitable for the club",
+};
+
+const photoRemoved: Build<"photo-removed"> = (d: PhotoRemovedData, o) => ({
+  subject: "We removed your photo",
+  pre: "Add a new one to carry on.",
+  label: "Your photo",
+  h1: { a: "We removed", b: "your photo.", br: true },
+  intro: [
+    `We removed your photo because ${PHOTO_REMOVED_REASONS[d.reason] ?? PHOTO_REMOVED_REASONS.not_clear}.`,
+    "Add a new one to carry on. A clear photo of your face, just you.",
+  ],
+  button: { label: "Add a new photo", url: absoluteUrl(d.addPhotoUrl ?? "/members", o.site) },
+  below: join("Think we got it wrong? Email ", inlineLink(SUPPORT_EMAIL, `mailto:${SUPPORT_EMAIL}`, INK), "."),
+  foot: "member",
+  why: "You’re getting this because a photo on your Club Yuppie account was removed.",
+  always: "We always send account emails.",
+});
+
+// 20. New report. Drawn: a message report; "Member" and "Photo" change the
+// Type row and the first sentence (strings under States). Not drawn: a plan
+// report (the same pattern, "Sam reported a plan: …"), and the preheader and
+// small print for the kinds that are not a message (the drawn ones speak of
+// the message, so they follow the first sentence, and the small print is
+// left out where there is no message).
+const REPORT_TYPE: Record<AdminNewReportData["kind"], string> = { message: "Message", member: "Member", photo: "Photo", plan: "Plan" };
+
+const adminNewReport: Build<"admin-new-report"> = (d: AdminNewReportData, o) => {
+  const by = d.by.trim();
+  const about = d.about.trim();
+  const plan = d.planTitle?.trim() || "";
+  const words: { first: string; pre: string } =
+    d.kind === "message"
+      ? plan
+        ? { first: `${by} reported a message in ${plan}.`, pre: `A message in ${plan}.` }
+        : { first: `${by} reported a message from ${about}.`, pre: `A message from ${about}.` }
+      : d.kind === "member"
+        ? { first: `${by} reported ${about}.`, pre: `About ${about}.` }
+        : d.kind === "photo"
+          ? { first: `${by} reported a photo of ${about}.`, pre: `A photo of ${about}.` }
+          : plan
+            ? { first: `${by} reported a plan: ${plan}.`, pre: `A plan: ${plan}.` }
+            : { first: `${by} reported a plan by ${about}.`, pre: `A plan by ${about}.` };
+  return {
+    subject: `New report: ${d.reason.trim()}`,
+    pre: `${words.pre} Look within 24 hours.`,
+    label: "Report",
+    h1: { a: "New report.", b: "Look within 24 hours.", br: true },
+    intro: [words.first],
+    blocks: [
+      {
+        kind: "card",
+        rows: [
+          row("Type", REPORT_TYPE[d.kind]),
+          row("Reason", d.reason.trim()),
+          row("About", about),
+          row("By", by),
+          row("Sent", at(d.sent)),
+          row("Open", `${d.open} report${d.open === 1 ? "" : "s"}`),
+        ],
+      },
+    ],
+    button: { label: "Open the report", url: absoluteUrl(d.reportUrl ?? "/admin/reports", o.site) },
+    below: d.kind === "message" ? "The message isn’t in this email on purpose. Open the report to read it." : undefined,
+    foot: "admin",
+    why: WHY_ADMIN,
+  };
+};
+
 export const BUILDERS: { [N in EmailName]: Build<N> } = {
   "application-received": applicationReceived,
   approval,
@@ -654,6 +886,12 @@ export const BUILDERS: { [N in EmailName]: Build<N> } = {
   "event-reminder": eventReminder,
   "admin-new-application": adminNewApplication,
   "admin-booking-review": adminBookingReview,
+  "plan-changed": planChanged,
+  "plan-cancelled": planCancelled,
+  "plan-reminder": planReminder,
+  "new-message": newMessage,
+  "photo-removed": photoRemoved,
+  "admin-new-report": adminNewReport,
 };
 
 export const EMAIL_NAMES = Object.keys(BUILDERS) as EmailName[];

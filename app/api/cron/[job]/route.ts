@@ -30,6 +30,16 @@ function authorised(request: Request): boolean {
   return diff === 0;
 }
 
+// TEST ONLY: ?now=<ISO> runs the job at that time (quiet hours, reminder windows, chat emails), only when
+// MEMBERS_TEST_HOOKS=on and never on the live site. Everywhere else the job runs at the real time.
+function clockFor(request: Request): Date | null {
+  if (process.env.MEMBERS_TEST_HOOKS !== "on" || process.env.VERCEL_ENV === "production") return null;
+  const raw = new URL(request.url).searchParams.get("now");
+  if (!raw) return null;
+  const date = new Date(raw);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 export async function GET(request: Request, ctx: { params: Promise<{ job: string }> }) {
   if (!authorised(request)) {
     return NextResponse.json({ error: "Unauthorised." }, { status: 401 });
@@ -40,7 +50,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ job: string
 
   const startedAt = new Date();
   try {
-    const result = await run(startedAt);
+    const result = await run(clockFor(request) ?? startedAt);
     return NextResponse.json({ job, ok: true, startedAt: startedAt.toISOString(), ms: Date.now() - startedAt.getTime(), result });
   } catch (err) {
     console.error(`cron ${job} failed:`, err);
