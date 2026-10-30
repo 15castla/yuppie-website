@@ -5,10 +5,12 @@
 // month sections with rows, and on a computer a card on the right. A pure
 // component of props (the page does the auth and the data).
 //
-// Club events (real data) and Open Invites (no backend yet) share one row
-// type. Open Invite rows, the "Open Invites" chip and the card that posts one
-// appear only when `openInvite` is on (flags.openInvite); until then the page
-// is club events only, with no chips (one kind needs no filter).
+// Club events and Open Invites (both real data: the bookings, and the plans the
+// member hosts or is going to) share one row type. Open Invite rows, the
+// "Open Invites" chip and the card that posts one appear only when
+// `openInvite` is on (Open Invite on in this shell: in the app it also needs
+// its own switch); until then the page is club events only, with no chips
+// (one kind needs no filter).
 //
 // Built from the kit; measurements and copy are the approved design's
 // (v3 pages_plans.py).

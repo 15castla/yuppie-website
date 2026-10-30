@@ -242,6 +242,9 @@
 .oi-ta .v{white-space:normal;overflow:visible}
 .oi-fe{margin-top:8px;display:flex;gap:6px;align-items:flex-start;font:400 13px/1.3 var(--font-body);color:var(--error)}
 .oi-fe .mk-ico{margin-top:0;flex:none}
+/* stage 2: the server's line under the form (a failure not tied to one field). Focus lands here; the line itself is the alert. */
+.oi-form-e{outline:none;margin-top:-16px}
+.oi-form-e .oi-fe{margin-top:0;font-size:15px}
 .oi-help{margin-top:8px;font:400 13px/1.3 var(--font-body);color:var(--muted)}
 .oi-two{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:12px}
 .oi-types{display:flex;flex-wrap:wrap;gap:8px}

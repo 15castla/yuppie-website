@@ -1,6 +1,8 @@
-// Preview screens for Open Invite (browse, post, plan page, Yours) and the paid-plan screens. OWNED BY THE OPEN INVITE BUILDER.
+// Preview screens for Open Invite (browse, post, edit, plan page, Yours) and the paid-plan screens. OWNED BY THE OPEN INVITE BUILDER.
 // One id per screen: "invite-<name>" for Open Invite and "pay-<name>" for the paid plans.
-// EXAMPLE CONTENT: every person, place and plan comes from lib/members/mock/open-invite.ts.
+// EXAMPLE CONTENT: every person, place and plan comes from lib/members/mock/open-invite.ts. The buttons answer
+// from those examples (components/members/invite/preview.tsx InvitePreview: stand-ins for the server actions,
+// nothing is read or written), so a screen can be pressed through here with no login and no database.
 //
 // Plan-page states and the sheets drawn over them use the same plan for the
 // same state as the approved designs (pages_oi.py): open and full on "Padel,
@@ -9,14 +11,18 @@
 
 import "@/components/members/invite/invite.css";
 
+import type { ReactNode } from "react";
+
 import {
   OpenInviteError,
   OpenInviteLoading,
   OpenInviteView,
 } from "@/components/members/invite/browse-view";
 import { InviteCard } from "@/components/members/invite/invite-card";
-import { askedForRefund, cancelled } from "@/components/members/invite/demo-state";
+import { valuesOf } from "@/components/members/invite/form-values";
 import { PlanLoading, PlanView } from "@/components/members/invite/plan-view";
+import { InvitePreview } from "@/components/members/invite/preview";
+import { askedForRefund, cancelled } from "@/components/members/invite/preview-state";
 import { PostedView, PostLoading, PostView, type PostErrors, type PostValues } from "@/components/members/invite/post-view";
 import type { Moment } from "@/components/members/invite/use-moments";
 import { YoursLoading, YoursView } from "@/components/members/invite/yours-view";
@@ -37,7 +43,7 @@ import {
 } from "@/lib/members/mock/open-invite";
 import { EXAMPLE_HOST_PAYMENTS, EXAMPLE_PLAN_PAYMENTS, EXAMPLE_RECEIPTS } from "@/lib/members/mock/payments";
 import type { InviteMember, NewOpenInviteContext, OpenInvite, OpenInvitePage } from "@/lib/members/invite/types";
-import type { PreviewScreen } from "./types";
+import type { PreviewParams, PreviewScreen } from "./types";
 
 const FLAGS = ["openInvite", "messages"] as const;
 
@@ -49,6 +55,12 @@ const CONTEXT: NewOpenInviteContext = {
 };
 
 const page = (invite: OpenInvite): OpenInvitePage => ({ invite, me: SAM, now: EXAMPLE_NOW });
+/** A screen whose buttons answer from these example plans. */
+const withPlans = (plans: OpenInvite[], node: ReactNode) => (
+  <InvitePreview plans={plans} me={SAM} now={EXAMPLE_NOW}>
+    {node}
+  </InvitePreview>
+);
 
 // ---- long text: the longest name and title the product allows (oi-edge-long-*)
 const LONG_NAME = "Maria-Alexandra Van Der Westhuizen-Smith";
@@ -232,9 +244,116 @@ const LEAVE_CASES: Record<string, PlanCase> = {
   "cancel-done": { invite: POLO_CANCELLED, moment: { kind: "cancelled", id: POLO_CANCELLED.id } },
   "cancel-done-two": { invite: POLO_TWO_CANCELLED, moment: { kind: "cancelled", id: POLO_TWO_CANCELLED.id } },
 };
-const planWith = (entry: PlanCase) => (
-  <PlanView page={page(entry.invite)} paidPlans initialMoment={entry.moment ?? null} initialPendingId={entry.pending ? entry.invite.id : null} />
-);
+const planWith = (entry: PlanCase) =>
+  withPlans(
+    [entry.invite],
+    <PlanView page={page(entry.invite)} paidPlans initialMoment={entry.moment ?? null} initialPendingId={entry.pending ? entry.invite.id : null} />,
+  );
+
+// ---- the screens, by state
+function browseScreen({ state, flags }: PreviewParams): ReactNode {
+  const paidPlans = flags.paidPlans;
+  switch (state) {
+    case "pending":
+      return <OpenInviteView feed={EXAMPLE_FEED} paidPlans={paidPlans} initialPendingId={P.sundayWalk.id} />;
+    case "filter":
+      return <OpenInviteView feed={EXAMPLE_FEED} paidPlans={paidPlans} initialFilter="Food and drink" />;
+    case "empty":
+      return <OpenInviteView feed={{ ...EXAMPLE_FEED, invites: [], yoursCount: 0 }} paidPlans={paidPlans} />;
+    case "loading":
+      return <OpenInviteLoading />;
+    case "error":
+      return <OpenInviteError />;
+    case "long":
+      return <OpenInviteView feed={{ ...EXAMPLE_FEED, invites: LONG_PLANS }} paidPlans={paidPlans} />;
+    case "long-paid":
+      return <OpenInviteView feed={{ ...EXAMPLE_FEED, invites: [LONG_PAID, ...LONG_PLANS] }} paidPlans />;
+    case "joined":
+      return (
+        <OpenInviteView
+          feed={EXAMPLE_FEED}
+          paidPlans={paidPlans}
+          initialMoment={{ kind: "joined", id: P.saturdayClass.id }}
+        />
+      );
+    case "taken":
+      return (
+        <OpenInviteView
+          feed={EXAMPLE_FEED}
+          paidPlans={paidPlans}
+          initialMoment={{ kind: "taken", id: P.padelPizza.id }}
+        />
+      );
+    default:
+      return <OpenInviteView feed={EXAMPLE_FEED} paidPlans={paidPlans} />;
+  }
+}
+
+function yoursScreen({ state, flags }: PreviewParams): ReactNode {
+  switch (state) {
+    case "empty":
+      return <YoursView yours={{ ...EXAMPLE_YOURS, posted: [], joined: [], past: [], yoursCount: 0 }} paidPlans={flags.paidPlans} />;
+    case "past-only":
+      return <YoursView yours={{ ...EXAMPLE_YOURS, posted: [], joined: [], yoursCount: 0 }} paidPlans={flags.paidPlans} />;
+    case "loading":
+      return <YoursLoading />;
+    default:
+      return <YoursView yours={EXAMPLE_YOURS} paidPlans={flags.paidPlans} />;
+  }
+}
+
+function postScreen({ state, flags }: PreviewParams): ReactNode {
+  switch (state) {
+    case "filled":
+      return <PostView context={CONTEXT} paidPlans={flags.paidPlans} initial={FILLED} />;
+    case "errors":
+      return <PostView context={CONTEXT} paidPlans={flags.paidPlans} initialErrors={ERRORS} />;
+    case "pending":
+      return <PostView context={CONTEXT} paidPlans={flags.paidPlans} initial={FILLED} initialPosting />;
+    case "server-error":
+      return <PostView context={CONTEXT} paidPlans={flags.paidPlans} initial={FILLED} initialFormError="Your plan didn’t post. Try again." />;
+    case "done":
+      return <PostedView invite={P.climbing} me={SAM} />;
+    case "done-paid":
+      return <PostedView invite={POLO_POSTED} me={SAM} />;
+    case "loading":
+      return <PostLoading />;
+    // the cost option (paid plans are on in all of these)
+    case "cost-off":
+      return <PostView context={CONTEXT} paidPlans initial={PAID_FILLED} />;
+    case "cost-new":
+      return <PostView context={getPaidContext("not-set-up")} paidPlans initial={costOn()} />;
+    case "cost-ready":
+      return <PostView context={CONTEXT} paidPlans initial={costOn()} />;
+    case "cost-needs-info":
+      return <PostView context={getPaidContext("needs-info")} paidPlans initial={costOn()} />;
+    case "cost-review":
+      return <PostView context={getPaidContext("in-review")} paidPlans initial={costOn()} />;
+    case "cost-blank":
+      return <PostView context={CONTEXT} paidPlans initial={costOn({ price: "" })} initialErrors={{ price: COST_ERROR.blank }} />;
+    case "cost-zero":
+      return <PostView context={CONTEXT} paidPlans initial={costOn({ price: "0" })} initialErrors={{ price: COST_ERROR.zero }} />;
+    case "cost-high":
+      return <PostView context={CONTEXT} paidPlans initial={costOn({ price: "400" })} initialErrors={{ price: COST_ERROR.high }} />;
+    case "cost-untick":
+      return <PostView context={CONTEXT} paidPlans initial={costOn({ tick: false })} initialErrors={{ faceValue: COST_ERROR.untick }} />;
+    case "cost-getpaid":
+      return (
+        <PostView
+          context={getPaidContext("not-set-up")}
+          paidPlans
+          initial={costOn()}
+          initialErrors={{ getPaid: COST_ERROR.getPaid }}
+        />
+      );
+    case "getpaid-sheet":
+      return <PostView context={getPaidContext("not-set-up")} paidPlans initial={costOn()} initialMode="intro" />;
+    case "getpaid-stripe":
+      return <PostView context={getPaidContext("not-set-up")} paidPlans initial={costOn()} initialMode="stripe" />;
+    default:
+      return <PostView context={CONTEXT} paidPlans={flags.paidPlans} />;
+  }
+}
 
 export const inviteScreens: PreviewScreen[] = [
   {
@@ -244,43 +363,7 @@ export const inviteScreens: PreviewScreen[] = [
     tab: "invite",
     showMessages: true,
     defaultFlags: FLAGS,
-    render: ({ state, flags }) => {
-      const paidPlans = flags.paidPlans;
-      switch (state) {
-        case "pending":
-          return <OpenInviteView feed={EXAMPLE_FEED} paidPlans={paidPlans} initialPendingId={P.sundayWalk.id} />;
-        case "filter":
-          return <OpenInviteView feed={EXAMPLE_FEED} paidPlans={paidPlans} initialFilter="Food and drink" />;
-        case "empty":
-          return <OpenInviteView feed={{ ...EXAMPLE_FEED, invites: [], yoursCount: 0 }} paidPlans={paidPlans} />;
-        case "loading":
-          return <OpenInviteLoading />;
-        case "error":
-          return <OpenInviteError />;
-        case "long":
-          return <OpenInviteView feed={{ ...EXAMPLE_FEED, invites: LONG_PLANS }} paidPlans={paidPlans} />;
-        case "long-paid":
-          return <OpenInviteView feed={{ ...EXAMPLE_FEED, invites: [LONG_PAID, ...LONG_PLANS] }} paidPlans />;
-        case "joined":
-          return (
-            <OpenInviteView
-              feed={EXAMPLE_FEED}
-              paidPlans={paidPlans}
-              initialMoment={{ kind: "joined", id: P.saturdayClass.id }}
-            />
-          );
-        case "taken":
-          return (
-            <OpenInviteView
-              feed={EXAMPLE_FEED}
-              paidPlans={paidPlans}
-              initialMoment={{ kind: "taken", id: P.padelPizza.id }}
-            />
-          );
-        default:
-          return <OpenInviteView feed={EXAMPLE_FEED} paidPlans={paidPlans} />;
-      }
-    },
+    render: (params) => withPlans([...EXAMPLE_FEED.invites, ...LONG_PLANS, LONG_PAID], browseScreen(params)),
     frame: ({ state }) => (state === "loading" ? { showMessages: true } : {}),
   },
   {
@@ -290,18 +373,7 @@ export const inviteScreens: PreviewScreen[] = [
     tab: "invite",
     showMessages: true,
     defaultFlags: FLAGS,
-    render: ({ state, flags }) => {
-      switch (state) {
-        case "empty":
-          return <YoursView yours={{ ...EXAMPLE_YOURS, posted: [], joined: [], past: [], yoursCount: 0 }} paidPlans={flags.paidPlans} />;
-        case "past-only":
-          return <YoursView yours={{ ...EXAMPLE_YOURS, posted: [], joined: [], yoursCount: 0 }} paidPlans={flags.paidPlans} />;
-        case "loading":
-          return <YoursLoading />;
-        default:
-          return <YoursView yours={EXAMPLE_YOURS} paidPlans={flags.paidPlans} />;
-      }
-    },
+    render: (params) => withPlans([...EXAMPLE_YOURS.posted, ...EXAMPLE_YOURS.joined], yoursScreen(params)),
   },
   {
     id: "invite-plan",
@@ -314,74 +386,51 @@ export const inviteScreens: PreviewScreen[] = [
     render: ({ state, flags }) => {
       if (state === "loading") return <PlanLoading />;
       const entry = PLAN_CASES[state] ?? PLAN_CASES.open;
-      return (
+      return withPlans(
+        [entry.invite],
         <PlanView
           page={page(entry.invite)}
           paidPlans={flags.paidPlans}
           initialMoment={entry.moment ?? null}
           initialPendingId={entry.pending ? entry.invite.id : null}
-        />
+        />,
       );
     },
   },
   {
     id: "invite-post",
     title: "Open Invite: post a plan",
-    states: ["empty", "filled", "errors", "pending", "done", "loading", "done-paid", ...POST_COST_STATES],
+    states: ["empty", "filled", "errors", "pending", "server-error", "done", "loading", "done-paid", ...POST_COST_STATES],
     tab: "invite",
     showMessages: false,
     dock: "own",
     defaultFlags: FLAGS,
     frame: ({ state }) => (state === "done" || state === "done-paid" ? { dock: "tabs" } : {}),
-    render: ({ state, flags }) => {
-      switch (state) {
-        case "filled":
-          return <PostView context={CONTEXT} paidPlans={flags.paidPlans} initial={FILLED} />;
-        case "errors":
-          return <PostView context={CONTEXT} paidPlans={flags.paidPlans} initialErrors={ERRORS} />;
-        case "pending":
-          return <PostView context={CONTEXT} paidPlans={flags.paidPlans} initial={FILLED} initialPosting />;
-        case "done":
-          return <PostedView invite={P.climbing} me={SAM} />;
-        case "done-paid":
-          return <PostedView invite={POLO_POSTED} me={SAM} />;
-        case "loading":
-          return <PostLoading />;
-        // the cost option (paid plans are on in all of these)
-        case "cost-off":
-          return <PostView context={CONTEXT} paidPlans initial={PAID_FILLED} />;
-        case "cost-new":
-          return <PostView context={getPaidContext("not-set-up")} paidPlans initial={costOn()} />;
-        case "cost-ready":
-          return <PostView context={CONTEXT} paidPlans initial={costOn()} />;
-        case "cost-needs-info":
-          return <PostView context={getPaidContext("needs-info")} paidPlans initial={costOn()} />;
-        case "cost-review":
-          return <PostView context={getPaidContext("in-review")} paidPlans initial={costOn()} />;
-        case "cost-blank":
-          return <PostView context={CONTEXT} paidPlans initial={costOn({ price: "" })} initialErrors={{ price: COST_ERROR.blank }} />;
-        case "cost-zero":
-          return <PostView context={CONTEXT} paidPlans initial={costOn({ price: "0" })} initialErrors={{ price: COST_ERROR.zero }} />;
-        case "cost-high":
-          return <PostView context={CONTEXT} paidPlans initial={costOn({ price: "400" })} initialErrors={{ price: COST_ERROR.high }} />;
-        case "cost-untick":
-          return <PostView context={CONTEXT} paidPlans initial={costOn({ tick: false })} initialErrors={{ faceValue: COST_ERROR.untick }} />;
-        case "cost-getpaid":
-          return (
-            <PostView
-              context={getPaidContext("not-set-up")}
-              paidPlans
-              initial={costOn()}
-              initialErrors={{ getPaid: COST_ERROR.getPaid }}
-            />
-          );
-        case "getpaid-sheet":
-          return <PostView context={getPaidContext("not-set-up")} paidPlans initial={costOn()} initialMode="intro" />;
-        case "getpaid-stripe":
-          return <PostView context={getPaidContext("not-set-up")} paidPlans initial={costOn()} initialMode="stripe" />;
-        default:
-          return <PostView context={CONTEXT} paidPlans={flags.paidPlans} />;
-      }
+    render: (params) => withPlans([], postScreen(params)),
+  },
+  {
+    id: "invite-edit",
+    title: "Open Invite: edit a plan (the host)",
+    states: ["default", "errors", "pending", "loading"],
+    tab: "invite",
+    showMessages: false,
+    dock: "own",
+    defaultFlags: FLAGS,
+    render: ({ state }) => {
+      if (state === "loading") return <PostLoading editing />;
+      const plan = P.climbing;
+      const others = plan.going.filter((person) => person.id !== SAM.id);
+      const node = (
+        <PostView
+          context={CONTEXT}
+          initial={valuesOf(plan)}
+          editing={{ id: plan.id, title: plan.title, others }}
+          initialPosting={state === "pending"}
+          initialErrors={state === "errors" ? { time: "Pick a time from now." } : undefined}
+          initialFormError={state === "errors" ? "2 people are going, so keep at least 2 places." : undefined}
+        />
+      );
+      return withPlans([plan], node);
     },
   },
   {

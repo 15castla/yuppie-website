@@ -1,10 +1,11 @@
-// LOCAL DEMO STATE. No backend exists, so "I'm in", Pay and join, leave and
-// cancel only change what this browser tab shows: each function returns a
-// copy of the plan as the server would after the action. When a backend
-// exists, these become server actions that return the new plan and this file
-// goes. Nothing here is saved or sent anywhere.
+// PREVIEW HARNESS ONLY (./preview.tsx and app/dev-preview/registry/invite.tsx). EXAMPLE DATA: the plan as an
+// example "server" would answer after I'm in, Pay and join, leave or cancel, made from the example plans in
+// lib/members/mock/open-invite.ts. Nothing is read, saved or sent. Plain functions (not a client module), so the
+// registry can call them on the server. Never used by a live page: the real answers are lib/server/plans.ts's.
 
 import type { InviteMember, InvitePayment, OpenInvite } from "@/lib/members/invite/types";
+
+const DAY = 86_400_000;
 
 export function joinedFree(invite: OpenInvite, me: InviteMember): OpenInvite {
   return {
@@ -14,7 +15,7 @@ export function joinedFree(invite: OpenInvite, me: InviteMember): OpenInvite {
   };
 }
 
-export function demoPayment(invite: OpenInvite, me: InviteMember, nowIso: string, pence?: number): InvitePayment {
+function examplePayment(invite: OpenInvite, me: InviteMember, nowIso: string, pence?: number): InvitePayment {
   return {
     id: `pay-${invite.id}`,
     receiptNumber: "0417",
@@ -31,7 +32,7 @@ export function demoPayment(invite: OpenInvite, me: InviteMember, nowIso: string
 
 export function joinedPaid(invite: OpenInvite, me: InviteMember, nowIso: string, pence?: number): OpenInvite {
   const joined = joinedFree(invite, me);
-  return { ...joined, you: { ...joined.you, payment: demoPayment(invite, me, nowIso, pence) } };
+  return { ...joined, you: { ...joined.you, payment: examplePayment(invite, me, nowIso, pence) } };
 }
 
 /** The member asked the host for a refund inside 24 hours: they stay in until the host answers. */
@@ -53,22 +54,14 @@ export function left(invite: OpenInvite, me: InviteMember, refund: boolean, nowI
             amountPence: payment.amountPence,
             reason: "left-in-time",
             refundedAt: nowIso,
-            expectedBy: new Date(new Date(nowIso).getTime() + 14 * 86_400_000).toISOString(),
+            expectedBy: new Date(new Date(nowIso).getTime() + 14 * DAY).toISOString(),
           },
         }
       : null;
   return {
     ...invite,
     going: invite.going.filter((person) => person.id !== me.id),
-    you: {
-      ...invite.you,
-      role: "guest",
-      chatId: null,
-      unreadInChat: 0,
-      chatPreview: null,
-      askThreadId: `ask-${invite.id}`,
-      payment: refunded,
-    },
+    you: { ...invite.you, role: "guest", chatId: null, unreadInChat: 0, chatPreview: null, askThreadId: `ask-${invite.id}`, payment: refunded },
   };
 }
 
@@ -91,7 +84,7 @@ export function cancelled(invite: OpenInvite, nowIso: string): OpenInvite {
                 amountPence: payment.amountPence,
                 reason: "host-cancelled" as const,
                 refundedAt: nowIso,
-                expectedBy: new Date(new Date(nowIso).getTime() + 14 * 86_400_000).toISOString(),
+                expectedBy: new Date(new Date(nowIso).getTime() + 14 * DAY).toISOString(),
               },
             })),
           }

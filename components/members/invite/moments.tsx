@@ -10,6 +10,11 @@
 //   taken     "That was the last place."
 //   cancel    "Cancel this plan?" then "Plan cancelled." (the host; a free plan.
 //             The designs draw this for a paid plan only: the free words are new.)
+//   refused   the server said no (the plan started or was cancelled meanwhile,
+//             the connection dropped): its own words and Done. Not drawn.
+//
+// `busy`: the server is working on what was pressed. The button stays the
+// full button with aria-busy (the kit's pending) and cannot be pressed twice.
 
 import { useId, useState, type ReactNode } from "react";
 
@@ -78,10 +83,12 @@ export function WithdrawSheet({
   invite,
   onClose,
   onConfirm,
+  busy = false,
 }: {
   invite: OpenInvite;
   onClose: () => void;
   onConfirm: () => void;
+  busy?: boolean;
 }) {
   const id = useId();
   return (
@@ -97,7 +104,7 @@ export function WithdrawSheet({
         <Button block onClick={onClose}>
           Stay in
         </Button>
-        <Button block variant="outline" className="oi-danger" onClick={onConfirm}>
+        <Button block variant="outline" className="oi-danger" pending={busy} onClick={busy ? undefined : onConfirm}>
           Withdraw
         </Button>
       </Actions>
@@ -120,6 +127,7 @@ export function ReportSheet({
   onClose,
   onSend,
   initialReason = 0,
+  busy = false,
 }: {
   invite: OpenInvite;
   /** Paid plans are on: "Price above what it cost" is one of the reasons (the design lists it on every plan). Off, there is no price in the product. */
@@ -127,6 +135,7 @@ export function ReportSheet({
   onClose: () => void;
   onSend: (reason: string) => void;
   initialReason?: number;
+  busy?: boolean;
 }) {
   const id = useId();
   const [reason, setReason] = useState(initialReason);
@@ -153,7 +162,7 @@ export function ReportSheet({
         ))}
       </div>
       <Actions>
-        <Button block onClick={() => onSend(reasons[reason])}>
+        <Button block pending={busy} onClick={busy ? undefined : () => onSend(reasons[reason])}>
           Send report
         </Button>
         <Button block variant="outline" onClick={onClose}>
@@ -224,10 +233,12 @@ export function CancelSheet({
   invite,
   onClose,
   onConfirm,
+  busy = false,
 }: {
   invite: OpenInvite;
   onClose: () => void;
   onConfirm: () => void;
+  busy?: boolean;
 }) {
   const id = useId();
   const others = invite.going.filter((person) => person.id !== invite.host.id).length;
@@ -246,7 +257,7 @@ export function CancelSheet({
         <Button block onClick={onClose}>
           Keep the plan
         </Button>
-        <Button block variant="outline" className="oi-danger" onClick={onConfirm}>
+        <Button block variant="outline" className="oi-danger" pending={busy} onClick={busy ? undefined : onConfirm}>
           Cancel the plan
         </Button>
       </Actions>
@@ -268,6 +279,26 @@ export function CancelledSheet({ invite, onClose }: { invite: OpenInvite; onClos
       <p className="oi-sh-p">
         {others === 0 ? "It’s off the list." : "Everyone who was in has been told."}
       </p>
+      <Actions>
+        <Button block onClick={onClose}>
+          Done
+        </Button>
+      </Actions>
+    </Sheet>
+  );
+}
+
+/** The server said no to what was pressed: its own words (lib/server/plans.ts), and Done. */
+export function RefusedSheet({ message, onClose }: { message: string; onClose: () => void }) {
+  const id = useId();
+  return (
+    <Sheet labelledBy={id} onClose={onClose}>
+      <span className="oi-sh-icon is-line">
+        <Icon name="info" size={26} />
+      </span>
+      <h2 className="oi-sh-h" id={id} role="alert">
+        {message}
+      </h2>
       <Actions>
         <Button block onClick={onClose}>
           Done
