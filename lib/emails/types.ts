@@ -12,7 +12,13 @@
 //
 // The words, layout and states are the approved round 2 designs
 // (rebrand/v4/specs/r2c.md, files out/r2c-send-*.html|.txt) and, for the
-// event reminder, round 3 (notif-email-reminder-event, v3/specs/notifications.md 3.4).
+// reminders and the chat nudge, round 3 (notif-email-reminder-event,
+// notif-email-reminder-plan, msg-email-new-message; v3/specs/notifications.md
+// 3.4 and 3.7, v3/specs/messages.md 3.7).
+//
+// Stage 2 (Phase B) added: plan-changed, plan-cancelled, photo-removed,
+// admin-new-report, new-message and plan-reminder (emails), and
+// reminders-on, event-reminder and plan-reminder (texts).
 
 // ---------------------------------------------------------------- shared shapes
 
@@ -301,6 +307,113 @@ export type EventReminderData = {
   bookingUrl: EmailLink;
 };
 
+// ---------------------------------------------------------------- 4b. Open Invite plans (stage 2: free plans only)
+
+/**
+ * The Open Invite plan an email is about. Plan titles and places are typed by
+ * the host: pass them as they are (the renderer escapes them).
+ */
+export type EmailPlan = {
+  /** The plan's title: "Sunday walk and coffee". */
+  title: string;
+  /** The start: `{ date: "Sun 25 Oct", time: "11:30" }`. */
+  start: EmailDateTime;
+};
+
+/**
+ * 17. A host changed the time or place of a plan: to everyone who is in (not the host). The time row covers a new
+ * date, a new time or both, as for a club event ("time" | "place" | "both", EventChangeKind).
+ */
+export type PlanChangedData = {
+  moved: EventChangeKind;
+  /** The host's first name: "Priya" ("Priya changed the time for …", the Host row). */
+  hostName: string;
+  /** The title and the start as it is NOW. */
+  plan: EmailPlan;
+  /** The start before the change (the Was row). Needed for "time" and "both". */
+  wasStart?: EmailDateTime;
+  /** The place before the change (the second Was row). Needed for "place" and "both". */
+  wasPlace?: string;
+  /** Where it is now, as the host typed it ("Calder Park"): the Where row with Open in Maps. */
+  place: string;
+  /** "See the plan": openInviteHref(id). */
+  planUrl: EmailLink;
+};
+
+/**
+ * 18. A host cancelled a FREE plan: to everyone who was in. Free wording only ("Nothing to pay and nothing to
+ * do."). A paid plan never uses this email: stage 3 sends the approved round 3 refund email
+ * (pay-email-refund-host) as its own name, so nothing here changes then.
+ */
+export type PlanCancelledData = {
+  /** The host's first name: "Priya". */
+  hostName: string;
+  /** The title and the start it had. */
+  plan: EmailPlan;
+  /** As the host typed it: "Calder Park". */
+  place: string;
+  /** "See Open Invite". Default "/members/open-invite" (ROUTES.openInvite). */
+  openInviteUrl?: EmailLink;
+};
+
+/** 24h and 2h before a plan: to the host (when going) and everyone who is in (round 3, notif-email-reminder-plan). */
+export type PlanReminderData = {
+  window: ReminderWindow;
+  plan: EmailPlan;
+  /** As the host typed it: "Psycle, Oxford Circus" (the Where row with Open in Maps, and the preheader). */
+  place: string;
+  /**
+   * First names of the others going, in the order they said yes (the host first when going), WITHOUT the member
+   * this goes to: ["Jasmin", "Priya"] gives "Jasmin and Priya are going too." and "Going: Jasmin, Priya and you".
+   * Empty: those words and the Going row are left out.
+   */
+  others: string[];
+  /** "See the plan": openInviteHref(id). */
+  planUrl: EmailLink;
+};
+
+// ---------------------------------------------------------------- 4c. Messages (stage 2)
+
+/**
+ * Which chat the nudge is about. "plan": a plan chat (drawn). "question": a member asked the host a question, to the
+ * host. "reply": the host answered, to the member who asked. Every chat belongs to a plan, so the chat is named by
+ * the plan's title; the sender is never named (messages decision 1 A).
+ */
+export type ChatEmailKind = "plan" | "question" | "reply";
+
+/**
+ * The chat nudge (round 3, msg-email-new-message): unread after 15 minutes, at most one per chat an hour, none when
+ * the member turned email off or muted the chat (the dispatcher decides). Never the message text or the sender.
+ */
+export type NewMessageData = {
+  /** Default "plan". */
+  kind?: ChatEmailKind;
+  /** The chat's plan: its title is the chat name. */
+  plan: EmailPlan;
+  /** The plan's place as the host typed it (the Where row). */
+  place: string;
+  /** Unread messages in this chat, 1 or more (the New row: "2 messages"). */
+  newCount: number;
+  /** "Read the chat". Default "/members/messages" (as drawn); messageThreadHref(chatId) works too. */
+  chatUrl?: EmailLink;
+};
+
+// ---------------------------------------------------------------- 4d. Photos (stage 2)
+
+/**
+ * Why the club removed a photo (photo spec: the admin's Remove dialog, three reasons, stored and shown to the member):
+ * "not_clear" it wasn’t a clear photo of you; "not_member" it wasn’t a photo of the member; "not_suitable" it wasn’t
+ * suitable for the club.
+ */
+export type PhotoRemovedReason = "not_clear" | "not_member" | "not_suitable";
+
+/** 7. To the member, when an admin removes their photo in the Photos queue. */
+export type PhotoRemovedData = {
+  reason: PhotoRemovedReason;
+  /** "Add a new photo". Default "/members" (as drawn: the photo gate meets them there). */
+  addPhotoUrl?: EmailLink;
+};
+
 // ---------------------------------------------------------------- 5. Albert's inbox (to ADMIN_ALERTS_EMAIL, C-D7)
 
 /** 19. One per new application. */
@@ -316,6 +429,31 @@ export type AdminNewApplicationData = {
   waiting: number;
   /** "Review application". Default "/admin/applications". */
   reviewUrl?: EmailLink;
+};
+
+/** What was reported (lib/members/messages/types.ts ReportTarget kinds). */
+export type ReportEmailKind = "message" | "member" | "photo" | "plan";
+
+/**
+ * 20. One per new report (messages decision 4 A, C-D7). The reported words or photo are never in the email: only
+ * the reason, the names and the counts.
+ */
+export type AdminNewReportData = {
+  kind: ReportEmailKind;
+  /** The reason as the member picked it (the label, not the id): "Pressure to pay outside the app". Also the subject. */
+  reason: string;
+  /** First name of the member reported (for a plan, its host): "Ollie". */
+  about: string;
+  /** First name of the member who reported: "Sam". */
+  by: string;
+  /** "message": the title of the plan the chat belongs to; "plan": the plan's title. Not used for member and photo. */
+  planTitle?: string | null;
+  /** When the report was sent. */
+  sent: EmailDateTime;
+  /** Open reports, this one included (the Open row: "2 reports"). */
+  open: number;
+  /** "Open the report". Default "/admin/reports". */
+  reportUrl?: EmailLink;
 };
 
 /**
@@ -366,7 +504,7 @@ export type AdminBookingReviewData = {
 
 // ---------------------------------------------------------------- the maps
 
-/** Every email Phase A sends through Resend. The three Supabase Auth emails are files in supabase/templates/, not these. */
+/** Every email sent through Resend. The three Supabase Auth emails are files in supabase/templates/, not these. */
 export type EmailData = {
   "application-received": ApplicationReceivedData;
   approval: ApprovalData;
@@ -384,6 +522,13 @@ export type EmailData = {
   "event-reminder": EventReminderData;
   "admin-new-application": AdminNewApplicationData;
   "admin-booking-review": AdminBookingReviewData;
+  // stage 2
+  "plan-changed": PlanChangedData;
+  "plan-cancelled": PlanCancelledData;
+  "plan-reminder": PlanReminderData;
+  "new-message": NewMessageData;
+  "photo-removed": PhotoRemovedData;
+  "admin-new-report": AdminNewReportData;
 };
 
 export type EmailName = keyof EmailData;
@@ -401,9 +546,40 @@ export type RenderedEmail = {
 /** The welcome text, C-D4 A: "Club Yuppie: You’re in. Log in: clubyuppie.com/member-login". */
 export type WelcomeTextData = Record<string, never>;
 
-/** Every text Phase A sends through Twilio (reminders by text are Phase B). */
+/** Sent once when a member turns texts on (the check text): "Club Yuppie: reminders by text are on. Turn them off any time at …". */
+export type RemindersOnTextData = Record<string, never>;
+
+/**
+ * A reminder by text (r2c "Texts", round 3 notif-board-text), 24 hours or 2 hours before a club event or an Open
+ * Invite plan. The words are fixed; the renderer keeps the text in the standard alphabet and one part:
+ * - a plan title is cut at 40 characters and a plan place at 30, with no ellipsis (notifications 3.7);
+ * - typed punctuation that would make the whole text Unicode (’ ‘ “ ” – — … and the like) is written as its plain
+ *   twin in the inserted values, so a host’s "Sam’s drinks" does not double the cost.
+ * smsCount(body) gives the characters, the encoding and the parts for message_log.
+ */
+export type ReminderTextData = {
+  window: ReminderWindow;
+  /** The event or plan title: "Padel & Pints". */
+  title: string;
+  /** The start, 24-hour: "18:30". */
+  time: string;
+  /** Club event: the venue (events.location), "Northgate Courts". Plan: the place as typed, "Psycle, Oxford Circus". */
+  place: string;
+  /**
+   * Quiet hours (notifications decision 2 B) hold a text due between 22:00 and 07:00 until 07:00, so it no longer
+   * lands exactly 24 or 2 hours before. Pass the day it now lands on, relative to the start: "today" gives
+   * "… is today at 18:30, …" (NEW COPY), "tomorrow" gives the 24-hour words. Leave out for a text sent on time.
+   */
+  day?: "today" | "tomorrow";
+};
+
+/** Every text sent through Twilio (sender name "ClubYuppie"). Texts are reminders only, plus the welcome. */
 export type TextData = {
   welcome: WelcomeTextData;
+  // stage 2
+  "reminders-on": RemindersOnTextData;
+  "event-reminder": ReminderTextData;
+  "plan-reminder": ReminderTextData;
 };
 
 export type TextName = keyof TextData;
