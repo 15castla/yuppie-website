@@ -17,9 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { loadEmails, REPO } from './load-emails.mjs';
-
-const DESIGN = '/home/claude/rebrand/v4/out';
-const V3 = '/home/claude/rebrand/v3/out';
+import { DESIGN, DRAWN_TEXTS, V3_SUBJECTS, designOf, textToDrawn, toDrawnLinks, toDrawnWords } from './design-sources.mjs';
 let passed = 0;
 const failures = [];
 function check(ok, what) {
@@ -65,26 +63,31 @@ for (const { name, fx, r } of all) {
 }
 
 // ---------------------------------------------------------------- 2. the design, byte for byte
-const NOTIF_DRAWN = 'https://clubyuppie.com/members/notifications';
-const NOTIF_ROUTE = 'https://clubyuppie.com/members/you/notifications';
+// (design-sources.mjs: the route links and the one generalised word are put back as drawn first)
 for (const name of emails.EMAIL_NAMES) {
   const fx = EMAIL_FIXTURES[name][0];
   check(fx.id === 'design', `${name}: first fixture is the design example`);
   // As drawn: the "Choose what we email you" link on (it follows the Notifications flag in a real send).
   const r = emails.renderEmailWith(name, fx.data, { site: 'https://clubyuppie.com', notificationsLink: true });
-  const mine = { html: r.html.replaceAll(NOTIF_ROUTE, NOTIF_DRAWN), text: r.text.replaceAll(NOTIF_ROUTE, NOTIF_DRAWN) };
-  if (name === 'event-reminder') {
-    const v3 = fs.readFileSync(path.join(V3, 'notif-email-reminder-event.html'), 'utf8');
+  const mine = { html: toDrawnWords(name, toDrawnLinks(r.html)), text: toDrawnWords(name, toDrawnLinks(r.text)) };
+  const design = designOf(name);
+  if (design.kind === 'v3') {
+    const v3 = fs.readFileSync(design.file, 'utf8');
     const v3text = unescape(v3.match(/<pre>([\s\S]*?)<\/pre>/)[1]);
-    check(mine.text === v3text, `event-reminder: text part differs from round 3 notif-email-reminder-event`);
-    check(r.subject === 'Tomorrow, 18:30: Padel & Pints' && r.preheader === 'Northgate Courts. Your booking is below.', 'event-reminder: subject and preheader as round 3');
+    check(mine.text === v3text, `${name}: text part differs from round 3 ${path.basename(design.file)}`);
+    const [subject, pre] = V3_SUBJECTS[name];
+    check(r.subject === subject && r.preheader === pre, `${name}: subject and preheader as round 3`);
+    // The round 3 html in the r2c shell: the same words in the same order as the round 3 markup.
+    const words = (h) => visibleText(h).split(/\s+/).filter(Boolean).join(' ');
+    const v3Email = v3.replace(/<!-- PREVIEW FRAME[\s\S]*?<!-- END PREVIEW FRAME -->\n?/g, '');
+    check(words(mine.html) === words(v3Email), `${name}: html words differ from round 3 ${path.basename(design.file)}`);
     continue;
   }
   // The designer wrote the map link's & raw inside the href; ours is &amp; (the same URL).
-  const html = fs.readFileSync(path.join(DESIGN, `r2c-send-${name}.html`), 'utf8').replaceAll('api=1&query=', 'api=1&amp;query=');
-  const text = fs.readFileSync(path.join(DESIGN, `r2c-send-${name}.txt`), 'utf8');
-  check(mine.html === html, `${name}: html differs from r2c-send-${name}.html`);
-  check(mine.text === text, `${name}: text differs from r2c-send-${name}.txt`);
+  const html = fs.readFileSync(design.html, 'utf8').replaceAll('api=1&query=', 'api=1&amp;query=');
+  const text = fs.readFileSync(design.text, 'utf8');
+  check(mine.html === html, `${name}: html differs from ${path.basename(design.html)}`);
+  check(mine.text === text, `${name}: text differs from ${path.basename(design.text)}`);
 }
 // The 2-hour reminder: only the subject, headline and first line change (v3 notif-board-text).
 {
@@ -120,11 +123,12 @@ function poison(value, key = '') {
 for (const name of emails.EMAIL_NAMES) {
   for (const fx of EMAIL_FIXTURES[name]) {
     const data = poison(fx.data);
-    // Fixed-word fields (enums) are not poisoned.
-    for (const k of ['reason', 'moved', 'window']) if (k in fx.data && typeof fx.data[k] === 'string' && !(name === 'event-cancelled' && k === 'reason')) data[k] = fx.data[k];
+    // Fixed-word fields (enums) are not poisoned; "reason" is free text in event-cancelled and admin-new-report.
+    const freeReason = name === 'event-cancelled' || name === 'admin-new-report';
+    for (const k of ['reason', 'moved', 'window', 'kind']) if (k in fx.data && typeof fx.data[k] === 'string' && !(freeReason && k === 'reason')) data[k] = fx.data[k];
     const r = emails.renderEmail(name, data);
     check(!/<b[ >]|<i>|onclick="x"/.test(r.html), `${name}/${fx.id}: an inserted value reached the html unescaped`);
-    const hasText = JSON.stringify(Object.values(fx.data)).match(/"[^"]/);
+    const hasText = /onclick/.test(JSON.stringify(Object.entries(data).filter(([k]) => !/Url$/.test(k))));
     check(!hasText || r.html.includes('&lt;b onclick=&quot;x&quot;&gt;&amp;&#39;&quot;&lt;/b&gt;'), `${name}/${fx.id}: escaped value not found in the html`);
     check(!/href="[^"]*"[^ >]/.test(r.html.replace(/<!--\[if mso\]>[\s\S]*?<!\[endif\]-->/g, '')), `${name}/${fx.id}: an href attribute was broken out of`);
   }
@@ -211,7 +215,22 @@ for (const { name, fx, r } of all) {
 }
 
 // ---------------------------------------------------------------- 7. texts and dark mode
-for (const name of emails.TEXT_NAMES) for (const fx of TEXT_FIXTURES[name]) audit(`text ${name}`, emails.renderText(name, fx.data));
+// The fixed words of every text; the fixtures that show a typed value on purpose (a straight apostrophe after
+// folding, a letter outside the standard alphabet) are checked in phase-b/emails/check-emails-b.mjs instead.
+for (const name of emails.TEXT_NAMES) for (const fx of TEXT_FIXTURES[name]) if (!['typed-apostrophe', 'unicode'].includes(fx.id)) audit(`text ${name}/${fx.id}`, emails.renderText(name, fx.data));
+// The texts as the r2c table writes them, with its counts (the approved round 3 counter).
+for (const [key, [words, chars, enc, parts]] of Object.entries(DRAWN_TEXTS)) {
+  const [name, id] = key.split('/');
+  const fx = TEXT_FIXTURES[name]?.find((f) => f.id === id);
+  check(Boolean(fx), `texts: fixture ${key}`);
+  if (!fx) continue;
+  const body = emails.renderText(name, fx.data);
+  check(textToDrawn(body) === words, `text ${key}: "${body}"`);
+  const c = emails.smsCount(words);
+  check(c.characters === chars && c.encoding === enc && c.parts === parts, `text ${key}: the table's count ${chars} ${enc} ${parts}, got ${JSON.stringify(c)}`);
+  const ours = emails.smsCount(body);
+  check(ours.parts === 1 && ours.encoding === enc, `text ${key}: sent as one ${enc} text, got ${JSON.stringify(ours)}`);
+}
 {
   const body = emails.renderText('welcome', {});
   check(body === 'Club Yuppie: You’re in. Log in: clubyuppie.com/member-login', `welcome text: ${body}`);
