@@ -7,7 +7,7 @@ import { SESSION_ENDED, type SessionEnded } from "@/components/members/session-e
 import type { Viewer } from "@/lib/server/plans";
 import { memberForAction, type Member, type RequireMemberOptions } from "./require-member";
 
-/** The words when an action fails for a reason the member cannot act on (r2b: never "Something went wrong"). */
+/** The words when an action fails for a reason the member cannot act on (r2b: plain words, never a generic failure line). */
 export const TRY_AGAIN = "That didn’t go through. Try again in a moment.";
 
 export type Failed = { ok: false; error: string };
