@@ -333,6 +333,13 @@ export async function adminPhotoQueue(tab: "check" | "done", now: Date = new Dat
 
 export type AdminPhotoResult = { ok: true } | { ok: false; error: string };
 
+/** Close the open reports about a photo (photo reports, and member reports about their photo). Two plain updates: PostgREST takes no `or` on an update. */
+async function closePhotoReports(photoId: string, fields: Record<string, string>): Promise<void> {
+  const db = serviceDb();
+  await db.from("reports").update(fields).eq("photo_id", photoId).eq("status", "open").eq("kind", "photo");
+  await db.from("reports").update(fields).eq("photo_id", photoId).eq("status", "open").eq("kind", "member").eq("reason", "photo_not_them_or_unsuitable");
+}
+
 /** "Keep photo": approve it (a pending one), and close any open reports about it as dismissed. Changes nothing the member sees. */
 export async function adminKeepPhoto(adminId: string, photoId: string): Promise<AdminPhotoResult> {
   const db = serviceDb();
@@ -342,7 +349,7 @@ export async function adminKeepPhoto(adminId: string, photoId: string): Promise<
   const at = new Date().toISOString();
   const { error } = await db.from("member_photos").update({ status: "approved", reviewed_at: at, reviewed_by: adminId }).eq("id", photoId).in("status", ["pending", "approved"]);
   if (error) return { ok: false, error: "We couldn’t save that. Try again in a moment." };
-  await db.from("reports").update({ status: "dismissed", acted_at: at, acted_by: adminId, action_note: "photo kept" }).eq("photo_id", photoId).eq("status", "open").or(PHOTO_REPORT_FILTER);
+  await closePhotoReports(photoId, { status: "dismissed", acted_at: at, acted_by: adminId, action_note: "photo kept" });
   await audit(adminId, "photo.keep", { type: "member_photo", id: photoId }, { memberId: row.member_id });
   return { ok: true };
 }
@@ -368,7 +375,7 @@ export async function adminRemovePhoto(adminId: string, photoId: string, reason:
   if (error || !updated?.length) return { ok: false, error: "We couldn’t save that. Try again in a moment." };
   await db.from("members").update({ photo_id: null }).eq("id", row.member_id).eq("photo_id", photoId);
   forgetSigned([row.path, row.thumb_path]);
-  await db.from("reports").update({ status: "photo_removed", acted_at: at, acted_by: adminId }).eq("photo_id", photoId).eq("status", "open").or(PHOTO_REPORT_FILTER);
+  await closePhotoReports(photoId, { status: "photo_removed", acted_at: at, acted_by: adminId });
   await audit(adminId, "photo.remove", { type: "member_photo", id: photoId }, { memberId: row.member_id, reason });
   await notify({ type: "photo.removed", memberId: row.member_id, photoId, reason });
   return { ok: true };

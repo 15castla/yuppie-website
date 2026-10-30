@@ -347,14 +347,13 @@ export async function runChatNudges(now: Date): Promise<NudgesSummary> {
       summary.skipped += 1;
       continue;
     }
+    // Claim (never emailed, or emailed an hour or more ago), in two plain conditional updates: PostgREST does not
+    // take an `or` filter on an update.
     const cutoff = new Date(now.getTime() - CHAT_NUDGE.everyMinutes * MINUTE).toISOString();
-    const { data: claimed } = await db
-      .from("chat_members")
-      .update({ nudged_at: now.toISOString() })
-      .eq("chat_id", d.chat_id)
-      .eq("member_id", d.member_id)
-      .or(`nudged_at.is.null,nudged_at.lte.${cutoff}`)
-      .select("chat_id");
+    const claimOnce = (q: ReturnType<typeof claimBase>) => q.select("chat_id");
+    const claimBase = () => db.from("chat_members").update({ nudged_at: now.toISOString() }).eq("chat_id", d.chat_id).eq("member_id", d.member_id);
+    let { data: claimed } = await claimOnce(claimBase().is("nudged_at", null));
+    if (!claimed?.length) ({ data: claimed } = await claimOnce(claimBase().lte("nudged_at", cutoff)));
     if (!claimed?.length) continue;
     const result = await sendEmail({
       template: "new-message",

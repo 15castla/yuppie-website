@@ -567,7 +567,8 @@ export async function leaveOpenInviteForDeletion(memberId: string, now: Date = n
     const at = now.toISOString();
     await db.from("chat_members").update({ left_at: at, left_reason: "left_chat" }).eq("member_id", memberId).is("left_at", null);
     await db.from("messages").update({ removed_at: at, removed_reason: "account_deleted" }).eq("sender_id", memberId).eq("kind", "text").is("removed_at", null);
-    await db.from("blocks").delete().or(`blocker_id.eq.${memberId},blocked_id.eq.${memberId}`);
+    await db.from("blocks").delete().eq("blocker_id", memberId);
+    await db.from("blocks").delete().eq("blocked_id", memberId);
     await db.from("updates").delete().eq("member_id", memberId);
     await db.from("notification_preferences").delete().eq("member_id", memberId);
   } catch (err) {
