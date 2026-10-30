@@ -5,11 +5,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { done, eq, makeMember, makeMemberWithPhoto, memberSession, ok, q, redirectedTo, sql, sql1, svc, tag } from './lib.mjs';
+import { done, eq, makeMember, makeMemberWithPhoto, memberSession, ok, q, rand, redirectedTo, sql, sql1, svc } from './lib.mjs';
 
 const ROOT = path.resolve(new URL('../../..', import.meta.url).pathname);
 const FIX = '/home/claude/stack/tools/fixtures';
-const PREFIX = `${process.env.PHASE_A_TAG}t-mv`;
+// Every run has its own email prefix, so the script sees only this run's members.
+const RUN = `mv${rand()}`;
+const PREFIX = `${process.env.PHASE_A_TAG}t-${RUN}`;
 const run = (...flags) => {
   try {
     return { code: 0, out: execFileSync(process.execPath, [`${ROOT}/release/move-member-photos.mjs`, '--only-email-prefix', PREFIX, ...flags], { encoding: 'utf8', cwd: ROOT, env: process.env }) };
@@ -18,7 +20,7 @@ const run = (...flags) => {
   }
 };
 async function withPublicAvatar(name, fixture, contentType) {
-  const m = await makeMember(`mv${name}`);
+  const m = await makeMember(`${RUN}${name}`);
   const objectPath = `avatars/${m.id}-${Date.now()}.${fixture.split('.').pop()}`;
   if (fixture !== 'missing') {
     const { error } = await svc.storage.from('member-media').upload(objectPath, fs.readFileSync(`${FIX}/${fixture}`), { contentType });
@@ -33,10 +35,10 @@ const jpg = await withPublicAvatar('jpg', 'photo-800.jpg', 'image/jpeg');
 const png = await withPublicAvatar('png', 'photo-600.png', 'image/png');
 const gif = await withPublicAvatar('gif', 'photo-500.gif', 'image/gif');
 const missing = await withPublicAvatar('missing', 'missing', 'image/jpeg');
-const external = await makeMember('mvext');
+const external = await makeMember(`${RUN}ext`);
 await svc.from('members').update({ avatar_url: 'https://example.com/me.jpg' }).eq('id', external.id);
 const notAPhoto = await withPublicAvatar('bad', 'not-a-photo.jpg', 'image/jpeg');
-const already = await makeMemberWithPhoto('mvhas');
+const already = await makeMemberWithPhoto(`${RUN}has`);
 await svc.from('members').update({ avatar_url: jpg.url }).eq('id', already.id);
 ok([jpg, png, gif, missing, external, notAPhoto, already].every((m) => m.email.startsWith(PREFIX)), `test members are ${PREFIX}...`);
 const lineFor = (out, m) => out.split('\n').find((l) => l.includes(m.id)) ?? '';
@@ -74,5 +76,4 @@ eq(sql1(`select count(*)::int n from member_photos where source = 'migrated' and
 const s = await memberSession(jpg.email);
 eq(await redirectedTo('/members/open-invite', s), null, 'a moved member is through the photo gate');
 eq(await redirectedTo('/members/open-invite', await memberSession(missing.email)), '/members/photo', 'a member whose photo could not be moved meets the gate (as decision 4 A says)');
-void tag;
 done();

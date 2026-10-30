@@ -2,7 +2,7 @@
 // characters, control characters stripped, the link check, 20 a minute, a client id so a retry never double
 // posts), unread counts and the icon's number, read state, mute, leave and rejoin, the safety note, blocks in a
 // plan chat and in a question, closed chats, and reporting from a chat.
-import { action, done, eq, exec, makeMemberWithPhoto, ok, page, postPlan, q, setPlanStart, sql, sql1 } from './lib.mjs';
+import { action, done, eq, exec, makeMemberWithPhoto, ok, page, postPlan, q, setPlanStart, sql1 } from './lib.mjs';
 
 const host = await makeMemberWithPhoto('ch');
 const g1 = await makeMemberWithPhoto('cg1');
