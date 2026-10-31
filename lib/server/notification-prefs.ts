@@ -13,8 +13,9 @@ import type { ShellMode } from "@/components/members/shell/types";
 import type { NotificationChannel, NotificationPreferences, NotificationTopic } from "@/lib/members/messages/types";
 import { DEFAULT_CHANNELS, DEFAULT_TOPICS } from "@/lib/members/messages/types";
 import { displayPhone } from "@/lib/members/you/format";
-import { pushLive } from "./config";
+import { pushLive, TEXT_LIMITS } from "./config";
 import { serviceDb } from "./db";
+import { textsSentToday } from "./messages";
 import { sendTextCheck } from "./notify";
 
 export type PrefsRow = {
@@ -109,7 +110,12 @@ export async function getNotificationPreferences(member: MemberForPrefs, mode: S
 }
 
 export type PrefKey = { topic: NotificationTopic } | { channel: NotificationChannel };
-export type SavePrefResult = { ok: true; preferences: NotificationPreferences } | { ok: false; error: string; reason: "no_number" | "check_failed" | "save_failed" | "bad_key" };
+export type SavePrefResult =
+  | { ok: true; preferences: NotificationPreferences }
+  | { ok: false; error: string; reason: "no_number" | "check_failed" | "check_limit" | "save_failed" | "bad_key" };
+
+/** Text on refused because the member has had their check texts (or all their texts) for today (QB2-02): new words, Albert's eye. */
+export const CHECK_LIMIT_WORDS = "We’ve sent you a check text in the last 24 hours, so try again tomorrow.";
 
 /** The settings page's own failure line (notifications spec 3.1). */
 export const SAVE_FAILED = "Couldn’t save that. Check your connection and try again.";
@@ -117,6 +123,12 @@ export const SAVE_FAILED = "Couldn’t save that. Check your connection and try 
 /**
  * Save one switch. Text on: there must be a number, and the check text must go (it is sent now, even at night:
  * it answers the member's own tap, it is not a reminder). Text off: no more texts.
+ *
+ * The check text (QB2-02, QB3-12, TEXT_LIMITS): Text on again for the number that had its check text in the last
+ * 24 hours goes on with no new text (switching it off and on is not a way to send texts). A new number (a changed
+ * one turns texts off) gets its own check text at the next Text on, within the limits: at most checksPerDay check
+ * texts per member a day, and the daily cap on all texts. Over them Text stays off and the member is told when to
+ * try again.
  */
 export async function setNotificationPreference(member: MemberForPrefs, key: PrefKey, on: boolean, mode: ShellMode): Promise<SavePrefResult> {
   const column = "topic" in key ? TOPIC_COLUMN[key.topic] : CHANNEL_COLUMN[key.channel];
@@ -126,9 +138,15 @@ export async function setNotificationPreference(member: MemberForPrefs, key: Pre
   if ("channel" in key && key.channel === "text" && on) {
     const number = member.phone?.trim();
     if (!number) return { ok: false, error: "Add a mobile number to get reminders by text.", reason: "no_number" };
-    if (!(row.channel_text && row.text_check_number === number && row.text_check !== "none")) {
+    const lastCheck = row.text_check_sent_at ? new Date(row.text_check_sent_at).getTime() : 0;
+    const checkedRecently = Date.now() - lastCheck < TEXT_LIMITS.checkEveryHours * 3600000;
+    const sameNumber = row.text_check_number === number && row.text_check !== "none";
+    const alreadyOn = row.channel_text && sameNumber;
+    if (!alreadyOn && !(sameNumber && checkedRecently)) {
+      if ((await textsSentToday(member.id, "reminders-on")) >= TEXT_LIMITS.checksPerDay) return { ok: false, error: CHECK_LIMIT_WORDS, reason: "check_limit" };
       const sent = await sendTextCheck(member.id, number);
       if (sent.status === "failed") return { ok: false, error: "We couldn’t send the check text. Try again.", reason: "check_failed" };
+      if (sent.status === "skipped" && sent.error === "daily text limit") return { ok: false, error: CHECK_LIMIT_WORDS, reason: "check_limit" };
       next.text_check = "sent";
       next.text_check_number = number;
       next.text_check_sent_at = new Date().toISOString();

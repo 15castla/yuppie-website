@@ -70,9 +70,9 @@ export const PHOTO_SIZES = { full: 480, thumb: 160 } as const;
 /** The browser checks the chosen photo is 400px or more (photo decision 2 A); the cropped square it uploads can be smaller after a zoom, so the server's floor is the thumb size. */
 export const PHOTO_MIN_UPLOAD_PX = 160;
 export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
-/** Signed photo URLs last an hour; a cached one is handed out again while it has 15 minutes or more left. */
-export const PHOTO_URL_TTL_SECONDS = 60 * 60;
-export const PHOTO_URL_MIN_LEFT_SECONDS = 15 * 60;
+/** Signed photo URLs last 10 minutes (a removed photo stops loading soon after); a cached one is handed out again while it has 5 minutes or more left, and every page load asks again. */
+export const PHOTO_URL_TTL_SECONDS = 10 * 60;
+export const PHOTO_URL_MIN_LEFT_SECONDS = 5 * 60;
 
 /**
  * Members who joined before this date (or MEMBERS_PHOTO_GATE_SINCE) are "existing" at the photo gate: they see
@@ -93,6 +93,15 @@ export function pushLive(): boolean {
 }
 
 /**
+ * Member photos are fully private only once the old public copies in member-media/avatars/ are deleted
+ * (release/delete-public-avatars.mjs --apply). Until this server-only switch is "on", no page may say a photo
+ * is never public.
+ */
+export function photosPrivateDone(): boolean {
+  return process.env.MEMBERS_PHOTOS_PRIVATE_DONE === "on";
+}
+
+/**
  * Paid plans are stage 3 (Stripe Connect). Until this server-only switch is "on" (never in stage 2), nothing may
  * take or pretend to take money: the post form offers free plans only, no plan with a price is shown, and no
  * server path makes a PaymentIntent or a hold.
@@ -100,3 +109,26 @@ export function pushLive(): boolean {
 export function paidPlansLive(): boolean {
   return process.env.MEMBERS_PAID_PLANS_LIVE === "on";
 }
+
+// ---------------------------------------------------------------------------- stage 2 fixes (31 Oct 2026)
+
+/**
+ * Texts cost money and land on a phone (QB2-02, QB3-12). The check text ("reminders by text are on"): at most one
+ * per number in any 24 hours (switching Text off and on again for the same number sends no new one), a new number
+ * gets its own, and at most checksPerDay check texts per member in any 24 hours whatever the numbers. All texts:
+ * at most perMemberPerDay per member in any 24 hours (one over the cap is skipped and logged). Two reminders each
+ * for two events and a plan in one day is six.
+ */
+export const TEXT_LIMITS = { checkEveryHours: 24, checksPerDay: 3, perMemberPerDay: 8 } as const;
+
+/**
+ * Admin actions on a report or a photo claim it first (QB3-01): a claim older than this is stale (the server
+ * stopped mid-action) and can be taken again.
+ */
+export const ADMIN_CLAIM_STALE_SECONDS = 120;
+
+/**
+ * A photo just kept or removed stays claimed this long, so a second admin's Keep or Remove sent at the same moment
+ * changes nothing and is told so (QB3-01).
+ */
+export const PHOTO_REVIEW_HOLD_SECONDS = 15;

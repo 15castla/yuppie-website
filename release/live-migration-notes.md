@@ -247,3 +247,29 @@ stand-ins for `cron.schedule`, Vault and `net.http_get` (pg_cron, pg_net and Vau
 it runs twice cleanly, makes three jobs with the right schedules, and each job's command, run, asks for the
 right URL with a bearer header that the site accepts (200 from each job on a local build). Not tested: the real
 pg_cron and pg_net extensions, Vault's encryption, and Supabase Auth's Dashboard settings.
+
+## Stage 2 (Phase B) release order, with the fix round (31 Oct 2026)
+
+After the stage 1 release (above), in this order:
+
+1. **Migrations**: `20261030090000_open_invite_messages.sql`, then `20261031090000_stage2_fixes.sql` (additive:
+   admin claims, column-level read grants on reports and plans, the host-active rule on joins and links, the
+   club's cancel, plan Updates under the plan's lock, the chat send under one lock per sender). The stage 2 file's
+   restrictive storage policy is created where the role may; where hosted Supabase refuses it, a notice says it
+   was skipped and the migration goes on (the bucket is private and storage.objects has RLS on with no permissive
+   policy, so members still cannot read it). Proved on a scratch database in the hosted layout:
+   `tests/e2e/phase-b/14-fixes-fixer1-db.mjs`.
+2. **Deploy** the code with them.
+3. `node release/move-member-photos.mjs` (dry run: read its report), then `--apply`. It never brings back a photo
+   the club removed, leaves photos under 400px (those members meet the photo gate), and strips metadata when sharp
+   is missing.
+4. `node release/delete-public-avatars.mjs` (dry run), then `--apply`: deletes the old public copies in
+   member-media/avatars/ through the Storage API. It refuses while any member still has a photo to move.
+5. Then set **`MEMBERS_PHOTOS_PRIVATE_DONE=on`** (server only) and redeploy: only then may the pages say a photo is
+   never public.
+6. The switches as the foundation handoff lists them, when Albert says.
+
+**Undo**: `node release/undo-photos-bucket.mjs --apply` first (empties and deletes the private bucket through the
+Storage API; hosted Supabase refuses SQL deletes on storage tables since March 2026), then
+`release/undo-phase-b.sql` (it no longer touches storage rows; it drops both stage 2 files' functions and
+tables). Once step 4 has run, a rollback to stage 1 shows initials where the old public photos were.

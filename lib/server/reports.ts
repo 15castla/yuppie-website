@@ -7,9 +7,12 @@ import "server-only";
 // suspend (pause the membership through the stage 1 path). The reporter is never shown to the member reported.
 // Every target is checked on the server: a member can only report what they can see.
 
+import { randomUUID } from "node:crypto";
+
 import type { PhotoRemovedReason } from "@/lib/emails";
 import type { ReportDraft } from "@/lib/members/messages/types";
 import { audit } from "./audit";
+import { ADMIN_CLAIM_STALE_SECONDS } from "./config";
 import { serviceDb } from "./db";
 import { firstName } from "./format";
 import { pauseMember } from "./membership-actions";
@@ -39,6 +42,27 @@ async function currentPhotoId(memberId: string): Promise<string | null> {
   return (data?.photo_id as string | null) ?? null;
 }
 
+/** A plan on which the viewer sees this member's photo (the host's, or one of the people going), or null. */
+async function planShowingPhoto(viewerId: string, memberId: string): Promise<string | null> {
+  const db = serviceDb();
+  const [{ data: hosted }, { data: places }] = await Promise.all([
+    db.from("plans").select(PLAN_COLUMNS).eq("host_id", memberId).order("starts_at", { ascending: false }).limit(100),
+    db.from("plan_members").select("plan_id").eq("member_id", memberId).eq("status", "going").limit(200),
+  ]);
+  const goingIds = ((places ?? []) as { plan_id: string }[]).map((p) => p.plan_id);
+  const { data: goingPlans } = goingIds.length ? await db.from("plans").select(PLAN_COLUMNS).in("id", goingIds) : { data: [] };
+  const all = new Map<string, PlanRow>();
+  for (const p of [...((hosted ?? []) as PlanRow[]), ...((goingPlans ?? []) as PlanRow[])]) all.set(p.id, p);
+  if (!all.size) return null;
+  const { data: mine } = await db.from("plan_members").select("plan_id").eq("member_id", viewerId).eq("status", "going").in("plan_id", [...all.keys()]);
+  const mineSet = new Set(((mine ?? []) as { plan_id: string }[]).map((p) => p.plan_id));
+  for (const p of all.values()) if (p.host_id === viewerId || mineSet.has(p.id)) return p.id;
+  const now = Date.now();
+  const open = [...all.values()].filter((p) => p.status === "scheduled" && new Date(p.starts_at).getTime() > now).slice(0, 10);
+  for (const p of open) if (await canSeePlan(viewerId, p)) return p.id;
+  return null;
+}
+
 /** Work out and check what is being reported. Null: not something this member can report. */
 async function resolveTarget(viewer: Viewer, draft: ReportDraft): Promise<Target | null> {
   const t = draft?.target;
@@ -62,11 +86,18 @@ async function resolveTarget(viewer: Viewer, draft: ReportDraft): Promise<Target
   }
   if (t.kind === "photo") {
     if (!isUuid(t.memberId) || t.memberId === viewer.id) return null;
+    // A reason to have seen it (QB3-10): a chat they share (the photo is on its messages and its info sheet), or a
+    // plan where it shows (the member hosts or is going to one the reporter is in, or can open now).
     let planId: string | null = null;
     if (t.chatId) {
       const chat = await inChat(viewer.id, t.chatId);
       if (!chat) return null;
+      const { data: them } = await db.from("chat_members").select("member_id").eq("chat_id", t.chatId).eq("member_id", t.memberId).maybeSingle();
+      if (!them) return null;
       planId = chat.plan_id;
+    } else {
+      planId = await planShowingPhoto(viewer.id, t.memberId);
+      if (!planId) return null;
     }
     const photo = await currentPhotoId(t.memberId);
     if (!photo) return null;
@@ -92,6 +123,9 @@ export async function createReport(viewer: Viewer, draft: ReportDraft): Promise<
   // The same thing reported again by the same member while it is still open: the one report, one email.
   let same = db.from("reports").select("id").eq("reporter_id", viewer.id).eq("kind", target.kind).eq("status", "open");
   same = target.message_id ? same.eq("message_id", target.message_id) : target.kind === "plan" ? same.eq("plan_id", target.plan_id!) : same.eq("member_id", target.member_id!);
+  // A member report about their photo is its own report (it goes to the Photos queue and emails the club, QB3-10),
+  // even when the same reporter has an open report about the member's behaviour, and the other way round.
+  if (target.kind === "member") same = reason === "photo_not_them_or_unsuitable" ? same.eq("reason", reason) : same.neq("reason", "photo_not_them_or_unsuitable");
   const { data: existing } = await same.limit(1);
   if (existing?.length) return { ok: true, reportId: existing[0].id, duplicate: true };
 
@@ -256,88 +290,140 @@ export async function adminReportDetail(reportId: string): Promise<AdminReportDe
 
 export type AdminReportResult = { ok: true } | { ok: false; error: string };
 
-async function openReport(reportId: string): Promise<ReportRow | { error: string }> {
-  if (!isUuid(reportId)) return { error: "That report couldn’t be found." };
-  const { data } = await serviceDb().from("reports").select(REPORT_COLUMNS).eq("id", reportId).maybeSingle<ReportRow>();
-  if (!data) return { error: "That report couldn’t be found." };
-  if (data.status !== "open") return { error: "Someone dealt with this report already. Nothing changed." };
-  return data;
+const REPORT_WORDS = {
+  missing: "That report couldn’t be found.",
+  done: "Someone dealt with this report already. Nothing changed.",
+  busy: "Someone else is dealing with this report now. Nothing changed.",
+  failed: "We couldn’t save that. Try again in a moment.",
+} as const;
+
+type Claimed = { row: ReportRow; token: string };
+
+/**
+ * Claim an open report before acting on it (QB3-01): one conditional update in the database, so of two admins acting
+ * at once only one gets it; the other is told plainly and changes nothing. The action then closes it (status, who,
+ * when) under the same claim, or gives the claim back if it could not act. A claim left by a server that stopped
+ * mid-action is free again after ADMIN_CLAIM_STALE_SECONDS.
+ */
+async function claimReport(adminId: string, reportId: string): Promise<Claimed | { error: string }> {
+  if (!isUuid(reportId)) return { error: REPORT_WORDS.missing };
+  const token = randomUUID();
+  const db = serviceDb();
+  const { data, error } = await db.rpc("claim_report", { p_report: reportId, p_token: token, p_admin: adminId, p_stale_seconds: ADMIN_CLAIM_STALE_SECONDS });
+  if (error) {
+    console.error(`reports: claiming ${reportId} failed:`, error);
+    return { error: REPORT_WORDS.failed };
+  }
+  const r = data as { status: "claimed" | "taken" | "closed" | "not_found" };
+  if (r.status === "not_found") return { error: REPORT_WORDS.missing };
+  if (r.status === "closed") return { error: REPORT_WORDS.done };
+  if (r.status === "taken") return { error: REPORT_WORDS.busy };
+  const { data: row } = await db.from("reports").select(REPORT_COLUMNS).eq("id", reportId).maybeSingle<ReportRow>();
+  if (!row) return { error: REPORT_WORDS.missing };
+  return { row, token };
 }
 
-async function close(adminId: string, reportId: string, status: ReportStatus, note: string | null): Promise<AdminReportResult> {
+async function release(reportId: string, token: string): Promise<void> {
+  await serviceDb().from("reports").update({ claim_token: null, claimed_by: null, claimed_at: null }).eq("id", reportId).eq("claim_token", token);
+}
+
+async function close(adminId: string, claimed: Claimed, status: ReportStatus, note: string | null): Promise<AdminReportResult> {
   const { data, error } = await serviceDb()
     .from("reports")
-    .update({ status, acted_at: new Date().toISOString(), acted_by: adminId, action_note: note })
-    .eq("id", reportId)
+    .update({ status, acted_at: new Date().toISOString(), acted_by: adminId, action_note: note, claim_token: null, claimed_by: null, claimed_at: null })
+    .eq("id", claimed.row.id)
     .eq("status", "open")
+    .eq("claim_token", claimed.token)
     .select("id");
-  if (error) return { ok: false, error: "We couldn’t save that. Try again in a moment." };
-  if (!data?.length) return { ok: false, error: "Someone dealt with this report already. Nothing changed." };
-  await audit(adminId, `report.${status}`, { type: "report", id: reportId }, { note });
+  if (error) {
+    await release(claimed.row.id, claimed.token);
+    return { ok: false, error: REPORT_WORDS.failed };
+  }
+  if (!data?.length) return { ok: false, error: REPORT_WORDS.done };
+  await audit(adminId, `report.${status}`, { type: "report", id: claimed.row.id }, { note });
   return { ok: true };
 }
 
+/** Give the claim back and answer an error: the action could not be done, the report stays open. */
+async function giveBack(claimed: Claimed, error: string): Promise<AdminReportResult> {
+  await release(claimed.row.id, claimed.token);
+  return { ok: false, error };
+}
+
 export async function adminDismissReport(adminId: string, reportId: string, note: string | null = null): Promise<AdminReportResult> {
-  const row = await openReport(reportId);
-  if ("error" in row) return { ok: false, error: row.error };
-  return close(adminId, reportId, "dismissed", note);
+  const claimed = await claimReport(adminId, reportId);
+  if ("error" in claimed) return { ok: false, error: claimed.error };
+  return close(adminId, claimed, "dismissed", note);
 }
 
 /** "Remove message": "Message removed" for everyone in the chat, at once. */
 export async function adminRemoveReportedMessage(adminId: string, reportId: string): Promise<AdminReportResult> {
-  const row = await openReport(reportId);
-  if ("error" in row) return { ok: false, error: row.error };
-  if (!row.message_id) return { ok: false, error: "This report isn’t about a message." };
+  const claimed = await claimReport(adminId, reportId);
+  if ("error" in claimed) return { ok: false, error: claimed.error };
+  const row = claimed.row;
+  if (!row.message_id) return giveBack(claimed, "This report isn’t about a message.");
   const db = serviceDb();
   const at = new Date().toISOString();
-  await db.from("messages").update({ removed_at: at, removed_by: adminId, removed_reason: "report" }).eq("id", row.message_id).is("removed_at", null);
+  const { error } = await db.from("messages").update({ removed_at: at, removed_by: adminId, removed_reason: "report" }).eq("id", row.message_id).is("removed_at", null);
+  if (error) return giveBack(claimed, REPORT_WORDS.failed);
   // Every open report on the same message is answered by the one removal.
   await db.from("reports").update({ status: "message_removed", acted_at: at, acted_by: adminId }).eq("message_id", row.message_id).eq("status", "open").neq("id", row.id);
-  return close(adminId, reportId, "message_removed", null);
+  return close(adminId, claimed, "message_removed", null);
 }
 
-/** "Remove the plan": it leaves the feed, its chat closes, the people going get an Update (no email: no design for a club removal). */
+/** "Remove the plan": it leaves the feed, its chat closes, the people going and the host are told (the club's words). */
 export async function adminRemoveReportedPlan(adminId: string, reportId: string, reason: string | null = null): Promise<AdminReportResult> {
-  const row = await openReport(reportId);
-  if ("error" in row) return { ok: false, error: row.error };
-  if (!row.plan_id) return { ok: false, error: "This report isn’t about a plan." };
+  const claimed = await claimReport(adminId, reportId);
+  if ("error" in claimed) return { ok: false, error: claimed.error };
+  const row = claimed.row;
+  if (!row.plan_id) return giveBack(claimed, "This report isn’t about a plan.");
   const removed = await adminRemovePlan(adminId, row.plan_id, reason);
-  if (!removed.ok && removed.error !== "That plan was removed already.") return removed;
+  if (!removed.ok && removed.error !== "That plan was removed already.") return giveBack(claimed, removed.error);
   await serviceDb().from("reports").update({ status: "plan_removed", acted_at: new Date().toISOString(), acted_by: adminId }).eq("plan_id", row.plan_id).eq("kind", "plan").eq("status", "open").neq("id", row.id);
-  return close(adminId, reportId, "plan_removed", reason);
+  return close(adminId, claimed, "plan_removed", reason);
 }
 
-/** "Remove photo": the photo spec's removal, with the reason the member sees (and the photo-removed email). */
+/**
+ * "Remove photo": the photo spec's removal, with the reason the member sees (and the photo-removed email). The photo
+ * as reported; if the member has replaced it since, nothing is removed and the admin is told to check the new one
+ * (QB3-02: it is in the Photos queue, with this report).
+ */
 export async function adminRemoveReportedPhoto(adminId: string, reportId: string, reason: PhotoRemovedReason): Promise<AdminReportResult> {
-  const row = await openReport(reportId);
-  if ("error" in row) return { ok: false, error: row.error };
+  const claimed = await claimReport(adminId, reportId);
+  if ("error" in claimed) return { ok: false, error: claimed.error };
+  const row = claimed.row;
   const photoId = row.photo_id ?? (row.member_id ? await currentPhotoId(row.member_id) : null);
-  if (!photoId) return { ok: false, error: "That member has no photo now. Nothing to remove." };
+  if (!photoId) return giveBack(claimed, "That member has no photo now. Nothing to remove.");
   const removed = await adminRemovePhoto(adminId, photoId, reason);
-  if (!removed.ok && removed.error !== "That photo was removed already.") return removed;
-  // adminRemovePhoto closes the open photo reports on that photo; close this one too if it was a member report.
+  if (!removed.ok && removed.error !== "That photo was removed already.") return giveBack(claimed, removed.error);
+  // adminRemovePhoto closes the open photo reports on that photo (this one too, if it is a photo report).
   const { data } = await serviceDb().from("reports").select("status").eq("id", reportId).maybeSingle();
-  if (data?.status === "open") return close(adminId, reportId, "photo_removed", reason);
+  if (data?.status === "open") return close(adminId, claimed, "photo_removed", reason);
+  await release(reportId, claimed.token);
   await audit(adminId, "report.photo_removed", { type: "report", id: reportId }, { reason });
   return { ok: true };
 }
 
 /** "Warn": recorded on the report and in the audit trail. No warning email exists yet (no design): nothing is sent. */
 export async function adminWarnReported(adminId: string, reportId: string, note: string | null = null): Promise<AdminReportResult> {
-  const row = await openReport(reportId);
-  if ("error" in row) return { ok: false, error: row.error };
-  return close(adminId, reportId, "warned", note);
+  const claimed = await claimReport(adminId, reportId);
+  if ("error" in claimed) return { ok: false, error: claimed.error };
+  return close(adminId, claimed, "warned", note);
 }
 
-/** "Suspend": pause the member's membership through stage 1's path (the gate; out of every chat and plan until resumed). */
+/**
+ * "Suspend": pause the member's membership through stage 1's path (the gate; out of Open Invite until resumed: their
+ * plans cancelled by the club, out of the plans and chats they are in, QB3-06).
+ */
 export async function adminSuspendReported(adminId: string, reportId: string, options: { stripe: boolean }): Promise<AdminReportResult> {
-  const row = await openReport(reportId);
-  if ("error" in row) return { ok: false, error: row.error };
-  if (!row.member_id) return { ok: false, error: "This report isn’t about a member." };
+  const claimed = await claimReport(adminId, reportId);
+  if ("error" in claimed) return { ok: false, error: claimed.error };
+  const row = claimed.row;
+  if (!row.member_id) return giveBack(claimed, "This report isn’t about a member.");
   const paused = await pauseMember(row.member_id, { stripe: options?.stripe !== false });
   await audit(adminId, "member.pause", { type: "member", id: row.member_id }, { from: "report", reportId, stripe_requested: options?.stripe !== false, ...paused });
-  if (!paused.ok) return { ok: false, error: paused.error };
-  return close(adminId, reportId, "suspended", null);
+  if (!paused.ok) return giveBack(claimed, paused.error);
+  return close(adminId, claimed, "suspended", null);
 }
 
 /** The count beside "Reports" in the admin nav. */

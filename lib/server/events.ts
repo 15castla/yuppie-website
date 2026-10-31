@@ -269,6 +269,16 @@ export async function recordEventMove(
 ): Promise<{ moved: EventMove | null; bookedCount: number; changedAt: string | null }> {
   const moved = detectEventMove(before, after);
   const db = serviceDb();
+  // A new date or time: the reminders follow it (QB2-05, notifications spec 3.6, as plans already do). The claims
+  // start again, and the reminder's key carries the start once the event has moved (notify/reminders.ts), so a
+  // reminder sent for the old time does not stop the one for the new time.
+  if (moved === "time" || moved === "both") {
+    const { error: clearError } = await db
+      .from("bookings")
+      .update({ reminder_24h_sent_at: null, reminder_2h_sent_at: null, reminder_24h_text_at: null, reminder_2h_text_at: null })
+      .eq("event_id", eventId);
+    if (clearError) console.error(`recordEventMove ${eventId}: clearing the reminder claims failed:`, clearError);
+  }
   const { count } = await db
     .from("bookings")
     .select("*", { count: "exact", head: true })

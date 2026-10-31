@@ -5,15 +5,35 @@
 --
 -- It deletes data: every Open Invite plan, chat, message, Update, block, report, photo record and
 -- notification preference, and the new message_log and booking columns. Export them first.
--- It does NOT delete the files in the private member-photos bucket (storage files are not removed by SQL on
--- Supabase): empty the bucket from the dashboard or the API first, then this drops the bucket row. Members'
--- old public avatar_url values were never changed by stage 2, so the stage 1 code shows them again.
+-- UNDO for the stage 2 fixes 20261031090000_stage2_fixes.sql too (its functions; its columns go with the tables).
+--
+-- Storage is NOT touched here: hosted Supabase refuses DELETE on the storage tables (since March 2026: "Direct
+-- deletion from storage tables is not allowed. Use the Storage API instead."). Run
+--   node release/undo-photos-bucket.mjs --apply
+-- first: it empties the private member-photos bucket and deletes it through the Storage API. The restrictive
+-- storage policy is dropped below where this role may (skipped with a notice where it may not; with the bucket
+-- gone it guards nothing). Members' old public avatar_url values were never changed by stage 2, so the stage 1
+-- code shows them again (as long as release/delete-public-avatars.mjs has not been run).
 -- Run it with the stage 1 code deployed (or about to be): the stage 2 code needs these tables.
 begin;
 
--- Storage: the restrictive policy and the bucket (the bucket must be empty; see above).
-drop policy if exists "Member photos are server only" on storage.objects;
-delete from storage.buckets where id = 'member-photos' and not exists (select 1 from storage.objects where bucket_id = 'member-photos');
+-- Storage: only the restrictive policy (the bucket and its files: release/undo-photos-bucket.mjs, see above).
+do $$
+begin
+  begin
+    execute 'drop policy if exists "Member photos are server only" on storage.objects';
+  exception when insufficient_privilege then
+    raise notice 'Left the storage policy "Member photos are server only" in place: this role cannot drop policies on storage.objects.';
+  end;
+end;
+$$;
+
+-- Functions of the stage 2 fixes (20261031090000).
+drop function if exists public.send_chat_message(uuid, uuid, text, text, integer, integer);
+drop function if exists public.write_plan_updates(uuid, jsonb);
+drop function if exists public.club_cancel_plan(uuid, text);
+drop function if exists public.claim_photo_review(uuid, uuid, text[], integer);
+drop function if exists public.claim_report(uuid, uuid, uuid, integer);
 
 -- Functions (the tables' own triggers go with the tables).
 drop function if exists public.plan_visible_to_me(uuid);

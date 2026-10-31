@@ -12,7 +12,7 @@ import "server-only";
 // Rendering is lib/emails (the emails agent), reached only through ./render.
 
 import { sendSms } from "@/app/admin/sms-client";
-import { EMAIL_FROM, EMAIL_REPLY_TO, adminAlertsEmail } from "../config";
+import { EMAIL_FROM, EMAIL_REPLY_TO, TEXT_LIMITS, adminAlertsEmail } from "../config";
 import { errorMessage, serviceDb } from "../db";
 import {
   renderAdminAlert,
@@ -180,7 +180,25 @@ export async function sendEmail<N extends EmailName>(input: {
   });
 }
 
-/** Render one lib/emails text and send it through Twilio. */
+/** Texts that went to this member in the last 24 hours (sent rows in message_log), for the daily cap. */
+export async function textsSentToday(memberId: string, template?: string): Promise<number> {
+  let q = serviceDb()
+    .from("message_log")
+    .select("id", { count: "exact", head: true })
+    .eq("member_id", memberId)
+    .eq("channel", "sms")
+    .eq("status", "sent")
+    .gte("created_at", new Date(Date.now() - 24 * 3600000).toISOString());
+  if (template) q = q.eq("template", template);
+  const { count, error } = await q;
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Render one lib/emails text and send it through Twilio. A member who has had TEXT_LIMITS.perMemberPerDay texts
+ * in the last 24 hours gets no more today: the text is skipped and logged (QB2-02, QB3-12).
+ */
 export async function sendText<N extends TextName>(input: {
   template: N;
   to: string | null | undefined;
@@ -188,6 +206,18 @@ export async function sendText<N extends TextName>(input: {
   dedupeKey?: string | null;
   refs?: MessageRefs;
 }): Promise<SendResult> {
+  const memberId = input.refs?.memberId;
+  if (memberId && input.dedupeKey) {
+    try {
+      if (!(await alreadySent(input.dedupeKey)) && (await textsSentToday(memberId)) >= TEXT_LIMITS.perMemberPerDay) {
+        await logSkipped({ channel: "sms", template: input.template, to: input.to, dedupeKey: input.dedupeKey, reason: `daily text limit: ${TEXT_LIMITS.perMemberPerDay} in 24 hours`, refs: input.refs });
+        return { status: "skipped", error: "daily text limit" };
+      }
+    } catch (err) {
+      // Unknown: send rather than lose a reminder (the cap is a guard against floods, not the only one).
+      console.error(`message service: the daily text count for ${memberId} failed:`, err);
+    }
+  }
   return deliver("sms", input.template, input.to, input.dedupeKey, input.refs, async (to) => {
     const body = renderTextMessage(input.template, input.data);
     await sendSms({ to, body });

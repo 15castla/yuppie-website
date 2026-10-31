@@ -124,8 +124,13 @@ export type ChatSystemLine = {
    * Plan chats close 24 hours after the plan."
    */
   event: "opened" | "joined" | "paid" | "cancelled" | "closed";
-  /** Who it is about (null for "closed"). */
+  /** Who it is about (null for "closed", and for a cancel by the club). */
   memberId: string | null;
+  /**
+   * That member's name and photo, from the server, so the line keeps their name after they leave the chat
+   * (a withdrawn member is no longer a participant). Optional: example data may leave it out.
+   */
+  member?: MemberRef | null;
 };
 
 export type ChatItem = ChatMessage | ChatSystemLine;
