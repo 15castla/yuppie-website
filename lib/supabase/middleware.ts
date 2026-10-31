@@ -61,8 +61,9 @@ async function isMissingMembersPage(pathname: string, supabase: SupabaseClient, 
   if (route.flag === "openInvite" || route.id.startsWith("openInvite")) {
     if (!openInviteOn(app ? "app" : "web")) return true;
   }
-  // So does Messages: every chat belongs to an Open Invite, so the app hides it while it hides Open Invite.
-  if ((route.id === "messages" || route.id === "messageThread") && !messagesOn(app ? "app" : "web")) return true;
+  // So does Messages: every chat belongs to an Open Invite, so the app hides it while it hides Open Invite, and
+  // You > Blocked members with it (blocks are made in chats; QR-04).
+  if ((route.id === "messages" || route.id === "messageThread" || route.id === "youBlocked") && !messagesOn(app ? "app" : "web")) return true;
   if (route.id === "openInviteDetail" || route.id === "openInviteEdit") {
     let id: string;
     try {

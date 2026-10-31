@@ -27,10 +27,11 @@ const script = (name, flags = [], env = {}) => {
   }
 };
 const move = (flags = [], env = {}) => script('move-member-photos.mjs', ['--only-email-prefix', PREFIX, ...flags], env);
-const del = (flags = []) => script('delete-public-avatars.mjs', ['--only-email-prefix', PREFIX, '--only-file-prefix', FILES, ...flags]);
+const del = (flags = []) => script('delete-public-avatars.mjs', ['--only-email-prefix', PREFIX, '--only-file-match', FILES, ...flags]);
 async function withPublicAvatar(name, fixture, contentType, member = null) {
   const m = member ?? (await makeMember(`${RUN}${name}`));
-  const objectPath = `avatars/${FILES}${m.id}-${Date.now()}.${fixture.split('.').pop()}`;
+  // The stage 1 upload's own name for a member's photo (avatars/<member id>-...): the only files the move takes (QR-02).
+  const objectPath = `avatars/${m.id}-${FILES}${Date.now()}.${fixture.split('.').pop()}`;
   const { error } = await svc.storage.from('member-media').upload(objectPath, fs.readFileSync(`${FIX}/${fixture}`), { contentType });
   if (error) throw error;
   const url = svc.storage.from('member-media').getPublicUrl(objectPath).data.publicUrl;
@@ -88,7 +89,7 @@ ok(lineFor(move(['--apply']).out, exif).includes('already moved'), 'and the next
 const waiting = await withPublicAvatar('waiting', 'photo-480.jpg', 'image/jpeg');
 const orphan = `avatars/${FILES}orphan-${Date.now()}.jpg`;
 await svc.storage.from('member-media').upload(orphan, fs.readFileSync(`${FIX}/photo-480.jpg`), { contentType: 'image/jpeg' });
-const files = () => fs.readdirSync(`${STORE}/member-media/avatars`).filter((f) => f.startsWith(FILES) && !f.endsWith('.__meta.json'));
+const files = () => fs.readdirSync(`${STORE}/member-media/avatars`).filter((f) => f.includes(FILES) && !f.endsWith('.__meta.json'));
 const before = files();
 ok(before.length >= 6, `the test's public copies are there (${before.length})`);
 const refused = del(['--apply']);
@@ -129,6 +130,13 @@ const server = http.createServer(async (req, res) => {
     const items = names.map((n) => (n.endsWith('/') ? { name: n.slice(0, -1), id: null, metadata: null } : { name: n, id: `id-${n}`, metadata: { size: 1 } }));
     return json(200, items.slice(offset, offset + limit));
   }
+  // A download (the undo's export first, since fix round 3).
+  if (p.startsWith('object/member-photos/') && req.method === 'GET') {
+    const name = decodeURIComponent(p.slice('object/member-photos/'.length));
+    if (!bucket.files.has(name)) return json(400, { statusCode: '404', error: 'not_found', message: 'Object not found' });
+    res.writeHead(200, { 'content-type': 'image/jpeg' });
+    return res.end(Buffer.from(`photo ${name}`));
+  }
   if (p === 'object/member-photos' && req.method === 'DELETE') {
     const { prefixes = [] } = JSON.parse(body || '{}');
     const gone = prefixes.filter((f) => bucket.files.delete(f));
@@ -154,8 +162,13 @@ const undo = (flags = []) => new Promise((resolve) => {
 const u1 = await undo();
 eq(u1.code, 0, 'undo-photos-bucket, dry run: exit 0');
 ok(/DRY RUN \(nothing changed\): member-photos has 4 files/.test(u1.out) && bucket.files.size === 4 && bucket.exists, 'it counts the files in every folder and changes nothing', u1.out);
-const u2 = await undo(['--apply']);
-eq(u2.code, 0, 'undo-photos-bucket --apply: exit 0', u2.out);
+const exportDir = fs.mkdtempSync(path.join(process.env.TMPDIR || '/tmp', 'bx-undo-export-'));
+const refusedUndo = await undo(['--apply']);
+ok(refusedUndo.code === 2 && /REFUSED: member-photos has 4 files/.test(refusedUndo.out) && bucket.files.size === 4, 'fix round 3: --apply without an export is refused, nothing deleted', refusedUndo.out);
+const u2 = await undo(['--apply', '--export-dir', exportDir]);
+eq(u2.code, 0, 'undo-photos-bucket --apply --export-dir: exit 0', u2.out);
+ok(['m1/a-full.jpg', 'm1/a-thumb.jpg', 'm2/b-full.jpg', 'top.jpg'].every((f) => fs.readFileSync(`${exportDir}/member-photos/${f}`, 'utf8') === `photo ${f}`), 'fix round 3: every file exported first, as it was');
+fs.rmSync(exportDir, { recursive: true, force: true });
 ok(!bucket.exists && bucket.files.size === 0, 'QB3-05: every file removed and the bucket deleted, through the Storage API');
 ok(/APPLIED: removed 4 files and deleted the member-photos bucket/.test(u2.out), 'it says so', u2.out);
 ok(calls.includes('DELETE /storage/v1/bucket/member-photos') && calls.filter((c) => c === 'DELETE /storage/v1/object/member-photos').length >= 1, 'with the API\'s own calls (remove, then delete the bucket)');

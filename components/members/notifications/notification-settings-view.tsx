@@ -19,6 +19,10 @@
 // Push is not in stage 2: the page passes pushChannel false and the Push row,
 // its banner and its foot line are not drawn at all (MEMBERS_PUSH_LIVE).
 //
+// In the app while Open Invite is hidden there (decision 6), the page passes
+// openInvite false: no Open Invite group, and the Reminders line names Club
+// events only (QR-04). The member's Open Invite switches are kept as they are.
+//
 // The number step is not designed: "Change number", "Add a number" and a tap
 // on the Text row with no number go to Edit details (numberHref), where the
 // phone number is edited. A changed number needs Text switched on again (a new
@@ -57,6 +61,8 @@ export type NotificationSettingsViewProps = {
   preferences: NotificationPreferences;
   /** Whether the Push channel exists at all. False in stage 2 (MEMBERS_PUSH_LIVE off): no Push row. The preview harness draws the design's rows. */
   pushChannel?: boolean;
+  /** Whether Open Invite is on in this shell. False in the app while it is hidden there: no Open Invite group. */
+  openInvite?: boolean;
   /** Save one topic switch. Without it (the preview harness) the switches are local only. */
   saveTopic?: (topic: NotificationTopic, on: boolean) => Promise<NotificationSaveResult>;
   /** Save one channel switch (Text on sends the check text first). */
@@ -184,6 +190,7 @@ function SaveError({ message = SAVE_FAILED }: { message?: string }) {
 export function NotificationSettingsView({
   preferences,
   pushChannel = true,
+  openInvite = true,
   saveTopic,
   saveChannel,
   failedKey = null,
@@ -414,16 +421,19 @@ export function NotificationSettingsView({
         <div className="mk-wrap">
           <div className="mk-cols">
             <div className="ntf-main-col">
-              <section className="mk-section">
-                <SectionTitle title="Open Invite" />
-                <Rows>
-                  {topicRow("t", "host", "Plans you host", "People joining or leaving, questions, messages and payments.")}
-                  {topicRow("t", "in", "Plans you’re in", "Messages, replies, and changes or cancellations from the host.")}
-                </Rows>
-              </section>
+              {openInvite ? (
+                <section className="mk-section">
+                  <SectionTitle title="Open Invite" />
+                  <Rows>
+                    {topicRow("t", "host", "Plans you host", "People joining or leaving, questions, messages and payments.")}
+                    {topicRow("t", "in", "Plans you’re in", "Messages, replies, and changes or cancellations from the host.")}
+                  </Rows>
+                </section>
+              ) : null}
               <section className="mk-section">
                 <SectionTitle title="Reminders" />
-                <p className="ntf-intro">For Open Invite plans and Club events you’re booked on.</p>
+                {/* NEW COPY without Open Invite (QR-04): the design's line minus "Open Invite plans and". */}
+                <p className="ntf-intro">{openInvite ? "For Open Invite plans and Club events you’re booked on." : "For Club events you’re booked on."}</p>
                 <Rows>
                   {topicRow("t", "reminder24", "24 hours before", "The day before, with the time and place.")}
                   {topicRow("t", "reminder2", "2 hours before", "A last nudge on the day.")}

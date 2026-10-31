@@ -17,7 +17,8 @@
 //   node release/delete-public-avatars.mjs --apply   # deletes
 //
 // Options (for testing): --only-email-prefix <p> (the members it checks), --only-file-prefix <p> (only the files
-// avatars/<p>...). Exit 0: done (or nothing to do); 1: refused or a delete failed; 2: set-up missing.
+// avatars/<p>...), --only-file-match <s> (only the files whose name has <s> in it). Exit 0: done (or nothing to
+// do); 1: refused or a delete failed; 2: set-up missing.
 import { createClient } from '@supabase/supabase-js';
 import { classify, FROM, membersWithAvatars, objectPathOf } from './lib/avatars.mjs';
 
@@ -26,6 +27,8 @@ const APPLY = args.includes('--apply');
 const opt = (name) => (args.indexOf(name) >= 0 ? args[args.indexOf(name) + 1] : null);
 const ONLY_PREFIX = opt('--only-email-prefix');
 const ONLY_FILES = opt('--only-file-prefix');
+const ONLY_MATCH = opt('--only-file-match');
+const inScope = (p) => (!ONLY_FILES || p.startsWith(`avatars/${ONLY_FILES}`)) && (!ONLY_MATCH || p.slice('avatars/'.length).includes(ONLY_MATCH));
 for (const name of ['NEXT_PUBLIC_SUPABASE_URL', 'SUPABASE_SECRET_KEY']) {
   if (!process.env[name]) {
     console.error(`${name} is not set`);
@@ -66,10 +69,10 @@ async function stillToMove() {
 
 const blockers = await stillToMove();
 let files = await listFiles('avatars');
-if (ONLY_FILES) files = files.filter((p) => p.startsWith(`avatars/${ONLY_FILES}`));
+files = files.filter(inScope);
 const kept = new Set(blockers.map((b) => b.path).filter(Boolean));
 
-console.log(`${APPLY ? 'APPLY' : 'DRY RUN (nothing changed)'}: ${files.length} files in ${FROM}/avatars/${ONLY_FILES ? ` (starting ${ONLY_FILES})` : ''}${ONLY_PREFIX ? `, members with email starting ${ONLY_PREFIX}` : ''}.`);
+console.log(`${APPLY ? 'APPLY' : 'DRY RUN (nothing changed)'}: ${files.length} files in ${FROM}/avatars/${ONLY_FILES ? ` (starting ${ONLY_FILES})` : ''}${ONLY_MATCH ? ` (with ${ONLY_MATCH} in the name)` : ''}${ONLY_PREFIX ? `, members with email starting ${ONLY_PREFIX}` : ''}.`);
 if (blockers.length) {
   console.log(`REFUSED: ${blockers.length} member${blockers.length === 1 ? ' still has a photo' : 's still have photos'} to move into the private bucket. Run node release/move-member-photos.mjs --apply first. Nothing was deleted.`);
   for (const b of blockers) console.log(`  ${b.member.id}  ${b.action === 'link' ? 'moved, not linked yet' : 'not moved yet'}  ${b.path ?? ''}`);
@@ -116,7 +119,7 @@ if (APPLY && batch.length) {
 }
 for (const path of refused) console.log(`  kept (a member's current photo)  ${path}`);
 if (APPLY) {
-  const left = (await listFiles('avatars')).filter((p) => !ONLY_FILES || p.startsWith(`avatars/${ONLY_FILES}`));
+  const left = (await listFiles('avatars')).filter(inScope);
   console.log(`Deleted ${deleted}, failed ${failed}, kept ${refused.length}. Left in ${FROM}/avatars/: ${left.length}.`);
   if (!left.length && !failed) console.log('Every old public copy is gone. Now set MEMBERS_PHOTOS_PRIVATE_DONE=on (server only) and redeploy, so the pages may say a photo is never public.');
   process.exit(failed || refused.length ? 1 : 0);

@@ -121,6 +121,103 @@ export function objectPathOf(url) {
   }
 }
 
+/**
+ * Is this path the member's own stage 1 photo (lib/media-storage.ts: avatars/<member id>-<time>.<ext>)? Only those
+ * are moved (QR-02): avatar_url was member-writable in stage 1, so it may point at any file in member-media (an
+ * event image, a partner's logo, another member's photo). The app's Delete my account uses the same rule.
+ */
+export function isOwnAvatar(path, memberId) {
+  const own = `avatars/${memberId}-`;
+  if (typeof path !== 'string' || !memberId || !path.startsWith(own)) return false;
+  const name = path.slice(own.length);
+  return /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/.test(name) && !name.includes('..');
+}
+
+/**
+ * The EXIF orientation of a photo (1 to 8; 1 is the right way up), or 1 when it has none. A phone often stores a
+ * portrait photo sideways with orientation 6 or 8, and browsers turn it on screen; stripping the metadata without
+ * turning the pixels (no sharp) would show it sideways (QR-03). JPEG APP1 "Exif", PNG eXIf, WebP EXIF.
+ */
+export function exifOrientation(b, type) {
+  try {
+    let tiff = null;
+    if (type === 'image/jpeg') {
+      let i = 2;
+      while (i + 4 <= b.length && b[i] === 0xff) {
+        const marker = b[i + 1];
+        if (marker === 0xda || marker === 0xd9) break;
+        const length = b.readUInt16BE(i + 2);
+        if (marker === 0xe1 && b.toString('ascii', i + 4, i + 10) === 'Exif\0\0') {
+          tiff = b.subarray(i + 10, i + 2 + length);
+          break;
+        }
+        i += 2 + length;
+      }
+    } else if (type === 'image/png') {
+      let i = 8;
+      while (i + 12 <= b.length) {
+        const length = b.readUInt32BE(i);
+        const name = b.toString('ascii', i + 4, i + 8);
+        if (name === 'eXIf') {
+          tiff = b.subarray(i + 8, i + 8 + length);
+          break;
+        }
+        if (name === 'IEND') break;
+        i += 12 + length;
+      }
+    } else if (type === 'image/webp') {
+      let i = 12;
+      while (i + 8 <= b.length) {
+        const name = b.toString('ascii', i, i + 4);
+        const size = b.readUInt32LE(i + 4);
+        if (name === 'EXIF') {
+          tiff = b.subarray(i + 8, i + 8 + size);
+          if (tiff.toString('ascii', 0, 6) === 'Exif\0\0') tiff = tiff.subarray(6);
+          break;
+        }
+        i += 8 + size + (size % 2);
+      }
+    }
+    if (!tiff || tiff.length < 8) return 1;
+    const order = tiff.toString('ascii', 0, 2);
+    if (order !== 'II' && order !== 'MM') return 1;
+    const u16 = (o) => (order === 'II' ? tiff.readUInt16LE(o) : tiff.readUInt16BE(o));
+    const u32 = (o) => (order === 'II' ? tiff.readUInt32LE(o) : tiff.readUInt32BE(o));
+    const ifd = u32(4);
+    const count = u16(ifd);
+    for (let n = 0; n < count; n += 1) {
+      const entry = ifd + 2 + n * 12;
+      if (entry + 12 > tiff.length) break;
+      if (u16(entry) === 0x0112) {
+        const value = u16(entry + 8);
+        return value >= 1 && value <= 8 ? value : 1;
+      }
+    }
+    return 1;
+  } catch {
+    return 1;
+  }
+}
+
+/** Every file under a folder of a bucket, through the Storage API, folders walked (1,000 at a time). */
+export async function listAll(db, bucket, folder = '') {
+  const out = [];
+  const seen = new Set();
+  for (let offset = 0; ; offset += 1000) {
+    const { data, error } = await db.storage.from(bucket).list(folder, { limit: 1000, offset, sortBy: { column: 'name', order: 'asc' } });
+    if (error) throw error;
+    const page = (data ?? []).filter((item) => !seen.has(item.name));
+    for (const item of page) {
+      seen.add(item.name);
+      const path = folder ? `${folder}/${item.name}` : item.name;
+      // A folder has no id (the Storage API's listing): walk it.
+      if (!item.id) out.push(...(await listAll(db, bucket, path)));
+      else out.push(path);
+    }
+    if ((data ?? []).length < 1000 || !page.length) return out;
+  }
+}
+
 // ---------------------------------------------------------------- what the move does with a member
 
 /**
@@ -137,6 +234,7 @@ export async function classify(db, member) {
   const path = objectPathOf(member.avatar_url);
   if (!path) return none('needs a look: the photo link is not in member-media', member.avatar_url);
   if (!path.startsWith('avatars/')) return none('needs a look: not in member-media/avatars/', path);
+  if (!isOwnAvatar(path, member.id)) return none('needs a look: not their own photo file (only avatars/<member id>-... is moved)', path);
   const [{ data: before, error: beforeError }, { data: latest, error: latestError }] = await Promise.all([
     db.from('member_photos').select('id, status').eq('member_id', member.id).eq('legacy_url', member.avatar_url).order('created_at', { ascending: false }).limit(1),
     db.from('member_photos').select('id, status, source, created_at').eq('member_id', member.id).order('created_at', { ascending: false }).limit(1),

@@ -7,15 +7,46 @@
 -- notification preference, and the new message_log and booking columns. Export them first.
 -- UNDO for the stage 2 fixes 20261031090000_stage2_fixes.sql too (its functions; its columns go with the tables).
 --
--- Storage is NOT touched here: hosted Supabase refuses DELETE on the storage tables (since March 2026: "Direct
--- deletion from storage tables is not allowed. Use the Storage API instead."). Run
---   node release/undo-photos-bucket.mjs --apply
--- first: it empties the private member-photos bucket and deletes it through the Storage API. The restrictive
+-- The undo's order (release/live-migration-notes.md, stage 2, Undo): the code first (Vercel: roll Production back
+-- to the stage 1 deployment; the stage 2 code needs these tables), then the private bucket exported and deleted
+--   node release/undo-photos-bucket.mjs --export-dir <a folder outside the repo>            (export only)
+--   node release/undo-photos-bucket.mjs --apply --export-dir <the same folder>
+-- then this file. Storage is NOT changed here: hosted Supabase refuses DELETE on the storage tables (since March
+-- 2026: "Direct deletion from storage tables is not allowed. Use the Storage API instead."). The restrictive
 -- storage policy is dropped below where this role may (skipped with a notice where it may not; with the bucket
--- gone it guards nothing). Members' old public avatar_url values were never changed by stage 2, so the stage 1
--- code shows them again (as long as release/delete-public-avatars.mjs has not been run).
--- Run it with the stage 1 code deployed (or about to be): the stage 2 code needs these tables.
+-- gone it guards nothing).
+--
+-- members.avatar_url: stage 2 never changed it, so the stage 1 code shows those old public photos again, unless
+-- release/delete-public-avatars.mjs (release step 5) deleted them: then the link points at nothing and stage 1
+-- would draw a broken image. Those links are cleared below (the file is no longer in storage.objects, which the
+-- Storage API keeps), so stage 1 shows the member's initial. Links whose file is still there, and links anywhere
+-- else, stay as they are.
 begin;
+
+-- members.avatar_url where its public copy was deleted (after release step 5). Storage is only read.
+do $$
+declare
+  marker constant text := '/storage/v1/object/public/member-media/';
+  cleared integer;
+begin
+  begin
+    update public.members m
+    set avatar_url = null
+    where m.avatar_url like '%' || marker || 'avatars/%'
+      and position('%' in m.avatar_url) = 0
+      and not exists (
+        select 1
+        from storage.objects o
+        where o.bucket_id = 'member-media'
+          and o.name = split_part(split_part(substr(m.avatar_url, position(marker in m.avatar_url) + length(marker)), '?', 1), '#', 1)
+      );
+    get diagnostics cleared = row_count;
+    raise notice 'members.avatar_url: cleared % link(s) to deleted public photos (stage 1 shows the initial instead).', cleared;
+  exception when insufficient_privilege or undefined_table then
+    raise notice 'members.avatar_url left as it is: this role cannot read storage.objects. After release step 5 the old links point at nothing; clear them by hand (release/live-migration-notes.md).';
+  end;
+end;
+$$;
 
 -- Storage: only the restrictive policy (the bucket and its files: release/undo-photos-bucket.mjs, see above).
 do $$
