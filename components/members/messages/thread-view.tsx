@@ -225,10 +225,12 @@ export function ThreadView({
 
   // What the server has, plus what you sent here that a poll has not brought back yet. A message still on its
   // way that a poll already returned (the poll won the race) is drawn once, from the server.
+  // A question's own intro block says who it is with, so its "opened" line is not drawn (as designed).
   const items = useMemo(() => {
     const known = new Set(base.items.map((item) => item.id));
-    return [...base.items, ...here.sent.filter((message) => !known.has(message.id))];
-  }, [base.items, here.sent]);
+    const shown = base.chat.kind === "question" ? base.items.filter((item) => !(item.kind === "system" && item.event === "opened")) : base.items;
+    return [...shown, ...here.sent.filter((message) => !known.has(message.id))];
+  }, [base.items, base.chat.kind, here.sent]);
   const outgoing = useMemo(() => {
     const landed = new Set(
       base.items.filter((item) => item.kind === "text" && item.senderId === youId).map((item) => (item as ChatMessage).clientId),

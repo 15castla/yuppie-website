@@ -544,3 +544,10 @@ textarea.msg-input:focus-visible{outline:none}
 .msg-sheet-err{display:flex;gap:8px;align-items:flex-start;margin-top:14px;color:var(--error);font:700 14px/1.4 var(--font-body)}
 .msg-sheet-err .mk-ico{flex:none;margin-top:1px}
 .msg-safety.is-info{margin:18px 0 4px}
+/* In the computer's drawer (from 768px) the rows are 52px, so the copy is a step smaller to sit under them. */
+@media (min-width:768px){
+  .msg-safety.is-info{margin-top:14px;padding:12px 14px;gap:12px;border-radius:16px}
+  .msg-safety.is-info .ic{width:32px;height:32px}
+  .msg-safety.is-info b{font-size:15px}
+  .msg-safety.is-info p{margin-top:2px;font-size:13px}
+}

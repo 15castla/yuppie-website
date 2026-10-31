@@ -109,6 +109,11 @@ type ThreadState = {
 };
 
 const READ = EXAMPLE_THREAD_VARIANTS.brunchRead;
+/** The same thread as another member in it sees it ("You" moves to them). */
+const seenBy = (thread: ChatThread, id: string): ChatThread => ({
+  ...thread,
+  chat: { ...thread.chat, participants: thread.chat.participants.map((p) => ({ ...p, isYou: p.member.id === id })) },
+});
 const overlayOf = (overlay: Overlay): ThreadPreview => ({ overlay });
 
 export const THREAD_STATES: Record<string, ThreadState> = {
@@ -170,7 +175,7 @@ export const OVERLAY_STATES: Record<string, ThreadState> = {
   // chat info, a question: the other person is named in the rows
   "info-question": { thread: EXAMPLE_THREADS["c-tom"], preview: overlayOf({ kind: "info" }) },
   // chat info, the host's own plan chat: no "Leave chat" (the host stays in it; mute quiets it)
-  "info-host": { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "info" }), as: JASMIN.id },
+  "info-host": { thread: seenBy(EXAMPLE_THREADS["c-brunch"], JASMIN.id), preview: overlayOf({ kind: "info" }), as: JASMIN.id },
   // a plan chat asks who before it reports or blocks (not in the design)
   "pick-member": { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "pick", purpose: "member" }) },
   // report a message: the quote, six reasons, one chosen

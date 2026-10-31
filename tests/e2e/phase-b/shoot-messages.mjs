@@ -112,11 +112,15 @@ if (which !== 'real') {
     'msg-dialog': ['block', 'leave', 'block-failed'],
     'blocked-members': ['list', 'empty', 'unblock'],
   };
+  // Each screen's main states at every width, web and app; every other state at 390 (web and app) and 1280.
+  const everyWidth = new Set(['msg-inbox-list', 'msg-inbox-empty', 'msg-updates-list', 'msg-updates-empty', 'msg-thread-plan', 'msg-thread-question', 'msg-thread-closed', 'msg-thread-rate', 'msg-sheet-info', 'msg-sheet-info-host', 'msg-sheet-report-message', 'msg-sheet-report-failed', 'msg-sheet-report-sent', 'msg-dialog-block', 'msg-dialog-block-failed', 'blocked-members-list', 'blocked-members-unblock']);
   for (const [screen, states] of Object.entries(screens)) {
     if (ONLY && !screen.startsWith(ONLY)) continue;
     for (const state of states) {
+      const name = `${screen}-${state}`;
       for (const mode of ['web', 'app']) {
-        for (const w of WIDTHS) console.log(await shoot(`${screen}-${state}`, w, mode, null, `/dev-preview/${screen}?shell=${mode}&state=${state}`));
+        const widths = everyWidth.has(name) ? WIDTHS : WIDTHS.filter((w) => w === 390 || (w === 1280 && mode === 'web'));
+        for (const w of widths) console.log(await shoot(name, w, mode, null, `/dev-preview/${screen}?shell=${mode}&state=${state}`));
       }
     }
   }
