@@ -178,6 +178,7 @@ try {
   eq(await dialog(L.page).getByRole('link', { name: 'Ask Hana' }).getAttribute('href'), `/members/messages/ask-${planId}`, 'the race: "Ask Hana" opens the question thread');
   eq(await dialog(L.page).getByRole('link', { name: 'See other invites' }).getAttribute('href'), '/members/open-invite', 'the race: "See other invites"');
   eq(going(planId).length, 3, 'the race: exactly 3 of 3 going, no double booking');
+  eq([going(planId).some((g) => g.member_id === winner.id), going(planId).some((g) => g.member_id === loser.id)], [true, false], 'the race: the place is the winner’s, the other has none');
   await L.page.keyboard.press('Escape');
   await shows(dock(L.page).getByText('Full', { exact: true }), 'plan page, full: the bar says Full');
   await shows(L.page.getByText('All places are taken.'), 'plan page, full: "All places are taken."');
