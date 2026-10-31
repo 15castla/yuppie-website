@@ -408,4 +408,8 @@ const ours = errors.filter((e) => new URL(e.url).pathname.startsWith('/members/m
 for (const e of errors.filter((x) => !ours.includes(x))) console.log(`note: a page error on ${new URL(e.url).pathname}: ${e.message.slice(0, 120)}`);
 eq(ours, [], 'no page errors on the Messages pages, in any browser');
 await browser.close();
+
+// Tidy: this run's plans leave the Open Invite feed (it lists the next 100), so runs do not crowd other scripts out.
+const people = [hana, gabe, cora, dex, ivy, pia, ended].map((m) => q(m.id)).join(', ');
+exec(`update plans set status = 'cancelled', cancelled_at = now() where status = 'scheduled' and host_id in (${people})`);
 done();

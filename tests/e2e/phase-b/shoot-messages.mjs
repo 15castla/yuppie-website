@@ -122,3 +122,5 @@ if (which !== 'real') {
   }
 }
 await browser.close();
+// Tidy: the shots' plans leave the Open Invite feed (it lists the next 100).
+exec(`update plans set status = 'cancelled', cancelled_at = now() where status = 'scheduled' and host_id in (select id from members where email like ${q(`${process.env.PHASE_A_TAG}t-%`)})`);

@@ -7,7 +7,7 @@
 //              when nobody did anything; one sentence, a detail line, the time.
 // Kit counterparts: pages_msg.inbox_row() and upd_row().
 
-import type { ReactNode } from "react";
+import type { MouseEvent, ReactNode } from "react";
 
 import { Avatar, DateColumn, Icon, KitLink, type IconName } from "@/components/members/kit";
 import { cn } from "@/lib/utils";
@@ -116,7 +116,7 @@ export function UpdateRow({
    * Called on the tap. From 1024px the list sits beside a preview of the plan, so the tap picks the update
    * (preventDefault) instead of leaving Messages; on a phone it reads the update on its way to the plan.
    */
-  onSelect?: (event: { preventDefault: () => void }) => void;
+  onSelect?: (event: MouseEvent<HTMLAnchorElement>) => void;
 }) {
   const isUnread = unread ?? !update.read;
   const text = updateText(update, now);

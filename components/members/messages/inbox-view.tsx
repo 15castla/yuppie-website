@@ -35,7 +35,7 @@ import { announceUnreadChanged } from "@/components/members/shell/use-unread";
 import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 import { updateGroup } from "@/lib/members/messages/format";
 import type { Chat, UpdateItem } from "@/lib/members/messages/types";
-import { ROUTES } from "@/lib/members/routes";
+import { ROUTES, openInviteHref } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import "./messages.css";
 import { StandingArt } from "./art";
@@ -49,6 +49,9 @@ export type InboxState = "ready" | "loading" | "error";
 
 /** How often an open inbox asks for its lists again (the icon itself asks every minute). */
 const REFRESH_MS = 30_000;
+/** A tapped update opens its plan once it is read on the server, or after this long at most. */
+const OPEN_AFTER_MS = 1200;
+const wait = (ms: number) => new Promise<void>((resolve) => window.setTimeout(resolve, ms));
 
 export type InboxViewProps = {
   chats: Chat[];
@@ -211,23 +214,24 @@ export function InboxView({
   // (it shows unread again on the next refresh); nothing on screen asks the member to do anything.
   const readOnServer = useRef(new Set<string>());
   const readUpdate = useCallback(
-    (id: string) => {
+    async (id: string): Promise<void> => {
       if (local || readOnServer.current.has(id)) return;
       readOnServer.current.add(id);
-      markUpdateRead(id)
-        .then((answer) => {
-          if (isSessionEnded(answer)) return goToSessionEnded();
-          if (answer.ok) announceUnreadChanged();
-          else readOnServer.current.delete(id);
-        })
-        .catch(() => readOnServer.current.delete(id));
+      try {
+        const answer = await markUpdateRead(id);
+        if (isSessionEnded(answer)) return goToSessionEnded();
+        if (answer.ok) announceUnreadChanged();
+        else readOnServer.current.delete(id);
+      } catch {
+        readOnServer.current.delete(id);
+      }
     },
     [local],
   );
   // The update in the computer's card is open, so it is read.
   const shownInCard = twoPanes && tab === "updates" && selectedUpdate && !selectedUpdate.read ? selectedUpdate.id : null;
   useEffect(() => {
-    if (shownInCard) readUpdate(shownInCard);
+    if (shownInCard) void readUpdate(shownInCard);
   }, [shownInCard, readUpdate]);
 
   async function markAll() {
@@ -271,7 +275,7 @@ export function InboxView({
   function pickUpdate(update: UpdateItem) {
     setPickedUpdate(update.id);
     setReadUpdates((previous) => (previous.includes(update.id) ? previous : [...previous, update.id]));
-    if (!update.read) readUpdate(update.id);
+    if (!update.read) void readUpdate(update.id);
   }
 
   // Updates, grouped by day, in the order given (newest first).
@@ -372,9 +376,19 @@ export function InboxView({
                           event.preventDefault();
                           pickUpdate(update);
                         }
-                      : () => {
-                          // A phone: the tap opens the plan, and the update is read.
-                          if (!update.read) readUpdate(update.id);
+                      : (event) => {
+                          // A phone: the tap opens the plan, and the update is read first (a navigation can
+                          // cut off a server action still on its way, so the plan opens once it has gone,
+                          // or after a moment at most). A new tab or window is left to the browser.
+                          if (update.read || readUpdates.includes(update.id)) return;
+                          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) {
+                            void readUpdate(update.id);
+                            return;
+                          }
+                          event.preventDefault();
+                          setReadUpdates((previous) => [...previous, update.id]);
+                          const href = event.currentTarget.getAttribute("href") ?? openInviteHref(update.plan.id);
+                          void Promise.race([readUpdate(update.id), wait(OPEN_AFTER_MS)]).finally(() => router.push(href));
                         }
                   }
                 />
