@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 
 import { photoReasons } from "@/app/admin/photo-reasons";
 import { requireAdmin } from "@/app/admin/require-admin";
+import { Banner } from "@/components/admin/bits";
 import { countWords, dayDate, monthYear, queueAgo, time24, whenWords } from "@/components/admin/format";
 import { QueueCardHead } from "@/components/admin/queue";
 import { Avatar, Card, DL, SavedLine, type DLRow } from "@/components/admin/ui";
@@ -66,7 +67,7 @@ function doneLine(status: ReportStatus, first: string): string {
   }
 }
 
-export async function ReportCard({ reportId, done }: { reportId: string; done?: string | null }) {
+export async function ReportCard({ reportId, done, stale }: { reportId: string; done?: string | null; stale?: boolean }) {
   await requireAdmin();
   const d = await reportCard(reportId);
   if (!d) notFound();
@@ -194,6 +195,11 @@ export async function ReportCard({ reportId, done }: { reportId: string; done?: 
         <ReportActions view={view} note={notes.join(" ")} />
       ) : (
         <div className="ad-qdone">
+          {stale && !justDone && (
+            <Banner title="Nothing changed." info>
+              Someone dealt with this report already. The outcome is above.
+            </Banner>
+          )}
           {justDone ? <SavedLine>{doneLine(r.status, first)}</SavedLine> : <p className="ad-hint">This report is closed. Nothing more to do.</p>}
           {r.status === "suspended" && member && !member.deleted && (
             <Link className="ad-link" href={`/admin/members/${member.id}`}>

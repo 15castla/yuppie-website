@@ -45,6 +45,18 @@ export function ReportActions({ view, note }: { view: ReportActionsView; note: s
   const [error, setError] = useState<string | null>(null);
   const { first } = view;
 
+  /** This report's own page, keeping the tab, with what happened (?done=, or ?stale= when someone else acted). */
+  function go(extra: Record<string, string>) {
+    const next = new URLSearchParams();
+    const tab = params.get("tab");
+    if (tab) next.set("tab", tab);
+    for (const [k, v] of Object.entries(extra)) next.set(k, v);
+    const target = `/admin/reports/${view.reportId}?${next.toString()}`;
+    if (pathname === `/admin/reports/${view.reportId}`) router.replace(target, { scroll: false });
+    else router.push(target, { scroll: false });
+    router.refresh();
+  }
+
   function run(which: Exclude<Busy, null>, call: () => Promise<Result>, done: string) {
     setError(null);
     setBusy(which);
@@ -56,23 +68,15 @@ export function ReportActions({ view, note }: { view: ReportActionsView; note: s
         result = { ok: false, error: "We couldn’t save that. Try again in a moment." };
       }
       setBusy(null);
+      setDialog(null);
       if (!result.ok) {
-        setDialog(null);
+        // Still open: the line stays under the buttons. Closed by someone else: the card says so (?stale=).
         setError(result.error);
-        // Someone else may have dealt with it: show the report as it is now.
-        router.refresh();
+        go({ stale: "1" });
         return;
       }
-      setDialog(null);
       // The card says what happened (?done=), on this report's own page, so the line survives the list moving on.
-      const next = new URLSearchParams();
-      const tab = params.get("tab");
-      if (tab) next.set("tab", tab);
-      next.set("done", done);
-      const target = `/admin/reports/${view.reportId}?${next.toString()}`;
-      if (pathname === `/admin/reports/${view.reportId}`) router.replace(target, { scroll: false });
-      else router.push(target, { scroll: false });
-      router.refresh();
+      go({ done });
     });
   }
 

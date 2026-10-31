@@ -23,6 +23,18 @@ export function PhotoActions({ photoId, first, canKeep, reasons, note }: { photo
   const [dialog, setDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** This photo's own page, keeping the tab, with what happened (?done=, or ?stale= when someone else acted). */
+  function go(extra: Record<string, string>) {
+    const next = new URLSearchParams();
+    const tab = params.get("tab");
+    if (tab) next.set("tab", tab);
+    for (const [k, v] of Object.entries(extra)) next.set(k, v);
+    const target = `/admin/photos/${photoId}?${next.toString()}`;
+    if (pathname === `/admin/photos/${photoId}`) router.replace(target, { scroll: false });
+    else router.push(target, { scroll: false });
+    router.refresh();
+  }
+
   function run(which: "keep" | "remove", call: () => Promise<Result>) {
     setError(null);
     setBusy(which);
@@ -37,17 +49,10 @@ export function PhotoActions({ photoId, first, canKeep, reasons, note }: { photo
       setDialog(false);
       if (!result.ok) {
         setError(result.error);
-        router.refresh();
+        go({ stale: "1" });
         return;
       }
-      const next = new URLSearchParams();
-      const tab = params.get("tab");
-      if (tab) next.set("tab", tab);
-      next.set("done", which === "keep" ? "kept" : "removed");
-      const target = `/admin/photos/${photoId}?${next.toString()}`;
-      if (pathname === `/admin/photos/${photoId}`) router.replace(target, { scroll: false });
-      else router.push(target, { scroll: false });
-      router.refresh();
+      go({ done: which === "keep" ? "kept" : "removed" });
     });
   }
 

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 
 import { photoReasons } from "@/app/admin/photo-reasons";
 import { requireAdmin } from "@/app/admin/require-admin";
+import { Banner } from "@/components/admin/bits";
 import { countWords, monthYear, queueAgo, whenWords } from "@/components/admin/format";
 import { Icon } from "@/components/admin/icons";
 import { QueueCardHead } from "@/components/admin/queue";
@@ -17,7 +18,7 @@ import { photoCard, photoReportReason } from "./photos-data";
 
 const inline = (ago: string) => (ago === "Yesterday" || ago === "Just now" ? ago.toLowerCase() : ago);
 
-export async function PhotoCard({ photoId, done }: { photoId: string; done?: string | null }) {
+export async function PhotoCard({ photoId, done, stale }: { photoId: string; done?: string | null; stale?: boolean }) {
   await requireAdmin();
   const d = await photoCard(photoId);
   if (!d) notFound();
@@ -115,6 +116,11 @@ export async function PhotoCard({ photoId, done }: { photoId: string; done?: str
         />
       ) : (
         <div className="ad-qdone">
+          {stale && (
+            <Banner title="Nothing changed." info>
+              {photo.status === "removed" ? "Someone removed this photo already." : `${first} has changed this photo since.`}
+            </Banner>
+          )}
           <p className="ad-hint">{photo.status === "removed" ? "This photo is off Club Yuppie. Nothing more to do." : `${first} has a newer photo now. Nothing more to do here.`}</p>
         </div>
       )}
