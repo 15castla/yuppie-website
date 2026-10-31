@@ -221,7 +221,7 @@ await sleep(3500);
 ok(await A.locator('.msg-new').isVisible(), 'the divider stays put while the thread polls');
 await A.getByRole('link', { name: 'Back to Messages' }).click();
 await A.waitForURL(/\/members\/messages$/);
-await A.waitForLoadState('networkidle');
+await A.locator('.msg-row').first().waitFor(); // past the loading state
 // The inbox may come from the router's cache (staleTimes.dynamic is 30 seconds): drawn a while ago, it asks again.
 await waitFor(async () => (await A.getByRole('tab').first().getAttribute('aria-label')) === 'Chats', 'back in the inbox');
 eq(await A.getByRole('tab').first().getAttribute('aria-label'), 'Chats', 'back in the inbox: no unread chats');
@@ -229,10 +229,6 @@ eq((await counts(hana)).chats, 0, 'read on the server');
 
 // ---------------------------------------------------------------- Mark all as read
 await A.getByRole('tab', { name: /^Updates/ }).click();
-if (!(await A.getByRole('button', { name: 'Mark all as read' }).count())) {
-  console.log('DEBUG', await A.getByRole('tabpanel').innerText(), await A.getByRole('tab').nth(1).getAttribute('aria-label'), await counts(hana));
-  await A.screenshot({ path: '/tmp/claude-0/-home-claude/e337cd27-fc4a-515d-836f-5913add7ea16/scratchpad/markall.png' });
-}
 await A.getByRole('button', { name: 'Mark all as read' }).click();
 await waitFor(() => sql1(`select count(*)::int n from updates where member_id = ${q(hana.id)} and read_at is null`).n === 0, 'every update read on the server');
 eq(await A.getByRole('tab').nth(1).getAttribute('aria-label'), 'Updates', '"Mark all as read": the Updates number goes');
@@ -300,8 +296,17 @@ eq(sql1(`select count(*)::int n from chats where plan_id = ${q(planB)} and kind 
 
 // ---------------------------------------------------------------- report a message, a member and a photo (Cora, on a computer)
 const C = await loggedIn(cora, { width: 1280, height: 900 });
+// On a computer the newest chat sits beside the list, and being on screen reads it.
+ok((await counts(cora)).chats === 1, 'Cora has the plan chat unread (Gabe wrote since she last read it)');
+await C.goto(`${BASE}/members/messages`, { waitUntil: 'networkidle' });
+ok(await C.locator('.msg-pane-col .msg-card').isVisible(), 'a computer: the chat beside the list');
+await waitFor(async () => (await counts(cora)).chats === 0, 'the chat beside the list is read on the server');
+ok(true, 'the chat beside the list counts as read (on the server too)');
+ok(await C.locator('.msg-row.is-selected', { hasText: 'Bm chat plan' }).isVisible() && !(await C.locator('.msg-row.is-unread', { hasText: 'Bm chat plan' }).count()), 'its row is the selected one, read');
 await C.goto(threadUrl(), { waitUntil: 'networkidle' });
 const target = C.locator('.msg-b', { hasText: 'Ring me on 07700 900456' });
+await target.scrollIntoViewIfNeeded();
+await C.waitForTimeout(400); // the menu closes on a scroll of the stream, so the scrolling is done first
 await target.click({ button: 'right' });
 await C.getByRole('menuitem', { name: 'Report message' }).click();
 ok(await C.getByRole('heading', { name: 'Report this message' }).isVisible(), 'a right click (a long press on a phone): "Report message", then the sheet');
@@ -369,6 +374,15 @@ ok(await B.locator('.msg-pin').getByText('Finished').isVisible(), 'the pin says 
 await B.goto(`${BASE}/members/messages`, { waitUntil: 'networkidle' });
 ok(await B.locator('.msg-group-label', { hasText: 'Closed' }).isVisible(), 'the inbox lists them under "Closed"');
 ok(await B.locator('.msg-row.is-closed', { hasText: 'Bm past plan' }).getByText('Closed · read only').isVisible(), '"Closed · read only"');
+
+// An update on a phone: a tap opens the plan, and reads it.
+const gabeUpdate = sql1(`select id from updates where member_id = ${q(gabe.id)} and plan_id = ${q(planId)} and kind = 'cancelled'`);
+ok(gabeUpdate, 'Gabe has an update: Hana cancelled the plan');
+await B.getByRole('tab', { name: /^Updates/ }).click();
+await B.locator('.msg-row.msg-upd', { hasText: 'Bm chat plan' }).first().click();
+await B.waitForURL(new RegExp(`/members/open-invite/${planId}$`));
+await waitFor(() => sql1(`select read_at from updates where id = ${q(gabeUpdate.id)}`).read_at, 'the update is read');
+ok(true, 'tapping an update opens the plan and reads it');
 
 // ---------------------------------------------------------------- gated members are refused
 const pia = await makeMemberWithPhoto('pia', 'paused');

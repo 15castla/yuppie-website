@@ -278,8 +278,13 @@ export function ThreadView({
     for (const item of base.items) if (item.kind === "text") map.set(item.id, item.senderId);
   }, [base.items]);
 
+  // Leaving stops the polls first (a poll must never race the leave), and a poll never puts a member back in.
+  const leftRef = useRef(false);
+  const inflightRef = useRef<Promise<void> | null>(null);
   const poll = useCallback(async (): Promise<void> => {
-    const answer = await fetchThread(chatIdRef.current, { markRead: true });
+    if (leftRef.current) return;
+    const answer = await fetchThread(chatIdRef.current, { markRead: true, poll: true });
+    if (leftRef.current) return;
     if (isSessionEnded(answer)) return goToSessionEnded();
     if (answer === null) {
       // Not yours any more (you left it elsewhere, or blocked the other person in a question).
@@ -305,15 +310,15 @@ export function ThreadView({
     let alive = true;
     let busy = false;
     const tick = async () => {
-      if (busy || !alive || document.visibilityState === "hidden") return;
+      if (busy || !alive || leftRef.current || document.visibilityState === "hidden") return;
       busy = true;
-      try {
-        await poll();
-      } catch {
+      const run = poll().catch(() => {
         // offline or the server did not answer: the next tick tries again
-      } finally {
-        busy = false;
-      }
+      });
+      inflightRef.current = run;
+      await run;
+      inflightRef.current = null;
+      busy = false;
     };
     // Beside the inbox the chat was not read when the page was drawn: it is read now that it is on screen. A
     // thread brought back from the browser's history (Back) was drawn a while ago: it is asked for again now.
@@ -625,19 +630,27 @@ export function ThreadView({
   /** Leave: null when it is done (back to the inbox), or the words to show in the dialog. */
   async function leave(): Promise<string | null> {
     if (live) {
+      leftRef.current = true;
+      await inflightRef.current;
       try {
         const answer = await leaveChat(chatIdRef.current);
         if (isSessionEnded(answer)) {
           goToSessionEnded();
           return null;
         }
-        if (!answer.ok) return answer.error;
+        if (!answer.ok) {
+          leftRef.current = false;
+          return answer.error;
+        }
       } catch {
+        leftRef.current = false;
         return TRY_AGAIN;
       }
       announceUnreadChanged();
     }
     router.push(ROUTES.messages);
+    // The inbox drawn fresh (the router may hold one from before the leave).
+    if (live) router.refresh();
     return null;
   }
 

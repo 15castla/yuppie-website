@@ -224,7 +224,15 @@ async function safetySeen(viewerId: string): Promise<boolean> {
  * is empty and the first send makes the chat. A member who left a plan chat (but is still going) is put back in
  * when they open it from the invite (messages spec 3.6: "you can rejoin from the invite").
  */
-export async function getThread(viewer: Viewer, chatId: string, now: Date = new Date()): Promise<ChatThread | null> {
+export async function getThread(
+  viewer: Viewer,
+  chatId: string,
+  now: Date = new Date(),
+  options: {
+    /** False for a poll of a thread already open: a member who has left is not put back by it (null instead). */
+    rejoin?: boolean;
+  } = {},
+): Promise<ChatThread | null> {
   const db = serviceDb();
   const askPlan = planIdFromAsk(chatId);
   let row: ChatRow | null = null;
@@ -240,7 +248,7 @@ export async function getThread(viewer: Viewer, chatId: string, now: Date = new 
   const { data: me } = await db.from("chat_members").select("chat_id, member_id, role, left_at, left_reason, last_read_at, muted").eq("chat_id", row.id).eq("member_id", viewer.id).maybeSingle<ChatMemberRow>();
   if (!me) return null;
   if (me.left_at) {
-    if (me.left_reason !== "left_chat") return null;
+    if (me.left_reason !== "left_chat" || options.rejoin === false) return null;
     const stillIn = row.kind === "question" || (await isHostOrGoing(row.plan_id, viewer.id));
     if (!stillIn) return null;
     await db.from("chat_members").update({ left_at: null, left_reason: null }).eq("chat_id", row.id).eq("member_id", viewer.id);

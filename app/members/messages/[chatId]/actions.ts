@@ -24,12 +24,17 @@ import { asMember, type Failed } from "../../action-kit";
 
 /**
  * The thread as it is now, or null when it is not the member's (or not found). Polling: call it again every few
- * seconds while the thread is open; `markRead` marks it read on the server's clock at the same time.
+ * seconds while the thread is open; `markRead` marks it read on the server's clock at the same time, and `poll`
+ * says it is the open thread asking again: a member who left the chat (in another tab, or a moment ago) is not
+ * put back by a poll, only by opening the chat (lib/server/chats.ts getThread).
  */
-export async function getThread(chatId: string, options: { markRead?: boolean } = {}): Promise<ChatThread | null | SessionEnded | Failed> {
+export async function getThread(
+  chatId: string,
+  options: { markRead?: boolean; poll?: boolean } = {},
+): Promise<ChatThread | null | SessionEnded | Failed> {
   requireFlag("messages");
   return asMember("getThread", async (_m, viewer) => {
-    const thread = await loadThread(viewer, chatId);
+    const thread = await loadThread(viewer, chatId, new Date(), { rejoin: !options.poll });
     if (thread && options.markRead && !thread.chat.id.startsWith("ask-")) await markRead(viewer.id, thread.chat.id);
     return thread;
   });
@@ -60,12 +65,14 @@ export async function setChatMuted(chatId: string, muted: boolean): Promise<{ ok
   return asMember("setChatMuted", async (m) => ({ ok: await setMuted(m.id, chatId, muted) }));
 }
 
-/** "Leave chat": the place in the plan stays; opening the chat from the invite puts them back. */
+/**
+ * "Leave chat": the place in the plan stays; opening the chat from the invite puts them back. No revalidatePath
+ * here: it would draw the page the member is on (this chat) again inside the answer, and drawing a chat is
+ * opening it, so it would put them straight back. The screen goes to the inbox and refreshes it instead.
+ */
 export async function leaveChat(chatId: string): Promise<LeaveChatResult | SessionEnded | Failed> {
   requireFlag("messages");
-  const result = await asMember("leaveChat", (m) => leave(m.id, chatId));
-  if ("ok" in result && result.ok) revalidatePath("/members", "layout");
-  return result;
+  return asMember("leaveChat", (m) => leave(m.id, chatId));
 }
 
 /** The safety note was shown ("Got it"): once ever, then it lives in chat info (decision 5 A). */
