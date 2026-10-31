@@ -52,6 +52,15 @@ const HOSTS = [
   "twitter.com", "x.com", "tiktok.com", "linkedin.com", "snapchat.com", "zoom.us", "calendly.com", "onlyfans.com",
 ];
 
+// A known hand-off host written with spaces or a spelled-out dot round its dot ("wa . me / 4477", "t dot me/sam"),
+// read as the host (stage 2 fixes, QB3-13). Two-part hosts only, the two parts as whole words; a one-letter first
+// part (t, m, x) only in lower case, so "I'm. Me too" stays a sentence.
+const SPACED_HOSTS = HOSTS.filter((h) => h.split(".").length === 2).map((h) => {
+  const [name, ending] = h.split(".");
+  // Hosts are letters, digits and hyphens: nothing to escape.
+  return new RegExp(`(^|[^\\p{L}\\p{N}])(${name})(?:\\s*\\.\\s*|\\s+dot\\s+)(${ending})(?![\\p{L}\\p{N}])`, name.length > 1 ? "giu" : "gu");
+});
+
 // Endings that are not English words: a name that ends in one is a link wherever it is capitalised.
 const STRONG_TLDS = new Set(
   (
@@ -87,13 +96,14 @@ const DOMAIN = /(^|[^\p{L}\p{N}._-])((?:[\p{L}\p{N}][\p{L}\p{N}-]*\.)+)([a-z]{2,
 
 /** The text the checks read: one spelling of the dot, no invisible characters, no full-width letters. */
 function plain(text: string): string {
-  return text
+  const spelled = text
     .normalize("NFKC")
     .replace(/[­​-‏‪-‮⁠-⁤﻿]/g, "")
     .replace(/[。｡]/g, ".")
     .replace(BRACKET_DOT, ".")
     .replace(SPACED_DOT, "$1.")
     .replace(SPOKEN_DOT, "$1.");
+  return SPACED_HOSTS.reduce((out, re) => out.replace(re, "$1$2.$3"), spelled);
 }
 
 function isCapitalised(word: string): boolean {

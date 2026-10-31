@@ -1,9 +1,9 @@
 import "server-only";
 
 // The private member-photos bucket: uploads, removals and signed URLs, from the server only (members cannot
-// read, list or write the bucket: the migration's restrictive storage policy). Signed URLs last an hour and are
-// cached in this server instance, so a page drawn twice hands the browser the same URL (and the browser's own
-// cache works) until it has less than 15 minutes left.
+// read, list or write the bucket: the migration's restrictive storage policy). Signed URLs last 10 minutes (QB2-08)
+// and are cached in this server instance, so a page drawn twice hands the browser the same URL (and the browser's
+// own cache works) until it has less than 5 minutes left; every page load asks for them again.
 
 import { PHOTO_BUCKET, PHOTO_URL_MIN_LEFT_SECONDS, PHOTO_URL_TTL_SECONDS } from "../config";
 import { serviceDb } from "../db";
@@ -76,7 +76,8 @@ export function forgetSigned(paths: (string | null | undefined)[]): void {
 }
 
 export async function putPhotoFile(path: string, bytes: Uint8Array, contentType: string): Promise<{ ok: true } | { ok: false; error: string }> {
-  const { error } = await serviceDb().storage.from(PHOTO_BUCKET).upload(path, Buffer.from(bytes), { contentType, upsert: false });
+  // The browser keeps a photo no longer than a signed URL lasts (QB2-08: a removed photo stops showing soon).
+  const { error } = await serviceDb().storage.from(PHOTO_BUCKET).upload(path, Buffer.from(bytes), { contentType, upsert: false, cacheControl: String(PHOTO_URL_TTL_SECONDS) });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }

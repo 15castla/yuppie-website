@@ -109,7 +109,8 @@ export type SystemLineCopy = {
 };
 
 export function systemLineCopy(item: ChatSystemLine, chat: Chat, nameOf: (id: string | null) => string): SystemLineCopy {
-  const who = nameOf(item.memberId);
+  // The server sends the member's name with the line, which still holds after they leave the chat.
+  const who = item.member?.firstName || nameOf(item.memberId);
   switch (item.event) {
     case "opened":
       return { icon: null, bold: null, text: `${who} opened this chat` };
@@ -118,6 +119,8 @@ export function systemLineCopy(item: ChatSystemLine, chat: Chat, nameOf: (id: st
     case "paid":
       return { icon: "credit-card", bold: who, text: " paid and is in" };
     case "cancelled":
+      // No member: the club cancelled it (a removal, or the host's membership stopped).
+      if (!item.memberId) return { icon: null, bold: null, text: "This plan was cancelled." };
       return {
         icon: null,
         bold: who,

@@ -262,11 +262,24 @@ async function isGoing(planId: string, memberId: string): Promise<boolean> {
   return data?.status === "going";
 }
 
-/** May this member see this plan's page? Host and people going always; others not when removed, priced, or blocked either way. */
+const HOST_STATE_COLUMNS = "id, membership_status, cancel_at, payment_failed_at, grace_until, paused_at, ended_at, deleted_at";
+
+/** Is the host's membership one that may have plans open (not paused, not ended)? The feed's rule. */
+async function hostActive(hostId: string, now: Date = new Date()): Promise<boolean> {
+  const { data } = await serviceDb().from("members").select(HOST_STATE_COLUMNS).eq("id", hostId).maybeSingle<HostState>();
+  return Boolean(data) && !isGated(membershipState(data!, now).state);
+}
+
+/**
+ * May this member see this plan's page? Host and people going always; others not when removed, priced, blocked
+ * either way, or when the host is paused or ended (QB1-05: the feed's rule everywhere, so a link does not open
+ * what the feed hides).
+ */
 export async function canSeePlan(viewerId: string, row: PlanRow, sets?: BlockSets): Promise<boolean> {
   if (row.host_id === viewerId || (await isGoing(row.id, viewerId))) return true;
   if (row.removed_at || !priceAllowed(row)) return false;
-  return !eitherBlocked(sets ?? (await blockSets(viewerId)), row.host_id);
+  if (eitherBlocked(sets ?? (await blockSets(viewerId)), row.host_id)) return false;
+  return hostActive(row.host_id);
 }
 
 /** One plan's page, or null (the page 404s). */
@@ -533,6 +546,55 @@ export async function adminRemovePlan(adminId: string, planId: string, reason: s
 }
 
 export type { PersonRef };
+
+// ---------------------------------------------------------------------------- paused or ended (QB3-06)
+
+export type GateLeaveSummary = { cancelled: number; left: number; chatsClosed: number };
+
+/**
+ * A member paused by the club (Suspend, or Pause on the member card) or whose membership ended leaves Open Invite
+ * until it is lifted: they withdraw from the upcoming plans they are going to (each host is told as for any
+ * withdrawal), the upcoming plans they host are cancelled by the club (the people going are told, in the club's
+ * words: the host did not cancel them), and every chat they are in closes to them (they are gated anyway; a
+ * question they asked can be opened again from the invite once they are back). Safe to call again: a second call
+ * finds nothing. Never throws.
+ */
+export async function leaveOpenInviteForGate(memberId: string, why: "paused" | "ended", now: Date = new Date()): Promise<GateLeaveSummary> {
+  const db = serviceDb();
+  const summary: GateLeaveSummary = { cancelled: 0, left: 0, chatsClosed: 0 };
+  try {
+    // A deleted account leaves through leaveOpenInviteForDeletion (its own words: the host cancelled).
+    const { data: me } = await db.from("members").select("deleted_at").eq("id", memberId).maybeSingle();
+    if (!me || me.deleted_at) return summary;
+    const { data: hosted } = await db.from("plans").select("id").eq("host_id", memberId).eq("status", "scheduled").gt("starts_at", now.toISOString());
+    for (const p of hosted ?? []) {
+      const { data } = await db.rpc("club_cancel_plan", { p_plan: p.id, p_reason: why === "paused" ? "host_paused" : "host_ended" });
+      if ((data as { status: string } | null)?.status === "cancelled") {
+        summary.cancelled += 1;
+        await notify({ type: "plan.cancelled", planId: p.id, byClub: true });
+      }
+    }
+    const { data: going } = await db.from("plan_members").select("plan_id").eq("member_id", memberId).eq("status", "going").eq("role", "guest");
+    for (const g of going ?? []) {
+      const { data } = await db.rpc("leave_plan", { p_member: memberId, p_plan: g.plan_id });
+      const r = data as { status: string; was_full?: boolean } | null;
+      if (r?.status === "left") {
+        summary.left += 1;
+        await notify({ type: "plan.left", planId: g.plan_id, memberId, wasFull: Boolean(r.was_full) });
+      }
+    }
+    const { data: closed } = await db
+      .from("chat_members")
+      .update({ left_at: now.toISOString(), left_reason: "left_chat" })
+      .eq("member_id", memberId)
+      .is("left_at", null)
+      .select("chat_id");
+    summary.chatsClosed = closed?.length ?? 0;
+  } catch (err) {
+    console.error(`plans: taking ${memberId} out of Open Invite (${why}) failed:`, err);
+  }
+  return summary;
+}
 
 // ---------------------------------------------------------------------------- Delete my account
 

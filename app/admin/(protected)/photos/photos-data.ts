@@ -13,7 +13,7 @@ import { requireAdmin } from "@/app/admin/require-admin";
 import { firstNameOf, hoursStat, queueAgo, whenWords } from "@/components/admin/format";
 import type { QueueStat } from "@/components/admin/queue";
 import { reasonLabel } from "@/lib/server/report-reasons";
-import { adminPhotoQueue, PHOTO_REMOVAL_LABELS, PHOTO_ROW_COLUMNS, signedUrls, type AdminPhotoItem, type FaceCheck, type PhotoRow } from "@/lib/server/photos";
+import { adminPhotoQueue, PHOTO_REMOVAL_LABELS, PHOTO_ROW_COLUMNS, photoAndReplaced, signedUrls, type AdminPhotoItem, type FaceCheck, type PhotoRow } from "@/lib/server/photos";
 import type { PhotoListRow, PhotoPill, PhotoTab } from "./photo-tabs";
 
 /** The photo spec's promise: aim to clear the list within 24 hours. */
@@ -91,13 +91,15 @@ export const photoCard = cache(async function photoCard(photoId: string): Promis
   const db = createAdminSupabaseClient();
   const { data: row } = await db.from("member_photos").select(PHOTO_ROW_COLUMNS).eq("id", photoId).maybeSingle<PhotoRow>();
   if (!row) return null;
+  // A report on a photo the member has since replaced is about this one (lib/server/photos openPhotoReports).
+  const reportedIds = row.status === "pending" || row.status === "approved" ? await photoAndReplaced(row.id, row.member_id) : [row.id];
   const [{ data: m }, { data: before }, { data: reports }] = await Promise.all([
     db.from("members").select("id, full_name, email, created_at, photo_id, deleted_at").eq("id", row.member_id).maybeSingle(),
     row.previous_photo_id ? db.from("member_photos").select("path").eq("id", row.previous_photo_id).maybeSingle() : Promise.resolve({ data: null }),
     db
       .from("reports")
       .select("id, reason, created_at, reporter:members!reports_reporter_id_fkey(full_name)")
-      .eq("photo_id", photoId)
+      .in("photo_id", reportedIds)
       .eq("status", "open")
       .or(PHOTO_REPORTS)
       .order("created_at", { ascending: false })

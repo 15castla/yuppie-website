@@ -20,6 +20,10 @@ import { diff, layout } from './schema.mjs';
 const ROOT = path.resolve(new URL('../../..', import.meta.url).pathname);
 const MINE = '20261030090000_open_invite_messages.sql';
 const FILE = `${ROOT}/supabase/migrations/${MINE}`;
+// The stage 2 fixes (31 Oct 2026) replace some of stage 2's functions and grants: after any run of the stage 2
+// file, the fixes file runs too, as a release would apply them (in order). Its own proof on a scratch database:
+// 14-fixes-fixer1-db.mjs.
+const FIXES = `${ROOT}/supabase/migrations/20261031090000_stage2_fixes.sql`;
 const UNDO = `${ROOT}/release/undo-phase-b.sql`;
 const psqlFile = (file) => {
   try {
@@ -35,8 +39,10 @@ const REBUILD = process.argv.includes('--rebuild');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-b-pre-'));
 if (!REBUILD) {
   psqlFile(FILE);
-  ok(true, 'the stage 2 migration applies again on the database as it is');
+  psqlFile(FIXES);
+  ok(true, 'the stage 2 migration and its fixes apply again on the database as it is');
   psqlFile(FILE);
+  psqlFile(FIXES);
   ok(true, 'and a third time');
 }
 if (REBUILD) {
@@ -59,8 +65,10 @@ ok(S1.length > 200, `stage 1 picture taken (${S1.length} lines)`);
 const out = execFileSync('/home/claude/stack/apply_repo.sh', [ROOT], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
 ok(out.includes(`-> ${MINE}`) && out.includes('APPLIED'), 'stage 2 applies on the stage 1 schema from scratch');
 psqlFile(FILE);
-ok(true, 'and again on top of itself');
+psqlFile(FIXES);
+ok(true, 'and again on top of itself (with the fixes after it)');
 psqlFile(FILE);
+psqlFile(FIXES);
 ok(true, 'and a third time');
 const S2 = layout();
 const d = diff(S1, S2);
@@ -91,7 +99,10 @@ eq(d.added.filter((l) => l.startsWith('pol storage')), ['pol storage.objects | M
 eq(d.added.filter((l) => l.startsWith('bucket')), ['bucket member-photos public=false limit=10485760 types=image/jpeg,image/png,image/webp'], 'storage: the private member-photos bucket (10 MB, JPG, PNG, WebP)');
 eq(S2.filter((l) => l.startsWith('bucket member-media')), S1.filter((l) => l.startsWith('bucket member-media')), 'storage: member-media is unchanged');
 
-// ---- 3. the undo
+// ---- 3. the undo. The bucket and its files go through the Storage API first (release/undo-photos-bucket.mjs,
+// proved against a Storage API in 14-fixes-fixer1-release.mjs; the local stub has no bucket delete): done here
+// directly as its stand-in. The SQL undo deletes no storage row (hosted Supabase refuses that).
+exec(`delete from storage.objects where bucket_id = 'member-photos'; delete from storage.buckets where id = 'member-photos'`);
 psqlFile(UNDO);
 ok(true, 'release/undo-phase-b.sql applied');
 psqlFile(UNDO);
@@ -105,10 +116,14 @@ eq(dump() === D1, true, 'and pg_dump -s of public agrees, byte for byte');
 execFileSync('/home/claude/stack/apply_repo.sh', [ROOT], { stdio: ['ignore', 'pipe', 'pipe'] });
 ok(true, 'rebuilt with every migration');
 }
+// Reports and plans: members read some columns only (the fixes, QB3-08); every other new table: SELECT.
+const COLUMN_ONLY = new Set(['reports', 'plans']);
 for (const t of NEW_TABLES) {
   eq(sql1(`select relrowsecurity r from pg_class where oid = 'public.${t}'::regclass`).r, true, `${t}: RLS on`);
   const grants = sql(`select grantee g, string_agg(privilege_type, ',' order by privilege_type) p from information_schema.role_table_grants where table_schema = 'public' and table_name = '${t}' and grantee in ('anon', 'authenticated') group by 1`);
-  eq(grants, [{ g: 'authenticated', p: 'SELECT' }], `${t}: anon nothing, authenticated SELECT only (no member writes through REST)`);
+  eq(grants, COLUMN_ONLY.has(t) ? [] : [{ g: 'authenticated', p: 'SELECT' }], `${t}: anon nothing, authenticated ${COLUMN_ONLY.has(t) ? 'SELECT on some columns' : 'SELECT'} only (no member writes through REST)`);
+  const colPrivs = sql(`select distinct grantee g, privilege_type p from information_schema.column_privileges where table_schema = 'public' and table_name = '${t}' and grantee in ('anon', 'authenticated')`);
+  eq(colPrivs, [{ g: 'authenticated', p: 'SELECT' }], `${t}: column privileges are SELECT for authenticated only`);
   const policies = sql(`select cmd from pg_policies where schemaname = 'public' and tablename = '${t}'`).map((r) => r.cmd);
   ok(policies.length >= 1 && policies.every((c) => c === 'SELECT'), `${t}: read policies only`, policies);
 }

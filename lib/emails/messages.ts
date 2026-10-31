@@ -705,6 +705,7 @@ const planChanged: Build<"plan-changed"> = (d: PlanChangedData, o) => {
 const planCancelled: Build<"plan-cancelled"> = (d: PlanCancelledData, o) => {
   const { title, start } = d.plan;
   const host = d.hostName.trim();
+  if (d.by === "club") return planCancelledByClub(d, o);
   return {
     subject: `Cancelled: ${title}`,
     pre: `${host} cancelled it. Nothing to pay and nothing to do.`,
@@ -712,6 +713,43 @@ const planCancelled: Build<"plan-cancelled"> = (d: PlanCancelledData, o) => {
     h1: { a: `${host} cancelled.`, b: "The plan’s off.", br: true },
     intro: [`${host} cancelled ${title} on ${at(start)}. Nothing to pay and nothing to do.`],
     blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Where", d.place.trim()), row("Host", host)] }],
+    button: { label: "See Open Invite", url: absoluteUrl(d.openInviteUrl ?? OPEN_INVITE_PATH, o.site) },
+    foot: "member",
+    switchLink: true,
+    why: "You’re getting this because you were in an Open Invite plan on Club Yuppie.",
+  };
+};
+
+// Plan cancelled by the club (stage 2 fixes, QB3-06 and QB3-07): the club removed
+// the plan, or the host's membership was paused or ended. Not drawn: the drawn
+// email's frame and rows with plain new words (Albert's eye). To the people who
+// were in: nothing to pay, nothing to do. To the host: we cancelled it, and
+// told the people going; reply if it looks wrong (replies go to the club).
+const planCancelledByClub: Build<"plan-cancelled"> = (d: PlanCancelledData, o) => {
+  const { title, start } = d.plan;
+  const host = d.hostName.trim();
+  const place = d.place.trim();
+  if (d.to === "host") {
+    return {
+      subject: `We cancelled your plan: ${title}`,
+      pre: "We took it off Open Invite and told the people going.",
+      label: "Open Invite update",
+      h1: { a: "We cancelled your plan.", b: "It’s off Open Invite.", br: true },
+      intro: [`We cancelled ${title} on ${at(start)} and told the people going. If you think we got this wrong, reply to this email.`],
+      blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Where", place)] }],
+      button: { label: "See Open Invite", url: absoluteUrl(d.openInviteUrl ?? OPEN_INVITE_PATH, o.site) },
+      foot: "member",
+      switchLink: false,
+      why: "You’re getting this because you posted an Open Invite plan on Club Yuppie.",
+    };
+  }
+  return {
+    subject: `Cancelled: ${title}`,
+    pre: "Club Yuppie cancelled it. Nothing to pay and nothing to do.",
+    label: "Open Invite update",
+    h1: { a: "It’s been cancelled.", b: "The plan’s off.", br: true },
+    intro: [`Club Yuppie cancelled ${title} on ${at(start)}. Nothing to pay and nothing to do.`],
+    blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Where", place), row("Host", host)] }],
     button: { label: "See Open Invite", url: absoluteUrl(d.openInviteUrl ?? OPEN_INVITE_PATH, o.site) },
     foot: "member",
     switchLink: true,
