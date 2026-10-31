@@ -46,7 +46,7 @@ async function act(run: (adminId: string) => Promise<AdminPhotoResult>): Promise
   try {
     const result = await run(admin.id);
     if (result.ok) fresh();
-    return result;
+    return result.ok || !/something went wrong|please/i.test(result.error) ? result : { ok: false, error: "We couldn’t save that. Try again in a moment." };
   } catch (err) {
     console.error("admin photo action failed:", err);
     return { ok: false, error: "We couldn’t save that. Try again in a moment." };

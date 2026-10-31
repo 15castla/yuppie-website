@@ -98,7 +98,8 @@ try {
   await open('/admin');
   eq((await page.locator('h1').first().innerText()).trim(), 'Dashboard', 'the dashboard opens');
   const navLinks = await page.locator('nav[aria-label="Admin"]').first().locator('a').allInnerTexts();
-  ok(navLinks.some((t) => t.startsWith('Applications')) && !navLinks.some((t) => /Reports|Photos|Payments/.test(t)), 'the nav has the six Phase A pages and no Reports, Photos or Payments (B-D22)', navLinks);
+  // Stage 2 adds Reports and Photos (the r2b nav); Payments waits for paid plans (stage 3).
+  ok(navLinks.some((t) => t.startsWith('Applications')) && navLinks.some((t) => t.startsWith('Reports')) && navLinks.some((t) => t.startsWith('Photos')) && !navLinks.some((t) => /Payments/.test(t)), 'the nav has the six Phase A pages, Reports and Photos (stage 2), and no Payments', navLinks);
 
   // ---- 1. Approve: the dialog shows the approval email and the welcome text, then the member is made
   const app = await application(`Hana Approve${RUN}`);

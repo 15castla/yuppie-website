@@ -33,8 +33,16 @@ import { requireAdmin } from "./require-admin";
 const fresh = () => {
   revalidatePath("/admin/reports");
   revalidatePath("/admin/photos");
+  revalidatePath("/admin/members");
   revalidatePath("/admin");
 };
+
+const SAVE_FAILED = "We couldn’t save that. Try again in a moment.";
+
+/** The admin reads plain sentences (r2b 20): a backend fallback line that is not one (stage 1's pause helper has one) becomes the standard line. */
+function plainWords(error: string): string {
+  return !error || /something went wrong|please/i.test(error) ? SAVE_FAILED : error;
+}
 
 async function admin(): Promise<string> {
   return (await requireAdmin()).id;
@@ -61,10 +69,10 @@ async function act(run: (adminId: string) => Promise<AdminReportResult>): Promis
   try {
     const result = await run(id);
     if (result.ok) fresh();
-    return result;
+    return result.ok ? result : { ok: false, error: plainWords(result.error) };
   } catch (err) {
     console.error("admin report action failed:", err);
-    return { ok: false, error: "We couldn’t save that. Try again in a moment." };
+    return { ok: false, error: SAVE_FAILED };
   }
 }
 
