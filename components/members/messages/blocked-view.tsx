@@ -5,20 +5,19 @@
 // that person message you again, so it is one extra tap on purpose. Empty: "No
 // one blocked." with the velvet rope standing on a 3px rule.
 //
-// Unblock goes to the server (app/members/you/blocked/actions.ts) and waits for
-// it: the button stays the full ink button meanwhile, the row goes when it is
-// done, and the server's words show in the sheet when it did not go through.
-// The block itself is made from a chat. `local` (the preview harness) keeps it
-// on this screen.
+// Unblock calls `unblock` (app/members/you/blocked/actions.ts) and the row
+// goes once the server says so; a failure keeps the row and says so in the
+// sheet. Without `unblock` (the preview harness) the row goes at once. The
+// block itself is made from a chat.
 //
 // Kit counterparts: pages_you.blocked_main(), blocked_row(), blocked_empty(),
 // dlg_unblock(), dlg_modal_unblock().
 
 import { useEffect, useRef, useState } from "react";
 
-import { unblockMember } from "@/app/members/you/blocked/actions";
-import { Avatar, BackLink, BackRow, Button, Icon, Main, Rows, TitleBlock } from "@/components/members/kit";
-import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
+import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
+
+import { Avatar, BackLink, BackRow, Button, Main, Rows, TitleBlock } from "@/components/members/kit";
 import { dayMonth } from "@/lib/members/messages/format";
 import type { BlockedMember } from "@/lib/members/messages/types";
 import { ROUTES } from "@/lib/members/routes";
@@ -28,16 +27,16 @@ import { useDialog } from "./use-dialog";
 
 function Confirm({
   name,
-  busy,
-  error,
   onUnblock,
   onCancel,
+  pending = false,
+  error = null,
 }: {
   name: string;
-  busy: boolean;
-  error: string | null;
   onUnblock: () => void;
   onCancel: () => void;
+  pending?: boolean;
+  error?: string | null;
 }) {
   const box = useRef<HTMLDivElement | null>(null);
   useDialog(box, onCancel);
@@ -61,13 +60,12 @@ function Confirm({
           share. {name} isn’t told.
         </p>
         {error ? (
-          <p className="msg-sheet-err" role="alert">
-            <Icon name="circle-alert" size={18} />
-            <span>{error}</span>
+          <p role="alert" style={{ marginTop: 12, color: "var(--error)" }}>
+            {error}
           </p>
         ) : null}
         <div className="msg-blk-acts">
-          <Button pending={busy} onClick={onUnblock}>
+          <Button onClick={onUnblock} pending={pending}>
             Unblock {name}
           </Button>
           <Button variant="outline" onClick={onCancel} data-autofocus>
@@ -82,17 +80,17 @@ function Confirm({
 export function BlockedView({
   members,
   initialConfirmId = null,
-  local = false,
+  unblock: unblockAction,
 }: {
   members: BlockedMember[];
   /** Preview only: start with this person's unblock confirm open. */
   initialConfirmId?: string | null;
-  /** Preview harness only: unblocking stays on this screen. */
-  local?: boolean;
+  /** The real Unblock (app/members/you/blocked/actions.ts). Without it the row goes locally. */
+  unblock?: (memberId: string) => Promise<{ ok: true } | { ok: false; error: string } | SessionEnded>;
 }) {
   const [list, setList] = useState(members);
   const [confirmId, setConfirmId] = useState<string | null>(initialConfirmId);
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
   const [moveFocus, setMoveFocus] = useState(0);
@@ -101,22 +99,24 @@ export function BlockedView({
   const confirming = list.find((item) => item.member.id === confirmId) ?? null;
 
   async function unblock() {
-    if (!confirming || busy) return;
+    if (!confirming || pending) return;
     const { id, firstName: name } = confirming.member;
-    if (!local) {
-      setBusy(true);
+    if (unblockAction) {
+      setPending(true);
       setError(null);
-      let words: string | null = null;
+      let result: Awaited<ReturnType<typeof unblockAction>>;
       try {
-        const answer = await unblockMember(id);
-        if (isSessionEnded(answer)) return goToSessionEnded();
-        if (!answer.ok) words = answer.error;
+        result = await unblockAction(id);
       } catch {
-        words = "That didn’t go through. Try again in a moment.";
+        result = { ok: false, error: "That didn’t go through. Try again in a moment." };
       }
-      setBusy(false);
-      if (words) {
-        setError(words);
+      setPending(false);
+      if (isSessionEnded(result)) {
+        goToSessionEnded();
+        return;
+      }
+      if (!result.ok) {
+        setError(result.error);
         return;
       }
     }
@@ -126,8 +126,8 @@ export function BlockedView({
     setMoveFocus((value) => value + 1);
   }
 
-  function cancel() {
-    if (busy) return;
+  function closeConfirm() {
+    if (pending) return;
     setConfirmId(null);
     setError(null);
   }
@@ -196,7 +196,13 @@ export function BlockedView({
         </div>
       </Main>
       {confirming ? (
-        <Confirm name={confirming.member.firstName} busy={busy} error={error} onUnblock={unblock} onCancel={cancel} />
+        <Confirm
+          name={confirming.member.firstName}
+          onUnblock={() => void unblock()}
+          onCancel={closeConfirm}
+          pending={pending}
+          error={error}
+        />
       ) : null}
       <div className="mk-sr" role="status" aria-live="polite">
         {announce}

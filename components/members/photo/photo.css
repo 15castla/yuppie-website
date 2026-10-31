@@ -163,3 +163,6 @@
   .ph-sizes{margin-top:8px}
   .ph-sizes figure{gap:6px}
 }
+
+/* Change photo, no face found: the cropped photo in a solid ring above the gate's warning (not drawn for the sheet) */
+.ph-sheet-ring{display:flex;justify-content:center;margin:4px 0 16px}

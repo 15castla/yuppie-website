@@ -94,7 +94,9 @@ export function toPreferences(row: PrefsRow, member: MemberForPrefs, mode: Shell
   const number = member.phone?.trim() || null;
   return {
     topics: { host: row.topic_host, in: row.topic_in, reminder24: row.topic_reminder24, reminder2: row.topic_reminder2, clubChanges: row.topic_club_changes },
-    channels: { push: row.channel_push, email: row.channel_email, text: Boolean(row.channel_text && number) },
+    // Text reads on only while texts would really go (textNumber): after a number change it reads off, and switching
+    // it on again sends a new check text ("Change number re-verifies", notifications spec 3.1).
+    channels: { push: row.channel_push, email: row.channel_email, text: textNumber(row, number) !== null },
     email: member.email,
     mobileNumber: displayPhone(number),
     textCheck: number && row.text_check_number === number ? row.text_check : "none",

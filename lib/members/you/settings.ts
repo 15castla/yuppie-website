@@ -1,17 +1,12 @@
 // Which Settings rows You shows, and what they say. Each row belongs to an
-// area that is switched off at launch (Notifications, Payments, Messages),
-// so a row appears only when its flag is on. The summaries need those areas'
-// data, which has no backend yet: until it does they come from the example
-// adapter (lib/members/mock/you-settings.ts), which is not used on the
-// live site (Vercel production) unless MEMBERS_SHOW_EXAMPLES=on, so a flag
-// set there by mistake shows no rows rather than made-up ones.
+// area behind a switch (Notifications, Payments, Messages), so a row appears
+// only when its flag is on and it has a summary. Stage 2: the summaries are
+// real (app/members/you/load-you.ts: the notification channels and the
+// blocked count); Payments has none until paid plans are live (stage 3), so
+// it shows no row. The preview harness passes the design's summaries.
 
 import type { Flags } from "@/lib/members/flags";
-import { isMockAllowed } from "@/lib/members/mock/guard";
-import { marksExamples } from "@/lib/members/mock/marking";
-import { exampleSettingsSummaries } from "@/lib/members/mock/you-settings";
 import { ROUTES } from "@/lib/members/routes";
-import type { ShellMode } from "@/components/members/shell/types";
 import type { SettingsRow, SettingsSummaries } from "./types";
 
 export function blockedSummary(count: number): string {
@@ -40,16 +35,4 @@ export function buildSettingsRows(flags: Pick<Flags, "notifications" | "paidPlan
     rows.push({ key: "blocked", title: "Blocked members", href: ROUTES.youBlocked, lines: [blockedSummary(summaries.blocked)] });
   }
   return rows;
-}
-
-// The live page's rows: none while there is no real data for them.
-export function settingsRowsFor(flags: Pick<Flags, "notifications" | "paidPlans" | "messages">, mode: ShellMode): SettingsRow[] {
-  const anyOn = flags.notifications || flags.paidPlans || flags.messages;
-  if (!anyOn || !isMockAllowed()) return [];
-  // The summaries are invented stand-ins ("Push, email", "Get paid: not set up"), and You is a real page that carries
-  // no example note, so on the live page each row says what it is instead of a made-up status (the preview harness
-  // calls buildSettingsRows directly and keeps the approved summaries).
-  const rows = buildSettingsRows(flags, exampleSettingsSummaries(mode));
-  // NEXT_PUBLIC_MEMBERS_MARK_EXAMPLES=off (mock/marking.ts) keeps the approved summaries, as in the preview harness.
-  return marksExamples() ? rows.map((row) => ({ ...row, lines: ["Example screen"], warn: false })) : rows;
 }

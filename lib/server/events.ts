@@ -13,6 +13,7 @@ import { EVENT_ROW_COLUMNS, one, serviceDb, type BookingCancelReason, type Booki
 import { buildIcs, googleCalendarUrl, icsFilename } from "./calendar";
 import { dayDate, dayDateTime, pounds, time24 } from "./format";
 import { sendEmail } from "./messages";
+import { channelOn, prefsRows, topicOn } from "./notification-prefs";
 
 // ---------------------------------------------------------------------------
 // Address
@@ -301,7 +302,13 @@ export async function emailEventMove(
   let emailed = 0;
   let failed = 0;
   const stamp = change.changedAt ?? event.changed_at ?? new Date().toISOString();
-  for (const b of (bookings ?? []) as unknown as { id: string; member_id: string; amount_pence: number; member: { email: string } | { email: string }[] | null }[]) {
+  const rows = (bookings ?? []) as unknown as { id: string; member_id: string; amount_pence: number; member: { email: string } | { email: string }[] | null }[];
+  // Stage 2: the member's switches decide (Club events > Changes, and Email; notifications spec 3.5 "club.changed").
+  // No row means the defaults (both on), so stage 1's behaviour is unchanged for anyone who never touched them.
+  const prefs = await prefsRows(rows.map((b) => b.member_id));
+  for (const b of rows) {
+    const p = prefs.get(b.member_id);
+    if (p && !(topicOn(p, "clubChanges") && channelOn(p, "email"))) continue;
     const result = await sendEmail({
       template: "event-changed",
       to: one(b.member)?.email,
