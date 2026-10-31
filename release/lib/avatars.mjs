@@ -234,7 +234,6 @@ export async function classify(db, member) {
   const path = objectPathOf(member.avatar_url);
   if (!path) return none('needs a look: the photo link is not in member-media', member.avatar_url);
   if (!path.startsWith('avatars/')) return none('needs a look: not in member-media/avatars/', path);
-  if (!isOwnAvatar(path, member.id)) return none('needs a look: not their own photo file (only avatars/<member id>-... is moved)', path);
   const [{ data: before, error: beforeError }, { data: latest, error: latestError }] = await Promise.all([
     db.from('member_photos').select('id, status').eq('member_id', member.id).eq('legacy_url', member.avatar_url).order('created_at', { ascending: false }).limit(1),
     db.from('member_photos').select('id, status, source, created_at').eq('member_id', member.id).order('created_at', { ascending: false }).limit(1),
@@ -242,6 +241,8 @@ export async function classify(db, member) {
   if (beforeError || latestError) throw beforeError ?? latestError;
   const moved = before?.[0] ?? null;
   if (member.photo_id) return none(moved ? 'already moved' : 'skipped: has a photo already (stage 2)');
+  // Only the member's own file (QR-02), checked before anything is linked or copied.
+  if (!isOwnAvatar(path, member.id)) return none('needs a look: not their own photo file (only avatars/<member id>-... is moved)', path);
   if (moved?.status === 'removed') return none('skipped: the club removed this photo after it was moved (not linked again)', path);
   if (latest?.[0]?.status === 'removed') return none('skipped: the club removed their latest photo (they meet the photo gate)', path);
   if (moved && moved.status !== 'approved' && moved.status !== 'pending') return none(`skipped: moved before and ${moved.status} since`, path);
