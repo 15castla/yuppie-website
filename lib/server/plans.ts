@@ -41,7 +41,7 @@ import { peopleRefs, type PersonRef } from "./people";
 import { askPlaceholder, guestQuestions, hostQuestions, latestTexts, questionAskers } from "./questions";
 
 export const PLAN_COLUMNS =
-  "id, host_id, title, type, starts_at, place, note, places, host_going, price_pence, face_value_confirmed, status, cancelled_at, changed_at, removed_at, created_at";
+  "id, host_id, title, type, starts_at, place, note, places, host_going, price_pence, face_value_confirmed, status, cancelled_at, changed_at, removed_at, removed_reason, created_at";
 
 export type PlanRow = {
   id: string;
@@ -59,8 +59,16 @@ export type PlanRow = {
   cancelled_at: string | null;
   changed_at: string | null;
   removed_at: string | null;
+  /** Set when the club cancelled it (a removal, or the host's membership was paused or ended). Server only. */
+  removed_reason: string | null;
   created_at: string;
 };
+
+/** Who cancelled a cancelled plan: the club when it removed the plan or cancelled it for a paused or ended host. */
+export function cancelledBy(row: Pick<PlanRow, "status" | "removed_at" | "removed_reason">): "host" | "club" | null {
+  if (row.status !== "cancelled") return null;
+  return row.removed_at || row.removed_reason ? "club" : "host";
+}
 
 /** Who is asking: the signed-in member (require-member's Member is enough). */
 export type Viewer = { id: string; email: string };
@@ -137,6 +145,7 @@ export async function buildInvites(rows: PlanRow[], viewer: Viewer, now: Date, g
       host: ref(row.host_id),
       going: (goingBy.get(row.id) ?? []).map(ref),
       status: planStatus(row, now),
+      cancelledBy: cancelledBy(row),
       cost: row.price_pence === null ? null : { pricePence: row.price_pence, faceValueConfirmed: row.face_value_confirmed },
       you: {
         role,

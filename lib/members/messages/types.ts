@@ -50,6 +50,8 @@ export type ChatPlan = {
   priceMinor: number | null;
   /** "finished" 24 hours after the plan; "cancelled" when the host cancels (then every payment is refunded). */
   status: "open" | "finished" | "cancelled";
+  /** Who cancelled it, once cancelled: "club" when the club removed it or cancelled it for its host (optional: the host). */
+  cancelledBy?: "host" | "club" | null;
 };
 
 export type ChatKind = "plan" | "question";

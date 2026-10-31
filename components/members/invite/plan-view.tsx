@@ -313,8 +313,19 @@ export function PlanView({
   // ---- notice
   let notice: ReactNode = null;
   if (state === "cancelled") {
-    // the host who just cancelled sees "You cancelled" (the plan is "cancelled", no longer "own")
-    if (isHost) {
+    // the host who just cancelled sees "You cancelled" (the plan is "cancelled", no longer "own"). The club's cancel
+    // (it removed the plan, or the host's membership stopped) names the club, never the host.
+    if (invite.cancelledBy === "club" && !paid) {
+      notice = (
+        <div className="oi-notice">
+          <Icon name="info" size={20} />
+          <div>
+            <b>Club Yuppie cancelled this invite.</b>{" "}
+            {isHost ? "Everyone who was in has been told." : "Nothing to do. There are more plans to browse."}
+          </div>
+        </div>
+      );
+    } else if (isHost) {
       notice = (
         <div className="oi-notice">
           <Icon name="info" size={20} />

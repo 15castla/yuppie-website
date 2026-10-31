@@ -28,7 +28,7 @@ import { MESSAGE_RATE_LIMIT, THREAD_ITEM_LIMIT, UPDATES_KEEP_DAYS } from "./conf
 import { serviceDb } from "./db";
 import { notify } from "./notify";
 import { peopleRefs, type PersonRef } from "./people";
-import { canSeePlan, isUuid, PLAN_COLUMNS, type PlanRow, type Viewer } from "./plans";
+import { cancelledBy, canSeePlan, isUuid, PLAN_COLUMNS, type PlanRow, type Viewer } from "./plans";
 import { askPlaceholder, planIdFromAsk } from "./questions";
 
 const HOUR = 3600000;
@@ -131,6 +131,7 @@ function chatPlan(ctx: Context, plan: PlanRow, now: Date): ChatPlan {
     placesLeft: Math.max(0, plan.places - going.length),
     priceMinor: plan.price_pence,
     status: chatPlanStatus(plan, now),
+    cancelledBy: cancelledBy(plan),
   };
 }
 

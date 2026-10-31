@@ -149,6 +149,31 @@ ok(cancelledThread.items.every((i) => new Date(i.at ?? i.sentAt).getTime() <= Da
   ok(!text.includes('This chat closed.') && !text.includes('Questions close when the invite closes.'), 'QB1-07: and nothing says the invite closed');
   await ctx.close();
 }
+// The club's cancel (fixer 1's club_cancel_plan: the host's membership was paused or ended; a removal is the same):
+// the reason shown names the club, never the host as having cancelled it.
+{
+  const clubHost = await makeMemberWithPhoto('fxclubhost');
+  const clubGoer = await makeMemberWithPhoto('fxclubgoer');
+  const clubAsker = await makeMemberWithPhoto('fxclubasker');
+  const clubPlan = await postPlan(clubHost, { title: 'Fx2 club cancel', places: 4 });
+  eq((await action('invite.joinOpenInvite', [clubPlan], clubGoer.session)).result.ok, true, 'QB1-07 club: a member joins');
+  const clubQ = (await action('thread.sendMessage', [{ chatId: `ask-${clubPlan}`, text: 'Is it still on?', clientId: `fx2club${Date.now()}` }], clubAsker.session)).result.chatId;
+  const { data: cc, error: ccError } = await svc.rpc('club_cancel_plan', { p_plan: clubPlan, p_reason: 'host_paused' });
+  eq(ccError ? ccError.message : cc.status, 'cancelled', 'QB1-07 club: the club cancels the plan');
+  eq((await action('thread.getThread', [clubQ], clubAsker.session)).result.chat.plan.cancelledBy, 'club', 'QB1-07 club: the question knows the club cancelled it');
+  for (const [who, url, expected, label] of [
+    [clubAsker, `/members/messages/${clubQ}`, 'This chat is closed Club Yuppie cancelled this plan.', 'the question’s lock row'],
+    [clubGoer, `/members/open-invite/${clubPlan}`, 'Club Yuppie cancelled this invite. Nothing to do. There are more plans to browse.', 'the plan page, going'],
+    [clubHost, `/members/open-invite/${clubPlan}`, 'Club Yuppie cancelled this invite. Everyone who was in has been told.', 'the plan page, the host'],
+  ]) {
+    const { ctx, pg } = await as(who);
+    await open(pg, `${BASE}${url}`);
+    const text = await mainText(pg);
+    ok(text.includes(expected), `QB1-07 club: ${label}: "${expected}"`, text.slice(0, 300));
+    ok(!/Fxclubhost cancelled|You cancelled/.test(text), `QB1-07 club: ${label}: the host is not named as having cancelled it`);
+    await ctx.close();
+  }
+}
 
 // ==================================================================== QB1-03 a plan that has started
 const host2 = await makeMemberWithPhoto('fxstart');
@@ -253,6 +278,14 @@ eq((await page('/members/messages', guest3.session)).status, 200, 'QB1-09: on th
 eq((await appPage('/members/messages', guest3)).status, 404, 'QB1-09: in the app (Open Invite hidden) the inbox is a 404');
 eq((await appPage(`/members/messages/${chat3}`, guest3)).status, 404, 'QB1-09: a chat too');
 eq((await appPage(`/members/messages/ask-${plan2}`, guest3)).status, 404, 'QB1-09: and a first question');
+for (const url of ['/members/messages', `/members/messages/${chat3}`]) {
+  // the whole body (page() keeps only a 200's): the 404 is streamed after the shell, so look at all of it
+  const r = await fetch(`${BASE}${url}`, { redirect: 'manual', headers: { 'user-agent': APP_UA, cookie: `${cookieFor(guest3.session)}; is-native-app=1` } });
+  const html = await r.text();
+  // ("Not on the list." itself is drawn in the browser: the checks on the app’s /members/messages below)
+  eq(r.status, 404, `QB1-09: the app’s ${url}: a 404`);
+  ok(!/href="\/members\/open-invite/.test(html) && !html.includes('Getting your chats'), `QB1-09: the app’s ${url} sends no inbox loading view and no Open Invite link, even before the 404 draws`);
+}
 eq((await appAction('messages.getChats', [], guest3.session)).notFound, true, 'QB1-09: the app gets no Messages actions (getChats is a 404)');
 eq((await appAction('thread.sendMessage', [{ chatId: chat3, text: 'from the app', clientId: `fx2app${Date.now()}` }], guest3.session)).notFound, true, 'QB1-09: nor send');
 const webBadge = (await action('shell.getMessagesBadge', [], host3.session)).result;

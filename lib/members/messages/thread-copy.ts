@@ -93,6 +93,8 @@ export function pinCopy(chat: Chat, youId: string): PinCopy {
 /** The lock row's notice when a chat is closed. */
 export function closedNote(chat: Chat): string {
   if (chat.closedReason === "host_cancelled" || chat.plan.status === "cancelled") {
+    // The club's cancel (a removal, or the host's membership stopped) never names the host as having done it.
+    if (chat.plan.cancelledBy === "club") return "Club Yuppie cancelled this plan.";
     return `${chat.plan.host.firstName} cancelled this plan.`;
   }
   if (chat.closedReason === "invite_closed") return "Questions close when the invite closes.";
