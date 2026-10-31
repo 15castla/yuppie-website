@@ -276,7 +276,7 @@ export function InviteCard({
 
   return (
     <article
-      className={cn("mk-invite oi-card", dim && "is-past", paid && "is-paid")}
+      className={cn("mk-invite oi-card", dim && "is-past", paid && "is-paid", mode === "posted" && "is-posted")}
       aria-label={cardLabel(invite, state)}
       data-state={pending ? "pending" : state}
     >

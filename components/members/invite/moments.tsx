@@ -123,15 +123,12 @@ export const REPORT_REASONS = [
 
 export function ReportSheet({
   invite,
-  withPrice,
   onClose,
   onSend,
   initialReason = 0,
   busy = false,
 }: {
   invite: OpenInvite;
-  /** Paid plans are on: "Price above what it cost" is one of the reasons (the design lists it on every plan). Off, there is no price in the product. */
-  withPrice: boolean;
   onClose: () => void;
   onSend: (reason: string) => void;
   initialReason?: number;
@@ -139,7 +136,9 @@ export function ReportSheet({
 }) {
   const id = useId();
   const [reason, setReason] = useState(initialReason);
-  const reasons = REPORT_REASONS.filter((text) => withPrice || invite.cost || text !== "Price above what it cost");
+  // The six reasons as drawn, on every plan (Open Invite decisions: "report reasons as drawn"). A free plan can
+  // still ask for money in its note, so the price reason stays even while plans have no price.
+  const reasons = REPORT_REASONS;
   return (
     <Sheet labelledBy={id} onClose={onClose}>
       <h2 className="oi-sh-h" id={id}>

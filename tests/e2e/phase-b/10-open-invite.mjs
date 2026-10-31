@@ -313,7 +313,7 @@ try {
   await A.page.locator('.oi-tail').getByRole('button', { name: 'Report this invite' }).click();
   await dialog(A.page).getByRole('heading', { name: 'Report this invite' }).waitFor();
   const reasons = await dialog(A.page).locator('.oi-reason').allInnerTexts();
-  eq(reasons.map((t) => t.trim()), ['Payment outside Club Yuppie', 'Unkind or rude', 'Feels unsafe', 'Not a real plan', 'Something else'], 'report: the reasons as drawn (no price reason while there are no prices)');
+  eq(reasons.map((t) => t.trim()), ['Payment outside Club Yuppie', 'Price above what it cost', 'Unkind or rude', 'Feels unsafe', 'Not a real plan', 'Something else'], 'report: the six reasons as drawn');
   await shows(dialog(A.page).getByText('Hana won’t be told who reported it.', { exact: false }), 'report: the host is not told who');
   await dialog(A.page).getByText('Not a real plan').click();
   await dialog(A.page).getByRole('button', { name: 'Send report' }).click();

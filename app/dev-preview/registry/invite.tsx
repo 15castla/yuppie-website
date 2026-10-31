@@ -149,6 +149,9 @@ const PLAN_CASES: Record<string, PlanCase> = {
   taken: sheetOn(P.padelPizza, "taken"),
   cancel: sheetOn(P.climbing, "cancel"),
   "cancel-done": sheetOn(P.climbing, "cancelled"),
+  // the server said no (not drawn: the server's own words and Done)
+  refused: { invite: P.padelPizza, moment: { kind: "refused", id: P.padelPizza.id, message: "This plan has started." } },
+  "refused-network": { invite: P.padelPizza, moment: { kind: "refused", id: P.padelPizza.id, message: "That didn’t go through. Try again in a moment." } },
 };
 
 // ---- the post form

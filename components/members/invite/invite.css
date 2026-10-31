@@ -124,6 +124,8 @@
 @media (max-width:359px){ .oi-h1{font-size:30px} .oi-facts{max-width:200px} }
 
 .oi-detail{padding-top:38px;padding-bottom:34px}
+/* stage 2: a cancelled plan with no note, on a phone: no empty cream band between the hero and the tail */
+@media (max-width:767px){ .oi-detail.oi-detail-desk{display:none} }
 .oi-detail .oi-sec:first-child>.mk-sh:first-child{margin-top:-12px}
 .oi-note{padding:16px 18px 18px}
 .oi-note .mk-who{display:flex;align-items:center;gap:10px;font:700 14px/1.2 var(--font-body)}
@@ -372,6 +374,8 @@
 .mk-btn.mk-secondary.is-off{color:var(--muted);border-color:var(--muted);cursor:not-allowed;opacity:1}
 .oi-card.is-past{--ring:var(--cream)}
 @media (max-width:369px){ .oi-actions .mk-btn .mk-ico{display:none} .oi-actions .mk-btn{padding:0 8px} }
+/* stage 2 (seen on the real Posted. page at 320): "See my invite" was cut to "See my invi…"; one size down fits it */
+@media (max-width:369px){ .oi-card.is-posted .oi-actions .mk-btn{font-size:14px;padding:0 6px} }
 @media (min-width:768px) and (max-width:919px){ .oi-actions .mk-btn .mk-ico{display:none} .oi-actions .mk-btn{padding:0 10px} }
 .oi-detail .oi-sec:first-child .mk-sh{margin-top:0}
 

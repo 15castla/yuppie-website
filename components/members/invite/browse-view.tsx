@@ -82,7 +82,6 @@ export function OpenInviteView({
     seeOtherHref: ROUTES.openInvite,
     initialMoment,
     initialPendingId,
-    paidPlans,
   });
   const visible = plans.filter((invite) => matchesFilter(invite, filter, feed.now));
   const none = plans.length === 0;

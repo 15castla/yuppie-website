@@ -64,8 +64,6 @@ export type MomentsOptions = {
   /** The harness opens a screen with a sheet already up, or a card already "Joining…". */
   initialMoment?: Moment | null;
   initialPendingId?: string | null;
-  /** flags.paidPlans: the report sheet lists "Price above what it cost". */
-  paidPlans?: boolean;
   /** A plan the member may no longer see, once its sheet closes: the plan page leaves; a list drops the card (the default). */
   onGone?: (id: string) => void;
 };
@@ -88,7 +86,6 @@ export function useMoments({
   seeOtherHref,
   initialMoment = null,
   initialPendingId = null,
-  paidPlans = false,
   onGone,
 }: MomentsOptions) {
   const actions = useInviteActions();
@@ -213,7 +210,6 @@ export function useMoments({
         sheet = (
           <ReportSheet
             invite={current}
-            withPrice={paidPlans}
             busy={busy}
             onClose={close}
             onSend={(reason) => report(current.id, reason)}

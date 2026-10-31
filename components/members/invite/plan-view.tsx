@@ -271,7 +271,6 @@ export function PlanView({
     seeOtherHref: ROUTES.openInvite,
     initialMoment,
     initialPendingId,
-    paidPlans,
     // the member may not see this plan any more (the club removed it, a block): back to the feed
     onGone: () => router.replace(ROUTES.openInvite),
   });
@@ -654,7 +653,8 @@ export function PlanView({
         </div>
       </section>
 
-      <section className="mk-band oi-detail" aria-label="Details">
+      {/* A cancelled plan with no note has nothing for this band on a phone (its rows are in the tail): no empty strip. */}
+      <section className={state === "cancelled" && !invite.note ? "mk-band oi-detail oi-detail-desk" : "mk-band oi-detail"} aria-label="Details">
         <div className="mk-wrap">
           <div className="oi-detail-grid">
             <div>

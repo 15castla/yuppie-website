@@ -65,7 +65,6 @@ export function YoursView({
     seeOtherHref: ROUTES.openInvite,
     initialMoment,
     initialPendingId,
-    paidPlans,
   });
   const posted = plans.filter((invite) => yours.posted.some((entry) => entry.id === invite.id));
   const joined = plans.filter((invite) => yours.joined.some((entry) => entry.id === invite.id));
