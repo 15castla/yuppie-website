@@ -9,7 +9,7 @@
 // closed chat after a cancel and after the plan, the empty inbox and Updates, gated members refused.
 //
 //   tests/e2e/phase-b/server.sh build && tests/e2e/phase-b/server.sh start prod 3244
-//   PHASE_B_BASE=http://localhost:3244 PHASE_B_TAG=bm. node tests/e2e/phase-b/10-messages.mjs
+//   PHASE_B_BASE=http://localhost:3244 PHASE_B_TAG=bm. node tests/e2e/phase-b/11-messages.mjs
 //
 // Test people are <prefix>t-<name>-<random>@example.com, with approved photos (the photo gate is on).
 import { chromium } from '/home/claude/stack/node_modules/playwright/index.mjs';
@@ -361,15 +361,19 @@ ok(await C.locator('textarea.msg-input').isVisible(), 'opening it again from the
 await B.goto(threadUrl(), { waitUntil: 'networkidle' });
 const cancelled = await action('plan.cancelOpenInvite', [planId], hana.session);
 ok(cancelled.result?.ok, 'Hana cancels the plan');
-await B.getByText('This chat is closed').waitFor({ timeout: 15000 });
-ok(await B.getByText('Hana cancelled this plan.').first().isVisible(), 'Gabe\'s open thread closes by itself: "This chat is closed", "Hana cancelled this plan."');
+await B.locator('.msg-comp.is-closed').waitFor({ timeout: 15000 });
+eq((await B.locator('.msg-comp.is-closed').innerText()).replace(/\s+/g, ' ').trim(), 'This chat is closed Hana cancelled this plan.', 'Gabe\'s open thread closes by itself: "This chat is closed", "Hana cancelled this plan."');
+ok((await B.locator('.msg-sys').allInnerTexts()).includes('Hana cancelled this plan.'), 'with the system line "Hana cancelled this plan."');
 eq(await B.locator('textarea.msg-input').count(), 0, 'the composer is gone');
 eq((await sendAs(gabe, 'Too late')).reason, 'closed', 'and the server refuses a message in it');
-const planC = await postPlan(hana, { title: 'Bm past plan', places: 4 });
+const planC = await postPlan(cora, { title: 'Bm past plan', places: 4 }); // Cora's: Hana blocked Gabe, so he cannot join hers
 const pastChat = (await join(gabe, planC)).chatId;
+ok(pastChat, 'Gabe joins Cora\'s plan');
 setPlanStart(planC, -25 * 60);
 await B.goto(threadUrl(pastChat), { waitUntil: 'networkidle' });
-ok(await B.getByText('This chat is closed').isVisible() && await B.getByText('Plan chats close 24 hours after the plan.').first().isVisible(), 'a plan that finished over 24 hours ago: closed, "Plan chats close 24 hours after the plan."');
+const lockRow = (await B.locator('.msg-comp.is-closed').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
+eq(lockRow, 'This chat is closed Plan chats close 24 hours after the plan.', 'a plan that finished over 24 hours ago: closed, "Plan chats close 24 hours after the plan."');
+ok((await B.locator('.msg-sys').allInnerTexts()).includes('This chat closed. Plan chats close 24 hours after the plan.'), 'and the stream says so');
 ok(await B.locator('.msg-pin').getByText('Finished').isVisible(), 'the pin says "Finished"');
 await B.goto(`${BASE}/members/messages`, { waitUntil: 'networkidle' });
 ok(await B.locator('.msg-group-label', { hasText: 'Closed' }).isVisible(), 'the inbox lists them under "Closed"');
@@ -385,12 +389,17 @@ await waitFor(() => sql1(`select read_at from updates where id = ${q(gabeUpdate.
 ok(true, 'tapping an update opens the plan and reads it');
 
 // ---------------------------------------------------------------- gated members are refused
-const pia = await makeMemberWithPhoto('pia', 'paused');
-eq(await redirectedTo('/members/messages', pia.session), '/members/membership', 'a paused member: the inbox sends them to the membership gate');
-eq(await redirectedTo(`/members/messages/${chatId}`, pia.session), '/members/membership', 'and a thread');
-for (const [name, args] of [['messages.getChats', []], ['thread.sendMessage', [{ chatId, text: 'hi', clientId: 'pia-1' }]], ['messages.sendReport', [{ target: { kind: 'member', chatId, memberId: gabe.id }, reason: 'rude' }]]]) {
+const pia = await makeMemberWithPhoto('pia');
+const planD = await postPlan(cora, { title: 'Bm gate plan', places: 4 });
+const piaChat = (await join(pia, planD)).chatId;
+ok(piaChat, 'Pia is in a plan chat while active');
+exec(`update members set membership_status = 'paused', paused_at = now() where id = ${q(pia.id)}`);
+eq(await redirectedTo('/members/messages', pia.session), '/members/membership', 'paused: the inbox sends her to the membership gate');
+eq(await redirectedTo(`/members/messages/${piaChat}`, pia.session), '/members/membership', 'and so does her chat');
+for (const [name, args] of [['messages.getChats', []], ['thread.getThread', [piaChat, { poll: true }]], ['thread.sendMessage', [{ chatId: piaChat, text: 'hi', clientId: 'pia-1' }]], ['messages.sendReport', [{ target: { kind: 'member', chatId: piaChat, memberId: cora.id }, reason: 'rude' }]]]) {
   eq((await action(name, args, pia.session)).redirect, '/members/membership', `${name}: refused (to the gate)`);
 }
+eq(sql1(`select count(*)::int n from messages where chat_id = ${q(piaChat)} and kind = 'text'`).n, 0, 'nothing she tried was stored');
 const ended = await makeMemberWithPhoto('eli', 'ended');
 eq(await redirectedTo('/members/messages', ended.session), '/members/membership', 'an ended member too');
 

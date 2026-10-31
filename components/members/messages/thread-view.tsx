@@ -63,6 +63,7 @@ import { ROUTES, messageThreadHref } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import "./messages.css";
 import type { Overlay, ThreadPreview } from "./overlay-types";
+import { shownBefore } from "./shown";
 import { ThreadOverlays } from "./thread-overlays";
 import {
   Bubble,
@@ -82,8 +83,6 @@ import { useTwoPanes } from "./use-wide";
 
 /** How often an open thread asks the server again. */
 const POLL_MS = 3000;
-/** A page drawn longer ago than this (one the browser's Back brought back) asks again at once. */
-const STALE_MS = 5000;
 /** What a failure the member cannot act on says (the foundation's words, app/members/action-kit.ts). */
 const TRY_AGAIN = "That didn’t go through. Try again in a moment.";
 
@@ -321,9 +320,10 @@ export function ThreadView({
       busy = false;
     };
     // Beside the inbox the chat was not read when the page was drawn: it is read now that it is on screen. A
-    // thread brought back from the browser's history (Back) was drawn a while ago: it is asked for again now.
+    // copy from the router's cache (Back, or a link within its 30 seconds) is asked for again at once.
+    const cached = shownBefore(`thread:${chatIdRef.current}:${now}`);
     if (beside) void tick().then(() => announceUnreadChanged());
-    else if (Date.now() - Date.parse(now) > STALE_MS) void tick();
+    else if (cached) void tick();
     const timer = window.setInterval(tick, POLL_MS);
     const onVisible = () => {
       if (document.visibilityState === "visible") void tick();

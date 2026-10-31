@@ -40,6 +40,7 @@ import { cn } from "@/lib/utils";
 import "./messages.css";
 import { StandingArt } from "./art";
 import { ChatRow, UpdateRow } from "./rows";
+import { shownBefore } from "./shown";
 import { UpdatePane } from "./update-pane";
 import { useTwoPanes } from "./use-wide";
 
@@ -48,8 +49,6 @@ export type InboxState = "ready" | "loading" | "error";
 
 /** How often an open inbox asks for its lists again (the icon itself asks every minute). */
 const REFRESH_MS = 30_000;
-/** Lists drawn longer ago than this (the browser's Back brought them back) are asked for again at once. */
-const STALE_MS = 5000;
 
 export type InboxViewProps = {
   chats: Chat[];
@@ -183,8 +182,8 @@ export function InboxView({
         busy = false;
       }
     };
-    // Lists drawn a while ago (the browser's Back brings the inbox back as it was) are asked for again at once.
-    if (Date.now() - Date.parse(now) > STALE_MS) void tick();
+    // A copy from the router's cache (Back, or a link within its 30 seconds) is asked for again at once.
+    if (shownBefore(`inbox:${mode}:${now}`)) void tick();
     const timer = window.setInterval(tick, REFRESH_MS);
     const onVisible = () => {
       if (document.visibilityState === "visible") void tick();
@@ -195,7 +194,7 @@ export function InboxView({
       window.clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [live, refresh, now]);
+  }, [live, refresh, now, mode]);
 
   const isThread = mode === "thread";
   const empty = state === "ready" && (tab === "chats" ? chats.length === 0 : updates.length === 0);
