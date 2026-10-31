@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import { chromium } from '/home/claude/stack/node_modules/playwright/index.mjs';
 import { adminCreds, loginAdmin } from '/home/claude/stack/tools/login-admin.mjs';
-import { BASE, PREFIX, action, makeMemberWithPhoto, postPlan, rand, seeded } from './lib.mjs';
+import { BASE, PREFIX, action, exec, makeMemberWithPhoto, postPlan, q, rand, seeded } from './lib.mjs';
 
 const out = process.argv[2] || '/tmp/ba-shots';
 const only = process.argv.slice(3);
@@ -88,4 +88,6 @@ try {
   }
 } finally {
   await browser.close();
+  // Leave the queue as it was: the plan report this made is closed again.
+  exec(`update reports set status = 'dismissed', acted_at = now(), action_note = 'shots cleanup' where status = 'open' and reporter_id in (select id from members where email like ${q(`${PREFIX}t-shotr%`)})`);
 }
