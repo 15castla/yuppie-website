@@ -426,5 +426,8 @@ try {
   eq(await App.page.locator('a', { hasText: `Walk ${r}` }).count(), 0, 'app: Your plans has no Open Invite rows');
 } finally {
   await browser.close();
+  // Leave the shared test database's feed as it was: this script's plans that are still open are cancelled
+  // (the feed shows the soonest hundred, and every agent's runs add plans).
+  exec(`update plans set status = 'cancelled', cancelled_at = now() where status = 'scheduled' and host_id = ${q(host.id)}`);
 }
 done();
