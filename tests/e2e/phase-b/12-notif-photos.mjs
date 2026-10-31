@@ -239,7 +239,8 @@ try {
   mark = fakesMark();
   await cronAt('reminders', at);
   eq(reminded(P5, M, '24h', 'sms').length, 1, 'with Text on, the 24-hour reminder goes by text too');
-  const reminderText = fakesSince(mark, 'sms').find((t) => t.to === '+447700900123');
+  // this plan's text (every test member shares the number, and other plans' reminders can fall due in the same run)
+  const reminderText = fakesSince(mark, 'sms').find((t) => t.to === '+447700900123' && t.body.includes('Notif text'));
   ok(reminderText && /^Club Yuppie: Notif text is tomorrow at \d\d:\d\d, Calder Park\. See the plan: \S+$/.test(reminderText.body), 'the plan text, from the sender name, no message or member words beyond the title and place', reminderText);
   if (londonHour() >= 22 || londonHour() < 7) {
     const P6 = await reminderPlan('Notif quiet');

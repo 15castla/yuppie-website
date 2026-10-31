@@ -269,6 +269,15 @@ for (const width of [320, 390, 768, 1280]) {
   await visible(pg.getByRole('tab', { name: /^Updates/ })).first().click();
   await sleep(400);
   ok((await sideways(pg)) <= 0, `QB1-06 ${width}: Updates (and the plan card beside it): no sideways scroll`);
+  // a card keeps the long place to two lines (like its title), and an inbox row's title breaks its long word inside
+  // its two lines rather than being cut off mid-letter
+  await open(pg, `${BASE}/members/open-invite/yours`);
+  const where = visible(pg.locator('article').filter({ hasText: 'Supercalifragilistic' })).first().locator('dd.oi-where');
+  const lines = await where.evaluate((el) => el.getBoundingClientRect().height / parseFloat(getComputedStyle(el).lineHeight)).catch(() => null);
+  ok(lines !== null && lines <= 2.1, `QB1-06 ${width}: the card’s long place keeps to two lines`, `${lines} lines`);
+  await open(pg, `${BASE}/members/messages`);
+  const rowTitle = visible(pg.locator('.msg-row .msg-title').filter({ hasText: 'Supercalifragilistic' })).first();
+  ok(await rowTitle.evaluate((el) => el.scrollWidth <= el.clientWidth + 1).catch(() => false), `QB1-06 ${width}: the inbox row’s title breaks its long word (nothing cut off sideways)`);
   for (const { ctx } of contexts.values()) await ctx.close();
 }
 
