@@ -1,7 +1,8 @@
 // Preview screens for Messages (Chats, Updates, threads) and Notification settings. OWNED BY THE MESSAGES BUILDER.
 // Export an array of PreviewScreen (see ./types.ts). One id per screen: "msg-<name>", "notif-<name>", "blocked-<name>".
-// Every screen draws on the example data adapter (lib/members/mock/messages.ts); web, app and computer are the
-// harness's ?shell= and the viewport width, so each state below is one drawing at every width.
+// Every screen draws on the fixtures (lib/members/mock/messages.ts, example data for the harness only: the real
+// pages read the server); web, app and computer are the harness's ?shell= and the viewport width, so each state
+// below is one drawing at every width. The views are told `local`: nothing they do goes to the server here.
 
 import { BlockedView } from "@/components/members/messages/blocked-view";
 import { ChatEntryButtons, type ChatEntry } from "@/components/members/messages/chat-entry-buttons";
@@ -66,9 +67,10 @@ function inbox(params: PreviewParams, tab: InboxTab, state: InboxState, empty: b
       initialTab={tab}
       state={state}
       openChatId={thread?.chat.id ?? null}
-      pane={thread ? <ThreadView thread={thread} now={EXAMPLE_NOW} youId={EXAMPLE_YOU.id} /> : null}
+      pane={thread ? <ThreadView thread={thread} now={EXAMPLE_NOW} youId={EXAMPLE_YOU.id} local beside /> : null}
       settingsHref={settingsHref(params)}
       youId={EXAMPLE_YOU.id}
+      local
     />
   );
 }
@@ -102,9 +104,16 @@ type ThreadState = {
   preview?: ThreadPreview;
   /** Draw the whole conversation, no inner scroll (the design's "full"). */
   auto?: boolean;
+  /** Whose view it is (default Sam, the example's signed-in member). */
+  as?: string;
 };
 
 const READ = EXAMPLE_THREAD_VARIANTS.brunchRead;
+/** The same thread as another member in it sees it ("You" moves to them). */
+const seenBy = (thread: ChatThread, id: string): ChatThread => ({
+  ...thread,
+  chat: { ...thread.chat, participants: thread.chat.participants.map((p) => ({ ...p, isYou: p.member.id === id })) },
+});
 const overlayOf = (overlay: Overlay): ThreadPreview => ({ overlay });
 
 export const THREAD_STATES: Record<string, ThreadState> = {
@@ -136,6 +145,14 @@ export const THREAD_STATES: Record<string, ThreadState> = {
   sending: { thread: READ, preview: { outgoing: [{ clientId: "local-sending", text: "See you outside at 09:45.", state: "sending" }] } },
   // a message that did not go: Retry and Delete
   failed: { thread: READ, preview: { outgoing: [{ clientId: "local-failed", text: "See you outside at 09:45.", state: "failed" }] } },
+  // the rate limit: the server's line above the input, the message kept for Retry (stage 2; not drawn)
+  rate: {
+    thread: READ,
+    preview: {
+      outgoing: [{ clientId: "local-rate", text: "See you outside at 09:45.", state: "failed" }],
+      notice: { icon: "clock", text: "Slow down a moment." },
+    },
+  },
   // the first time ever: the safety note over the start of the chat
   safety: { thread: EXAMPLE_THREAD_VARIANTS.brunchFirstVisit },
   // a new question: the prompt fills the stream
@@ -157,6 +174,8 @@ export const OVERLAY_STATES: Record<string, ThreadState> = {
   info: { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "info" }) },
   // chat info, a question: the other person is named in the rows
   "info-question": { thread: EXAMPLE_THREADS["c-tom"], preview: overlayOf({ kind: "info" }) },
+  // chat info, the host's own plan chat: no "Leave chat" (the host stays in it; mute quiets it)
+  "info-host": { thread: seenBy(EXAMPLE_THREADS["c-brunch"], JASMIN.id), preview: overlayOf({ kind: "info" }), as: JASMIN.id },
   // a plan chat asks who before it reports or blocks (not in the design)
   "pick-member": { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "pick", purpose: "member" }) },
   // report a message: the quote, six reasons, one chosen
@@ -179,12 +198,25 @@ export const OVERLAY_STATES: Record<string, ThreadState> = {
     thread: EXAMPLE_THREADS["c-walk"],
     preview: overlayOf({ kind: "report", what: "message", memberId: OLLIE.id, messageId: "c-walk-m3", reason: null }),
   },
+  // Send report did not go through: the server's words above the button
+  "report-failed": {
+    thread: EXAMPLE_THREADS["c-walk"],
+    preview: {
+      overlay: { kind: "report", what: "message", memberId: OLLIE.id, messageId: "c-walk-m3", reason: "pay_outside" },
+      stepError: "Your report didn’t send. Try again.",
+    },
+  },
   // report sent, with the offer to block too
   "report-sent": { thread: EXAMPLE_THREADS["c-walk"], preview: overlayOf({ kind: "sent", what: "message", memberId: OLLIE.id }) },
   // block, the dialog
   block: { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "block", memberId: PRIYA.id, from: "info" }) },
   // leave, the dialog
   leave: { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "leave", from: "info" }) },
+  // Block did not go through: the server's words above the buttons
+  "block-failed": {
+    thread: EXAMPLE_THREADS["c-brunch"],
+    preview: { overlay: { kind: "block", memberId: PRIYA.id, from: "info" }, stepError: "We couldn’t block them. Try again." },
+  },
 };
 
 function threadScreen(id: string, title: string, states: Record<string, ThreadState>): PreviewScreen {
@@ -205,9 +237,10 @@ function threadScreen(id: string, title: string, states: Record<string, ThreadSt
           now={EXAMPLE_NOW}
           openChatId={state.open ?? state.thread.chat.id}
           auto={state.auto}
-          pane={<ThreadView thread={state.thread} now={EXAMPLE_NOW} youId={EXAMPLE_YOU.id} preview={state.preview} />}
+          pane={<ThreadView thread={state.thread} now={EXAMPLE_NOW} youId={state.as ?? EXAMPLE_YOU.id} preview={state.preview} local />}
           settingsHref={settingsHref(params)}
           youId={EXAMPLE_YOU.id}
+          local
         />
       );
     },
@@ -226,7 +259,7 @@ const YOU_SUB_FRAME = {
   youCurrent: true,
 };
 
-type NotificationState = { preferences: (shell: ShellMode) => NotificationPreferences; failedKey?: "reminder24" };
+type NotificationState = { preferences: (shell: ShellMode) => NotificationPreferences; failedKey?: "reminder24"; pushChannel?: boolean };
 
 const NOTIFICATION_STATES: Record<string, NotificationState> = {
   // the defaults: on the web push is "App only", in the app it is a switch
@@ -241,6 +274,9 @@ const NOTIFICATION_STATES: Record<string, NotificationState> = {
   denied: { preferences: (shell) => (shell === "app" ? EXAMPLE_PREFERENCES_VARIANTS.denied : EXAMPLE_PREFERENCES_WEB) },
   // host updates off, 2 hours off, text on
   mixed: { preferences: (shell) => withPush(EXAMPLE_PREFERENCES_VARIANTS.mixed, shell) },
+  // stage 2 as it ships: no Push row anywhere until push exists (MEMBERS_PUSH_LIVE)
+  "no-push": { preferences: (shell) => withPush(EXAMPLE_PREFERENCES_WEB, shell), pushChannel: false },
+  "no-push-text-on": { preferences: (shell) => withPush(EXAMPLE_PREFERENCES_VARIANTS.textOn, shell), pushChannel: false },
 };
 
 // Push follows the shell: a switch in the app, an "App only" row on the web.
@@ -262,6 +298,7 @@ const notificationsScreen: PreviewScreen = {
         key={`${params.shell}-${params.state}`}
         preferences={state.preferences(params.shell)}
         failedKey={state.failedKey ?? null}
+        pushChannel={state.pushChannel ?? true}
       />
     );
   },
@@ -363,6 +400,7 @@ export const messagesScreens: PreviewScreen[] = [
       "limit",
       "link",
       "number",
+      "rate",
       "sending",
       "failed",
       "closed",
@@ -379,12 +417,16 @@ export const messagesScreens: PreviewScreen[] = [
     "msg-sheet",
     "Messages: chat info and reports",
     Object.fromEntries(
-      ["info", "info-question", "pick-member", "report-message", "report-member", "report-photo", "report-empty", "report-sent"].map(
+      ["info", "info-question", "info-host", "pick-member", "report-message", "report-member", "report-photo", "report-empty", "report-failed", "report-sent"].map(
         (key) => [key, OVERLAY_STATES[key]],
       ),
     ),
   ),
-  threadScreen("msg-dialog", "Messages: block and leave", Object.fromEntries(["block", "leave"].map((key) => [key, OVERLAY_STATES[key]]))),
+  threadScreen(
+    "msg-dialog",
+    "Messages: block and leave",
+    Object.fromEntries(["block", "leave", "block-failed"].map((key) => [key, OVERLAY_STATES[key]])),
+  ),
   handoverScreen,
   notificationsScreen,
   blockedScreen,

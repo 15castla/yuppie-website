@@ -190,6 +190,8 @@
 .mk-row .mk-body{flex:1 1 auto;min-width:0}
 .mk-row .mk-title{display:block;font:700 16px/1.25 var(--font-body)}
 .mk-row .mk-meta{display:block;margin-top:3px;font:400 14px/1.3 var(--font-body);color:var(--muted)}
+/* a row's words can be a member's (a plan title, a place, a question): a long unbroken word wraps, never overflows */
+.mk-row .mk-title,.mk-row .mk-meta{overflow-wrap:anywhere}
 .mk-row .mk-end{flex:none;display:flex;align-items:center;gap:8px}
 @media (min-width:768px){ .mk-row .mk-title{font-size:17px} .mk-row .mk-meta{font-size:15px} }
 .mk-date{width:44px;flex:none;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center}

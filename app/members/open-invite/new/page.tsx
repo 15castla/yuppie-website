@@ -1,18 +1,13 @@
 import { requireMember } from "@/app/members/require-member";
 import { PostView } from "@/components/members/invite/post-view";
-import { flags, requireFlag } from "@/lib/members/flags";
-import { ExampleScope } from "@/components/members/kit";
-import { assertMockAllowed } from "@/lib/members/mock/guard";
-import { getNewInviteContext } from "@/lib/members/mock/open-invite";
+import { newInviteContext } from "@/lib/server/plans";
+import { paidPlansShown, requireOpenInvite } from "../guard";
 
-// Open Invite > post a plan.
+// Open Invite > post a plan. Free plans only while paid plans are not live: the form gets paidPlans false, so
+// "Add a cost" is not offered (and the server refuses a cost anyway: app/members/open-invite/actions.ts).
 export default async function NewOpenInvitePage() {
-  requireFlag("openInvite");
-  assertMockAllowed();
-  const [, context] = await Promise.all([requireMember(), getNewInviteContext()]);
-  return (
-    <ExampleScope>
-      <PostView context={context} paidPlans={flags.paidPlans} />
-    </ExampleScope>
-  );
+  await requireOpenInvite();
+  const member = await requireMember();
+  const context = await newInviteContext({ id: member.id, email: member.email });
+  return <PostView context={context} paidPlans={paidPlansShown()} />;
 }

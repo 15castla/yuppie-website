@@ -1,8 +1,8 @@
-// What the Your plans page shows, and what a real Open Invite backend has to
-// supply for it. One row type for everything the member is in for: club
-// events they have booked (real data today) and Open Invites they have joined
-// or posted (no backend yet: typed here for later, fed only by the example
-// fixtures in lib/members/mock/plans.ts and only in the preview harness).
+// What the Your plans page shows. One row type for everything the member is in
+// for: club events they have booked and Open Invites they have joined or
+// posted (both real: lib/members/plans/club-events.ts and lib/server/plans.ts
+// openInvitePlanRows). The preview harness draws them from the example
+// fixtures in lib/members/mock/plans.ts.
 //
 // A row is a date, a title, a place, and one pill. The page groups rows by
 // month, newest month last for Upcoming and first for Past.
@@ -36,9 +36,9 @@ export type ClubEventPlan = PlanBase & {
 };
 
 /**
- * An Open Invite the member is in, or posted. NO BACKEND YET: this is the
- * contract the Open Invite backend fills (lib/members/invite/types.ts is the
- * area's own; this is only the part Your plans needs).
+ * An Open Invite the member is in, or posted (lib/server/plans.ts
+ * openInvitePlanRows fills it; lib/members/invite/types.ts is the area's own,
+ * this is only the part Your plans needs).
  */
 export type OpenInvitePlan = PlanBase & {
   kind: "open-invite";

@@ -7,10 +7,11 @@
 
 import { MessagesButton } from "./messages-button";
 import { ShellPhotoButton } from "./photo-button";
-import { useShell } from "./shell-context";
+import { useMessagesBadge, useShell } from "./shell-context";
 
 export function TopActions() {
-  const { showMessages, unread, messagesCurrent } = useShell();
+  const { showMessages, messagesCurrent } = useShell();
+  const unread = useMessagesBadge();
   return (
     <>
       {showMessages ? <MessagesButton unread={unread} current={messagesCurrent} /> : null}

@@ -1,20 +1,21 @@
-import { requireMember } from "@/app/members/require-member";
-import { PostedRoute } from "@/components/members/invite/posted-route";
-import { requireFlag } from "@/lib/members/flags";
-import { ExampleScope } from "@/components/members/kit";
-import { assertMockAllowed } from "@/lib/members/mock/guard";
-import { getExampleMe } from "@/lib/members/mock/open-invite";
+import { notFound, redirect } from "next/navigation";
 
-// "Posted.": the page after posting, with the tab bar back. The plan just
-// posted comes from this tab's sessionStorage (demo-posted.ts) until a
-// backend can load it by id.
-export default async function PostedPage() {
-  requireFlag("openInvite");
-  assertMockAllowed();
-  const [, me] = await Promise.all([requireMember(), getExampleMe()]);
-  return (
-    <ExampleScope>
-      <PostedRoute me={me} />
-    </ExampleScope>
-  );
+import { requireMember } from "@/app/members/require-member";
+import { PostedView } from "@/components/members/invite/post-view";
+import { ROUTES } from "@/lib/members/routes";
+import { openInvitePage } from "@/lib/server/plans";
+import { paidPlansShown, requireOpenInvite } from "../../guard";
+
+// "Posted.": the page after posting, with the tab bar back. The plan is the one the post action answered
+// (/members/open-invite/new/done?id=<plan id>), loaded again for this member. Only its host sees it: no id, a plan
+// that is not theirs, or one that cannot be found sends them to the form.
+export default async function PostedPage({ searchParams }: { searchParams: Promise<{ id?: string | string[] }> }) {
+  await requireOpenInvite();
+  const { id } = await searchParams;
+  const member = await requireMember();
+  const planId = typeof id === "string" ? id : "";
+  const page = planId ? await openInvitePage({ id: member.id, email: member.email }, planId) : null;
+  if (!page || page.invite.you.role !== "host") redirect(ROUTES.openInviteNew);
+  if (page.invite.cost && !paidPlansShown()) notFound();
+  return <PostedView invite={page.invite} me={page.me} />;
 }

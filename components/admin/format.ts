@@ -39,6 +39,50 @@ export function waitedWords(value: Date | string | number, now: Date = new Date(
   return days === 1 ? "1 day" : `${days} days`;
 }
 
+/** London calendar days between two moments (0 = the same day, 1 = yesterday). */
+function daysBetween(earlier: Date | string | number, later: Date | string | number): number {
+  const a = londonWall(earlier);
+  const b = londonWall(later);
+  return Math.round((Date.UTC(b.year, b.month - 1, b.day) - Date.UTC(a.year, a.month - 1, a.day)) / 86400000);
+}
+
+/** When a report or photo came in, for a queue row (msg-admin-moderation): "Just now", "12 min ago", "2 h ago", "Yesterday", "Tue 27 Oct". */
+export function queueAgo(value: Date | string | number, now: Date = new Date()): string {
+  const minutes = Math.floor((now.getTime() - new Date(value).getTime()) / 60000);
+  if (minutes < 1) return "Just now";
+  if (minutes < 60) return `${minutes} min ago`;
+  const days = daysBetween(value, now);
+  if (days === 0 || minutes < 12 * 60) return `${Math.floor(minutes / 60)} h ago`;
+  if (days === 1) return "Yesterday";
+  return dayDate(value);
+}
+
+/** A moment in a card (photo-admin-queue "Added"): "Today, 10:42", "Yesterday, 18:20", "Tue 27 Oct, 10:42". */
+export function whenWords(value: Date | string | number, now: Date = new Date()): string {
+  const days = daysBetween(value, now);
+  if (days === 0) return `Today, ${time24(value)}`;
+  if (days === 1) return `Yesterday, ${time24(value)}`;
+  return dayDateTime(value);
+}
+
+/** A queue's age in whole hours, as its stat shows it: "20 h", "Under 1 h", or "None" when nothing waits. */
+export function hoursStat(hours: number | null): string {
+  if (hours === null) return "None";
+  return hours < 1 ? "Under 1 h" : `${hours} h`;
+}
+
+/** "Sep 2026" (member since). */
+export function monthYear(value: Date | string | number): string {
+  const w = londonWall(value);
+  return `${MONTHS[w.month - 1]} ${w.year}`;
+}
+
+/** "no earlier reports", "1 earlier report", "3 earlier reports". */
+export function countWords(n: number, one: string, many: string, none?: string): string {
+  if (n === 0 && none) return none;
+  return `${n} ${n === 1 ? one : many}`;
+}
+
 /** First word of a name, or the email's local part. */
 export function firstNameOf(fullName: string | null | undefined, email?: string | null): string {
   const first = fullName?.trim().split(/\s+/)[0];

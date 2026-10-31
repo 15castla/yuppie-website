@@ -18,7 +18,7 @@ import { stripe } from "@/lib/stripe";
 import { dayDate, time24 } from "@/lib/server/format";
 import { sendEmail } from "@/lib/server/messages";
 import { requestCancel } from "@/lib/server/membership-actions";
-import { uploadMemberMedia } from "@/lib/media-storage";
+import { uploadMemberPhoto } from "@/lib/server/photos";
 import { requireMember } from "../require-member";
 
 export async function updateProfile(
@@ -237,66 +237,39 @@ export async function verifyEmailChange(
   return { status: "done", email: updatedUser.email };
 }
 
-// Storage write goes through the service-role client (uploadMemberMedia):
-// there's no member-writable storage policy, by design (see the
-// partner_perks migration's comment). But the members.avatar_url update
-// itself goes through the request-scoped client, same as updateProfile
-// above, so it's still bounded by that member's own row via RLS + the
-// .eq("id", member.id) below, not just by requireMember() having run.
+// Stage 2: photos are private. updateAvatar keeps its name and its answer ({ success, error?, url? }) for the
+// screens that call it (Edit details, the photo gate, Change photo), and now saves into the private
+// member-photos bucket through lib/server/photos (checked, resized, recorded as pending for the admin Photos
+// queue, made the current photo). The public member-media/avatars/ copies are no longer written. The url it
+// answers is a short-lived signed URL. app/members/photo/actions.ts is the same save with the face check.
 export async function updateAvatar(
   formData: FormData,
 ): Promise<{ success: boolean; error?: string; url?: string }> {
   // allowMissingPhoto: this is the action that gives a member their first
   // photo, so the photo gate (require-member.ts) must not turn it away.
   const member = await requireMember({ allowMissingPhoto: true });
-
   const photo = formData.get("photo");
-  if (!(photo instanceof File)) {
-    return { success: false, error: "Choose a photo to upload." };
-  }
-
-  const uploaded = await uploadMemberMedia("avatars", member.id, photo);
-  if (uploaded.error) {
-    return { success: false, error: uploaded.error };
-  }
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("members")
-    .update({ avatar_url: uploaded.url })
-    .eq("id", member.id);
-
-  if (error) {
-    console.error(`updateAvatar failed for member ${member.id}:`, error);
-    return { success: false, error: "Your photo uploaded but didn’t save. Try again." };
-  }
-
+  const face = formData.get("face");
+  const result = await uploadMemberPhoto(member.id, photo instanceof Blob ? photo : null, {
+    faceCheck: face === "found" || face === "none" ? face : "skipped",
+  });
+  if (!result.success) return { success: false, error: result.error };
   revalidatePath("/members", "layout");
-  return { success: true, url: uploaded.url };
+  return { success: true, url: result.url ?? undefined };
 }
 
-// Clears avatar_url back to null so the profile falls back to the plain
-// initials avatar (initialsFor in components/members/ui.tsx). Same
-// rationale as removeEventImage/removePerkLogo: doesn't delete the old
-// file from the member-media bucket. lib/media-storage.ts has no
-// deletion helper, and an orphaned file only costs storage space, not
-// correctness.
+// Takes the member's current photo away (members.photo_id cleared; the record stays in the history). With the
+// photo gate on (stage 2) a member must have a photo, so this sends them to the gate: the screens drop "Remove"
+// there (photo spec 2: "There is no Remove"). Nothing is deleted from storage.
 export async function removeAvatar(): Promise<{ success: boolean; error?: string }> {
   // allowMissingPhoto: it leaves the member without a photo, and a retry or a
   // second tab must not be bounced to the gate halfway through.
   const member = await requireMember({ allowMissingPhoto: true });
-
-  const supabase = await createClient();
-  const { error } = await supabase
-    .from("members")
-    .update({ avatar_url: null })
-    .eq("id", member.id);
-
+  const { error } = await createAdminSupabaseClient().from("members").update({ photo_id: null }).eq("id", member.id);
   if (error) {
     console.error(`removeAvatar failed for member ${member.id}:`, error);
     return { success: false, error: "Your photo wasn’t removed. Try again." };
   }
-
   revalidatePath("/members", "layout");
   return { success: true };
 }

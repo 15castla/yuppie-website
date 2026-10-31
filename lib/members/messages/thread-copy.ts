@@ -93,6 +93,8 @@ export function pinCopy(chat: Chat, youId: string): PinCopy {
 /** The lock row's notice when a chat is closed. */
 export function closedNote(chat: Chat): string {
   if (chat.closedReason === "host_cancelled" || chat.plan.status === "cancelled") {
+    // The club's cancel (a removal, or the host's membership stopped) never names the host as having done it.
+    if (chat.plan.cancelledBy === "club") return "Club Yuppie cancelled this plan.";
     return `${chat.plan.host.firstName} cancelled this plan.`;
   }
   if (chat.closedReason === "invite_closed") return "Questions close when the invite closes.";
@@ -109,7 +111,8 @@ export type SystemLineCopy = {
 };
 
 export function systemLineCopy(item: ChatSystemLine, chat: Chat, nameOf: (id: string | null) => string): SystemLineCopy {
-  const who = nameOf(item.memberId);
+  // The server sends the member's name with the line, which still holds after they leave the chat.
+  const who = item.member?.firstName || nameOf(item.memberId);
   switch (item.event) {
     case "opened":
       return { icon: null, bold: null, text: `${who} opened this chat` };
@@ -118,6 +121,8 @@ export function systemLineCopy(item: ChatSystemLine, chat: Chat, nameOf: (id: st
     case "paid":
       return { icon: "credit-card", bold: who, text: " paid and is in" };
     case "cancelled":
+      // No member: the club cancelled it (a removal, or the host's membership stopped).
+      if (!item.memberId) return { icon: null, bold: null, text: "This plan was cancelled." };
       return {
         icon: null,
         bold: who,

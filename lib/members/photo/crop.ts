@@ -2,7 +2,8 @@
 // circle that is 80% of the stage's width. At zoom 1 the photo's short side
 // is exactly the circle's diameter, so the circle is always covered. The
 // photo is moved by (x, y), in units of the circle's diameter from the
-// centred position, and zoomed up to MAX_ZOOM. Because everything is a
+// centred position, and zoomed up to MAX_ZOOM (less for a photo near 400px:
+// maxZoomFor). Because everything is a
 // fraction of the circle, the picture on screen and the file that is saved
 // come from the same numbers, whatever size the stage is drawn at.
 
@@ -29,8 +30,19 @@ function limits(image: CropImage, zoom: number) {
   };
 }
 
+/** The smallest square the crop may save (photo decision 2 A: at least 400px; the server holds the same floor). */
+export const MIN_CROP_PX = 400;
+
+/**
+ * How far this photo zooms: up to MAX_ZOOM, but never so far that the circle's square is under MIN_CROP_PX of
+ * the photo's own pixels, so what the browser saves always passes the server's check (a 400px photo does not zoom).
+ */
+export function maxZoomFor(image: CropImage): number {
+  return clamp(Math.min(image.width, image.height) / MIN_CROP_PX, MIN_ZOOM, MAX_ZOOM);
+}
+
 export function clampCrop(image: CropImage, crop: CropState): CropState {
-  const zoom = clamp(crop.zoom, MIN_ZOOM, MAX_ZOOM);
+  const zoom = clamp(crop.zoom, MIN_ZOOM, maxZoomFor(image));
   const max = limits(image, zoom);
   return { zoom, x: clamp(crop.x, -max.x, max.x), y: clamp(crop.y, -max.y, max.y) };
 }

@@ -15,6 +15,8 @@ const failures = [];
 const check = (ok, what) => { if (!ok) failures.push(what); };
 const URLS = [
   '/dev-preview/emails',
+  '/dev-preview/emails?email=plan-reminder&fixture=2h',
+  '/dev-preview/emails/raw/new-message?fixture=design',
   '/dev-preview/emails?email=booking-confirmed&fixture=design',
   '/dev-preview/emails/raw/booking-confirmed?fixture=design',
   '/dev-preview/emails/raw/auth-magic_link?part=text',
@@ -39,7 +41,7 @@ if (mode === 'off') {
   const { chromium } = createRequire('/home/claude/stack/tools/')('playwright');
   const browser = await chromium.launch();
   const page = await browser.newPage({ viewport: { width: 1600, height: 1000 } });
-  for (const [email, fixture] of [['booking-confirmed', 'design'], ['payment-failed', 'design'], ['auth-magic_link', 'design']]) {
+  for (const [email, fixture] of [['booking-confirmed', 'design'], ['payment-failed', 'design'], ['auth-magic_link', 'design'], ['plan-cancelled', 'design'], ['new-message', 'reply'], ['admin-new-report', 'plan']]) {
     await page.goto(`${base}/dev-preview/emails?email=${email}&fixture=${fixture}`, { waitUntil: 'load', timeout: 180000 });
     await page.waitForFunction(() => [...document.querySelectorAll('iframe.pve-frame')].every((f) => f.contentDocument?.readyState === 'complete' && parseInt(f.style.height) !== 1200), null, { timeout: 60000 }).catch(() => {});
     const info = await page.evaluate(() => {
@@ -50,6 +52,7 @@ if (mode === 'off') {
         lightBg: frames[0] ? getComputedStyle(frames[0].contentDocument.body).backgroundColor : null,
         nav: document.querySelectorAll('.pve-nav li').length,
         text: document.querySelector('.pve-count')?.textContent,
+        texts: Object.fromEntries([...document.querySelectorAll('.pve-text')].map((t) => [t.dataset.text, t.querySelector('.pve-count').textContent])),
       };
     });
     check(info.frames.length === 6, `${email}: 6 frames (3 widths, light and dark), got ${info.frames.length}`);
@@ -57,8 +60,13 @@ if (mode === 'off') {
     check(info.frames.every((f) => f.h > 500), `${email}: frames grew to the email height`);
     check(info.frames.every((f) => f.imgs.length > 0 && f.imgs.every(Boolean)), `${email}: every image loaded from public/email`);
     check(info.lightBg === 'rgb(255, 217, 4)' && info.darkBg === 'rgb(27, 21, 18)', `${email}: light ${info.lightBg}, dark ${info.darkBg}`);
-    check(info.nav === 19, `${email}: the list has 16 emails and 3 Supabase templates, got ${info.nav}`);
+    check(info.nav === 25, `${email}: the list has 22 emails and 3 Supabase templates, got ${info.nav}`);
     check(info.text?.startsWith('59 of 70 characters, Unicode'), `welcome text count: ${info.text}`);
+    // Every text and state, with its count and the Unicode flag (stage 2).
+    check(Object.keys(info.texts).length === 10, `${email}: 10 texts and states, got ${Object.keys(info.texts).length}`);
+    check(info.texts['event-reminder/design']?.startsWith('107 of 160 characters, Standard, 1 text'), `event reminder text: ${info.texts['event-reminder/design']}`);
+    check(info.texts['plan-reminder/2h']?.startsWith('130 of 160 characters, Standard, 1 text'), `plan reminder text: ${info.texts['plan-reminder/2h']}`);
+    check(/Unicode .*2 texts/.test(info.texts['plan-reminder/unicode'] ?? ''), `Unicode flag: ${info.texts['plan-reminder/unicode']}`);
     await page.screenshot({ path: path.join(out, `preview-${email}.png`), fullPage: true });
   }
   await browser.close();

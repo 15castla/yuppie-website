@@ -228,6 +228,7 @@ try {
   ok(adminActions.length >= 20, `QA2-01 ${adminActions.length} server actions in app/admin are reachable from the admin pages`, adminActions.map((a) => a.name));
   const fdOf = (fields) => ({ fd: fields });
   const E = leakEvent.id;
+  const NO_ROW = '00000000-0000-4000-8000-000000000000';
   const ARGS = {
     approveApplication: fdOf({ id: leakApp.id }),
     adminApproveApplication: [leakApp.id],
@@ -255,6 +256,23 @@ try {
     adminResumeMember: [leakMember.id, { stripe: true }],
     adminCancelMemberNow: [leakMember.id, { stripe: true }],
     deleteMember: [leakMember.id],
+    // Stage 2: the Reports and Photos queues (app/admin/reports-actions.ts, photos-actions.ts). Refused before they
+    // read anything, so an id that matches nothing is enough here; tests/e2e/phase-b/13-admin.mjs aims them at real
+    // reports and photos and checks nothing changed.
+    adminGetReports: ['open'],
+    adminGetReport: [NO_ROW],
+    adminOpenReportCount: [],
+    adminDismissReport: [NO_ROW],
+    adminRemoveReportedMessage: [NO_ROW],
+    adminRemoveReportedPlan: [NO_ROW, 'x'],
+    adminRemoveReportedPhoto: [NO_ROW, 'not_clear'],
+    adminWarnReportedMember: [NO_ROW],
+    adminSuspendReportedMember: [NO_ROW, { stripe: true }],
+    adminGetPhotos: ['check'],
+    adminPhotosToCheck: [],
+    adminPhotoRemovalReasons: [],
+    adminKeepPhoto: [NO_ROW],
+    adminRemovePhoto: [NO_ROW, 'not_clear'],
   };
   const unknown = adminActions.filter((a) => !ARGS[a.name]).map((a) => a.name);
   eq(unknown, [], `QA2-01 every server action in app/admin (${adminActions.length}) has a call in this check`);

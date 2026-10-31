@@ -1,7 +1,8 @@
-// The data Open Invite and paid plans need from a backend. NO BACKEND EXISTS
-// YET: these types are the build spec for it, and the fake adapters in
-// lib/members/mock/ (open-invite.ts, payments.ts) return exactly these
-// shapes. Every screen under components/members/invite and
+// The data Open Invite and paid plans need from the backend. Open Invite is
+// real (stage 2: lib/server/plans.ts builds these for one viewer); paid plans
+// are stage 3, so the payment types below are still drawn only from the
+// example fixtures (lib/members/mock/payments.ts, open-invite.ts) in the
+// preview harness. Every screen under components/members/invite and
 // components/members/payments reads these types and nothing else.
 //
 // Conventions (so the backend and the screens agree):
@@ -89,6 +90,12 @@ export type OpenInvite = {
   /** Who is in, in the order they said yes (on a paid plan: in the order they paid). Includes the host when hostGoing. */
   going: InviteMember[];
   status: InviteStatus;
+  /**
+   * Who cancelled a cancelled plan: "host", or "club" (the club removed it, or cancelled it because the host's
+   * membership was paused or ended), so the page never names the host as having cancelled it. Null otherwise;
+   * optional: example data leaves it out (the host).
+   */
+  cancelledBy?: "host" | "club" | null;
   /** Null on a free plan (the default). */
   cost: InviteCost | null;
   you: InviteViewer;

@@ -2,7 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { flags } from "@/lib/members/flags";
+import { flags, messagesOn, openInviteOn } from "@/lib/members/flags";
+import { isNativeAppCookie, isNativeAppUserAgent } from "@/lib/native-app";
+import { MEMBERS_PATH_HEADER } from "@/lib/members/photo/return-path";
 import { ROUTES, matchRoute } from "@/lib/members/routes";
 import { testHooksEnabled } from "@/lib/test-hooks";
 
@@ -33,13 +35,62 @@ const TEST_ERROR_PATH = "/members/test-error";
  * 200 whatever the page does (Next's HTTP contract; node_modules/next/dist/docs/01-app/02-guides/streaming.md).
  * Fails open: if the events lookup errors, the page decides as before.
  */
-async function isMissingMembersPage(pathname: string, supabase: SupabaseClient): Promise<boolean> {
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Stage 2: may this member open this plan (plan_visible_to_me: host, going, or not removed, not priced, no block
+// either way)? With the member's own token; the function answers about the caller only. Fails open.
+async function planHidden(planId: string, supabase: SupabaseClient): Promise<boolean> {
+  if (!UUID.test(planId)) return true;
+  const { data, error } = await supabase.rpc("plan_visible_to_me", { p_plan: planId });
+  if (error) {
+    console.error(`proxy: plan lookup for ${planId} failed:`, error);
+    return false;
+  }
+  return data !== true;
+}
+
+async function isMissingMembersPage(pathname: string, supabase: SupabaseClient, request: NextRequest): Promise<boolean> {
   const path = pathname.length > 1 && pathname.endsWith("/") ? pathname.slice(0, -1) : pathname;
   if (EXTRA_MEMBERS_PATHS.has(path) || CALENDAR_FILE.test(path)) return false;
   if (path === TEST_ERROR_PATH) return !testHooksEnabled();
   const route = matchRoute(path);
   if (!route) return true;
   if (route.flag && !flags[route.flag]) return true;
+  const app = isNativeAppUserAgent(request.headers.get("user-agent") ?? "") || isNativeAppCookie(request.headers.get("cookie") ?? "");
+  // Open Invite in the app needs its own switch too (Open Invite decision 6).
+  if (route.flag === "openInvite" || route.id.startsWith("openInvite")) {
+    if (!openInviteOn(app ? "app" : "web")) return true;
+  }
+  // So does Messages: every chat belongs to an Open Invite, so the app hides it while it hides Open Invite, and
+  // You > Blocked members with it (blocks are made in chats; QR-04).
+  if ((route.id === "messages" || route.id === "messageThread" || route.id === "youBlocked") && !messagesOn(app ? "app" : "web")) return true;
+  if (route.id === "openInviteDetail" || route.id === "openInviteEdit") {
+    let id: string;
+    try {
+      id = decodeURIComponent(path.split("/")[3] ?? "");
+    } catch {
+      return true;
+    }
+    return planHidden(id, supabase);
+  }
+  if (route.id === "messageThread") {
+    let chatId: string;
+    try {
+      chatId = decodeURIComponent(path.split("/")[3] ?? "");
+    } catch {
+      return true;
+    }
+    // A question not asked yet ("ask-<plan id>"): the plan must be one they may see.
+    if (chatId.startsWith("ask-")) return planHidden(chatId.slice(4), supabase);
+    if (!UUID.test(chatId)) return true;
+    // Their own row in the chat (RLS: their rows only): in it, or left it by choice (opening it puts them back).
+    const { data, error } = await supabase.from("chat_members").select("left_at, left_reason").eq("chat_id", chatId).maybeSingle();
+    if (error) {
+      console.error(`proxy: chat lookup for ${chatId} failed:`, error);
+      return false;
+    }
+    return !data || (data.left_at !== null && data.left_reason !== "left_chat");
+  }
   if (route.id === "eventDetail") {
     let slug: string;
     try {
@@ -57,8 +108,13 @@ async function isMissingMembersPage(pathname: string, supabase: SupabaseClient):
   return false;
 }
 
+// The members address a request is for (path and query), passed on to the page as a request header
+// (lib/members/photo/return-path.ts): the photo gate sends a member with no photo back there after Continue. Set
+// here for every request, so a value sent by the browser is always replaced.
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(MEMBERS_PATH_HEADER, `${request.nextUrl.pathname}${request.nextUrl.search}`);
+  let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -72,7 +128,10 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          supabaseResponse = NextResponse.next({ request });
+          // The refreshed cookies go on to the page too (request.cookies above), with the path header.
+          const refreshed = new Headers(request.headers);
+          refreshed.set(MEMBERS_PATH_HEADER, requestHeaders.get(MEMBERS_PATH_HEADER) ?? "");
+          supabaseResponse = NextResponse.next({ request: { headers: refreshed } });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );
@@ -125,7 +184,7 @@ export async function updateSession(request: NextRequest) {
   // "Not on the list." with a real 404 (B-D10): the same address renders as
   // before (the members not-found page inside the shell), only the status
   // is set here, where it still can be.
-  if (isMembersPath && isPageLoad(request) && (await isMissingMembersPage(pathname, supabase))) {
+  if (isMembersPath && isPageLoad(request) && (await isMissingMembersPage(pathname, supabase, request))) {
     const notFoundResponse = NextResponse.rewrite(request.nextUrl, {
       status: 404,
       request: { headers: request.headers },

@@ -8,6 +8,7 @@ import { dayDateTime, dayDateYear, dayMonthYear, firstNameOf, phoneWords, stripe
 import { Icon } from "@/components/admin/icons";
 import { Avatar, Card, DL, Pill, Receipt, Section } from "@/components/admin/ui";
 import { renderEmail, renderText } from "@/lib/emails";
+import { currentPhotoUrl } from "@/lib/server/photos";
 import { dayDate, pounds } from "@/lib/server/format";
 import { periodEndSeconds } from "@/lib/server/stripe/period";
 import { stripe } from "@/lib/stripe";
@@ -94,15 +95,17 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
   const [{ data: logs }, { data: member }] = await Promise.all([
     db.from("message_log").select("template, channel, status").eq("application_id", app.id),
     tab === "approved"
-      ? db.from("members").select("id, avatar_url, created_at").eq("email", app.email).maybeSingle()
+      ? db.from("members").select("id, created_at").eq("email", app.email).maybeSingle()
       : Promise.resolve({ data: null }),
   ]);
+  // The member's photo from the private bucket (a signed link), not the old public avatar_url (stage 2).
+  const memberPhoto = member ? await currentPhotoUrl(member.id as string, "thumb") : null;
   const sent = (template: string) => (logs ?? []).some((l) => l.template === template && l.status === "sent");
 
   const headId = `application-${app.id}`;
   const head = (
     <div className="ad-dh">
-      <Avatar name={name} photoUrl={member?.avatar_url ?? null} size={56} />
+      <Avatar name={name} photoUrl={memberPhoto} size={56} />
       <div className="tt">
         <h2 id={headId} className="ad-h2">
           {name}

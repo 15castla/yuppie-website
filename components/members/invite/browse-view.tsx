@@ -10,7 +10,8 @@
 // matches ("Show all invites"), loading (OpenInviteLoading) and an error
 // (OpenInviteError). A plan with a cost is dropped from the feed while the
 // paid plans flag is off, so the page never shows a price before the money
-// side exists.
+// side exists (the server sends none in stage 2 either). "I'm in" is a server
+// action under the plan's row lock (use-moments.tsx).
 
 import "./invite.css";
 
@@ -81,7 +82,6 @@ export function OpenInviteView({
     seeOtherHref: ROUTES.openInvite,
     initialMoment,
     initialPendingId,
-    paidPlans,
   });
   const visible = plans.filter((invite) => matchesFilter(invite, filter, feed.now));
   const none = plans.length === 0;

@@ -36,6 +36,7 @@ const MUTED = "#57514C";
 const A = "font-family:'Almarai',Arial,Helvetica,sans-serif;";
 const SERIF =
   "font-family:'Instrument Serif',Georgia,'Times New Roman',serif;font-style:italic;font-weight:400;letter-spacing:-.01em;";
+const SWITCH_LABEL = "Choose what we email you";
 const FONTS_LINK =
   "https://fonts.googleapis.com/css2?family=Almarai:wght@300;400;700;800&family=Instrument+Serif:ital@0;1&display=swap";
 
@@ -80,6 +81,10 @@ export type EmailSpec = {
   always?: string;
   /** The "Choose what we email you" link (drawn only while the Notifications page is on). */
   switchLink?: boolean;
+  /** The switch link's words. Default "Choose what we email you"; the chat nudge says "Turn these emails off" (round 3). */
+  switchLabel?: string;
+  /** In the plain-text part, the switch link on its own line instead of after the reason (the chat nudge, round 3). */
+  switchOwnLine?: boolean;
   /** Default "Questions?". */
   q?: string;
 };
@@ -386,7 +391,7 @@ export function renderHtml(spec: EmailSpec, opts: ResolvedOptions): string {
   const why = esc(spec.why) + (spec.always ? " " + esc(spec.always) : "");
   const sw =
     spec.switchLink && opts.notificationsLink
-      ? ` <a href="${escapeAttr(absoluteUrl(NOTIFICATIONS_PATH, site))}" class="keep" style="color:${INK};font-weight:700;text-decoration:underline;">Choose what we email you</a>.`
+      ? ` <a href="${escapeAttr(absoluteUrl(NOTIFICATIONS_PATH, site))}" class="keep" style="color:${INK};font-weight:700;text-decoration:underline;">${escapeText(spec.switchLabel ?? SWITCH_LABEL)}</a>.`
       : "";
   const P = (inner: string, mb: number) =>
     `<p class="t-sub" style="margin:0 0 ${mb}px;${A}font-size:13px;line-height:19px;color:${MUTED};">${inner}</p>`;
@@ -486,8 +491,11 @@ export function renderPlain(spec: EmailSpec, opts: ResolvedOptions): string {
   out.push("Club Yuppie: Your social life, sorted.");
   let why = plain(spec.why);
   if (spec.always) why += " " + spec.always;
-  if (spec.switchLink && opts.notificationsLink) why += ` Choose what we email you: ${absoluteUrl(NOTIFICATIONS_PATH, opts.site)}`;
+  const sw = `${spec.switchLabel ?? SWITCH_LABEL}: ${absoluteUrl(NOTIFICATIONS_PATH, opts.site)}`;
+  const swOn = spec.switchLink && opts.notificationsLink;
+  if (swOn && !spec.switchOwnLine) why += ` ${sw}`;
   out.push(why);
+  if (swOn && spec.switchOwnLine) out.push(sw);
   if (spec.foot !== "admin") {
     out.push(`${spec.q ?? "Questions?"} Email ${SUPPORT_EMAIL}.`);
     out.push(`Read our privacy policy: ${absoluteUrl("/privacy", opts.site)}`);

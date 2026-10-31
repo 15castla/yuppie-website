@@ -13,6 +13,8 @@ import { ROUTES } from "@/lib/members/routes";
 import { absoluteUrl, PAYMENT_GRACE_DAYS, tombstoneEmail } from "./config";
 import { cancelFutureBookingsForMember, bookingsAfter, type CancelledFutureBooking } from "./bookings";
 import { MEMBER_ROW_COLUMNS, errorMessage, serviceDb, stripeErrorCode, type EndedReason, type MemberRow } from "./db";
+import { deleteMemberPhotos } from "./photos";
+import { leaveOpenInviteForDeletion, leaveOpenInviteForGate } from "./plans";
 import { dayDate, londonEndOfDay, pounds } from "./format";
 import { later } from "./later";
 import { membershipCardData, membershipState, type MemberStateFields } from "./membership";
@@ -243,11 +245,27 @@ export async function billingPortalUrl(memberId: string, returnPath: string = RO
   }
 }
 
-function avatarPath(url: string | null): string | null {
-  if (!url) return null;
+/**
+ * The member's own stage 1 photo file in member-media, from their avatar_url, or null. Only a file the stage 1
+ * upload made for this member (lib/media-storage.ts: avatars/<member id>-<time>.<ext>) is theirs to delete
+ * (QR-02): avatar_url was member-writable in stage 1, so it may point at anything in the bucket (an event image,
+ * a partner's logo, another member's photo), and none of that may go with this account.
+ */
+function avatarPath(url: string | null, memberId: string): string | null {
+  if (!url || !memberId) return null;
   const marker = "/storage/v1/object/public/member-media/";
   const i = url.indexOf(marker);
-  return i >= 0 ? decodeURIComponent(url.slice(i + marker.length).split("?")[0]) : null;
+  if (i < 0) return null;
+  let path: string;
+  try {
+    path = decodeURIComponent(url.slice(i + marker.length).split(/[?#]/)[0]);
+  } catch {
+    return null;
+  }
+  const own = `avatars/${memberId}-`;
+  if (!path.startsWith(own)) return null;
+  const name = path.slice(own.length);
+  return /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/.test(name) && !name.includes("..") ? path : null;
 }
 
 /**
@@ -297,11 +315,15 @@ export async function deleteAccount(memberId: string, options: { by?: "member" |
 
     const cancelled = await cancelFutureBookingsForMember(memberId, "account_deleted");
 
-    const path = avatarPath(member.avatar_url);
+    const path = avatarPath(member.avatar_url, memberId);
     if (path) {
       const { error } = await db.storage.from("member-media").remove([path]);
       if (error) console.error(`deleteAccount: removing the photo failed for member ${memberId}:`, error);
     }
+    // Stage 2: the private photos, and Open Invite and Messages (hosted plans cancelled, places given up, chats
+    // left, messages removed, blocks, Updates and switches deleted). Both never throw.
+    await deleteMemberPhotos(memberId);
+    await leaveOpenInviteForDeletion(memberId);
 
     // To the address they have now, before it is replaced.
     await sendEmail({
@@ -413,6 +435,9 @@ export async function pauseMember(memberId: string, options: { stripe: boolean }
       .update({ membership_status: "paused", paused_at: new Date().toISOString() })
       .eq("id", memberId);
     if (error) return fail("db", "Saving the pause failed.");
+    // Stage 2 (QB3-06): out of Open Invite until resumed (their plans cancelled by the club, out of the plans and
+    // chats they are in). Never throws.
+    await leaveOpenInviteForGate(memberId, "paused");
     return { ok: true, stripe: stripeDone };
   } catch (err) {
     console.error(`pauseMember ${memberId} failed:`, err);
@@ -525,6 +550,9 @@ export async function endMembership(
     const { error } = await db.from("members").update({ membership_status: "cancelled" }).eq("id", memberId);
     if (error) throw new Error(`ending member ${memberId}: ${error.message}`);
   }
+
+  // Stage 2 (QB3-06): an ended membership leaves Open Invite as a paused one does. Safe to run again; never throws.
+  await leaveOpenInviteForGate(memberId, "ended");
 
   // As it is now: a Delete my account that marked the row meanwhile wins.
   const now = (await loadMember(memberId)) ?? member;

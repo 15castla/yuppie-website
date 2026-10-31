@@ -13,7 +13,7 @@ export type EndedReason = "member_cancelled" | "payment_failed" | "admin_cancell
 
 /** The members columns the backend reads. */
 export const MEMBER_ROW_COLUMNS =
-  "id, email, full_name, phone, employer, role_title, bio, avatar_url, membership_status, stripe_customer_id, stripe_subscription_id, created_at, cancel_at, cancel_requested_at, cancel_reason, payment_failed_at, grace_until, paused_at, ended_at, ended_reason, deleted_at, updated_at";
+  "id, email, full_name, phone, employer, role_title, bio, avatar_url, photo_id, membership_status, stripe_customer_id, stripe_subscription_id, created_at, cancel_at, cancel_requested_at, cancel_reason, payment_failed_at, grace_until, paused_at, ended_at, ended_reason, deleted_at, updated_at";
 
 export type MemberRow = {
   id: string;
@@ -24,6 +24,7 @@ export type MemberRow = {
   role_title: string | null;
   bio: string | null;
   avatar_url: string | null;
+  photo_id: string | null;
   membership_status: MembershipStatus | string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;

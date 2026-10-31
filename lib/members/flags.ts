@@ -15,6 +15,7 @@ import { notFound } from "next/navigation";
 
 export type FlagName =
   | "openInvite"
+  | "openInviteApp"
   | "concierge"
   | "messages"
   | "notifications"
@@ -25,6 +26,7 @@ export type Flags = Record<FlagName, boolean>;
 
 export const FLAG_NAMES: readonly FlagName[] = [
   "openInvite",
+  "openInviteApp",
   "concierge",
   "messages",
   "notifications",
@@ -34,6 +36,9 @@ export const FLAG_NAMES: readonly FlagName[] = [
 
 export const flags: Flags = {
   openInvite: process.env.NEXT_PUBLIC_MEMBERS_OPEN_INVITE === "on",
+  // Open Invite decision 6: on for the web first, hidden in the app until the feed is busier. The app shows Open
+  // Invite only when both this and openInvite are on (openInviteOn below). Default off.
+  openInviteApp: process.env.NEXT_PUBLIC_MEMBERS_OPEN_INVITE_APP === "on",
   concierge: process.env.NEXT_PUBLIC_MEMBERS_CONCIERGE === "on",
   messages: process.env.NEXT_PUBLIC_MEMBERS_MESSAGES === "on",
   notifications: process.env.NEXT_PUBLIC_MEMBERS_NOTIFICATIONS === "on",
@@ -52,10 +57,22 @@ export function requireFlag(name: FlagName): void {
 export function noFlags(): Flags {
   return {
     openInvite: false,
+    openInviteApp: false,
     concierge: false,
     messages: false,
     notifications: false,
     photoGate: false,
     paidPlans: false,
   };
+}
+
+// Is Open Invite on for this shell? The web: openInvite. The app: openInvite AND openInviteApp (decision 6).
+export function openInviteOn(mode: "web" | "app", f: Pick<Flags, "openInvite" | "openInviteApp"> = flags): boolean {
+  return f.openInvite && (mode === "web" || f.openInviteApp);
+}
+
+// Is Messages on for this shell? Every chat belongs to an Open Invite, so in the app Messages follows Open Invite:
+// while Open Invite is hidden there (decision 6), so is Messages (no route, no icon, no actions). The web: messages.
+export function messagesOn(mode: "web" | "app", f: Pick<Flags, "messages" | "openInvite" | "openInviteApp"> = flags): boolean {
+  return f.messages && (mode === "web" || openInviteOn(mode, f));
 }

@@ -4,8 +4,11 @@ import { redirect } from "next/navigation";
 import { SESSION_ENDED_LOGIN } from "@/components/members/session-ended";
 import { createClient } from "@/lib/supabase/server";
 import { flags } from "@/lib/members/flags";
-import { ROUTES } from "@/lib/members/routes";
+import { MEMBERS_PATH_HEADER, returnPath } from "@/lib/members/photo/return-path";
+import { ROUTES, landingPath } from "@/lib/members/routes";
+import { detectShellMode } from "@/lib/members/shell-mode";
 import { isGated, membershipState, type MembershipStateInfo } from "@/lib/server/membership";
+import { currentPhotoUrl } from "@/lib/server/photos";
 import type { MemberSummary } from "@/components/members/shell/types";
 
 export type Member = {
@@ -16,7 +19,10 @@ export type Member = {
   employer: string | null;
   role_title: string | null;
   bio: string | null;
+  /** Legacy public URL (stage 1). Not read any more: photos are members.photo_id, served by signed URL. */
   avatar_url: string | null;
+  /** The current photo (approved or pending), stage 2. Null: the photo gate. Server-written only. */
+  photo_id: string | null;
   membership_status: string;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
@@ -35,7 +41,7 @@ export type Member = {
 };
 
 const MEMBER_COLUMNS =
-  "id, full_name, email, phone, employer, role_title, bio, avatar_url, membership_status, stripe_customer_id, stripe_subscription_id, created_at, cancel_at, cancel_requested_at, payment_failed_at, grace_until, paused_at, ended_at, ended_reason, deleted_at";
+  "id, full_name, email, phone, employer, role_title, bio, avatar_url, photo_id, membership_status, stripe_customer_id, stripe_subscription_id, created_at, cancel_at, cancel_requested_at, payment_failed_at, grace_until, paused_at, ended_at, ended_reason, deleted_at";
 
 // Non-redirecting check, for pages that need to know whether a valid
 // member session exists without forcing a redirect on failure (e.g.
@@ -78,7 +84,8 @@ export const getMemberSummary = cache(async (): Promise<MemberSummary | null> =>
     if (!member) return null;
     return {
       firstName: member.full_name?.trim().split(/\s+/)[0] ?? "",
-      photoUrl: member.avatar_url,
+      // The private photo through a short-lived signed URL (lib/server/photos), never a public link.
+      photoUrl: member.photo_id ? await currentPhotoUrl(member.id, "thumb") : null,
     };
   } catch {
     return null;
@@ -118,7 +125,7 @@ export const getMembershipState = cache(async (): Promise<MembershipStateInfo | 
 // a photo, and the layout's own login check (app/members/layout.tsx) pass
 // { allowMissingPhoto: true }. A page that never calls requireMember() is
 // not gated, so every page does (events, discounts and access were given the
-// call for this). A member whose photo the club removes has avatar_url null
+// call for this). A member whose photo the club removes has photo_id null
 // again and meets the gate at their next screen.
 export async function requireMember(options: RequireMemberOptions = {}): Promise<Member> {
   const member = await getMember();
@@ -139,8 +146,13 @@ export async function requireMember(options: RequireMemberOptions = {}): Promise
     redirect(ROUTES.membership);
   }
 
-  if (flags.photoGate && !options.allowMissingPhoto && !member.avatar_url) {
-    redirect(ROUTES.photo);
+  // Stage 2: the gate is "no current photo" (members.photo_id is null: none yet, or the club removed it). The page
+  // they were going to rides along (?next=, from the proxy's header), so Continue takes them there afterwards.
+  if (flags.photoGate && !options.allowMissingPhoto && !member.photo_id) {
+    const back = returnPath((await headers()).get(MEMBERS_PATH_HEADER));
+    // the landing page needs no ?next= (Continue goes there anyway): the gate after a login keeps its plain address
+    const landing = back === ROUTES.root || back === landingPath(flags, await detectShellMode());
+    redirect(back && !landing ? `${ROUTES.photo}?next=${encodeURIComponent(back)}` : ROUTES.photo);
   }
 
   return member;

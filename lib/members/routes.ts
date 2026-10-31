@@ -10,7 +10,7 @@
 // Adding a route: add it to ROUTES, then one entry to ROUTE_TABLE. The shell
 // picks the tab, the messages icon and the dock up from the table.
 
-import { flags as liveFlags, type FlagName, type Flags } from "./flags";
+import { flags as liveFlags, openInviteOn, type FlagName, type Flags } from "./flags";
 
 export type TabKey = "invite" | "events" | "concierge" | "discounts" | "access";
 
@@ -56,6 +56,8 @@ export const ROUTES = {
 export const openInviteHref = (id: string) => `${ROUTES.openInvite}/${encodeURIComponent(id)}`;
 /** An event's calendar file (Add to calendar; the booking email links here). */
 export const eventCalendarHref = (slug: string) => `${eventHref(slug)}/calendar.ics`;
+/** The host's edit form for their plan (the post form again). A sub page of the plan. */
+export const openInviteEditHref = (id: string) => `${openInviteHref(id)}/edit`;
 /** A paid plan's receipt (paid plans flag). A sub page of the plan. */
 export const openInviteReceiptHref = (id: string) => `${openInviteHref(id)}/receipt`;
 /** One paid plan's payments, for its host (You > Payments > a plan). */
@@ -89,6 +91,7 @@ export const ROUTE_TABLE: readonly RouteDef[] = [
   { id: "openInviteDone", pattern: ROUTES.openInviteDone, flag: "openInvite", tab: "invite", messages: "none", dock: "tabs" },
   { id: "openInviteYours", pattern: ROUTES.openInviteYours, flag: "openInvite", tab: "invite", messages: "show", dock: "tabs" },
   { id: "openInviteDetail", pattern: `${ROUTES.openInvite}/[id]`, flag: "openInvite", tab: "invite", messages: "show", dock: "own" },
+  { id: "openInviteEdit", pattern: `${ROUTES.openInvite}/[id]/edit`, flag: "openInvite", tab: "invite", messages: "none", dock: "own" },
   { id: "openInviteReceipt", pattern: `${ROUTES.openInvite}/[id]/receipt`, flag: "paidPlans", tab: "invite", messages: "show", dock: "tabs" },
   { id: "events", pattern: ROUTES.events, tab: "events", messages: "none", dock: "tabs" },
   { id: "eventDetail", pattern: `${ROUTES.events}/[slug]`, tab: "events", messages: "none", dock: "own" },
@@ -152,13 +155,14 @@ export function matchRoute(pathname: string): RouteDef | null {
 }
 
 // Where a member lands after login: Open Invite when it is on, else Events.
-export function landingPath(f: Pick<Flags, "openInvite"> = liveFlags): string {
-  return f.openInvite ? ROUTES.openInvite : ROUTES.events;
+// With a mode, the app follows its own switch (openInviteApp, Open Invite decision 6); without one, the web.
+export function landingPath(f: Pick<Flags, "openInvite"> & Partial<Pick<Flags, "openInviteApp">> = liveFlags, mode: "web" | "app" = "web"): string {
+  return openInviteOn(mode, { openInvite: f.openInvite, openInviteApp: f.openInviteApp ?? false }) ? ROUTES.openInvite : ROUTES.events;
 }
 
 // What a "back to the start" link calls the landing page.
-export function landingLabel(f: Pick<Flags, "openInvite"> = liveFlags): string {
-  return f.openInvite ? "Open Invite" : "Events";
+export function landingLabel(f: Pick<Flags, "openInvite"> & Partial<Pick<Flags, "openInviteApp">> = liveFlags, mode: "web" | "app" = "web"): string {
+  return landingPath(f, mode) === ROUTES.openInvite ? "Open Invite" : "Events";
 }
 
 export function activeTabFor(pathname: string): TabKey | null {
