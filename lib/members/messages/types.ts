@@ -1,9 +1,9 @@
 // Messages and notification settings: the data the screens need, and so the
-// data the backend will have to supply (BUILD_BRIEF section 6, "types first").
-// Nothing here is implemented yet: the fake adapter in lib/members/mock/ returns
-// exactly these types, on EXAMPLE DATA, behind the `messages` and
-// `notifications` flags. When the backend exists, the pages import its real
-// functions instead and the mock guard is removed for this area.
+// data the backend supplies (BUILD_BRIEF section 6, "types first"). Stage 2
+// built it: lib/server/chats.ts, updates.ts, blocks.ts, reports.ts and
+// notification-prefs.ts return exactly these types, through the actions in
+// app/members/messages/ and app/members/you/. The preview harness draws the
+// same types from fixtures (lib/members/mock/messages.ts).
 //
 // Conventions
 //   - Every timestamp is ISO 8601 with an offset ("2026-10-23T09:13:00+01:00").
@@ -50,6 +50,8 @@ export type ChatPlan = {
   priceMinor: number | null;
   /** "finished" 24 hours after the plan; "cancelled" when the host cancels (then every payment is refunded). */
   status: "open" | "finished" | "cancelled";
+  /** Who cancelled it, once cancelled: "club" when the club removed it or cancelled it for its host (optional: the host). */
+  cancelledBy?: "host" | "club" | null;
 };
 
 export type ChatKind = "plan" | "question";
@@ -124,8 +126,13 @@ export type ChatSystemLine = {
    * Plan chats close 24 hours after the plan."
    */
   event: "opened" | "joined" | "paid" | "cancelled" | "closed";
-  /** Who it is about (null for "closed"). */
+  /** Who it is about (null for "closed", and for a cancel by the club). */
   memberId: string | null;
+  /**
+   * That member's name and photo, from the server, so the line keeps their name after they leave the chat
+   * (a withdrawn member is no longer a participant). Optional: example data may leave it out.
+   */
+  member?: MemberRef | null;
 };
 
 export type ChatItem = ChatMessage | ChatSystemLine;

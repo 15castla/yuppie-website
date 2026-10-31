@@ -73,6 +73,10 @@ compare('before Phase A');
 // ---- and back to everything, Phase A included
 execFileSync('/home/claude/stack/apply_repo.sh', [ROOT], { stdio: ['ignore', 'pipe', 'pipe'] });
 ok(true, 'rebuilt with every migration, Phase A included');
+// Stage 2 first (its undo gives the stage 1 layout back; tests/e2e/phase-b/00-migration.mjs proves it), then Phase A.
+if (fs.existsSync(`${ROOT}/release/undo-phase-b.sql`)) {
+  execFileSync('psql', ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-q', '-v', 'ON_ERROR_STOP=1', '-f', `${ROOT}/release/undo-phase-b.sql`], { stdio: ['ignore', 'pipe', 'pipe'] });
+}
 execFileSync('psql', ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-q', '-v', 'ON_ERROR_STOP=1', '-f', `${ROOT}/release/undo-phase-a.sql`], { stdio: ['ignore', 'pipe', 'pipe'] });
 ok(true, 'release/undo-phase-a.sql applied');
 compare('after the undo');

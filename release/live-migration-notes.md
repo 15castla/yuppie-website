@@ -247,3 +247,79 @@ stand-ins for `cron.schedule`, Vault and `net.http_get` (pg_cron, pg_net and Vau
 it runs twice cleanly, makes three jobs with the right schedules, and each job's command, run, asks for the
 right URL with a bearer header that the site accepts (200 from each job on a local build). Not tested: the real
 pg_cron and pg_net extensions, Vault's encryption, and Supabase Auth's Dashboard settings.
+
+## Stage 2 (Phase B) release order (31 Oct 2026, after the fix rounds)
+
+After the stage 1 release (above), in this order. Claude Code runs the scripts from the repo root with the live
+keys in the environment (`NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_SECRET_KEY`; never in a file or a chat). Steps 1
+and 2 happen while the stage 1 code is still live: it never reads the new tables or the private bucket, so
+members see no change until step 4.
+
+1. **The two migrations**, as `postgres` on the direct connection: `20261030090000_open_invite_messages.sql`, then
+   `20261031090000_stage2_fixes.sql` (additive: admin claims, column-level read grants on reports and plans, the
+   host-active rule on joins and links, the club's cancel, plan Updates under the plan's lock, the chat send under
+   one lock per sender). The stage 2 file makes the private bucket `member-photos`; its restrictive storage policy
+   is created where the role may, and where hosted Supabase refuses it a notice says it was skipped and the
+   migration goes on (the bucket is private and storage.objects has RLS on with no permissive policy, so members
+   still cannot read it). From here members cannot write `members.avatar_url`: stage 1's Edit details cannot save
+   a new photo until step 4 (viewing is unaffected). Proved on a scratch database in the hosted layout:
+   `tests/e2e/phase-b/14-fixes-fixer1-db.mjs`, and with the steps below: `15-fixes-3-db.mjs`.
+2. **Move the photos, before the deploy**: `node release/move-member-photos.mjs` (dry run: read its report), then
+   `node release/move-member-photos.mjs --apply`. It copies each member's own stage 1 photo
+   (`member-media/avatars/<member id>-...`; a link to any other file is reported and never moved) into the
+   private bucket as 480 and 160 squares, records it approved and makes it current. It deletes nothing, never
+   brings back a photo the club removed, and leaves (reports "needs a look") a photo under 400px, a file that is
+   missing or not a photo and, when sharp is missing, a photo stored turned (EXIF orientation), which would
+   otherwise show sideways once its metadata is stripped: those members meet the photo gate. Safe to run again
+   (also after the deploy): a second run finds nothing to move.
+3. **Vercel, Production: set `NEXT_PUBLIC_MEMBERS_PHOTO_GATE=on`.** A build-time switch: it takes effect with the
+   deploy in step 4. Members with no photo after step 2 meet the photo gate at their next login (photo decision
+   4 A). The other stage 2 switches only when Albert says (each `NEXT_PUBLIC_` switch needs a deploy):
+   `NEXT_PUBLIC_MEMBERS_OPEN_INVITE`, `_MESSAGES`, `_NOTIFICATIONS`; `NEXT_PUBLIC_MEMBERS_OPEN_INVITE_APP` stays
+   off; `MEMBERS_PUSH_LIVE` and `MEMBERS_PAID_PLANS_LIVE` stay unset; `ADMIN_ALERTS_EMAIL` is where reports go (a
+   named person checks it daily before Messages goes on: Albert to name).
+4. **Merge and deploy**: `members/backend-b` into `main`; Vercel builds Production with the gate on.
+5. **Delete the old public copies**: `node release/delete-public-avatars.mjs` (dry run), then `--apply`. It deletes
+   every file in `member-media/avatars/` through the Storage API, refuses (deletes nothing) while any member still
+   has a photo to move, and never deletes a file that is still a member's photo to move. After this the private
+   bucket holds the only copies of members' photos.
+6. **Vercel, Production: set `MEMBERS_PHOTOS_PRIVATE_DONE=on`** (server only) and redeploy: only then do the pages
+   say a photo is never public.
+7. **Checks**, on the live site:
+   - A member who had a photo logs in: no photo gate; their photo shows on You and in the shell, from a
+     `/storage/v1/object/sign/member-photos/` address.
+   - One old public address from step 2's report (`.../object/public/member-media/avatars/...`) no longer loads.
+   - A member listed "needs a look" in step 2 meets the photo gate and can upload; the photo waits in Admin >
+     Photos.
+   - The gate and Change photo say the photo is never public (step 6).
+   - Admin > Reports and Admin > Photos open; the reminders job still answers 200 (Vercel logs, the next quarter
+     hour).
+   - SQL: `select count(*) from members where photo_id is null and deleted_at is null and membership_status =
+     'active';` is the number of active members step 2 left to the gate.
+
+**Undo**, in this order:
+
+1. **The code first**: in Vercel, roll Production back to the last stage 1 deployment (Deployments, that
+   deployment, Instant Rollback). Then remove `NEXT_PUBLIC_MEMBERS_PHOTO_GATE` from Production (and
+   `MEMBERS_PHOTOS_PRIVATE_DONE`), so no later stage 1 build picks them up: stage 1's gate would send every member
+   without an old photo to its own upload, which stores photos publicly again.
+2. **Export the private bucket**: `node release/undo-photos-bucket.mjs --export-dir <a folder outside the repo>`.
+   It downloads every file into that folder, reads each back (sha256), and writes `manifest.json` (every file's
+   path, size and hash, and the photo records: whose photo, status, dates). Nothing is deleted. After release step
+   5 this export is the only copy of members' photos: keep it private, and delete it when Albert says.
+3. **Delete the bucket**: `node release/undo-photos-bucket.mjs --apply --export-dir <the same folder>`. It exports
+   again (all of it, or it deletes nothing), then removes every file and deletes the bucket through the Storage API
+   (hosted Supabase refuses SQL deletes on storage tables since March 2026). Without `--export-dir` it refuses.
+4. **The SQL undo**, as `postgres` on the direct connection: `psql "$LIVE_DB_URL" -v ON_ERROR_STOP=1 -f
+   release/undo-phase-b.sql` (its own `begin` and `commit`). It drops both stage 2 files' functions and tables
+   (Open Invite plans, chats, messages, Updates, blocks, reports, photo records, notification switches: export
+   what is wanted first) and gives the stage 1 layout back exactly. It also clears `members.avatar_url` where it
+   points at a public copy that release step 5 deleted (the file is no longer in storage.objects), so stage 1
+   shows the member's initial instead of a broken image; links whose file is still there stay. Members who joined
+   during stage 2 have no old photo, so stage 1 shows their initial too.
+
+Proved end to end on a scratch database in the hosted layout, with a Storage API stand-in that keeps
+storage.objects as Supabase does: `tests/e2e/phase-b/15-fixes-3-db.mjs` (release steps 1, 2 and 5, then the undo:
+the export is complete and identical, the bucket goes, the SQL undo gives stage 1 back byte for byte, twice, and
+the dead `avatar_url` links are cleared while the others stay). Not tested: Vercel's rollback and switches, and the
+real Storage API (its listing, remove and bucket delete are the calls fixer 1's scripts already use).

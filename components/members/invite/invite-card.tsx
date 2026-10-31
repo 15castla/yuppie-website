@@ -144,7 +144,7 @@ function Question({ question }: { question: OpenInvite["you"]["questions"][numbe
         <b>{question.from.firstName}</b>
         <span>{question.text}</span>
       </span>
-      <CountChip n={question.unread} />
+      {question.unread > 0 ? <CountChip n={question.unread} /> : null}
     </KitLink>
   );
 }
@@ -182,6 +182,8 @@ export function InviteCard({
   const askName = host.firstName.length <= 10 ? `Ask ${host.firstName}` : "Ask";
   const unreadChat = invite.you.unreadInChat;
   const questions = invite.you.questions;
+  // "new": questions with something unread (a question already read stays in the list, without a number)
+  const newQuestions = questions.filter((question) => question.unread > 0).length;
   const moneyLine = state === "own" ? hostMoneyLine(invite) : null;
   const join = invite.cost ? `Pay ${gbp(invite.cost.pricePence)} and join` : "I’m in";
   // Example screens on the live site: taking money is not built, so Pay says so (kit/example-note).
@@ -266,7 +268,7 @@ export function InviteCard({
         </Button>
         <Button size="sm" variant="outline" href={href}>
           <span className="mk-lb">Questions</span>
-          {questions.length > 0 ? <CountBadge n={questions.length} /> : null}
+          {newQuestions > 0 ? <CountBadge n={newQuestions} /> : null}
         </Button>
       </>
     );
@@ -274,7 +276,7 @@ export function InviteCard({
 
   return (
     <article
-      className={cn("mk-invite oi-card", dim && "is-past", paid && "is-paid")}
+      className={cn("mk-invite oi-card", dim && "is-past", paid && "is-paid", mode === "posted" && "is-posted")}
       aria-label={cardLabel(invite, state)}
       data-state={pending ? "pending" : state}
     >
@@ -291,7 +293,7 @@ export function InviteCard({
         <dt>When</dt>
         <dd>{placeholders?.when ? <span className="oi-ph">{placeholders.when}</span> : formatWhen(invite.startsAt)}</dd>
         <dt>Where</dt>
-        <dd>
+        <dd className="oi-where">
           {placeholders?.where ? <span className="oi-ph">{placeholders.where}</span> : <CommaBreaks text={invite.where} />}
         </dd>
         {paid ? (
@@ -320,7 +322,7 @@ export function InviteCard({
         <div className="oi-qs">
           <div className="hd">
             <span>Questions</span>
-            <span>{questions.length} new</span>
+            {newQuestions > 0 ? <span>{newQuestions} new</span> : null}
           </div>
           {questions.map((question) => (
             <Question key={question.threadId} question={question} />

@@ -64,6 +64,14 @@ export function notificationsLinkOn(): boolean {
   return process.env.NEXT_PUBLIC_MEMBERS_NOTIFICATIONS === "on";
 }
 
+/**
+ * Members pages the stage 2 emails link to by default, written out as in lib/members/routes.ts (ROUTES.openInvite,
+ * ROUTES.messages) so this module stays free of app imports. The designs draw /members/invite: the route is
+ * /members/open-invite.
+ */
+export const OPEN_INVITE_PATH = "/members/open-invite";
+export const MESSAGES_PATH = "/members/messages";
+
 /** The pictures, hosted from public/email/ (absolute URLs: mail apps cannot read relative ones). */
 export const EMAIL_IMAGES = {
   logo: { file: "yuppie-logo@2x.png", width: 150, height: 50 },

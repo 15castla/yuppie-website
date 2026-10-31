@@ -9,7 +9,7 @@
 
 import { useRef, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
 
-import { Avatar, AvatarStack, Button, DateColumn, Icon, KitLink, Pill } from "@/components/members/kit";
+import { Avatar, AvatarStack, Button, DateColumn, Icon, KitLink, Pill, type IconName } from "@/components/members/kit";
 import { dateTile } from "@/lib/members/messages/format";
 import {
   LINK_BLOCKED_LINE,
@@ -23,6 +23,7 @@ import type { GroupMessage, StreamRow } from "@/lib/members/messages/thread-mode
 import { MESSAGE_COUNTER_FROM, MESSAGE_COUNTER_NEAR, MESSAGE_MAX_LENGTH, type Chat } from "@/lib/members/messages/types";
 import { ROUTES, openInviteHref } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
+import { charCount, clipChars, utf16Cap } from "@/lib/members/chars";
 
 export function ThreadHeader({ chat, infoOpen, onInfo }: { chat: Chat; infoOpen: boolean; onInfo: () => void }) {
   return (
@@ -128,20 +129,26 @@ export function QuestionIntro({ chat, youId }: { chat: Chat; youId: string }) {
   );
 }
 
-export function SafetyNote({ onDismiss }: { onDismiss: () => void }) {
+/**
+ * The safety note: in the stream the first time a member opens any chat (with "Got it"), and its permanent copy
+ * in chat info (no button; decision 5 A).
+ */
+export function SafetyNote({ onDismiss, className }: { onDismiss?: () => void; className?: string }) {
   return (
-    <div className="msg-safety" role="note">
+    <div className={cn("msg-safety", className)} role="note">
       <span className="ic">
         <Icon name="shield" size={20} />
       </span>
       <div className="tx">
         <b>Meet somewhere public.</b>
         <p>Keep payments inside Club Yuppie.</p>
-        <div className="act">
-          <Button size="sm" onClick={onDismiss}>
-            Got it
-          </Button>
-        </div>
+        {onDismiss ? (
+          <div className="act">
+            <Button size="sm" onClick={onDismiss}>
+              Got it
+            </Button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -172,9 +179,13 @@ export function ClosedComposer({ note }: { note: string }) {
   );
 }
 
+/** A line above the input after the server refused a message (the rate limit, a closed chat ...). */
+export type ComposerNotice = { icon: IconName; text: string };
+
 export function Composer({
   draft,
   link,
+  notice = null,
   keyboardUp,
   inputRef,
   onChange,
@@ -183,13 +194,16 @@ export function Composer({
 }: {
   draft: string;
   link: boolean;
+  /** The server's words for a refusal. The link line (the composer's own check, while typing) comes first. */
+  notice?: ComposerNotice | null;
   keyboardUp: boolean;
   inputRef: RefObject<HTMLTextAreaElement | null>;
   onChange: (value: string) => void;
   onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
 }) {
-  const length = draft.length;
+  // characters as the server counts them (code points: an emoji is one)
+  const length = charCount(draft);
   const has = draft.trim().length > 0;
   const off = !has || link;
   const label = !has ? "Send, disabled: write a message first" : link ? "Send, disabled: remove the link first" : "Send";
@@ -215,6 +229,11 @@ export function Composer({
           <Icon name="link-off" size={20} />
           <span>{LINK_BLOCKED_LINE}</span>
         </div>
+      ) : notice ? (
+        <div className="msg-comp-line" role="status">
+          <Icon name={notice.icon} size={20} />
+          <span>{notice.text}</span>
+        </div>
       ) : null}
       {counter}
       <div className="msg-comp-row">
@@ -222,13 +241,13 @@ export function Composer({
           ref={inputRef}
           className="msg-input"
           rows={1}
-          maxLength={MESSAGE_MAX_LENGTH}
+          maxLength={utf16Cap(MESSAGE_MAX_LENGTH)}
           placeholder="Write a message"
           aria-label="Message"
           enterKeyHint="send"
           autoComplete="off"
           value={draft}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => onChange(clipChars(event.target.value, MESSAGE_MAX_LENGTH))}
           onKeyDown={onKeyDown}
         />
         <button

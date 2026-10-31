@@ -7,6 +7,8 @@
 
 import "./invite.css";
 
+import { useMemo } from "react";
+
 import { Button, Main, Pill, Row, Rows, Shape } from "@/components/members/kit";
 import { dateColumn, formatTime } from "@/lib/members/invite/format";
 import type { OpenInvite, OpenInviteYours } from "@/lib/members/invite/types";
@@ -52,14 +54,17 @@ export function YoursView({
   initialPendingId?: string | null;
 }) {
   const keep = (list: OpenInvite[]) => list.filter((invite) => paidPlans || invite.cost === null);
+  const live = useMemo(
+    () => [...yours.posted, ...yours.joined].filter((invite) => paidPlans || invite.cost === null),
+    [yours.posted, yours.joined, paidPlans],
+  );
   const { plans, pendingId, join, sheet } = useMoments({
-    plans: [...keep(yours.posted), ...keep(yours.joined)],
+    plans: live,
     me: yours.me,
     nowIso: yours.now,
     seeOtherHref: ROUTES.openInvite,
     initialMoment,
     initialPendingId,
-    paidPlans,
   });
   const posted = plans.filter((invite) => yours.posted.some((entry) => entry.id === invite.id));
   const joined = plans.filter((invite) => yours.joined.some((entry) => entry.id === invite.id));

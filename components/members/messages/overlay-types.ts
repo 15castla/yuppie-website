@@ -1,3 +1,5 @@
+import type { ComposerNotice } from "./thread-parts";
+
 // What a thread can have open on top of it. One at a time: the sheets (chat
 // info, who to report, the report, the report sent), the two dialogs (block,
 // leave), the long-press menu, and the "tap the message you want to report"
@@ -31,4 +33,8 @@ export type ThreadPreview = {
   overlay?: Overlay;
   muted?: boolean;
   blockedIds?: string[];
+  /** A refusal's line above the input ("Slow down a moment."). */
+  notice?: ComposerNotice;
+  /** The words a sheet or dialog shows when its server step did not go through (Send report, Block, Leave chat). */
+  stepError?: string;
 };

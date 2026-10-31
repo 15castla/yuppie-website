@@ -77,13 +77,21 @@ export async function proxy(request: NextRequest) {
   // — see SiteNav — can read native-app-ness from document.cookie instead
   // of navigator.userAgent. See lib/native-app.ts for why that avoids a
   // real WKWebView cold-launch race the previous approach had.
+  // Only when the browser does not already hold the right value: a cookie set
+  // on a server action's response makes Next mark the action as revalidated
+  // (x-action-revalidated), and the client router then refreshes the page and
+  // drops its prefetches after every action, the open chat's poll every few
+  // seconds included. The cookie a browser holds is the same either way.
+  const nativeCookie = request.cookies.get(NATIVE_APP_COOKIE_NAME)?.value;
   if (isNative) {
-    response.cookies.set(NATIVE_APP_COOKIE_NAME, "1", {
-      path: "/",
-      sameSite: "lax",
-      httpOnly: false,
-    });
-  } else {
+    if (nativeCookie !== "1") {
+      response.cookies.set(NATIVE_APP_COOKIE_NAME, "1", {
+        path: "/",
+        sameSite: "lax",
+        httpOnly: false,
+      });
+    }
+  } else if (nativeCookie !== undefined) {
     response.cookies.delete(NATIVE_APP_COOKIE_NAME);
   }
 

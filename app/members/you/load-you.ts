@@ -5,15 +5,18 @@
 // server actions. Shared by /members/you and /members/you/photo (the same page
 // with the Change photo sheet open). Not a route: only page.tsx files are.
 
-import { flags } from "@/lib/members/flags";
+import { flags, messagesOn } from "@/lib/members/flags";
 import { ROUTES } from "@/lib/members/routes";
 import { detectShellMode } from "@/lib/members/shell-mode";
 import { displayPhone, firstNameOf, legalLines, memberSince } from "@/lib/members/you/format";
-import { settingsRowsFor } from "@/lib/members/you/settings";
+import { buildSettingsRows } from "@/lib/members/you/settings";
 import type { MembershipCardData } from "@/lib/members/you/types";
+import { blockedCount } from "@/lib/server/blocks";
 import { bookingsAfter } from "@/lib/server/bookings";
 import { dayDate } from "@/lib/server/format";
 import { membershipCardFor } from "@/lib/server/membership-actions";
+import { getNotificationPreferences, notificationSummary } from "@/lib/server/notification-prefs";
+import { currentPhotoUrl } from "@/lib/server/photos";
 import type { YouViewProps } from "@/components/members/you/you-view";
 import { signOutMember } from "../profile/actions";
 import { requireMember } from "../require-member";
@@ -45,13 +48,28 @@ export async function loadYou({ billingUnavailable = false }: { billingUnavailab
   // Cancel needs a subscription to set to end; without one there is no Cancel link.
   const canCancel = Boolean(member.stripe_subscription_id);
 
+  // Stage 2: the Settings rows from real data (the notification channels, the blocked count). Payments is a
+  // paid-plans row: none until paid plans are live (stage 3). Blocked members goes with Messages: not in the app
+  // while Open Invite is hidden there (messagesOn; QR-04).
+  const messages = messagesOn(mode);
+  const [photoUrl, preferences, blocked] = await Promise.all([
+    member.photo_id ? currentPhotoUrl(member.id, "full") : Promise.resolve(null),
+    flags.notifications ? getNotificationPreferences(member, mode) : Promise.resolve(null),
+    messages ? blockedCount(member.id) : Promise.resolve(null),
+  ]);
+  const settingsRows = buildSettingsRows({ ...flags, messages }, {
+    notifications: preferences ? notificationSummary(preferences, mode) : null,
+    payments: null,
+    blocked,
+  });
+
   return {
     firstName: firstNameOf(member.full_name),
-    photoUrl: member.avatar_url,
+    photoUrl,
     details: { fullName: member.full_name, email: member.email, phone: displayPhone(member.phone) },
     memberSince: memberSince(member.created_at),
     membership,
-    settingsRows: settingsRowsFor(flags, mode),
+    settingsRows,
     changePhotoHref: flags.photoGate ? ROUTES.youPhoto : null,
     legal: legalLines(new Date().getFullYear()),
     signOut: signOutMember,

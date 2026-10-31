@@ -16,6 +16,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import { loadEmails, REPO } from './load-emails.mjs';
+import { designOf, toDrawnWords } from './design-sources.mjs';
 
 const requireStack = createRequire('/home/claude/stack/tools/');
 const { chromium } = requireStack('playwright');
@@ -25,6 +26,8 @@ const DESIGN = '/home/claude/rebrand/v4/out';
 const FONTS = '<link rel="stylesheet" href="file:///home/claude/rebrand/ref/fonts-local.css">';
 const SITE = 'https://clubyuppie.com';
 const WIDTHS = [320, 390, 640];
+// Only these emails (and the Supabase templates when 'auth' is listed): SHOOT_ONLY=plan-changed,new-message
+const ONLY = (process.env.SHOOT_ONLY || '').split(',').map((x) => x.trim()).filter(Boolean);
 fs.mkdirSync(OUT, { recursive: true });
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'email-html-'));
 
@@ -35,15 +38,20 @@ const supabase = await loadEmails('supabase.ts');
 // Files to shoot: [key, html, designFile|null]
 const jobs = [];
 for (const name of emails.EMAIL_NAMES) {
+  if (ONLY.length && !ONLY.includes(name)) continue;
   for (const fx of EMAIL_FIXTURES[name]) {
     // notificationsLink on, as drawn, so the design example matches the design file.
     const r = emails.renderEmailWith(name, fx.data, { site: SITE, notificationsLink: true });
-    const design = fx.id === 'design' && name !== 'event-reminder' ? path.join(DESIGN, `r2c-send-${name}.html`) : null;
-    jobs.push({ key: `${name}--${fx.id}`, html: r.html, design });
+    const d = designOf(name);
+    // The round 3 emails (event, plan reminder, chat nudge) are in the older shell: no file to compare pixels with.
+    const design = fx.id === 'design' && d.kind === 'send' ? d.html : null;
+    // The comparison puts the design example's own words back (design-sources.mjs); the shots keep ours.
+    const cmp = design ? toDrawnWords(name, r.html) : null;
+    jobs.push({ key: `${name}--${fx.id}`, html: r.html, design, cmp: cmp !== r.html ? cmp : null });
   }
 }
 const AUTH = { magic_link: 'login-code', email_change: 'email-change-code', recovery: 'admin-password-reset' };
-for (const t of supabase.SUPABASE_TEMPLATE_NAMES) {
+for (const t of ONLY.length && !ONLY.includes('auth') ? [] : supabase.SUPABASE_TEMPLATE_NAMES) {
   const fill = (s) => s.replaceAll('{{ .Token }}', '482913').replaceAll('{{ .Email }}', 'sam@example.com')
     .replaceAll('{{ .NewEmail }}', 'sam.new@example.com').replaceAll('{{ .SiteURL }}', SITE).replaceAll('{{ .TokenHash }}', 'd41d8cd9');
   const html = fill(fs.readFileSync(path.join(REPO, 'supabase/templates', `${t}.html`), 'utf8'));
@@ -103,6 +111,7 @@ let shots = 0;
 for (const job of jobs) {
   const mine = toFile(job.key, job.html);
   const theirs = job.design ? toFile(`design-${job.key}`, fs.readFileSync(job.design, 'utf8')) : null;
+  const mineCmp = job.cmp ? toFile(`cmp-${job.key}`, job.cmp) : null;
   for (const dark of [false, true]) {
     for (const w of WIDTHS) {
       const tag = `${job.key}-${w}${dark ? '-dark' : ''}`;
@@ -115,8 +124,12 @@ for (const job of jobs) {
       if (m.minFont < 13) failures.push(`${tag}: type at ${m.minFont}px, under 13`);
       if (theirs) {
         const d = await shoot(theirs, w, dark, path.join(OUT, `${tag}--design.png`));
-        if (!png.equals(d.png)) failures.push(`${tag}: pixels differ from the design file ${path.basename(job.design)}`);
-        else fs.rmSync(path.join(OUT, `${tag}--design.png`));
+        const ours = mineCmp ? (await shoot(mineCmp, w, dark, path.join(OUT, `${tag}--cmp.png`))).png : png;
+        if (!ours.equals(d.png)) failures.push(`${tag}: pixels differ from the design file ${path.basename(job.design)}`);
+        else {
+          fs.rmSync(path.join(OUT, `${tag}--design.png`));
+          if (mineCmp) fs.rmSync(path.join(OUT, `${tag}--cmp.png`));
+        }
       }
     }
   }

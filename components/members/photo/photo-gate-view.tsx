@@ -5,17 +5,18 @@
 // good?", save, "Your photo is on". Drawn from the approved design (specs/
 // photo.md section 1); one DOM for the web phone, the app and the computer.
 //
-// REAL: choosing a file (camera hint in the app, drag and drop on a
-// computer), every check (not a photo, too big, too small, can't open it),
-// the circle crop with a JPEG export, the save through the existing
-// updateAvatar action, the failed-upload retry that keeps the photo and the
-// crop, the success screen, Log out.
-// DRAWN, NOT WIRED (needs backend or the native app; the page never reaches
-// them): "The camera is off for Club Yuppie" (a web view cannot tell that the
-// camera was refused), the soft face check ("This doesn't look like a photo
-// of you"), "We removed your last photo" (the admin queue) and the line for
-// existing members (a per-member "needs photo" flag). `demo` draws them in the
-// preview only.
+// REAL: choosing a file (the camera pre-prompt then the camera hint in the
+// app, drag and drop on a computer), every check (not a photo, too big, too
+// small, can't open it; the server checks again and its answer shows as the
+// same error), the circle crop with a JPEG export, the soft face check (the
+// browser's FaceDetector where it exists: "This doesn't look like a photo of
+// you", Use it anyway), the save into the private bucket (uploadMyPhoto), the
+// failed-upload retry that keeps the photo and the crop, the success screen,
+// Log out, "We removed your last photo" with the reason the admin picked, and
+// the line for existing members (`gate`, from photoGateState on the server).
+// DRAWN, NOT WIRED: "The camera is off for Club Yuppie" (a web view cannot
+// tell that the camera was refused). `demo` draws it, and every other state,
+// in the preview only.
 
 import "@/components/members/you/you.css";
 import "./photo.css";
@@ -37,6 +38,24 @@ import { usePhotoFlow, type UploadResult } from "./use-photo-flow";
 
 export type GateScreen = "start" | "camera-ask" | "camera-off" | "crop" | "preview" | "saving" | "failed" | "noface" | "saved";
 
+/** Why the club removed the last photo (the admin's reason; lib/emails PhotoRemovedReason). */
+export type PhotoRemovedReason = "not_clear" | "not_member" | "not_suitable";
+
+/** The removed notice's second line, per reason. The design draws "not_clear"; the other two follow its pattern. */
+const REMOVED_LINES: Record<PhotoRemovedReason, string> = {
+  not_clear: "It wasn’t a clear photo of you. Please add a new one.",
+  not_member: "It wasn’t a photo of you. Please add a new one.",
+  not_suitable: "It wasn’t suitable for the club. Please add a new one.",
+};
+
+/** What the server knows about this member at the gate (photoGateState). */
+export type GateInfo = {
+  /** The club removed their last photo, for this reason. */
+  removed: PhotoRemovedReason | null;
+  /** A member from before the photo gate who has never had a photo. */
+  existing: boolean;
+};
+
 export type GateDemo = {
   screen?: GateScreen;
   error?: PhotoErrorKind;
@@ -47,6 +66,7 @@ export type GateDemo = {
   previewUrl?: string;
   savedUrl?: string;
   notice?: "removed";
+  reason?: PhotoRemovedReason;
   variant?: "existing";
 };
 
@@ -67,6 +87,8 @@ export function PhotoGateView({
   continueHref,
   upload,
   signOut,
+  gate,
+  neverPublic = false,
   demo,
 }: {
   mode: ShellMode;
@@ -75,18 +97,24 @@ export function PhotoGateView({
   hasPhoto: boolean;
   /** Where Continue goes: Open Invite, or Events while Open Invite is off. */
   continueHref: string;
-  /** updateAvatar. */
+  /** uploadMyPhoto (the private bucket, with the face check). */
   upload: (formData: FormData) => Promise<UploadResult>;
   signOut: () => void | Promise<void>;
+  /** The removed notice and the existing-member line (the server's photoGateState). */
+  gate?: GateInfo;
+  /** "It’s never public." may be said (MEMBERS_PHOTOS_PRIVATE_DONE=on: the old public copies are deleted). The preview draws the design's line. */
+  neverPublic?: boolean;
   demo?: GateDemo;
 }) {
   const router = useRouter();
   const isApp = mode === "app";
 
-  const flowStep = (["start", "crop", "preview", "saving", "failed", "saved"] as const).find((step) => step === demo?.screen);
+  const flowStep = (["start", "crop", "preview", "noface", "saving", "failed", "saved"] as const).find((step) => step === demo?.screen);
   const flow = usePhotoFlow({
     upload,
     review: true,
+    // The preview draws the warning as a state; it never looks for a face itself.
+    ...(demo ? { faceCheck: null } : {}),
     initial: {
       step: flowStep,
       source: demo?.source,
@@ -97,9 +125,9 @@ export function PhotoGateView({
     },
   });
   // Screens the flow does not own: the camera pre-prompt (real, app only) and
-  // the two drawn-only ones.
-  const [aside, setAside] = useState<"camera-ask" | "camera-off" | "noface" | null>(
-    demo?.screen === "camera-ask" || demo?.screen === "camera-off" || demo?.screen === "noface" ? demo.screen : null,
+  // the drawn-only "camera is off".
+  const [aside, setAside] = useState<"camera-ask" | "camera-off" | null>(
+    demo?.screen === "camera-ask" || demo?.screen === "camera-off" ? demo.screen : null,
   );
   const [over, setOver] = useState(Boolean(demo?.over));
 
@@ -273,7 +301,7 @@ export function PhotoGateView({
     const sizes = <SizesCard photoUrl={flow.previewUrl} name={firstName} />;
 
     if (screen === "noface") {
-      // Drawn only: there is no face check on the server yet. It warns and never blocks.
+      // The browser found no face in the crop. It warns and never blocks: Use it anyway saves it for the admin queue.
       return (
         <>
           {inputs}
@@ -296,7 +324,7 @@ export function PhotoGateView({
                 <Button block onClick={() => flow.pick("library")}>
                   Choose another
                 </Button>
-                <Button variant="outline" block>
+                <Button variant="outline" block onClick={() => void flow.saveAnyway()}>
                   Use it anyway
                 </Button>
               </>
@@ -341,6 +369,9 @@ export function PhotoGateView({
     }
 
     if (screen === "failed") {
+      // A failed upload keeps the photo and the crop (Try again). A photo the server turned down for a rule
+      // (type, size, width) cannot be tried again: Choose another is the way on.
+      const kind = flow.error ?? "upload";
       return (
         <>
           {inputs}
@@ -353,18 +384,24 @@ export function PhotoGateView({
             stage={
               <>
                 {sizes}
-                <PhotoError kind="upload" />
+                <PhotoError kind={kind} />
               </>
             }
             req={false}
-            pair
+            pair={kind === "upload"}
             acts={
-              <>
-                <Button block onClick={() => void flow.saveNow()}>
-                  Try again
+              kind === "upload" ? (
+                <>
+                  <Button block onClick={() => void flow.saveNow()}>
+                    Try again
+                  </Button>
+                  {chooseAnother}
+                </>
+              ) : (
+                <Button block onClick={() => flow.pick("library")}>
+                  Choose another
                 </Button>
-                {chooseAnother}
-              </>
+              )
             }
           />
         </>
@@ -436,12 +473,14 @@ export function PhotoGateView({
   }
 
   // ------------------------------------------------------------ start
-  const removed = demo?.notice === "removed";
+  const removedReason: PhotoRemovedReason | null = demo ? (demo.notice === "removed" ? (demo.reason ?? "not_clear") : null) : (gate?.removed ?? null);
+  const removed = removedReason !== null;
+  const existing = demo ? demo.variant === "existing" : Boolean(gate?.existing);
   const error = flow.error ? <PhotoError kind={flow.error} /> : null;
   const below = (
     <div className="ph-below">
       {error || removed ? null : <Tips />}
-      <PrivacyNote />
+      <PrivacyNote neverPublic={demo ? true : neverPublic} />
     </div>
   );
   const ring = (
@@ -534,10 +573,10 @@ export function PhotoGateView({
             Add your<br className="ph-br" /> photo.
           </>
         }
-        sub={demo?.variant === "existing" ? "Every member has one now, so people know who they’re meeting." : "So people know who they’re meeting."}
+        sub={existing ? "Every member has one now, so people know who they’re meeting." : "So people know who they’re meeting."}
         wordsExtra={
           <>
-            {removed ? <NoteBox top title="We removed your last photo." text="It wasn’t a clear photo of you. Please add a new one." /> : null}
+            {removedReason ? <NoteBox top title="We removed your last photo." text={REMOVED_LINES[removedReason]} /> : null}
             {below}
           </>
         }

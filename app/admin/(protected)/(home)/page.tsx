@@ -2,14 +2,16 @@ import { requireAdmin } from "@/app/admin/require-admin";
 import Link from "next/link";
 
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
+import { queueCounts } from "@/app/admin/queue-counts";
 import { EmptyCard } from "@/components/admin/empty-card";
 import { dateParts, dayDate, namesList, time24, waitedWords } from "@/components/admin/format";
 import { AdminMain, DateCol, PageHead, Pill } from "@/components/admin/ui";
 import { Icon } from "@/components/admin/icons";
 
-// Dashboard (r2b 14): what needs you today. Applications waiting and payment problems (the applications whose
-// card failed or whose account is half made) are the queues Phase A has; Reports, Photos and Payments are
-// Phase B (B-D22) and join this card then. Under it, the next three events and the old counts as links.
+// Dashboard (r2b 14): what needs you today. Applications waiting, payment problems (the applications whose card
+// failed or whose account is half made), reports to review and photos to check; Payments to look at waits for
+// paid plans (stage 3). The oldest queue gets the ink button. Under it, the next three events and the old counts
+// as links.
 
 type PendingRow = { id: string; full_name: string | null; email: string; created_at: string; payment_error: string | null };
 type EventRow = { id: string; title: string; start_time: string; location: string | null; capacity: number | null };
@@ -23,7 +25,8 @@ export default async function AdminDashboardPage() {
   const nowIso = now.toISOString();
   const weekAgo = new Date(now.getTime() - 7 * 86400000).toISOString();
 
-  const [pending, events, members, cancelled, lapsedCancel, lapsedGrace, allApps, weekApps] = await Promise.all([
+  const [queues, pending, events, members, cancelled, lapsedCancel, lapsedGrace, allApps, weekApps] = await Promise.all([
+    queueCounts(),
     db.from("applications").select("id, full_name, email, created_at, payment_error").eq("status", "pending").order("created_at", { ascending: true }),
     db.from("events").select("id, title, start_time, location, capacity").is("cancelled_at", null).gte("start_time", nowIso).order("start_time", { ascending: true }).limit(3),
     db.from("members").select("*", { count: "exact", head: true }).is("deleted_at", null),
@@ -93,6 +96,32 @@ export default async function AdminDashboardPage() {
       oldest: problems[0].created_at,
     });
   }
+  const hoursSince = (iso: string) => Math.floor((now.getTime() - new Date(iso).getTime()) / 3600000);
+  const hoursWords = (h: number) => (h < 1 ? "under an hour" : h === 1 ? "1 hour" : `${h} hours`);
+  if (queues.reports) {
+    const h = queues.oldestReportAt ? hoursSince(queues.oldestReportAt) : 0;
+    needs.push({
+      key: "reports",
+      num: queues.reports,
+      head: "Reports to review",
+      sub: `Oldest open ${hoursWords(h)}. Aim to reply within 24.`,
+      label: "Review reports",
+      href: "/admin/reports",
+      oldest: queues.oldestReportAt ?? nowIso,
+    });
+  }
+  if (queues.photos) {
+    const h = queues.oldestPhotoAt ? hoursSince(queues.oldestPhotoAt) : null;
+    needs.push({
+      key: "photos",
+      num: queues.photos,
+      head: "Photos to check",
+      sub: h === null ? "A member reported a photo" : `Oldest waiting ${hoursWords(h)}`,
+      label: "Check photos",
+      href: "/admin/photos",
+      oldest: queues.oldestPhotoAt ?? nowIso,
+    });
+  }
   const oldestKey = needs.reduce<Need | null>((best, n) => (!best || n.oldest < best.oldest ? n : best), null)?.key;
 
   const lapsed = (cancelled.count ?? 0) + (lapsedCancel.count ?? 0) + (lapsedGrace.count ?? 0);
@@ -114,7 +143,7 @@ export default async function AdminDashboardPage() {
             b="clear."
             when={today}
             line="Nothing needs you today."
-            sub="New applications and payment problems show up here."
+            sub="New applications, reports, photos and payment problems show up here."
             art="coupes"
           />
         ) : (

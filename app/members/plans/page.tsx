@@ -1,14 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireMember } from "@/app/members/require-member";
 import { PlansView } from "@/components/members/plans/plans-view";
-import { flags } from "@/lib/members/flags";
+import { flags, openInviteOn } from "@/lib/members/flags";
 import { listClubEventPlans } from "@/lib/members/plans/club-events";
-import type { PlansWhen } from "@/lib/members/plans/types";
+import type { Plan, PlansWhen } from "@/lib/members/plans/types";
+import { detectShellMode } from "@/lib/members/shell-mode";
+import { openInvitePlanRows } from "@/lib/server/plans";
 
-// Your plans: the club events the member has booked, upcoming or past
-// (?when=past). Real data. The Open Invite rows join the list when the Open
-// Invite backend exists (lib/members/plans/types.ts has the row type); until
-// then, with the flag on or off, the list is club events.
+// Your plans: the club events the member has booked and, with Open Invite on (in this shell), the Open Invites
+// they host or are going to (stage 2 brief 2.1: "Your plans including Open Invite plans"), upcoming or past
+// (?when=past). Real data, in date order (upcoming soonest first, past newest first).
 export default async function MembersPlansPage({
   searchParams,
 }: {
@@ -18,8 +19,15 @@ export default async function MembersPlansPage({
   const when: PlansWhen = whenParam === "past" ? "past" : "upcoming";
 
   const member = await requireMember();
+  const mode = await detectShellMode();
+  const showInvites = openInviteOn(mode);
   const supabase = await createClient();
-  const plans = await listClubEventPlans(supabase, member.id, when);
+  const [events, invites] = await Promise.all([
+    listClubEventPlans(supabase, member.id, when),
+    showInvites ? openInvitePlanRows(member.id, when) : Promise.resolve([]),
+  ]);
+  const at = (plan: Plan) => new Date(plan.startsAt).getTime();
+  const plans: Plan[] = [...events, ...invites].sort((a, b) => (when === "upcoming" ? at(a) - at(b) : at(b) - at(a)));
 
-  return <PlansView plans={plans} when={when} openInvite={flags.openInvite} />;
+  return <PlansView plans={plans} when={when} openInvite={showInvites && flags.openInvite} />;
 }

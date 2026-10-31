@@ -1,27 +1,16 @@
 import { BlockedView } from "@/components/members/messages/blocked-view";
-import { requireFlag } from "@/lib/members/flags";
-import { ExampleScope } from "@/components/members/kit";
-import { assertMockAllowed } from "@/lib/members/mock/guard";
-import { listBlockedMembers } from "@/lib/members/mock/messages";
-import type { BlockedMember } from "@/lib/members/messages/types";
+import { listBlockedMembers } from "@/lib/server/blocks";
+import { requireMessages } from "../../messages/guard";
 import { requireMember } from "../../require-member";
+import { unblockMember } from "./actions";
 
-// Blocked members. Switched off (flag `messages`, the block itself is made in a
-// chat) and running on the example-data adapter until the backend exists.
+// You > Blocked members, real data (lib/server/blocks.ts listBlockedMembers: first name, the photo while you still
+// share a chat or a plan, the date). Hidden with Messages (requireMessages: in the app while Open Invite is hidden).
+// Unblock is ./actions.ts (asks first; the row goes once the server says so). A list that cannot load goes to the
+// error page rather than reading as "No one blocked." (the design has no error state for this page).
 export default async function BlockedMembersPage() {
-  requireFlag("messages");
-  assertMockAllowed();
-  await requireMember();
-  let members: BlockedMember[] = [];
-  try {
-    members = await listBlockedMembers();
-  } catch {
-    // A list that cannot load reads as empty here; the backend's page owns the error state.
-    members = [];
-  }
-  return (
-    <ExampleScope>
-      <BlockedView members={members} />
-    </ExampleScope>
-  );
+  await requireMessages();
+  const member = await requireMember();
+  const members = await listBlockedMembers(member.id);
+  return <BlockedView members={members} unblock={unblockMember} />;
 }

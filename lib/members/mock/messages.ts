@@ -1,17 +1,17 @@
-// EXAMPLE DATA: invented people and places. A 404 on the live site unless MEMBERS_SHOW_EXAMPLES=on is set there (guard.ts), and then every screen that uses it says it is an example (kit/example-note.tsx).
+// EXAMPLE DATA: invented people and places, for the preview harness only (app/dev-preview/registry/messages.tsx).
+// No members page reads this file any more: Messages, Updates and Blocked members run on the server
+// (lib/server/chats.ts, updates.ts, blocks.ts; app/members/messages/actions.ts), so there is no example adapter
+// and no assertMockAllowed for them.
 //
-// The fake adapter for Messages, Updates, Blocked members and the
-// notification settings. It returns exactly the types in
-// lib/members/messages/types.ts, from the shared example content of the
-// approved designs (v3 CONTENT.md and CONTENT3.md): Sam is the signed-in
-// member; Jasmin, Priya, Tom, Marcus, Aisha, Dan, Chloe and Ollie are
-// invented. Only "Psycle, Oxford Circus" is a real venue (approved for the
-// public site); every other place is a placeholder. The example clock is Fri 23
-// Oct 2026, 10:41 (London). Nothing is stored: every change a member makes on
-// the screens (send, report, block, leave, mute, a switch) is client state.
+// The fixtures for Messages, Updates, Blocked members and the notification
+// settings, in exactly the types in lib/members/messages/types.ts, from the
+// shared example content of the approved designs (v3 CONTENT.md and
+// CONTENT3.md): Sam is the signed-in member; Jasmin, Priya, Tom, Marcus, Aisha,
+// Dan, Chloe and Ollie are invented. Only "Psycle, Oxford Circus" is a real
+// venue (approved for the public site); every other place is a placeholder. The
+// example clock is Fri 23 Oct 2026, 10:41 (London).
 
 import { examplePhoto, type ExamplePhotoKey } from "./example-photos";
-import { findInviteByThreadId } from "./open-invite";
 import type {
   BlockedMember,
   Chat,
@@ -579,102 +579,6 @@ export const EXAMPLE_PREFERENCES_VARIANTS = {
     textCheck: "verified",
   } satisfies NotificationPreferences,
 };
-
-// ---------------------------------------------------------------------------
-// The adapter (what the pages call; the backend will replace each function)
-
-export async function listChats(): Promise<Chat[]> {
-  return EXAMPLE_CHATS;
-}
-
-// ---------------------------------------------------------------------------
-// The Open Invite hand-over. The invite example data (mock/open-invite.ts)
-// names its chats its own way ("chat-saturday-class", "ask-sunday-walk"), and
-// plan pages link here with messageThreadHref(). Each id opens the matching
-// example thread above where there is one, else a thread built from the plan
-// itself, so a link on an invite never lands on a 404 in a preview.
-
-const INVITE_CHAT_ALIASES: Record<string, string> = {
-  "chat-saturday-class": "c-brunch",
-  "chat-climbing-pint": "c-climbing",
-  "chat-comedy-night": "c-comedy",
-  "chat-saturday-spin": "c-spin",
-  "ask-padel-pizza": "c-tom-new",
-};
-
-const toRef = (m: { id: string; firstName: string; photoUrl: string | null }): MemberRef => ({
-  id: m.id,
-  firstName: m.firstName,
-  photoUrl: m.photoUrl,
-});
-
-function threadFromInvite(chatId: string): ChatThread | null {
-  const hit = findInviteByThreadId(chatId);
-  if (!hit) return null;
-  const { invite, kind, from, text: asked } = hit;
-  const host = toRef(invite.host);
-  const listed = invite.going.map(toRef);
-  // Opening a plan chat means Sam is in (or hosts): the plan page's local demo adds Sam only on screen.
-  const going = kind === "plan" && host.id !== SAM.id && !listed.some((m) => m.id === SAM.id) ? [...listed, SAM] : listed;
-  const status = invite.status === "cancelled" ? "cancelled" : invite.status === "finished" ? "finished" : "open";
-  const plan: ChatPlan = {
-    id: invite.id,
-    title: invite.title,
-    startsAt: invite.startsAt,
-    place: invite.where,
-    host,
-    going,
-    placesLeft: Math.max(0, invite.places - going.length),
-    priceMinor: invite.cost?.pricePence ?? null,
-    status,
-  };
-  const other = kind === "plan" ? null : kind === "ask" ? host : from ? toRef(from) : null;
-  const participants =
-    kind === "plan"
-      ? [host, ...going.filter((m) => m.id !== host.id)].map((m) => participant(m, m.id === host.id ? "host" : "member"))
-      : [participant(host, "host"), participant(kind === "ask" ? SAM : (other ?? SAM), "member")];
-  const closed = status !== "open";
-  const chat: Chat = {
-    id: chatId,
-    kind: kind === "plan" ? "plan" : "question",
-    plan,
-    other,
-    participants,
-    status: closed ? "closed" : "open",
-    closedReason: closed ? (status === "cancelled" ? "host_cancelled" : "plan_finished") : null,
-    muted: false,
-    unreadCount: kind === "question" ? 1 : 0,
-    lastMessage: null,
-    lastActivityAt: "2026-10-23T10:32:00+01:00",
-  };
-  const items: ChatItem[] =
-    kind === "plan"
-      ? [system(chatId, 1, "opened", host, "2026-10-21T18:00:00+01:00")]
-      : kind === "question" && other && asked
-        ? [text(chatId, 1, other, asked, "2026-10-23T10:20:00+01:00")]
-        : [];
-  return thread(chat, items, kind === "question" ? `${chatId}-m1` : null);
-}
-
-export async function getThread(chatId: string): Promise<ChatThread | null> {
-  return EXAMPLE_THREADS[INVITE_CHAT_ALIASES[chatId] ?? chatId] ?? threadFromInvite(chatId);
-}
-
-export async function listUpdates(): Promise<UpdateItem[]> {
-  return EXAMPLE_UPDATES;
-}
-
-export async function getUnreadCounts(): Promise<UnreadCounts> {
-  return EXAMPLE_UNREAD;
-}
-
-export async function listBlockedMembers(): Promise<BlockedMember[]> {
-  return EXAMPLE_BLOCKED;
-}
-
-export async function getNotificationPreferences(mode: "web" | "app"): Promise<NotificationPreferences> {
-  return mode === "app" ? EXAMPLE_PREFERENCES_APP : EXAMPLE_PREFERENCES_WEB;
-}
 
 /** The signed-in member of the example data. */
 export const EXAMPLE_YOU = SAM;

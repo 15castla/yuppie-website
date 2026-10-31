@@ -5,10 +5,20 @@
 // stream scrolls inside it, the composer is docked at the foot); from 768px it
 // is a pale card in the page, and from 1024px it sits beside the inbox.
 //
-// All local state, no backend: a sent message goes through "Sending…" and
-// lands (or, with the browser offline, "Not sent" with Retry and Delete);
-// mute, block and the report steps change only this view. Phone numbers go
-// through; a link is refused before send with the designed line.
+// Real data (app/members/messages/[chatId]/actions.ts and ../actions.ts):
+//   - a sent message shows "Sending…" at once and lands when the server has it,
+//     or shows "Not sent" with Retry and Delete (the same client id, so a retry
+//     never posts twice). A refusal says why above the input: the link line,
+//     "Slow down a moment." (the rate limit), and the rest in the server's words;
+//   - polling, not sockets: while the thread is on screen it asks the server
+//     again every few seconds (and marks it read). Only the stream changes:
+//     the draft, the focus and the scroll position are never touched, so a new
+//     message never interrupts typing;
+//   - the "N new messages" divider stays where it was when the chat opened;
+//   - mute, block, report, leave and the safety note go to the server; block,
+//     report and leave wait for its answer in their sheet or dialog.
+// `local` (the preview harness) keeps everything on this screen: a send settles
+// after a moment and nothing is asked of the server.
 //
 // Interaction model (needs_device_check where a real phone matters):
 //   - a long press (or a right click, or Enter on a focused bubble) lifts the
@@ -34,15 +44,26 @@ import {
   type ReactNode,
 } from "react";
 
-import { Avatar, Button, ExampleNote, Icon } from "@/components/members/kit";
+import {
+  getThread as fetchThread,
+  leaveChat,
+  markSafetyNoteSeen,
+  sendMessage,
+  setChatMuted,
+} from "@/app/members/messages/[chatId]/actions";
+import { blockMember, sendReport } from "@/app/members/messages/actions";
+import { Avatar, Button, Icon } from "@/components/members/kit";
+import { announceUnreadChanged } from "@/components/members/shell/use-unread";
+import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 import { containsLink } from "@/lib/members/messages/link-check";
 import { SELECT_BANNER, closedNote } from "@/lib/members/messages/thread-copy";
-import { buildRows, groupTime, type GroupMessage, type StreamRow } from "@/lib/members/messages/thread-model";
-import type { ChatMessage, ChatThread, OutgoingMessage } from "@/lib/members/messages/types";
-import { ROUTES } from "@/lib/members/routes";
+import { buildRows, groupTime, memberOf, type GroupMessage, type StreamRow } from "@/lib/members/messages/thread-model";
+import type { ChatMessage, ChatThread, OutgoingMessage, ReportDraft } from "@/lib/members/messages/types";
+import { ROUTES, messageThreadHref } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import "./messages.css";
 import type { Overlay, ThreadPreview } from "./overlay-types";
+import { shownBefore } from "./shown";
 import { ThreadOverlays } from "./thread-overlays";
 import {
   Bubble,
@@ -56,7 +77,14 @@ import {
   SystemLine,
   ThreadHeader,
   ThreadPin,
+  type ComposerNotice,
 } from "./thread-parts";
+import { useTwoPanes } from "./use-wide";
+
+/** How often an open thread asks the server again. */
+const POLL_MS = 3000;
+/** What a failure the member cannot act on says (the foundation's words, app/members/action-kit.ts). */
+const TRY_AGAIN = "That didn’t go through. Try again in a moment.";
 
 // ---- what you have written on this device ---------------------------------------------------------
 
@@ -65,6 +93,8 @@ type LocalAction =
   | { type: "queue"; message: OutgoingMessage }
   | { type: "retry"; clientId: string }
   | { type: "delete"; clientId: string }
+  | { type: "fail"; clientId: string }
+  | { type: "delivered"; clientId: string; message: ChatMessage }
   | { type: "settle"; clientId: string; online: boolean; sentAt: string; chatId: string; senderId: string };
 
 function localReducer(state: Local, action: LocalAction): Local {
@@ -78,31 +108,43 @@ function localReducer(state: Local, action: LocalAction): Local {
       };
     case "delete":
       return { ...state, outgoing: state.outgoing.filter((m) => m.clientId !== action.clientId) };
-    case "settle": {
-      const pending = state.outgoing.find((m) => m.clientId === action.clientId);
-      if (!pending) return state;
-      if (!action.online) {
-        return {
-          ...state,
-          outgoing: state.outgoing.map((m) => (m.clientId === action.clientId ? { ...m, state: "failed" } : m)),
-        };
-      }
-      const delivered: ChatMessage = {
-        kind: "text",
-        id: `local-${action.clientId}`,
-        clientId: action.clientId,
-        chatId: action.chatId,
-        senderId: action.senderId,
-        text: pending.text,
-        sentAt: action.sentAt,
-        status: "visible",
+    case "fail":
+      return {
+        ...state,
+        outgoing: state.outgoing.map((m) => (m.clientId === action.clientId ? { ...m, state: "failed" } : m)),
       };
+    case "delivered":
       return {
         outgoing: state.outgoing.filter((m) => m.clientId !== action.clientId),
-        sent: [...state.sent, delivered],
+        sent: state.sent.some((m) => m.id === action.message.id) ? state.sent : [...state.sent, action.message],
       };
+    case "settle": {
+      // The preview harness only: no server, so the message lands here (or fails with the browser offline).
+      const pending = state.outgoing.find((m) => m.clientId === action.clientId);
+      if (!pending) return state;
+      if (!action.online) return localReducer(state, { type: "fail", clientId: action.clientId });
+      return localReducer(state, {
+        type: "delivered",
+        clientId: action.clientId,
+        message: {
+          kind: "text",
+          id: `local-${action.clientId}`,
+          clientId: action.clientId,
+          chatId: action.chatId,
+          senderId: action.senderId,
+          text: pending.text,
+          sentAt: action.sentAt,
+          status: "visible",
+        },
+      });
     }
   }
+}
+
+/** A client id the server accepts (letters, digits, - and _, up to 64): a retry sends the same one. */
+function newClientId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return crypto.randomUUID();
+  return `c-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
 const INPUT_MAX_HEIGHT = 113.4;
@@ -112,21 +154,51 @@ export function ThreadView({
   now,
   youId,
   preview,
+  local = false,
+  beside = false,
 }: {
   thread: ChatThread;
-  /** The clock the times are read against (the example clock in the preview). */
+  /** The clock the times are read against (the server's when the page was drawn; the example clock in the preview). */
   now: string;
   youId: string;
   /** Preview only: start in a state that is otherwise transient (see overlay-types). */
   preview?: ThreadPreview;
+  /** Preview harness only: nothing goes to the server; a send settles on this screen. */
+  local?: boolean;
+  /** Drawn beside the inbox (the inbox page): only on screen from 1024px, so it reads and polls only then. */
+  beside?: boolean;
 }) {
-  const { chat } = thread;
   const router = useRouter();
+  const twoPanes = useTwoPanes();
+  const onScreen = !beside || twoPanes;
+  const live = !local;
+
+  // The thread as the server last gave it. A new one from the page (a refresh, or a question that has just
+  // been asked: the page keeps this view mounted) replaces it.
+  const [base, setBase] = useState(thread);
+  const [propThread, setPropThread] = useState(thread);
+  if (thread !== propThread) {
+    setPropThread(thread);
+    setBase(thread);
+  }
+  const { chat } = base;
   const closed = chat.status === "closed";
+  const chatIdRef = useRef(thread.chat.id);
+  useEffect(() => {
+    chatIdRef.current = base.chat.id;
+  }, [base.chat.id]);
+
+  // "N new messages": where the divider was when the chat opened. Polls read the chat as they go, so the
+  // server's own marker moves on; the divider does not.
+  const [divider] = useState(() =>
+    thread.firstUnreadId && thread.chat.unreadCount > 0 ? { id: thread.firstUnreadId, count: thread.chat.unreadCount } : null,
+  );
+  const [clock, setClock] = useState(now);
 
   const [overlay, setOverlay] = useState<Overlay>(preview?.overlay ?? { kind: "none" });
   const [draft, setDraft] = useState(preview?.draft ?? "");
-  const [local, dispatch] = useReducer(localReducer, {
+  const [notice, setNotice] = useState<ComposerNotice | null>(preview?.notice ?? null);
+  const [here, dispatch] = useReducer(localReducer, {
     outgoing: (preview?.outgoing ?? []).map((m) => ({ ...m })),
     sent: [],
   });
@@ -145,34 +217,49 @@ export function ThreadView({
   const lastBubbleRef = useRef<HTMLElement | null>(null);
   const fromBubbleRef = useRef(false);
   const timersRef = useRef<number[]>([]);
-  const counterRef = useRef(0);
   const startedRef = useRef<{ wall: number } | null>(null);
+  const textsRef = useRef<Map<string, string>>(new Map());
 
   const link = containsLink(draft);
   const canSend = draft.trim().length > 0 && !link;
 
+  // What the server has, plus what you sent here that a poll has not brought back yet. A message still on its
+  // way that a poll already returned (the poll won the race) is drawn once, from the server.
+  // A question's own intro block says who it is with, so its "opened" line is not drawn (as designed).
+  const items = useMemo(() => {
+    const known = new Set(base.items.map((item) => item.id));
+    const shown = base.chat.kind === "question" ? base.items.filter((item) => !(item.kind === "system" && item.event === "opened")) : base.items;
+    return [...shown, ...here.sent.filter((message) => !known.has(message.id))];
+  }, [base.items, base.chat.kind, here.sent]);
+  const outgoing = useMemo(() => {
+    const landed = new Set(
+      base.items.filter((item) => item.kind === "text" && item.senderId === youId).map((item) => (item as ChatMessage).clientId),
+    );
+    return here.outgoing.filter((message) => !landed.has(message.clientId));
+  }, [base.items, here.outgoing, youId]);
+
   const rows = useMemo(
     () =>
       buildRows({
-        chat,
-        items: thread.items,
-        sentHere: local.sent,
-        outgoing: local.outgoing,
+        // The divider's count is the one from when the chat opened.
+        chat: { ...chat, unreadCount: divider?.count ?? 0 },
+        items,
+        sentHere: [],
+        outgoing,
         blockedIds,
-        firstUnreadId: thread.firstUnreadId,
+        firstUnreadId: divider?.id ?? null,
         youId,
-        now,
+        now: clock,
       }),
-    [chat, thread.items, thread.firstUnreadId, local, blockedIds, youId, now],
+    [chat, items, outgoing, blockedIds, divider, youId, clock],
   );
 
   const messageById = useCallback(
-    (id: string) =>
-      [...thread.items, ...local.sent].find((item): item is ChatMessage => item.kind === "text" && item.id === id) ?? null,
-    [thread.items, local.sent],
+    (id: string) => items.find((item): item is ChatMessage => item.kind === "text" && item.id === id) ?? null,
+    [items],
   );
 
-  // ---- the clock: the example clock, advancing from when the page opened -------------------------
+  // ---- the clock: the page's clock, advancing from when the page opened --------------------------
   useEffect(() => {
     startedRef.current = { wall: Date.now() };
     const timers = timersRef.current;
@@ -184,6 +271,82 @@ export function ThreadView({
     const started = startedRef.current?.wall ?? Date.now();
     return new Date(Date.parse(now) + (Date.now() - started)).toISOString();
   }, [now]);
+
+  // ---- polling: the thread again every few seconds while it is on screen ---------------------------
+  // Messages from others that arrive are announced (politely) for a screen reader.
+  useEffect(() => {
+    const map = textsRef.current;
+    for (const item of base.items) if (item.kind === "text") map.set(item.id, item.senderId);
+  }, [base.items]);
+
+  // Leaving stops the polls first (a poll must never race the leave), and a poll never puts a member back in.
+  const leftRef = useRef(false);
+  const inflightRef = useRef<Promise<void> | null>(null);
+  const poll = useCallback(async (): Promise<void> => {
+    if (leftRef.current) return;
+    const answer = await fetchThread(chatIdRef.current, { markRead: true, poll: true });
+    if (leftRef.current) return;
+    if (isSessionEnded(answer)) return goToSessionEnded();
+    if (answer === null) {
+      // Not yours any more (you left it elsewhere, or blocked the other person in a question).
+      if (beside) router.refresh();
+      else router.replace(ROUTES.messages);
+      return;
+    }
+    if ("ok" in answer) return; // a failure: keep what is on screen and ask again next time
+    const fresh = answer.items.filter(
+      (item): item is ChatMessage =>
+        item.kind === "text" && item.senderId !== youId && item.status === "visible" && !textsRef.current.has(item.id),
+    );
+    setBase(answer);
+    setClock(new Date().toISOString());
+    if (fresh.length > 0) {
+      const last = fresh[fresh.length - 1];
+      setAnnounce(`New message from ${memberOf(answer.chat, last.senderId)?.firstName ?? "someone"}`);
+    }
+  }, [beside, router, youId]);
+
+  useEffect(() => {
+    if (!live || !onScreen) return;
+    let alive = true;
+    let busy = false;
+    const tick = async () => {
+      if (busy || !alive || leftRef.current || document.visibilityState === "hidden") return;
+      busy = true;
+      const run = poll().catch(() => {
+        // offline or the server did not answer: the next tick tries again
+      });
+      inflightRef.current = run;
+      await run;
+      inflightRef.current = null;
+      busy = false;
+    };
+    // Beside the inbox the chat was not read when the page was drawn: it is read now that it is on screen. A
+    // copy from the router's cache (Back, or a link within its 30 seconds) is asked for again at once.
+    const cached = shownBefore(`thread:${chatIdRef.current}:${now}`);
+    if (beside) void tick().then(() => announceUnreadChanged());
+    else if (cached) void tick();
+    const timer = window.setInterval(tick, POLL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void tick();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [live, onScreen, beside, poll, now]);
+
+  // ---- the safety note: shown once ever (decision 5 A), so it counts as seen once it is on screen -------
+  const safetyMarked = useRef(false);
+  useEffect(() => {
+    if (!live || !safety || !onScreen || safetyMarked.current) return;
+    safetyMarked.current = true;
+    markSafetyNoteSeen().catch(() => {
+      safetyMarked.current = false;
+    });
+  }, [live, safety, onScreen]);
 
   // ---- keep the newest message in view -----------------------------------------------------------
   // The stream is a column-reverse scroller: it starts at, and stays at, the
@@ -251,38 +414,84 @@ export function ThreadView({
   }, [closed]);
 
   // ---- sending -----------------------------------------------------------------------------------
-  const settle = useCallback(
-    (clientId: string) => {
-      dispatch({
-        type: "settle",
-        clientId,
-        online: typeof navigator === "undefined" || navigator.onLine !== false,
-        sentAt: stamp(),
-        chatId: chat.id,
-        senderId: youId,
-      });
+  const deliver = useCallback(
+    async (clientId: string, text: string) => {
+      if (local) {
+        timersRef.current.push(
+          window.setTimeout(
+            () =>
+              dispatch({
+                type: "settle",
+                clientId,
+                online: typeof navigator === "undefined" || navigator.onLine !== false,
+                sentAt: stamp(),
+                chatId: chatIdRef.current,
+                senderId: youId,
+              }),
+            700,
+          ),
+        );
+        return;
+      }
+      let answer: Awaited<ReturnType<typeof sendMessage>>;
+      try {
+        answer = await sendMessage({ chatId: chatIdRef.current, text, clientId });
+      } catch {
+        dispatch({ type: "fail", clientId });
+        setAnnounce("Not sent");
+        return;
+      }
+      if (isSessionEnded(answer)) return goToSessionEnded();
+      if (answer.ok) {
+        dispatch({ type: "delivered", clientId, message: answer.message });
+        textsRef.current.set(answer.message.id, youId);
+        setNotice(null);
+        setAnnounce("Sent");
+        if (answer.chatId !== chatIdRef.current) {
+          // The first question: the chat exists now. The page keeps this view (its key is the plan's question),
+          // so the composer keeps its focus while the address moves to the real chat.
+          chatIdRef.current = answer.chatId;
+          router.replace(messageThreadHref(answer.chatId), { scroll: false });
+        }
+        return;
+      }
+      if (!("reason" in answer)) {
+        // Something unexpected: the designed "Not sent", with Retry and Delete.
+        dispatch({ type: "fail", clientId });
+        setAnnounce("Not sent");
+        return;
+      }
+      if (answer.reason === "rate_limited") {
+        // Kept, so Retry sends it once the minute is up.
+        dispatch({ type: "fail", clientId });
+        setNotice({ icon: "clock", text: answer.error }); // the line is a status: it is read out itself
+        return;
+      }
+      // Refused for good: the words go above the input and the text goes back into it to change.
+      dispatch({ type: "delete", clientId });
+      setDraft((current) => (current.trim() ? current : text));
+      setNotice({ icon: answer.reason === "link" ? "link-off" : "circle-alert", text: answer.error });
+      if (answer.reason === "closed" || answer.reason === "not_in_chat" || answer.reason === "blocked") void poll().catch(() => {});
     },
-    [chat.id, stamp, youId],
-  );
-  const schedule = useCallback(
-    (clientId: string) => {
-      timersRef.current.push(window.setTimeout(() => settle(clientId), 700));
-    },
-    [settle],
+    [local, poll, router, stamp, youId],
   );
 
   function send() {
     if (!canSend) return;
-    counterRef.current += 1;
-    const clientId = `local-${counterRef.current}`;
-    dispatch({ type: "queue", message: { clientId, text: draft.trim(), state: "sending" } });
+    const clientId = local ? `local-${Date.now().toString(36)}` : newClientId();
+    const text = draft.trim();
+    dispatch({ type: "queue", message: { clientId, text, state: "sending" } });
     setDraft("");
-    schedule(clientId);
+    setNotice(null);
     setAnnounce("Sending");
+    void deliver(clientId, text);
   }
   function retry(clientId: string) {
+    const pending = here.outgoing.find((m) => m.clientId === clientId);
+    if (!pending) return;
     dispatch({ type: "retry", clientId });
-    schedule(clientId);
+    setNotice(null);
+    void deliver(clientId, pending.text);
   }
 
   function onInputKey(event: ReactKeyboardEvent<HTMLTextAreaElement>) {
@@ -290,6 +499,12 @@ export function ThreadView({
     if (!window.matchMedia("(pointer: fine)").matches) return;
     event.preventDefault();
     send();
+  }
+
+  function onDraft(value: string) {
+    setDraft(value);
+    // A refusal's line goes once the message is changed.
+    if (notice) setNotice(null);
   }
 
   // ---- bubbles: long press, right click, Enter, and picking a message to report --------------------
@@ -359,11 +574,86 @@ export function ThreadView({
     }
   }
 
-  function block(memberId: string) {
+  // ---- what chat info changes ------------------------------------------------------------------------
+  async function toggleMute() {
+    const next = !muted;
+    setMuted(next);
+    if (local) return;
+    try {
+      const answer = await setChatMuted(chatIdRef.current, next);
+      if (isSessionEnded(answer)) return goToSessionEnded();
+      if (!answer.ok) throw new Error("not saved");
+    } catch {
+      setMuted(!next);
+      setAnnounce(TRY_AGAIN);
+    }
+  }
+
+  /** Block: null when it is done, or the words to show in the dialog. */
+  async function block(memberId: string): Promise<string | null> {
     const name = chat.participants.find((p) => p.member.id === memberId)?.member.firstName ?? "They";
+    if (live) {
+      let answer: Awaited<ReturnType<typeof blockMember>>;
+      try {
+        answer = await blockMember({ memberId, chatId: chatIdRef.current });
+      } catch {
+        return TRY_AGAIN;
+      }
+      if (isSessionEnded(answer)) {
+        goToSessionEnded();
+        return null;
+      }
+      if (!answer.ok) return answer.error;
+      announceUnreadChanged();
+    }
     setBlockedIds((previous) => (previous.includes(memberId) ? previous : [...previous, memberId]));
     setOverlay({ kind: "none" });
     setAnnounce(`${name} is blocked. You won’t see their messages.`);
+    // A question with someone you blocked is gone from your chats (the server no longer shows it to you).
+    if (live && chat.kind === "question") router.replace(ROUTES.messages);
+    return null;
+  }
+
+  /** Report: null when it is sent (the sheet moves on to "Report sent."), or the words to show in the sheet. */
+  async function report(draftReport: ReportDraft): Promise<string | null> {
+    if (local) return null;
+    try {
+      const answer = await sendReport(draftReport);
+      if (isSessionEnded(answer)) {
+        goToSessionEnded();
+        return null;
+      }
+      return answer.ok ? null : answer.error;
+    } catch {
+      return TRY_AGAIN;
+    }
+  }
+
+  /** Leave: null when it is done (back to the inbox), or the words to show in the dialog. */
+  async function leave(): Promise<string | null> {
+    if (live) {
+      leftRef.current = true;
+      await inflightRef.current;
+      try {
+        const answer = await leaveChat(chatIdRef.current);
+        if (isSessionEnded(answer)) {
+          goToSessionEnded();
+          return null;
+        }
+        if (!answer.ok) {
+          leftRef.current = false;
+          return answer.error;
+        }
+      } catch {
+        leftRef.current = false;
+        return TRY_AGAIN;
+      }
+      announceUnreadChanged();
+    }
+    router.push(ROUTES.messages);
+    // The inbox drawn fresh (the router may hold one from before the leave).
+    if (live) router.refresh();
+    return null;
   }
 
   // ---- the stream --------------------------------------------------------------------------------
@@ -444,7 +734,6 @@ export function ThreadView({
   return (
     <div className="msg-card" ref={cardRef}>
       <ThreadHeader chat={chat} infoOpen={overlay.kind === "info"} onInfo={() => setOverlay({ kind: "info" })} />
-      <ExampleNote inside className="msg-ex-thread" lead="Example chat." rest="Made-up people. Nothing you write is sent." />
       {selecting ? (
         <div className="msg-banner" role="status">
           <span>{SELECT_BANNER}</span>
@@ -479,9 +768,10 @@ export function ThreadView({
         <Composer
           draft={draft}
           link={link}
+          notice={notice}
           keyboardUp={keyboardUp}
           inputRef={inputRef}
-          onChange={setDraft}
+          onChange={onDraft}
           onKeyDown={onInputKey}
           onSend={send}
         />
@@ -543,11 +833,13 @@ export function ThreadView({
         chat={chat}
         youId={youId}
         muted={muted}
-        onMute={() => setMuted((value) => !value)}
+        onMute={toggleMute}
         blockedIds={blockedIds}
         onBlock={block}
+        onReport={report}
         messageById={messageById}
-        onLeave={() => router.push(ROUTES.messages)}
+        onLeave={leave}
+        initialError={preview?.stepError ?? null}
       />
       <div className="msg-sr" role="status" aria-live="polite">
         {announce}
