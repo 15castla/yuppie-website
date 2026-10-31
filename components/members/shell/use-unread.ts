@@ -3,7 +3,8 @@
 // The messages icon's number in the real shell, from one source: the server's unread chats plus unread updates
 // (app/members/shell-actions.ts getMessagesBadge). Polling, not sockets (the brief: the local stack has no
 // Realtime): it is fetched when the page changes and every minute while a page that shows the icon is open and
-// visible. Off pages that show no icon it is not fetched at all. A failed fetch keeps the last number.
+// visible, and at once when a screen says it changed what is unread (announceUnreadChanged: Messages reading a chat
+// or an update, a block). Off pages that show no icon it is not fetched at all. A failed fetch keeps the last number.
 
 import { useEffect, useState } from "react";
 
