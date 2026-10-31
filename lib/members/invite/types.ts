@@ -90,6 +90,12 @@ export type OpenInvite = {
   /** Who is in, in the order they said yes (on a paid plan: in the order they paid). Includes the host when hostGoing. */
   going: InviteMember[];
   status: InviteStatus;
+  /**
+   * Who cancelled a cancelled plan: "host", or "club" (the club removed it, or cancelled it because the host's
+   * membership was paused or ended), so the page never names the host as having cancelled it. Null otherwise;
+   * optional: example data leaves it out (the host).
+   */
+  cancelledBy?: "host" | "club" | null;
   /** Null on a free plan (the default). */
   cost: InviteCost | null;
   you: InviteViewer;

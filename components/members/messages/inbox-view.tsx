@@ -200,7 +200,10 @@ export function InboxView({
   }, [live, refresh, now, mode]);
 
   const isThread = mode === "thread";
-  const empty = state === "ready" && (tab === "chats" ? chats.length === 0 : updates.length === 0);
+  // On a chat's own page the thread always shows, even when the list has no chats yet: a first question
+  // ("ask-<plan id>") is not a chat until it is sent (messages 3.4/3.5 "New question"). Beside it on a computer the
+  // list then holds only the explainer under it, never the empty band with nowhere to type.
+  const empty = state === "ready" && (tab === "chats" ? chats.length === 0 && !isThread : updates.length === 0);
   const selectedUpdate = updates.find((update) => update.id === pickedUpdate) ?? updates[0] ?? null;
 
   // What counts as unread right now. The chat that is open (the thread page, or beside the list on a

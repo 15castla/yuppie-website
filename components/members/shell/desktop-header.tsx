@@ -17,7 +17,7 @@ import { KitLink } from "../kit/link";
 import { ROUTES, type TabKey } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import { MessagesButton } from "./messages-button";
-import { useMember, useShell } from "./shell-context";
+import { useMember, useMessagesBadge, useShell } from "./shell-context";
 import { headerLinksFor, type TabSpec } from "./tabs";
 import { Wordmark } from "./wordmark";
 
@@ -69,7 +69,8 @@ export function DesktopHeader({
   activeTab: TabKey | null;
   landingHref?: string;
 }) {
-  const { mode, showMessages, messagesCurrent, unread } = useShell();
+  const { mode, showMessages, messagesCurrent } = useShell();
+  const unread = useMessagesBadge();
   const scrolled = usePageScrolled();
   const links = headerLinksFor(tabs, mode);
   return (

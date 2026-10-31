@@ -28,7 +28,7 @@ import { MESSAGE_RATE_LIMIT, THREAD_ITEM_LIMIT, UPDATES_KEEP_DAYS } from "./conf
 import { serviceDb } from "./db";
 import { notify } from "./notify";
 import { peopleRefs, type PersonRef } from "./people";
-import { canSeePlan, isUuid, PLAN_COLUMNS, type PlanRow, type Viewer } from "./plans";
+import { cancelledBy, canSeePlan, isUuid, PLAN_COLUMNS, type PlanRow, type Viewer } from "./plans";
 import { askPlaceholder, planIdFromAsk } from "./questions";
 
 const HOUR = 3600000;
@@ -131,6 +131,7 @@ function chatPlan(ctx: Context, plan: PlanRow, now: Date): ChatPlan {
     placesLeft: Math.max(0, plan.places - going.length),
     priceMinor: plan.price_pence,
     status: chatPlanStatus(plan, now),
+    cancelledBy: cancelledBy(plan),
   };
 }
 
@@ -290,8 +291,10 @@ export async function getThread(
     if (!firstUnreadId && !removed && m.sender_id !== viewer.id && new Date(m.created_at).getTime() > readAt) firstUnreadId = m.id;
   }
   // "This chat closed. ..." (types: ChatSystemLine "closed"): drawn at the moment it closed, for a plan chat that
-  // finished or a question whose plan started. A cancelled plan has its own "cancelled" line already.
-  if (chat.status === "closed" && chat.closedReason !== "host_cancelled") {
+  // finished or a question whose plan started. A cancelled plan has its own "cancelled" line already, and its
+  // questions say why in the lock row ("Dan cancelled this plan."): never a "closed" line dated at a start that
+  // will not happen.
+  if (chat.status === "closed" && chat.closedReason !== "host_cancelled" && chat.plan.status !== "cancelled") {
     const plan = ctx.plans.get(row.plan_id)!;
     const at = new Date(new Date(plan.starts_at).getTime() + (row.kind === "plan" ? 24 * HOUR : 0)).toISOString();
     items.push({ kind: "system", id: `closed-${row.id}`, at, event: "closed", memberId: null });

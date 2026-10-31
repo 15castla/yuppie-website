@@ -14,7 +14,7 @@ import "./photo.css";
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
 
 import { Icon, Pill, cssVars } from "@/components/members/kit";
-import { CIRCLE_RATIO, MAX_ZOOM, MIN_ZOOM, clampCrop, imageBox, type CropState } from "@/lib/members/photo/crop";
+import { CIRCLE_RATIO, MIN_ZOOM, clampCrop, imageBox, maxZoomFor, type CropState } from "@/lib/members/photo/crop";
 import type { PhotoSource } from "@/lib/members/photo/validate";
 import { cn } from "@/lib/utils";
 
@@ -46,7 +46,9 @@ export function PhotoCropper({
   const [moved, setMoved] = useState(false);
 
   const box = imageBox(source, crop);
-  const percent = ((crop.zoom - MIN_ZOOM) / (MAX_ZOOM - MIN_ZOOM)) * 100;
+  // The slider spans this photo's own zoom (never so far that the saved square is under 400px).
+  const zoomSpan = maxZoomFor(source) - MIN_ZOOM;
+  const percent = zoomSpan > 0 ? Math.min(100, Math.max(0, ((crop.zoom - MIN_ZOOM) / zoomSpan) * 100)) : 0;
 
   function update(next: CropState) {
     onChange(clampCrop(source, next));
@@ -150,7 +152,7 @@ export function PhotoCropper({
           step={1}
           value={Math.round(percent)}
           style={cssVars({ "--p": `${percent}%` })}
-          onChange={(event) => update({ ...crop, zoom: MIN_ZOOM + (Number(event.target.value) / 100) * (MAX_ZOOM - MIN_ZOOM) })}
+          onChange={(event) => update({ ...crop, zoom: MIN_ZOOM + (Number(event.target.value) / 100) * zoomSpan })}
         />
         <button type="button" className="ph-zb" aria-label="Zoom in" onClick={() => update({ ...crop, zoom: crop.zoom + ZOOM_STEP })}>
           <Icon name="plus" size={20} />

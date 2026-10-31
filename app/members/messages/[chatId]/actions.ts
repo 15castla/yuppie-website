@@ -8,7 +8,6 @@
 import { revalidatePath } from "next/cache";
 
 import type { ChatThread } from "@/lib/members/messages/types";
-import { requireFlag } from "@/lib/members/flags";
 import {
   getThread as loadThread,
   leaveChat as leave,
@@ -21,6 +20,7 @@ import {
 } from "@/lib/server/chats";
 import type { SessionEnded } from "@/components/members/session-ended";
 import { asMember, type Failed } from "../../action-kit";
+import { requireMessages } from "../guard";
 
 /**
  * The thread as it is now, or null when it is not the member's (or not found). Polling: call it again every few
@@ -32,7 +32,7 @@ export async function getThread(
   chatId: string,
   options: { markRead?: boolean; poll?: boolean } = {},
 ): Promise<ChatThread | null | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("getThread", async (_m, viewer) => {
     const thread = await loadThread(viewer, chatId, new Date(), { rejoin: !options.poll });
     if (thread && options.markRead && !thread.chat.id.startsWith("ask-")) await markRead(viewer.id, thread.chat.id);
@@ -47,7 +47,7 @@ export async function getThread(
  * not_in_chat, not_found. Sending the same clientId again answers the message already stored.
  */
 export async function sendMessage(input: { chatId: string; text: string; clientId: string }): Promise<SendMessageResult | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   const result = await asMember("sendMessage", (_m, viewer) => sendChatMessage(viewer, input));
   if ("ok" in result && result.ok && input?.chatId?.startsWith("ask-")) revalidatePath("/members", "layout");
   return result;
@@ -55,13 +55,13 @@ export async function sendMessage(input: { chatId: string; text: string; clientI
 
 /** Opening a chat reads it (no read receipts: nobody else sees this). */
 export async function markChatRead(chatId: string): Promise<{ ok: boolean } | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("markChatRead", async (m) => ({ ok: await markRead(m.id, chatId) }));
 }
 
 /** "Mute notifications" in chat info: no chat email (and no push) for this chat; messages still show here. */
 export async function setChatMuted(chatId: string, muted: boolean): Promise<{ ok: boolean } | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("setChatMuted", async (m) => ({ ok: await setMuted(m.id, chatId, muted) }));
 }
 
@@ -71,13 +71,13 @@ export async function setChatMuted(chatId: string, muted: boolean): Promise<{ ok
  * opening it, so it would put them straight back. The screen goes to the inbox and refreshes it instead.
  */
 export async function leaveChat(chatId: string): Promise<LeaveChatResult | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("leaveChat", (m) => leave(m.id, chatId));
 }
 
 /** The safety note was shown ("Got it"): once ever, then it lives in chat info (decision 5 A). */
 export async function markSafetyNoteSeen(): Promise<{ ok: true } | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("markSafetyNoteSeen", async (m) => {
     await markSafety(m.id);
     return { ok: true as const };

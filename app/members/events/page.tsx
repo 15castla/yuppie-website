@@ -2,7 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { requireMember } from "@/app/members/require-member";
 import { getCachedEvents, getFullEventIds } from "@/components/members/events-data";
 import { EventsView } from "@/components/members/events-view";
-import { flags } from "@/lib/members/flags";
+import { openInviteOn } from "@/lib/members/flags";
+import { detectShellMode } from "@/lib/members/shell-mode";
 
 export default async function MembersEventsPage() {
   // The member's own confirmed bookings, through the member-scoped client
@@ -18,7 +19,8 @@ export default async function MembersEventsPage() {
   // pills, and it costs no extra query.
   const member = await requireMember();
   const supabase = await createClient();
-  const [events, fullEventIds, { data: bookings }] = await Promise.all([
+  const [mode, events, fullEventIds, { data: bookings }] = await Promise.all([
+    detectShellMode(),
     getCachedEvents(),
     getFullEventIds(),
     supabase
@@ -30,14 +32,15 @@ export default async function MembersEventsPage() {
 
   const bookedEventIds = (bookings ?? []).map((booking) => booking.event_id as string);
 
-  // The Open Invite band shows only with the flag on. It has no real data to
-  // feed its card yet (no backend), so it is drawn without one.
+  // The Open Invite band shows only where Open Invite is on: the flag, and in
+  // the app its own switch too (decision 6), so the app never links to a page
+  // it does not have. It is drawn without a teaser card.
   return (
     <EventsView
       events={events}
       bookedEventIds={bookedEventIds}
       fullEventIds={fullEventIds}
-      openInvite={flags.openInvite}
+      openInvite={openInviteOn(mode)}
     />
   );
 }

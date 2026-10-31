@@ -37,6 +37,8 @@ export type MembersFrameProps = {
   member: MemberSummary | null | Promise<MemberSummary | null>;
   /** The number on the messages icon: unread chats plus updates. */
   unread?: number;
+  /** The number the server draws while the page hydrates (default: `unread`; the real shell's live count passes 0). */
+  unreadAtStart?: number;
   /** Draw the messages icon. Open Invite pages only. */
   showMessages?: boolean;
   /** The messages icon is the current page (the Messages pages). */
@@ -60,6 +62,7 @@ export function MembersFrame({
   activeTab,
   member,
   unread = 0,
+  unreadAtStart = unread,
   showMessages = false,
   messagesCurrent = false,
   youCurrent = false,
@@ -73,7 +76,7 @@ export function MembersFrame({
   const tabBar = !bare && dock === "tabs";
   return (
     <ShellProvider
-      value={{ mode, member, showMessages, messagesCurrent, unread, youCurrent }}
+      value={{ mode, member, showMessages, messagesCurrent, unread, unreadAtStart, youCurrent }}
     >
       <div className={cn("mk-screen", mode === "app" ? "mk-app" : "mk-web")} data-mode={mode} style={style}>
         <div className="mk-page">

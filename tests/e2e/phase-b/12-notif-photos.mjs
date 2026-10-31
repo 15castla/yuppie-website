@@ -239,7 +239,8 @@ try {
   mark = fakesMark();
   await cronAt('reminders', at);
   eq(reminded(P5, M, '24h', 'sms').length, 1, 'with Text on, the 24-hour reminder goes by text too');
-  const reminderText = fakesSince(mark, 'sms').find((t) => t.to === '+447700900123');
+  // this plan's text (every test member shares the number, and other plans' reminders can fall due in the same run)
+  const reminderText = fakesSince(mark, 'sms').find((t) => t.to === '+447700900123' && t.body.includes('Notif text'));
   ok(reminderText && /^Club Yuppie: Notif text is tomorrow at \d\d:\d\d, Calder Park\. See the plan: \S+$/.test(reminderText.body), 'the plan text, from the sender name, no message or member words beyond the title and place', reminderText);
   if (londonHour() >= 22 || londonHour() < 7) {
     const P6 = await reminderPlan('Notif quiet');
@@ -306,9 +307,10 @@ try {
   await ready(gpg);
   text = await mainText(gpg);
   ok(text.includes('Add your photo.') && text.includes('Every member has one now, so people know who they’re meeting.'), 'after login, no photo: the gate, with the existing-member line');
-  ok(text.includes('Only members who are logged in can see your photo. It’s never public.'), 'the privacy line is on the first screen');
+  // "It’s never public." only once the old public copies are deleted (MEMBERS_PHOTOS_PRIVATE_DONE=on on the server)
+  ok(process.env.MEMBERS_PHOTOS_PRIVATE_DONE === 'on' ? text.includes('Only members who are logged in can see your photo. It’s never public.') : text.includes('Only members who are logged in can see your photo.') && !text.includes('never public'), 'the privacy line is on the first screen');
   await gpg.goto(`${BASE}/members/events`);
-  await gpg.waitForURL('**/members/photo', { timeout: 20000 });
+  await gpg.waitForURL('**/members/photo?next=%2Fmembers%2Fevents', { timeout: 20000 });
   await ready(gpg);
   ok(true, 'any other page sends them back to the gate');
   const fileInput = gpg.locator('input[type=file]').first();
@@ -331,8 +333,8 @@ try {
   const avatarsAfter = fs.existsSync('/home/claude/stack/storage/member-media/avatars') ? fs.readdirSync('/home/claude/stack/storage/member-media/avatars').length : 0;
   eq(avatarsAfter, avatarsBefore, 'and nothing was written to the public member-media/avatars/');
   await gpg.getByRole('link', { name: 'Continue' }).click();
-  await gpg.waitForURL('**/members/open-invite', { timeout: 20000 });
-  ok(true, 'Continue goes to the landing page (Open Invite on the web)');
+  await gpg.waitForURL('**/members/events', { timeout: 20000 });
+  ok(true, 'Continue goes back to the page the gate stopped them on (Events here; the landing page after a login)');
 
   // ---------------------------------------------------------------- signed URLs, never public
   await gpg.goto(`${BASE}/members/you`);

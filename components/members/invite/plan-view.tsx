@@ -293,10 +293,15 @@ export function PlanView({
   const unread = invite.you.unreadInChat;
   const moneyLine = hostMoneyLine(invite);
   const refunded = payment?.status === "refunded";
+  // A plan that has started is "past", but its plan chat stays open for 24 hours after the start (messages 3.4):
+  // until then the page says it has started and, to the host and the people going, that the chat is open.
+  const chatClosesAt = new Date(Date.parse(invite.startsAt) + 24 * 3_600_000).toISOString();
+  const started = state === "past" && Date.parse(now) < Date.parse(chatClosesAt);
+  const hasChat = Boolean(invite.you.chatId);
 
   // ---- pills
   const first = STATE_PILLS[state];
-  const firstText = paid && state === "in" && payment ? `You’re in, paid ${amount}` : first.text;
+  const firstText = paid && state === "in" && payment ? `You’re in, paid ${amount}` : started ? "Started" : first.text;
   const pills = (
     <>
       <Pill kind={first.kind === "outline" ? undefined : first.kind}>{firstText}</Pill>
@@ -308,8 +313,19 @@ export function PlanView({
   // ---- notice
   let notice: ReactNode = null;
   if (state === "cancelled") {
-    // the host who just cancelled sees "You cancelled" (the plan is "cancelled", no longer "own")
-    if (isHost) {
+    // the host who just cancelled sees "You cancelled" (the plan is "cancelled", no longer "own"). The club's cancel
+    // (it removed the plan, or the host's membership stopped) names the club, never the host.
+    if (invite.cancelledBy === "club" && !paid) {
+      notice = (
+        <div className="oi-notice">
+          <Icon name="info" size={20} />
+          <div>
+            <b>Club Yuppie cancelled this invite.</b>{" "}
+            {isHost ? "Everyone who was in has been told." : "Nothing to do. There are more plans to browse."}
+          </div>
+        </div>
+      );
+    } else if (isHost) {
       notice = (
         <div className="oi-notice">
           <Icon name="info" size={20} />
@@ -346,7 +362,17 @@ export function PlanView({
       <div className="oi-notice">
         <Icon name="clock" size={20} />
         <div>
-          <b>This plan has finished.</b> The plan chat is closed. You can still read it.
+          {started ? (
+            <>
+              <b>This plan has started.</b>
+              {hasChat ? ` The plan chat is open until ${formatWhen(chatClosesAt)}.` : null}
+            </>
+          ) : (
+            <>
+              <b>This plan has finished.</b>
+              {hasChat ? " The plan chat is closed. You can still read it." : null}
+            </>
+          )}
         </div>
       </div>
     );
@@ -449,10 +475,19 @@ export function PlanView({
       cardButton = <Button href={ROUTES.openInvite}>See Open Invites</Button>;
       break;
     case "past":
-      barLead = "Finished";
+      barLead = started ? "Started" : "Finished";
       barSub = formatWhen(invite.startsAt).split(",")[0];
-      barButton = <Button href={ROUTES.openInvite}>See invites</Button>;
-      cardButton = <Button href={ROUTES.openInvite}>See Open Invites</Button>;
+      if (started && hasChat) {
+        barButton = (
+          <Button href={chatHref} icon={<Icon name="message" size={20} />}>
+            {chatLabel}
+          </Button>
+        );
+        cardButton = barButton;
+      } else {
+        barButton = <Button href={ROUTES.openInvite}>See invites</Button>;
+        cardButton = <Button href={ROUTES.openInvite}>See Open Invites</Button>;
+      }
       break;
   }
 
@@ -545,8 +580,17 @@ export function PlanView({
         end={unread > 0 ? <CountChip n={unread} /> : null}
       />
     );
-  } else if (state === "past") {
-    rows = (
+  } else if (state === "past" && hasChat) {
+    const preview = invite.you.chatPreview;
+    rows = started ? (
+      <PlanRow
+        href={chatHref}
+        leading={<MessageTile />}
+        title="Plan chat"
+        meta={preview ? `${preview.from}: ${preview.text}` : `Open until ${formatWhen(chatClosesAt)}.`}
+        end={unread > 0 ? <CountChip n={unread} /> : null}
+      />
+    ) : (
       <PlanRow href={chatHref} leading={<MessageTile />} title="Plan chat" meta="Closed. You can still read it." />
     );
   } else if (state === "cancelled") {

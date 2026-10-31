@@ -94,11 +94,17 @@ export function Tips() {
   );
 }
 
-export function PrivacyNote() {
+/**
+ * The gate's privacy line. "It’s never public." only once the old public copies of members' photos are gone
+ * (the server-only switch MEMBERS_PHOTOS_PRIVATE_DONE=on, set at release after release/delete-public-avatars.mjs
+ * has run); until then the first sentence alone, which is true already (new photos are private, served to
+ * members who are logged in only).
+ */
+export function PrivacyNote({ neverPublic = false }: { neverPublic?: boolean }) {
   return (
     <p className="ph-priv">
       <Icon name="lock" size={18} />
-      <span>Only members who are logged in can see your photo. It’s never public.</span>
+      <span>Only members who are logged in can see your photo.{neverPublic ? " It’s never public." : null}</span>
     </p>
   );
 }

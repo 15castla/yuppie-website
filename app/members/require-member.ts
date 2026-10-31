@@ -4,7 +4,9 @@ import { redirect } from "next/navigation";
 import { SESSION_ENDED_LOGIN } from "@/components/members/session-ended";
 import { createClient } from "@/lib/supabase/server";
 import { flags } from "@/lib/members/flags";
-import { ROUTES } from "@/lib/members/routes";
+import { MEMBERS_PATH_HEADER, returnPath } from "@/lib/members/photo/return-path";
+import { ROUTES, landingPath } from "@/lib/members/routes";
+import { detectShellMode } from "@/lib/members/shell-mode";
 import { isGated, membershipState, type MembershipStateInfo } from "@/lib/server/membership";
 import { currentPhotoUrl } from "@/lib/server/photos";
 import type { MemberSummary } from "@/components/members/shell/types";
@@ -144,9 +146,13 @@ export async function requireMember(options: RequireMemberOptions = {}): Promise
     redirect(ROUTES.membership);
   }
 
-  // Stage 2: the gate is "no current photo" (members.photo_id is null: none yet, or the club removed it).
+  // Stage 2: the gate is "no current photo" (members.photo_id is null: none yet, or the club removed it). The page
+  // they were going to rides along (?next=, from the proxy's header), so Continue takes them there afterwards.
   if (flags.photoGate && !options.allowMissingPhoto && !member.photo_id) {
-    redirect(ROUTES.photo);
+    const back = returnPath((await headers()).get(MEMBERS_PATH_HEADER));
+    // the landing page needs no ?next= (Continue goes there anyway): the gate after a login keeps its plain address
+    const landing = back === ROUTES.root || back === landingPath(flags, await detectShellMode());
+    redirect(back && !landing ? `${ROUTES.photo}?next=${encodeURIComponent(back)}` : ROUTES.photo);
   }
 
   return member;

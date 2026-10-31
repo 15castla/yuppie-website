@@ -113,9 +113,13 @@ await cronAt('reminders', newStart - 23 * HOUR);
 eq(sentFor(`plan_id = ${q(E)} and member_id = ${q(texter.id)} and channel = 'email' and template = 'plan-reminder'`).length, 2, 'and the 24-hour email comes again for the new time');
 
 // ---------------------------------------------------------------- club events, by text too
+// A member of their own with Text on: the texter above has had eight texts in this run's few real minutes (unless
+// quiet hours held some), and the ninth would meet the daily text limit (TEXT_LIMITS.perMemberPerDay, stage 2 fixes).
+const evTexter = await makeMemberWithPhoto('rte');
+ok((await action('notifications.setNotificationChannel', ['text', true], evTexter.session)).result.ok, 'a member switches Text on for the club event');
 const ev = await makeEvent('remtext', { price: 0, startInHours: 72 });
 const evStart = new Date(sql1(`select start_time from events where id = ${q(ev.id)}`).start_time);
-const booking = await makeBooking(texter, ev, { bookedAgoHours: 1 });
+const booking = await makeBooking(evTexter, ev, { bookedAgoHours: 1 });
 exec(`update bookings set booked_at = to_timestamp(${(evStart - 96 * HOUR) / 1000}) where id = ${q(booking.id)}`);
 const mark6 = fakesMark();
 const evRun = await cronAt('reminders', evStart - 23 * HOUR);

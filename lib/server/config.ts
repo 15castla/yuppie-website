@@ -67,8 +67,8 @@ export const REMINDER_LATE_MINUTES = 20;
 /** Member photos: the private bucket, the sizes the server makes, and how long a signed URL lasts. */
 export const PHOTO_BUCKET = "member-photos";
 export const PHOTO_SIZES = { full: 480, thumb: 160 } as const;
-/** The browser checks the chosen photo is 400px or more (photo decision 2 A); the cropped square it uploads can be smaller after a zoom, so the server's floor is the thumb size. */
-export const PHOTO_MIN_UPLOAD_PX = 160;
+/** At least 400px (photo decision 2 A): the browser refuses a photo whose shorter side is under 400 and never zooms the crop below it, so the square it uploads is 400px or more, and the server holds the same floor. */
+export const PHOTO_MIN_UPLOAD_PX = 400;
 export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 /** Signed photo URLs last 10 minutes (a removed photo stops loading soon after); a cached one is handed out again while it has 5 minutes or more left, and every page load asks again. */
 export const PHOTO_URL_TTL_SECONDS = 10 * 60;

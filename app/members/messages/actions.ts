@@ -9,41 +9,41 @@
 import { revalidatePath } from "next/cache";
 
 import type { BlockAction, Chat, ReportDraft, UnreadCounts, UpdateItem } from "@/lib/members/messages/types";
-import { requireFlag } from "@/lib/members/flags";
 import { blockMember as block, unblockMember as unblock, type BlockResult } from "@/lib/server/blocks";
 import { listChats, unreadCounts } from "@/lib/server/chats";
 import { createReport, type CreateReportResult } from "@/lib/server/reports";
 import { listUpdates, markAllUpdatesRead as markAll, markUpdateRead as markOne } from "@/lib/server/updates";
 import type { SessionEnded } from "@/components/members/session-ended";
 import { asMember, type Failed } from "../action-kit";
+import { requireMessages } from "./guard";
 
 const fresh = () => revalidatePath("/members", "layout");
 
 export async function getChats(): Promise<Chat[] | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("getChats", (m) => listChats(m.id));
 }
 
 export async function getUpdates(): Promise<UpdateItem[] | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("getUpdates", (m) => listUpdates(m.id));
 }
 
 /** Unread chats and unread updates (the tab numbers). The icon's number is their sum, "9+" over 9. */
 export async function getUnreadCounts(): Promise<UnreadCounts | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("getUnreadCounts", (m) => unreadCounts(m.id));
 }
 
 /** Opening an update reads it. */
 export async function markUpdateRead(updateId: string): Promise<{ ok: true; changed: boolean } | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("markUpdateRead", async (m) => ({ ok: true as const, changed: await markOne(m.id, updateId) }));
 }
 
 /** "Mark all as read". */
 export async function markAllUpdatesRead(): Promise<{ ok: true; count: number } | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("markAllUpdatesRead", async (m) => ({ ok: true as const, count: await markAll(m.id) }));
 }
 
@@ -53,7 +53,7 @@ export async function markAllUpdatesRead(): Promise<{ ok: true; count: number } 
  * for the screen; the block covers everywhere).
  */
 export async function blockMember(action: BlockAction): Promise<BlockResult | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   const result = await asMember("blockMember", (m) => block(m.id, action?.memberId));
   if ("ok" in result && result.ok) fresh();
   return result;
@@ -61,7 +61,7 @@ export async function blockMember(action: BlockAction): Promise<BlockResult | Se
 
 /** "Unblock" (You > Blocked members). */
 export async function unblockMember(memberId: string): Promise<BlockResult | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   const result = await asMember("unblockMember", (m) => unblock(m.id, memberId));
   if ("ok" in result && result.ok) fresh();
   return result;
@@ -73,6 +73,6 @@ export async function unblockMember(memberId: string): Promise<BlockResult | Ses
  * the club; a repeat while the first is open is the same report (`duplicate: true`, no second email).
  */
 export async function sendReport(draft: ReportDraft): Promise<CreateReportResult | SessionEnded | Failed> {
-  requireFlag("messages");
+  await requireMessages();
   return asMember("sendReport", (_m, viewer) => createReport(viewer, draft));
 }

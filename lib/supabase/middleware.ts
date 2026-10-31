@@ -2,8 +2,9 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
-import { flags, openInviteOn } from "@/lib/members/flags";
+import { flags, messagesOn, openInviteOn } from "@/lib/members/flags";
 import { isNativeAppCookie, isNativeAppUserAgent } from "@/lib/native-app";
+import { MEMBERS_PATH_HEADER } from "@/lib/members/photo/return-path";
 import { ROUTES, matchRoute } from "@/lib/members/routes";
 import { testHooksEnabled } from "@/lib/test-hooks";
 
@@ -55,11 +56,13 @@ async function isMissingMembersPage(pathname: string, supabase: SupabaseClient, 
   const route = matchRoute(path);
   if (!route) return true;
   if (route.flag && !flags[route.flag]) return true;
+  const app = isNativeAppUserAgent(request.headers.get("user-agent") ?? "") || isNativeAppCookie(request.headers.get("cookie") ?? "");
   // Open Invite in the app needs its own switch too (Open Invite decision 6).
   if (route.flag === "openInvite" || route.id.startsWith("openInvite")) {
-    const app = isNativeAppUserAgent(request.headers.get("user-agent") ?? "") || isNativeAppCookie(request.headers.get("cookie") ?? "");
     if (!openInviteOn(app ? "app" : "web")) return true;
   }
+  // So does Messages: every chat belongs to an Open Invite, so the app hides it while it hides Open Invite.
+  if ((route.id === "messages" || route.id === "messageThread") && !messagesOn(app ? "app" : "web")) return true;
   if (route.id === "openInviteDetail" || route.id === "openInviteEdit") {
     let id: string;
     try {
@@ -104,8 +107,13 @@ async function isMissingMembersPage(pathname: string, supabase: SupabaseClient, 
   return false;
 }
 
+// The members address a request is for (path and query), passed on to the page as a request header
+// (lib/members/photo/return-path.ts): the photo gate sends a member with no photo back there after Continue. Set
+// here for every request, so a value sent by the browser is always replaced.
 export async function updateSession(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set(MEMBERS_PATH_HEADER, `${request.nextUrl.pathname}${request.nextUrl.search}`);
+  let supabaseResponse = NextResponse.next({ request: { headers: requestHeaders } });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -119,7 +127,10 @@ export async function updateSession(request: NextRequest) {
           cookiesToSet.forEach(({ name, value }) =>
             request.cookies.set(name, value),
           );
-          supabaseResponse = NextResponse.next({ request });
+          // The refreshed cookies go on to the page too (request.cookies above), with the path header.
+          const refreshed = new Headers(request.headers);
+          refreshed.set(MEMBERS_PATH_HEADER, requestHeaders.get(MEMBERS_PATH_HEADER) ?? "");
+          supabaseResponse = NextResponse.next({ request: { headers: refreshed } });
           cookiesToSet.forEach(({ name, value, options }) =>
             supabaseResponse.cookies.set(name, value, options),
           );

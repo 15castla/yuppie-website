@@ -58,6 +58,7 @@ export function MembersShell({
       activeTab={lit && tabs.some((tab) => tab.key === lit) ? lit : null}
       member={member}
       unread={unread ?? live}
+      unreadAtStart={unread ?? 0}
       showMessages={messagesEnabled && messages !== "none"}
       messagesCurrent={messages === "current"}
       youCurrent={isYouPath(pathname)}

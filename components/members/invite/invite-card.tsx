@@ -293,7 +293,7 @@ export function InviteCard({
         <dt>When</dt>
         <dd>{placeholders?.when ? <span className="oi-ph">{placeholders.when}</span> : formatWhen(invite.startsAt)}</dd>
         <dt>Where</dt>
-        <dd>
+        <dd className="oi-where">
           {placeholders?.where ? <span className="oi-ph">{placeholders.where}</span> : <CommaBreaks text={invite.where} />}
         </dd>
         {paid ? (
