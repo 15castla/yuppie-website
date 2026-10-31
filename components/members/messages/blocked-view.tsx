@@ -5,16 +5,20 @@
 // that person message you again, so it is one extra tap on purpose. Empty: "No
 // one blocked." with the velvet rope standing on a 3px rule.
 //
-// Local state only: unblocking removes the row here. The backend needs a list
-// and an unblock endpoint (BlockedMember and BlockAction in
-// lib/members/messages/types.ts); the block itself is made from a chat.
+// Unblock goes to the server (app/members/you/blocked/actions.ts) and waits for
+// it: the button stays the full ink button meanwhile, the row goes when it is
+// done, and the server's words show in the sheet when it did not go through.
+// The block itself is made from a chat. `local` (the preview harness) keeps it
+// on this screen.
 //
 // Kit counterparts: pages_you.blocked_main(), blocked_row(), blocked_empty(),
 // dlg_unblock(), dlg_modal_unblock().
 
 import { useEffect, useRef, useState } from "react";
 
-import { Avatar, BackLink, BackRow, Button, Main, Rows, TitleBlock } from "@/components/members/kit";
+import { unblockMember } from "@/app/members/you/blocked/actions";
+import { Avatar, BackLink, BackRow, Button, Icon, Main, Rows, TitleBlock } from "@/components/members/kit";
+import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 import { dayMonth } from "@/lib/members/messages/format";
 import type { BlockedMember } from "@/lib/members/messages/types";
 import { ROUTES } from "@/lib/members/routes";
@@ -22,7 +26,19 @@ import { StandingDrawing } from "./art";
 import "./blocked.css";
 import { useDialog } from "./use-dialog";
 
-function Confirm({ name, onUnblock, onCancel }: { name: string; onUnblock: () => void; onCancel: () => void }) {
+function Confirm({
+  name,
+  busy,
+  error,
+  onUnblock,
+  onCancel,
+}: {
+  name: string;
+  busy: boolean;
+  error: string | null;
+  onUnblock: () => void;
+  onCancel: () => void;
+}) {
   const box = useRef<HTMLDivElement | null>(null);
   useDialog(box, onCancel);
   return (
@@ -44,8 +60,16 @@ function Confirm({ name, onUnblock, onCancel }: { name: string; onUnblock: () =>
           {name} will be able to message you and ask you questions again. You’ll see {name}’s messages in plan chats you
           share. {name} isn’t told.
         </p>
+        {error ? (
+          <p className="msg-sheet-err" role="alert">
+            <Icon name="circle-alert" size={18} />
+            <span>{error}</span>
+          </p>
+        ) : null}
         <div className="msg-blk-acts">
-          <Button onClick={onUnblock}>Unblock {name}</Button>
+          <Button pending={busy} onClick={onUnblock}>
+            Unblock {name}
+          </Button>
           <Button variant="outline" onClick={onCancel} data-autofocus>
             Cancel
           </Button>
@@ -58,26 +82,54 @@ function Confirm({ name, onUnblock, onCancel }: { name: string; onUnblock: () =>
 export function BlockedView({
   members,
   initialConfirmId = null,
+  local = false,
 }: {
   members: BlockedMember[];
   /** Preview only: start with this person's unblock confirm open. */
   initialConfirmId?: string | null;
+  /** Preview harness only: unblocking stays on this screen. */
+  local?: boolean;
 }) {
   const [list, setList] = useState(members);
   const [confirmId, setConfirmId] = useState<string | null>(initialConfirmId);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
   const [moveFocus, setMoveFocus] = useState(0);
   const wrap = useRef<HTMLDivElement | null>(null);
 
   const confirming = list.find((item) => item.member.id === confirmId) ?? null;
 
-  function unblock() {
-    if (!confirming) return;
-    const name = confirming.member.firstName;
-    setList((previous) => previous.filter((item) => item.member.id !== confirming.member.id));
+  async function unblock() {
+    if (!confirming || busy) return;
+    const { id, firstName: name } = confirming.member;
+    if (!local) {
+      setBusy(true);
+      setError(null);
+      let words: string | null = null;
+      try {
+        const answer = await unblockMember(id);
+        if (isSessionEnded(answer)) return goToSessionEnded();
+        if (!answer.ok) words = answer.error;
+      } catch {
+        words = "That didn’t go through. Try again in a moment.";
+      }
+      setBusy(false);
+      if (words) {
+        setError(words);
+        return;
+      }
+    }
+    setList((previous) => previous.filter((item) => item.member.id !== id));
     setConfirmId(null);
     setAnnounce(`${name} is unblocked.`);
     setMoveFocus((value) => value + 1);
+  }
+
+  function cancel() {
+    if (busy) return;
+    setConfirmId(null);
+    setError(null);
   }
 
   // The row you unblocked is gone, so focus goes to the next Unblock, or to "No one blocked.".
@@ -144,7 +196,7 @@ export function BlockedView({
         </div>
       </Main>
       {confirming ? (
-        <Confirm name={confirming.member.firstName} onUnblock={unblock} onCancel={() => setConfirmId(null)} />
+        <Confirm name={confirming.member.firstName} busy={busy} error={error} onUnblock={unblock} onCancel={cancel} />
       ) : null}
       <div className="mk-sr" role="status" aria-live="polite">
         {announce}

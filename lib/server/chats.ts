@@ -24,7 +24,7 @@ import type {
 } from "@/lib/members/messages/types";
 import { MESSAGE_MAX_LENGTH } from "@/lib/members/messages/types";
 import { blockSets, eitherBlocked, type BlockSets } from "./blocks";
-import { MESSAGE_RATE_LIMIT, THREAD_ITEM_LIMIT } from "./config";
+import { MESSAGE_RATE_LIMIT, THREAD_ITEM_LIMIT, UPDATES_KEEP_DAYS } from "./config";
 import { serviceDb } from "./db";
 import { notify } from "./notify";
 import { peopleRefs, type PersonRef } from "./people";
@@ -224,7 +224,15 @@ async function safetySeen(viewerId: string): Promise<boolean> {
  * is empty and the first send makes the chat. A member who left a plan chat (but is still going) is put back in
  * when they open it from the invite (messages spec 3.6: "you can rejoin from the invite").
  */
-export async function getThread(viewer: Viewer, chatId: string, now: Date = new Date()): Promise<ChatThread | null> {
+export async function getThread(
+  viewer: Viewer,
+  chatId: string,
+  now: Date = new Date(),
+  options: {
+    /** False for a poll of a thread already open: a member who has left is not put back by it (null instead). */
+    rejoin?: boolean;
+  } = {},
+): Promise<ChatThread | null> {
   const db = serviceDb();
   const askPlan = planIdFromAsk(chatId);
   let row: ChatRow | null = null;
@@ -240,7 +248,7 @@ export async function getThread(viewer: Viewer, chatId: string, now: Date = new 
   const { data: me } = await db.from("chat_members").select("chat_id, member_id, role, left_at, left_reason, last_read_at, muted").eq("chat_id", row.id).eq("member_id", viewer.id).maybeSingle<ChatMemberRow>();
   if (!me) return null;
   if (me.left_at) {
-    if (me.left_reason !== "left_chat") return null;
+    if (me.left_reason !== "left_chat" || options.rejoin === false) return null;
     const stillIn = row.kind === "question" || (await isHostOrGoing(row.plan_id, viewer.id));
     if (!stillIn) return null;
     await db.from("chat_members").update({ left_at: null, left_reason: null }).eq("chat_id", row.id).eq("member_id", viewer.id);
@@ -452,10 +460,28 @@ export async function markSafetyNoteSeen(viewerId: string): Promise<void> {
   await serviceDb().from("members").update({ chat_safety_seen_at: new Date().toISOString() }).eq("id", viewerId).is("chat_safety_seen_at", null);
 }
 
-/** The number on the messages icon: unread chats plus unread updates (messages decision 8 A). */
+/**
+ * The number on the messages icon: unread chats plus unread updates (messages decision 8 A). An update about a
+ * member you blocked is left out of the Updates list (updates.ts), so it is not counted here either: otherwise
+ * the icon would show a number nothing in the inbox explains, and "Mark all as read" would never show for it.
+ */
 export async function unreadCounts(viewerId: string): Promise<UnreadCounts> {
-  const { data, error } = await serviceDb().rpc("unread_counts", { p_member: viewerId });
+  const db = serviceDb();
+  const [{ data, error }, sets] = await Promise.all([db.rpc("unread_counts", { p_member: viewerId }), blockSets(viewerId)]);
   if (error) throw error;
   const r = (data ?? {}) as { chats?: number; updates?: number };
-  return { chats: r.chats ?? 0, updates: r.updates ?? 0 };
+  let updates = r.updates ?? 0;
+  if (updates > 0 && sets.blocked.size > 0) {
+    const since = new Date(Date.now() - UPDATES_KEEP_DAYS * 24 * HOUR).toISOString();
+    const { count, error: hiddenError } = await db
+      .from("updates")
+      .select("id", { count: "exact", head: true })
+      .eq("member_id", viewerId)
+      .is("read_at", null)
+      .gt("created_at", since)
+      .in("actor_id", [...sets.blocked]);
+    if (hiddenError) throw hiddenError;
+    updates = Math.max(0, updates - (count ?? 0));
+  }
+  return { chats: r.chats ?? 0, updates };
 }

@@ -1,9 +1,9 @@
 // Messages and notification settings: the data the screens need, and so the
-// data the backend will have to supply (BUILD_BRIEF section 6, "types first").
-// Nothing here is implemented yet: the fake adapter in lib/members/mock/ returns
-// exactly these types, on EXAMPLE DATA, behind the `messages` and
-// `notifications` flags. When the backend exists, the pages import its real
-// functions instead and the mock guard is removed for this area.
+// data the backend supplies (BUILD_BRIEF section 6, "types first"). Stage 2
+// built it: lib/server/chats.ts, updates.ts, blocks.ts, reports.ts and
+// notification-prefs.ts return exactly these types, through the actions in
+// app/members/messages/ and app/members/you/. The preview harness draws the
+// same types from fixtures (lib/members/mock/messages.ts).
 //
 // Conventions
 //   - Every timestamp is ISO 8601 with an offset ("2026-10-23T09:13:00+01:00").

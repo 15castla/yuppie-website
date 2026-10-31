@@ -537,3 +537,17 @@ textarea.msg-input:focus-visible{outline:none}
 .msg-ex-inbox{margin:12px 0 0}
 .msg-card > .msg-ex-thread{flex:none;margin:0;padding:6px 12px;border:0;border-bottom:1.5px dashed var(--ink);border-radius:0;font-size:13px;line-height:1.35;text-align:center}
 @media (min-width:1024px){ .msg-card > .msg-ex-thread{display:none} }
+
+/* Stage 2 (the real backend). When Send report, Block or Leave chat did not go through, the server's words sit
+   above the buttons (error red: 5.8 on pale, 4.72 on yellow). The safety note's permanent copy closes chat info
+   (decision 5 A; the stream's note without "Got it"). */
+.msg-sheet-err{display:flex;gap:8px;align-items:flex-start;margin-top:14px;color:var(--error);font:700 14px/1.4 var(--font-body)}
+.msg-sheet-err .mk-ico{flex:none;margin-top:1px}
+.msg-safety.is-info{margin:18px 0 4px}
+/* In the computer's drawer (from 768px) the rows are 52px, so the copy is a step smaller to sit under them. */
+@media (min-width:768px){
+  .msg-safety.is-info{margin-top:14px;padding:12px 14px;gap:12px;border-radius:16px}
+  .msg-safety.is-info .ic{width:32px;height:32px}
+  .msg-safety.is-info b{font-size:15px}
+  .msg-safety.is-info p{margin-top:2px;font-size:13px}
+}

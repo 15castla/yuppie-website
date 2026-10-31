@@ -37,3 +37,6 @@
   .msg-blk-acts{flex-direction:row;flex-wrap:wrap}
   .msg-blk-acts .mk-btn{width:auto;flex:1 1 200px}
 }
+/* Stage 2: the server's words when Unblock did not go through (error red on pale: 5.8). */
+.msg-blk-sheet .msg-sheet-err{display:flex;gap:8px;align-items:flex-start;margin-top:14px;color:var(--error);font:700 14px/1.4 var(--font-body)}
+.msg-blk-sheet .msg-sheet-err .mk-ico{flex:none;margin-top:1px}
