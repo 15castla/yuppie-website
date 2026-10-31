@@ -1,7 +1,8 @@
-// The data Open Invite and paid plans need from a backend. NO BACKEND EXISTS
-// YET: these types are the build spec for it, and the fake adapters in
-// lib/members/mock/ (open-invite.ts, payments.ts) return exactly these
-// shapes. Every screen under components/members/invite and
+// The data Open Invite and paid plans need from the backend. Open Invite is
+// real (stage 2: lib/server/plans.ts builds these for one viewer); paid plans
+// are stage 3, so the payment types below are still drawn only from the
+// example fixtures (lib/members/mock/payments.ts, open-invite.ts) in the
+// preview harness. Every screen under components/members/invite and
 // components/members/payments reads these types and nothing else.
 //
 // Conventions (so the backend and the screens agree):

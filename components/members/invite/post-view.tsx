@@ -9,36 +9,47 @@
 // The errors are written in the form: what is wrong, and what to do. The Post
 // button stays a normal full-ink button in every error state (RULE-38): tapping
 // it with an error moves focus to the first one. "Posted." is its own page
-// (/members/open-invite/new/done) so the tab bar comes back.
+// (/members/open-invite/new/done?id=<plan>) so the tab bar comes back.
 //
-// LOCAL DEMO STATE: posting keeps the new plan in this tab's sessionStorage
-// and shows it on the "Posted." page (demo-posted.ts). Nothing is sent.
+// "Post Open Invite" is a server action (postOpenInvite: every rule again on the
+// server; field errors come back under the form's own field names, anything
+// else as one line under the form). Free plans only while paid plans are not
+// live: "Add a cost" is drawn only with `paidPlans` (never on a real page in
+// stage 2) and the server refuses a cost anyway.
+//
+// Editing (the host's "Edit invite", `editing`): the same form filled in with
+// the plan, "Save changes", and a line saying the people going are told when
+// the time or place moves (the server sends the plan-changed email or Update).
+// Places cannot go below the people already going. Not drawn: the design says
+// to reuse the post form.
 
 import "./invite.css";
 
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { BackRow, Button, ExampleNote, Icon, Main, Shape } from "@/components/members/kit";
 import { GetPaidHandOff, type GetPaidMode } from "@/components/members/payments/get-paid";
 import { EMPTY_COST, usablePence, validateCost, type CostValues } from "@/lib/members/invite/cost";
+import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 import { formatDateInput, isPaid, londonLocalToIso } from "@/lib/members/invite/format";
 import {
   INVITE_TYPES,
   type GetPaidStatus,
   type InviteMember,
   type InviteType,
+  type NewOpenInvite,
   type NewOpenInviteContext,
   type NewOpenInviteField,
   type OpenInvite,
 } from "@/lib/members/invite/types";
-import { ROUTES } from "@/lib/members/routes";
+import { openInviteHref, ROUTES } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import { CostBlock } from "./cost-block";
-import { DEMO_POSTED_ID, DEMO_POSTED_PAID_ID, savePosted } from "./demo-posted";
 import { CheckRow, FieldError, Lab } from "./form-parts";
 import { InkDrawing } from "./ink-drawing";
 import { InviteCard } from "./invite-card";
+import { TRY_AGAIN, useInviteActions } from "./invite-actions";
 
 export type PostValues = {
   title: string;
@@ -70,6 +81,8 @@ export const EMPTY_POST: PostValues = {
 };
 
 export const TITLE_MAX = 50;
+/** The server keeps a place to 120 characters (lib/server/plans.ts checkNewInvite). */
+export const WHERE_MAX = 120;
 export const NOTE_MAX = 280;
 export const PLACES_MIN = 2;
 export const PLACES_MAX = 12;
@@ -114,7 +127,7 @@ function showPicker(event: { currentTarget: HTMLInputElement }) {
 
 // ---------------------------------------------------------------- the live preview
 
-function previewInvite(values: PostValues, me: InviteMember): OpenInvite {
+function previewInvite(values: PostValues, me: InviteMember, others: InviteMember[] = []): OpenInvite {
   const at = londonLocalToIso(values.date, values.time);
   const pence = usablePence(values.cost);
   return {
@@ -127,7 +140,7 @@ function previewInvite(values: PostValues, me: InviteMember): OpenInvite {
     places: values.places,
     hostGoing: values.hostGoing,
     host: me,
-    going: values.hostGoing ? [me] : [],
+    going: values.hostGoing ? [me, ...others] : others,
     status: "scheduled",
     cost: pence === null ? null : { pricePence: pence, faceValueConfirmed: values.cost.tick },
     you: {
@@ -165,6 +178,32 @@ function RulesLine() {
   );
 }
 
+/** Editing: what happens when the time or place moves. NEW COPY (the edit form is not drawn). */
+function ChangeNote() {
+  return (
+    <div className="oi-rules oi-rules-2">
+      <Icon name="message" size={20} />
+      <span>If you change the time or place, everyone who’s in is told.</span>
+    </div>
+  );
+}
+
+/** What the post form sends: the form's values as the server takes them. A cost only when "Add a cost" is on (and drawn). */
+export function toNewInvite(values: PostValues, paidPlans: boolean): NewOpenInvite {
+  const pence = paidPlans && values.cost.on ? usablePence(values.cost) : null;
+  return {
+    title: values.title,
+    type: values.type as InviteType,
+    date: values.date,
+    time: values.time,
+    where: values.where,
+    places: values.places,
+    hostGoing: values.hostGoing,
+    note: values.note,
+    cost: pence === null ? null : { pricePence: pence, faceValueConfirmed: values.cost.tick },
+  };
+}
+
 function MessageNote({ paid }: { paid: boolean }) {
   return (
     <div className="oi-rules oi-rules-2">
@@ -183,6 +222,8 @@ export function PostView({
   initialErrors,
   initialPosting = false,
   initialMode = null,
+  editing,
+  initialFormError,
 }: {
   context: NewOpenInviteContext;
   /** `flags.paidPlans`: draws "Add a cost". Off, the form is exactly the free one. */
@@ -195,8 +236,13 @@ export function PostView({
   initialPosting?: boolean;
   /** ...or with the Get paid hand-off open. */
   initialMode?: GetPaidMode;
+  /** The host's edit of a posted plan: its id, and who else is going (places never go below them). */
+  editing?: { id: string; title: string; others: InviteMember[] };
+  /** ...or with a line from the server under the form. */
+  initialFormError?: string;
 }) {
   const router = useRouter();
+  const actions = useInviteActions();
   const uid = useId();
   const ids = {
     title: `${uid}-title`,
@@ -210,13 +256,18 @@ export function PostView({
   const [values, setValues] = useState<PostValues>({ ...EMPTY_POST, ...initial });
   const [errors, setErrors] = useState<PostErrors>(initialErrors ?? {});
   const [posting, setPosting] = useState(initialPosting);
-  // LOCAL DEMO STATE: Get paid starts as the context says and turns ready when "Done" is tapped on Stripe's outline screen.
+  const [formError, setFormError] = useState<string | null>(initialFormError ?? null);
+  // The server's answer moves focus to its first error once it is drawn (a number that changes per answer).
+  const [answered, setAnswered] = useState(0);
+  // Paid plans (stage 3, the harness only): Get paid starts as the context says and turns ready when "Done" is tapped on Stripe's outline screen.
   const [getPaid, setGetPaid] = useState<GetPaidStatus>(context.getPaid.status);
   const [mode, setMode] = useState<GetPaidMode>(initialMode);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
+  const alreadyGoing = editing?.others ?? [];
+  // Editing: never fewer places than the people already going (the server refuses it too).
+  const placesMin = Math.max(PLACES_MIN, alreadyGoing.length + (values.hostGoing ? 1 : 0));
 
   function set<K extends keyof PostValues>(key: K, value: PostValues[K]) {
+    setFormError(null);
     setValues((current) => ({ ...current, [key]: value }));
     setErrors((current) => {
       const next = { ...current };
@@ -243,12 +294,7 @@ export function PostView({
     });
   }
 
-  function submit(event: FormEvent) {
-    event.preventDefault();
-    if (posting) return;
-    const found = validatePost(values, context.today, context.now, getPaid);
-    setErrors(found);
-    const order: [keyof PostErrors, string][] = [
+  const order: [keyof PostErrors, string][] = [
       ["title", ids.title],
       ["type", `${ids.type}-0`],
       ["date", ids.date],
@@ -257,27 +303,58 @@ export function PostView({
       ["price", costIds.price],
       ["faceValue", costIds.tick],
       ["getPaid", costIds.getPaid],
-    ];
+  ];
+
+  /** Scroll to the first error and put focus there (the field, or the line under the form). */
+  function showFirst(found: PostErrors, general: string | null) {
     const first = order.find(([key]) => found[key]);
-    if (first) {
-      const target = document.getElementById(first[1]);
-      target?.scrollIntoView({ block: "center" });
-      target?.focus({ preventScroll: true });
+    const target = document.getElementById(first ? first[1] : general ? `${uid}-form-e` : "");
+    if (!target) return;
+    target.scrollIntoView({ block: "center" });
+    target.focus({ preventScroll: true });
+  }
+
+  async function submit(event: FormEvent) {
+    event.preventDefault();
+    if (posting) return;
+    const found = validatePost(values, context.today, context.now, getPaid);
+    setErrors(found);
+    setFormError(null);
+    if (Object.keys(found).length > 0) {
+      showFirst(found, null);
       return;
     }
     setPosting(true);
-    timer.current = setTimeout(() => {
-      const draft = previewInvite(values, context.me);
-      // "See my invite" opens the example plan of the same kind: a paid plan opens the paid one.
-      const postedId = isPaid(draft) ? DEMO_POSTED_PAID_ID : DEMO_POSTED_ID;
-      savePosted({
-        ...draft,
-        id: postedId,
-        you: { ...draft.you, role: "host", chatId: `chat-${postedId}`, askThreadId: null },
-      });
-      router.push(ROUTES.openInviteDone);
-    }, 900);
+    const input = toNewInvite(values, paidPlans);
+    let result: Awaited<ReturnType<typeof actions.post>> | Awaited<ReturnType<typeof actions.edit>>;
+    try {
+      result = editing ? await actions.edit(editing.id, input) : await actions.post(input);
+    } catch (err) {
+      if (err && typeof err === "object" && "digest" in err) throw err;
+      result = { ok: false, error: TRY_AGAIN };
+    }
+    if (isSessionEnded(result)) return goToSessionEnded();
+    if (result.ok) {
+      // Stays "Posting…" until the next page is up.
+      if (actions.shown) actions.shown({ page: editing ? "plan" : "posted", invite: result.invite });
+      else if (editing) router.push(openInviteHref(editing.id));
+      else if ("id" in result && typeof result.id === "string") router.push(`${ROUTES.openInviteDone}?id=${encodeURIComponent(result.id)}`);
+      return;
+    }
+    setPosting(false);
+    const fieldErrors: PostErrors = ("errors" in result && result.errors) || {};
+    const general = result.error ?? (Object.keys(fieldErrors).length > 0 ? null : TRY_AGAIN);
+    setErrors(fieldErrors);
+    setFormError(general);
+    setAnswered((n) => n + 1);
   }
+
+  // After the server's errors are on screen: the first one, scrolled to and focused.
+  useEffect(() => {
+    if (answered > 0) showFirst(errors, formError);
+    // only when a new answer arrives, not on every keystroke
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answered]);
 
   const titleLeft = TITLE_MAX - values.title.length;
   const whenError = errors.date ?? errors.time;
@@ -375,6 +452,7 @@ export function PostView({
           id={ids.where}
           type="text"
           value={values.where}
+          maxLength={WHERE_MAX}
           placeholder="A venue or a meeting point"
           autoComplete="off"
           enterKeyHint="next"
@@ -399,10 +477,10 @@ export function PostView({
         <div className="stp" role="group" aria-label="Places">
           <button
             type="button"
-            className={cn("mk-b", values.places <= PLACES_MIN && "is-dis")}
+            className={cn("mk-b", values.places <= placesMin && "is-dis")}
             aria-label="Fewer places"
-            disabled={posting || values.places <= PLACES_MIN}
-            onClick={() => set("places", Math.max(PLACES_MIN, values.places - 1))}
+            disabled={posting || values.places <= placesMin}
+            onClick={() => set("places", Math.max(placesMin, values.places - 1))}
           >
             <Icon name="minus" size={22} />
           </button>
@@ -421,7 +499,19 @@ export function PostView({
         </div>
         <span className="t2">{placesText}</span>
       </div>
-      <CheckRow checked={values.hostGoing} disabled={posting} onChange={(next) => set("hostGoing", next)} label="I’m going too" />
+      <CheckRow
+        checked={values.hostGoing}
+        disabled={posting}
+        onChange={(next) =>
+          setValues((current) => ({
+            ...current,
+            hostGoing: next,
+            // ticking "I'm going too" on an edit takes a place: keep room for everyone already going
+            places: Math.min(PLACES_MAX, Math.max(current.places, alreadyGoing.length + (next ? 1 : 0))),
+          }))
+        }
+        label="I’m going too"
+      />
     </div>,
     // Note
     <div key="note">
@@ -461,27 +551,44 @@ export function PostView({
     );
   }
   const paid = usablePence(values.cost) !== null;
+  const buttonText = editing ? (posting ? "Saving…" : "Save changes") : posting ? "Posting…" : "Post Open Invite";
+  const backHref = editing ? openInviteHref(editing.id) : ROUTES.openInvite;
 
   return (
     <Main pad={false} className="oi-postmain">
-      <BackRow href={ROUTES.openInvite} label="Cancel" />
+      <BackRow href={backHref} label="Cancel" />
       <ExampleNote />
       <div className="mk-wrap">
         <div className="oi-form-head">
-          <h1 className="mk-h1">Got a plan?</h1>
-          <p className="mk-sub-serif">See who’s in.</p>
+          {editing ? (
+            <>
+              <h1 className="mk-h1">Edit invite.</h1>
+              <p className="mk-sub-serif">{editing.title}</p>
+            </>
+          ) : (
+            <>
+              <h1 className="mk-h1">Got a plan?</h1>
+              <p className="mk-sub-serif">See who’s in.</p>
+            </>
+          )}
         </div>
         <div className="oi-form-grid">
           <div>
             <form id={`${uid}-form`} className="oi-form" onSubmit={submit} noValidate>
               {fields}
+              {formError ? (
+                <div tabIndex={-1} id={`${uid}-form-e`} className="oi-form-e">
+                  <FieldError id={`${uid}-form-e-t`} message={formError} />
+                </div>
+              ) : null}
             </form>
             <div className="mk-show-phone">
               <RulesLine />
+              {editing ? <ChangeNote /> : null}
             </div>
             <div className="oi-formact">
               <Button type="submit" form={`${uid}-form`} pending={posting}>
-                {posting ? "Posting…" : "Post Open Invite"}
+                {buttonText}
               </Button>
             </div>
           </div>
@@ -494,11 +601,11 @@ export function PostView({
                 <div className="oi-prev-art">
                   <InkDrawing name="trainer" w={152} line={2.5} />
                 </div>
-                <InviteCard invite={previewInvite(values, context.me)} me={context.me} placeholders={previewWords(values)} />
+                <InviteCard invite={previewInvite(values, context.me, alreadyGoing)} me={context.me} placeholders={previewWords(values)} />
               </div>
               <div className="mk-show-desk">
                 <RulesLine />
-                <MessageNote paid={paid} />
+                {editing ? <ChangeNote /> : <MessageNote paid={paid} />}
               </div>
             </div>
           </div>
@@ -508,7 +615,7 @@ export function PostView({
       <div className="mk-dock" data-needs-device-check="true">
         <div className="mk-tabbar oi-bar oi-bar-one">
           <Button type="submit" form={`${uid}-form`} pending={posting}>
-            {posting ? "Posting…" : "Post Open Invite"}
+            {buttonText}
           </Button>
         </div>
       </div>
@@ -576,15 +683,25 @@ export function PostedView({ invite, me }: { invite: OpenInvite; me: InviteMembe
   );
 }
 
-export function PostLoading() {
+/** The form's loading page. `editing`: the host's edit (the title is the edit form's). */
+export function PostLoading({ editing = false }: { editing?: boolean }) {
   return (
     <Main busy pad={false}>
       <span className="mk-sr">Loading</span>
       <BackRow href={ROUTES.openInvite} label="Cancel" />
       <div className="mk-wrap" aria-hidden="true">
         <div className="oi-form-head">
-          <h1 className="mk-h1">Got a plan?</h1>
-          <p className="mk-sub-serif">See who’s in.</p>
+          {editing ? (
+            <>
+              <h1 className="mk-h1">Edit invite.</h1>
+              <Shape width="52%" height={26} style={{ marginTop: 8 }} />
+            </>
+          ) : (
+            <>
+              <h1 className="mk-h1">Got a plan?</h1>
+              <p className="mk-sub-serif">See who’s in.</p>
+            </>
+          )}
         </div>
         <div className="oi-form-grid">
           <div className="oi-form">

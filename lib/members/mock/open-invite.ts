@@ -1,9 +1,8 @@
 // EXAMPLE DATA: invented people and places. A 404 on the live site unless MEMBERS_SHOW_EXAMPLES=on is set there (guard.ts), and then every screen that uses it says it is an example (kit/example-note.tsx).
 //
-// The fake adapter for Open Invite. It returns exactly the types in
-// lib/members/invite/types.ts, so the screens do not change when a real
-// backend replaces this file. Nothing here writes anything: posting, joining,
-// leaving and cancelling are local client state in the views.
+// Open Invite's example plans, for the preview harness (app/dev-preview/registry/invite.tsx) and the Messages
+// example threads. Stage 2 gave Open Invite a real backend (lib/server/plans.ts): no members page reads this file
+// any more, and its example adapter functions are gone. The shapes are exactly lib/members/invite/types.ts's.
 //
 // The people and plans are the shared example content of the approved designs
 // (CONTENT.md and CONTENT3.md). Every venue is a fictional placeholder except
@@ -15,15 +14,12 @@
 
 import { examplePhoto, type ExamplePhotoKey } from "./example-photos";
 import type {
-  GetPaid,
   InviteMember,
   InvitePayment,
   InviteQuestion,
   InviteType,
-  NewOpenInviteContext,
   OpenInvite,
   OpenInviteFeed,
-  OpenInvitePage,
   OpenInviteYours,
 } from "@/lib/members/invite/types";
 
@@ -368,9 +364,8 @@ const ALL: OpenInvite[] = [
   COMEDY_LEFT,
 ];
 
-// ---------------------------------------------------------------- the adapter
+// ---------------------------------------------------------------- the example feed and Yours
 
-const byId = new Map(ALL.map((entry) => [entry.id, entry]));
 
 /** The browse page: upcoming plans, soonest first. The first card is the one Sam is in, with 1 unread. */
 export const EXAMPLE_FEED: OpenInviteFeed = {
@@ -399,20 +394,6 @@ export const EXAMPLE_YOURS: OpenInviteYours = {
   yoursCount: 2,
 };
 
-export async function listOpenInvites(): Promise<OpenInviteFeed> {
-  return EXAMPLE_FEED;
-}
-
-export async function listYours(): Promise<OpenInviteYours> {
-  return EXAMPLE_YOURS;
-}
-
-/** One plan, or null (the page then 404s). */
-export async function getOpenInvite(id: string): Promise<OpenInvitePage | null> {
-  const invite = byId.get(id);
-  return invite ? { invite, me: SAM, now: EXAMPLE_NOW } : null;
-}
-
 /**
  * Which plan a chat or question id belongs to, and how (the Messages example
  * adapter builds a thread from it when it has none of its own, so every
@@ -427,26 +408,11 @@ export function findInviteByThreadId(
     const asked = entry.you.questions.find((q) => q.threadId === threadId);
     if (asked) return { invite: entry, kind: "question", from: asked.from, text: asked.text };
   }
-  // The plan page's local demo ("I'm in", Pay and join) opens chat-<plan id>.
+  // The harness's stand-in "I'm in" and Pay and join (components/members/invite/preview-state.ts) open chat-<plan id>.
   for (const entry of ALL) {
     if (threadId === `chat-${entry.id}`) return { invite: entry, kind: "plan", from: null, text: null };
   }
   return null;
-}
-
-/** What the post form needs: Sam, whether Get paid is finished, and today. */
-export async function getNewInviteContext(): Promise<NewOpenInviteContext> {
-  return { me: SAM, getPaid: await getGetPaidStatus(), today: "2026-10-25", now: EXAMPLE_NOW };
-}
-
-/** Sam's Get paid status for the post form. The example host has finished it. */
-export async function getGetPaidStatus(): Promise<GetPaid> {
-  return { status: "ready", accountEnding: "4321", paused: null };
-}
-
-/** The signed-in member as the example data knows them (the composer photo). */
-export async function getExampleMe(): Promise<InviteMember> {
-  return SAM;
 }
 
 /** The example plans, for the preview harness and the fake adapters. */

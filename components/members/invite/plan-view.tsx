@@ -8,12 +8,16 @@
 // computer the bar becomes an action card beside the title.
 //
 // States (planState): open, in, full, own, cancelled, past. A plan with a cost
-// adds the Cost line, the money lines and "Pay £22 and join". A pure view of
-// OpenInvitePage: the harness renders it without a login or a database.
+// adds the Cost line, the money lines and "Pay £22 and join" (paid plans are
+// stage 3: no real page draws one yet). A pure view of OpenInvitePage: the
+// harness renders it without a login or a database. I'm in, withdraw, report
+// and cancel are server actions (use-moments.tsx); "Edit invite" opens the
+// post form on the plan (/members/open-invite/<id>/edit).
 
 import "./invite.css";
 
-import type { ReactNode } from "react";
+import { useMemo, type ReactNode } from "react";
+import { useRouter } from "next/navigation";
 
 import { Avatar, BackRow, Button, ExampleNote, Icon, KitLink, Main, Pill, Row, Rows, Shape, Status, useExample } from "@/components/members/kit";
 import {
@@ -27,7 +31,7 @@ import {
   type PlanState,
 } from "@/lib/members/invite/format";
 import type { InviteMember, OpenInvite, OpenInvitePage } from "@/lib/members/invite/types";
-import { messageThreadHref, openInviteReceiptHref, ROUTES } from "@/lib/members/routes";
+import { messageThreadHref, openInviteEditHref, openInviteReceiptHref, ROUTES } from "@/lib/members/routes";
 import { InkDrawing } from "./ink-drawing";
 import { CommaBreaks, CountBadge, CountChip, hostMoneyLine, STATE_PILLS } from "./invite-card";
 import { BarMessages } from "./top-block";
@@ -256,18 +260,21 @@ export function PlanView({
   initialPendingId?: string | null;
 }) {
   const { me, now } = page;
+  const router = useRouter();
   // Example screens on the live site: taking money is not built, so Pay says so (kit/example-note).
   const example = useExample();
+  const plans = useMemo(() => [page.invite], [page.invite]);
   const moments = useMoments({
-    plans: [page.invite],
+    plans,
     me,
     nowIso: now,
     seeOtherHref: ROUTES.openInvite,
     initialMoment,
     initialPendingId,
-    paidPlans,
+    // the member may not see this plan any more (the club removed it, a block): back to the feed
+    onGone: () => router.replace(ROUTES.openInvite),
   });
-  const invite = moments.plans[0];
+  const invite = moments.plans[0] ?? page.invite;
   const pending = moments.pendingId === invite.id;
   const state = planState(invite);
   const host = invite.host;
@@ -429,7 +436,7 @@ export function PlanView({
     case "own":
       barSub = paid ? (moneyLine ?? going) : going;
       barButton = (
-        <Button href={`${ROUTES.openInvite}/${encodeURIComponent(invite.id)}`} icon={<Icon name="pencil" size={20} />}>
+        <Button href={openInviteEditHref(invite.id)} icon={<Icon name="pencil" size={20} />}>
           Edit invite
         </Button>
       );
@@ -451,6 +458,8 @@ export function PlanView({
 
   // ---- desktop action card
   const questions = invite.you.questions;
+  // "new": questions with something unread (a question already read stays in the list, without a number)
+  const newQuestions = questions.filter((question) => question.unread > 0).length;
   let secondary: ReactNode = null;
   if ((state === "open" || state === "full") && askHref) {
     secondary = (
@@ -462,7 +471,7 @@ export function PlanView({
     secondary = (
       <Button variant="outline" href="#questions">
         Questions
-        {questions.length > 0 ? <CountBadge n={questions.length} /> : null}
+        {newQuestions > 0 ? <CountBadge n={newQuestions} /> : null}
       </Button>
     );
   }
@@ -564,7 +573,7 @@ export function PlanView({
             leading={<Avatar photoUrl={question.from.photoUrl} name={question.from.firstName} size={48} />}
             title={question.from.firstName}
             meta={question.text}
-            end={<CountChip n={question.unread} />}
+            end={question.unread > 0 ? <CountChip n={question.unread} /> : null}
           />
         ))}
       </>
@@ -572,7 +581,7 @@ export function PlanView({
   const questionHead = (
     <div className="mk-sh" id="questions">
       <h2 className="mk-h2">Questions</h2>
-      <span className="oi-meta">{questions.length} new</span>
+      {newQuestions > 0 ? <span className="oi-meta">{newQuestions} new</span> : null}
     </div>
   );
 
@@ -644,7 +653,8 @@ export function PlanView({
         </div>
       </section>
 
-      <section className="mk-band oi-detail" aria-label="Details">
+      {/* A cancelled plan with no note has nothing for this band on a phone (its rows are in the tail): no empty strip. */}
+      <section className={state === "cancelled" && !invite.note ? "mk-band oi-detail oi-detail-desk" : "mk-band oi-detail"} aria-label="Details">
         <div className="mk-wrap">
           <div className="oi-detail-grid">
             <div>

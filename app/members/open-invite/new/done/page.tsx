@@ -1,15 +1,21 @@
-import { requireMember } from "@/app/members/require-member";
-import { PostedRoute } from "@/components/members/invite/posted-route";
-import { peopleRefs } from "@/lib/server/people";
-import { requireOpenInvite } from "../../guard";
+import { notFound, redirect } from "next/navigation";
 
-// "Posted.": the page after posting, with the tab bar back. The member is real. The plan just posted is still
-// read by PostedRoute from this tab's sessionStorage (demo-posted.ts); the Open Invite screen agent switches it
-// to the plan the post action answered (postOpenInvite gives the id: /members/open-invite/new/done?id=<id>,
-// load it with getOpenInvitePage).
-export default async function PostedPage() {
+import { requireMember } from "@/app/members/require-member";
+import { PostedView } from "@/components/members/invite/post-view";
+import { ROUTES } from "@/lib/members/routes";
+import { openInvitePage } from "@/lib/server/plans";
+import { paidPlansShown, requireOpenInvite } from "../../guard";
+
+// "Posted.": the page after posting, with the tab bar back. The plan is the one the post action answered
+// (/members/open-invite/new/done?id=<plan id>), loaded again for this member. Only its host sees it: no id, a plan
+// that is not theirs, or one that cannot be found sends them to the form.
+export default async function PostedPage({ searchParams }: { searchParams: Promise<{ id?: string | string[] }> }) {
   await requireOpenInvite();
+  const { id } = await searchParams;
   const member = await requireMember();
-  const me = (await peopleRefs([member.id])).get(member.id)!;
-  return <PostedRoute me={me} />;
+  const planId = typeof id === "string" ? id : "";
+  const page = planId ? await openInvitePage({ id: member.id, email: member.email }, planId) : null;
+  if (!page || page.invite.you.role !== "host") redirect(ROUTES.openInviteNew);
+  if (page.invite.cost && !paidPlansShown()) notFound();
+  return <PostedView invite={page.invite} me={page.me} />;
 }
