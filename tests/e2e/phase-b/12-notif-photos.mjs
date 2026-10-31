@@ -97,6 +97,14 @@ if (!switchesOn) {
   process.exit(0);
 }
 
+// The plans this script posts are cancelled when it ends: the shared database's feed shows the first 100 upcoming
+// plans, and these (moved within a day of now) would push other scripts' plans out of it.
+const made = [];
+const post = async (host, over) => {
+  const id = await postPlan(host, over);
+  made.push(id);
+  return id;
+};
 try {
   // ================================================================ Notifications: the page and the defaults
   const M = await makeMemberWithPhoto('nt');
@@ -121,7 +129,7 @@ try {
   eq([row.text, row.warn], ['Notifications Email', 0], 'You > Settings: Notifications reads "Email" (no push yet)');
 
   // ---------------------------------------------------------------- Plans you're in and Email: the plan-changed email
-  const P1 = await postPlan(H, { title: 'Notif walk', ...londonFormDate(6, '18:30') });
+  const P1 = await post(H, { title: 'Notif walk', ...londonFormDate(6, '18:30') });
   for (const who of [M, C]) eq((await action('invite.joinOpenInvite', [P1], who.session)).result.ok, true, `${who === M ? 'the member' : 'a control member'} joins the host's plan`);
   const edit = async (time) => {
     const r = await action('plan.editOpenInvite', [P1, planInput({ title: 'Notif walk', ...londonFormDate(6, time) })], H.session);
@@ -146,7 +154,7 @@ try {
   await waitFor(() => changedTo(M, stamp).length === 1, 'both back on: the member gets the plan-changed email');
 
   // ---------------------------------------------------------------- Plans you host: the chat email
-  const P2 = await postPlan(M, { title: 'Notif host', ...londonFormDate(7, '18:30') });
+  const P2 = await post(M, { title: 'Notif host', ...londonFormDate(7, '18:30') });
   eq((await action('invite.joinOpenInvite', [P2], C.session)).result.ok, true, 'a guest joins the member’s own plan');
   const chat2 = sql1(`select id from chats where plan_id = ${q(P2)} and kind = 'plan'`).id;
   const sent2 = await action('thread.sendMessage', [{ chatId: chat2, text: 'See you there', clientId: `bn-${Date.now()}` }], C.session);
@@ -161,7 +169,7 @@ try {
 
   // ---------------------------------------------------------------- 24 hours and 2 hours: plan reminders
   const reminderPlan = async (title) => {
-    const id = await postPlan(H, { title, ...londonFormDate(8, '18:30') });
+    const id = await post(H, { title, ...londonFormDate(8, '18:30') });
     eq((await action('invite.joinOpenInvite', [id], M.session)).result.ok, true, `the member joins "${title}"`);
     exec(`update plan_members set joined_at = now() - interval '2 days' where plan_id = ${q(id)}`);
     return id;
@@ -464,5 +472,6 @@ try {
   await bCtx.close();
 } finally {
   await browser.close();
+  if (made.length) exec(`update plans set status = 'cancelled', cancelled_at = now() where id in (${made.map(q).join(', ')}) and status = 'scheduled'`);
 }
 done();

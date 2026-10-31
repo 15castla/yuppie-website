@@ -5,7 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { done, eq, makeMember, makeMemberWithPhoto, memberSession, ok, q, rand, redirectedTo, sql, sql1, svc } from './lib.mjs';
+import { done, eq, makeMember, makeMemberWithPhoto, memberSession, ok, q, rand, redirectedTo, sleep, sql, sql1, svc } from './lib.mjs';
 
 const ROOT = path.resolve(new URL('../../..', import.meta.url).pathname);
 const FIX = '/home/claude/stack/tools/fixtures';
@@ -73,6 +73,9 @@ ok(/Totals: .*moved 3/.test(applied.out) && /needs a look 3/.test(applied.out), 
 const again = run('--apply');
 for (const m of [jpg, png, gif]) ok(lineFor(again.out, m).includes('already moved'), `a second run: ${m.email.split('@')[0]} already moved`);
 eq(sql1(`select count(*)::int n from member_photos where source = 'migrated' and member_id in (${[jpg, png, gif].map((m) => q(m.id)).join(',')})`).n, 3, 'no second copy');
+// The release script ran synchronously (the event loop was blocked for seconds): let the HTTP client see the
+// keep-alive sockets the gateway closed meanwhile, or its next call reuses a dead one ("fetch failed" under load).
+await sleep(300);
 const s = await memberSession(jpg.email);
 eq(await redirectedTo('/members/open-invite', s), null, 'a moved member is through the photo gate');
 eq(await redirectedTo('/members/open-invite', await memberSession(missing.email)), '/members/photo', 'a member whose photo could not be moved meets the gate (as decision 4 A says)');
