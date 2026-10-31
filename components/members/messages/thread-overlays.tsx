@@ -65,6 +65,8 @@ type Props = {
   messageById: (id: string) => ChatMessage | null;
   /** Null when done; otherwise the words to show in the dialog. */
   onLeave: () => Promise<string | null>;
+  /** Preview only: the sheet or dialog opens showing these words (its server step did not go through). */
+  initialError?: string | null;
 };
 
 /** A question not asked yet ("ask-<plan id>"): there is no chat on the server until the first message. */
@@ -82,9 +84,9 @@ function ErrorLine({ text }: { text: string | null }) {
 }
 
 /** Run an action that answers null (done) or words (not done), with the button busy meanwhile. */
-function useServerStep() {
+function useServerStep(initialError: string | null = null) {
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(initialError);
   async function run(step: () => Promise<string | null>) {
     if (busy) return;
     setBusy(true);
@@ -406,7 +408,8 @@ function ReportSheet({
   messageById,
   setOverlay,
   onReport,
-}: Pick<Props, "chat" | "messageById" | "setOverlay" | "onReport"> & {
+  initialError,
+}: Pick<Props, "chat" | "messageById" | "setOverlay" | "onReport" | "initialError"> & {
   what: ReportWhat;
   memberId: string;
   messageId?: string;
@@ -422,7 +425,7 @@ function ReportSheet({
 
   const choose = (id: string) => setOverlay({ kind: "report", what, memberId, messageId, reason: id });
   const selectedIndex = reasons.findIndex((r) => r.id === reason);
-  const step = useServerStep();
+  const step = useServerStep(initialError);
 
   function send() {
     if (!reason) return;
@@ -562,11 +565,12 @@ function BlockDialog({
   from,
   setOverlay,
   onBlock,
-}: Pick<Props, "chat" | "setOverlay" | "onBlock"> & { memberId: string; from?: "info" }) {
+  initialError,
+}: Pick<Props, "chat" | "setOverlay" | "onBlock" | "initialError"> & { memberId: string; from?: "info" }) {
   // Cancel goes back to where it was opened from.
   const cancel = () => setOverlay(from === "info" ? { kind: "info" } : { kind: "none" });
   const name = memberOf(chat, memberId)?.member.firstName ?? "They";
-  const step = useServerStep();
+  const step = useServerStep(initialError);
   return (
     <Layer kind="dialog" labelledBy="msg-block-title" onClose={cancel}>
       <h2 className="mk-h2" id="msg-block-title">
@@ -608,9 +612,10 @@ function LeaveDialog({
   from,
   setOverlay,
   onLeave,
-}: Pick<Props, "chat" | "setOverlay" | "onLeave"> & { from?: "info" }) {
+  initialError,
+}: Pick<Props, "chat" | "setOverlay" | "onLeave" | "initialError"> & { from?: "info" }) {
   const stay = () => setOverlay(from === "info" ? { kind: "info" } : { kind: "none" });
-  const step = useServerStep();
+  const step = useServerStep(initialError);
   return (
     <Layer kind="dialog" labelledBy="msg-leave-title" onClose={stay}>
       <h2 className="mk-h2" id="msg-leave-title">
@@ -637,7 +642,7 @@ function LeaveDialog({
 // ---- the one the thread view draws ------------------------------------------------------------------
 
 export function ThreadOverlays(props: Props) {
-  const { overlay, setOverlay, chat, youId, muted, onMute, blockedIds, onBlock, onReport, messageById, onLeave } = props;
+  const { overlay, setOverlay, chat, youId, muted, onMute, blockedIds, onBlock, onReport, messageById, onLeave, initialError } = props;
   const info = (under: boolean) => (
     <InfoSheet chat={chat} youId={youId} muted={muted} onMute={onMute} setOverlay={setOverlay} under={under} />
   );
@@ -657,6 +662,7 @@ export function ThreadOverlays(props: Props) {
           messageById={messageById}
           setOverlay={setOverlay}
           onReport={onReport}
+          initialError={initialError}
         />
       );
     case "sent":
@@ -673,14 +679,21 @@ export function ThreadOverlays(props: Props) {
       return (
         <>
           {overlay.from === "info" ? info(true) : null}
-          <BlockDialog chat={chat} memberId={overlay.memberId} from={overlay.from} setOverlay={setOverlay} onBlock={onBlock} />
+          <BlockDialog
+            chat={chat}
+            memberId={overlay.memberId}
+            from={overlay.from}
+            setOverlay={setOverlay}
+            onBlock={onBlock}
+            initialError={initialError}
+          />
         </>
       );
     case "leave":
       return (
         <>
           {overlay.from === "info" ? info(true) : null}
-          <LeaveDialog chat={chat} from={overlay.from} setOverlay={setOverlay} onLeave={onLeave} />
+          <LeaveDialog chat={chat} from={overlay.from} setOverlay={setOverlay} onLeave={onLeave} initialError={initialError} />
         </>
       );
     default:

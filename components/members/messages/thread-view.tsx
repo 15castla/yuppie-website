@@ -198,7 +198,7 @@ export function ThreadView({
 
   const [overlay, setOverlay] = useState<Overlay>(preview?.overlay ?? { kind: "none" });
   const [draft, setDraft] = useState(preview?.draft ?? "");
-  const [notice, setNotice] = useState<ComposerNotice | null>(null);
+  const [notice, setNotice] = useState<ComposerNotice | null>(preview?.notice ?? null);
   const [here, dispatch] = useReducer(localReducer, {
     outgoing: (preview?.outgoing ?? []).map((m) => ({ ...m })),
     sent: [],
@@ -457,15 +457,13 @@ export function ThreadView({
       if (answer.reason === "rate_limited") {
         // Kept, so Retry sends it once the minute is up.
         dispatch({ type: "fail", clientId });
-        setNotice({ icon: "clock", text: answer.error });
-        setAnnounce(answer.error);
+        setNotice({ icon: "clock", text: answer.error }); // the line is a status: it is read out itself
         return;
       }
       // Refused for good: the words go above the input and the text goes back into it to change.
       dispatch({ type: "delete", clientId });
       setDraft((current) => (current.trim() ? current : text));
       setNotice({ icon: answer.reason === "link" ? "link-off" : "circle-alert", text: answer.error });
-      setAnnounce(answer.error);
       if (answer.reason === "closed" || answer.reason === "not_in_chat" || answer.reason === "blocked") void poll().catch(() => {});
     },
     [local, poll, router, stamp, youId],
@@ -826,6 +824,7 @@ export function ThreadView({
         onReport={report}
         messageById={messageById}
         onLeave={leave}
+        initialError={preview?.stepError ?? null}
       />
       <div className="msg-sr" role="status" aria-live="polite">
         {announce}

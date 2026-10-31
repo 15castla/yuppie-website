@@ -104,6 +104,8 @@ type ThreadState = {
   preview?: ThreadPreview;
   /** Draw the whole conversation, no inner scroll (the design's "full"). */
   auto?: boolean;
+  /** Whose view it is (default Sam, the example's signed-in member). */
+  as?: string;
 };
 
 const READ = EXAMPLE_THREAD_VARIANTS.brunchRead;
@@ -138,6 +140,14 @@ export const THREAD_STATES: Record<string, ThreadState> = {
   sending: { thread: READ, preview: { outgoing: [{ clientId: "local-sending", text: "See you outside at 09:45.", state: "sending" }] } },
   // a message that did not go: Retry and Delete
   failed: { thread: READ, preview: { outgoing: [{ clientId: "local-failed", text: "See you outside at 09:45.", state: "failed" }] } },
+  // the rate limit: the server's line above the input, the message kept for Retry (stage 2; not drawn)
+  rate: {
+    thread: READ,
+    preview: {
+      outgoing: [{ clientId: "local-rate", text: "See you outside at 09:45.", state: "failed" }],
+      notice: { icon: "clock", text: "Slow down a moment." },
+    },
+  },
   // the first time ever: the safety note over the start of the chat
   safety: { thread: EXAMPLE_THREAD_VARIANTS.brunchFirstVisit },
   // a new question: the prompt fills the stream
@@ -159,6 +169,8 @@ export const OVERLAY_STATES: Record<string, ThreadState> = {
   info: { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "info" }) },
   // chat info, a question: the other person is named in the rows
   "info-question": { thread: EXAMPLE_THREADS["c-tom"], preview: overlayOf({ kind: "info" }) },
+  // chat info, the host's own plan chat: no "Leave chat" (the host stays in it; mute quiets it)
+  "info-host": { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "info" }), as: JASMIN.id },
   // a plan chat asks who before it reports or blocks (not in the design)
   "pick-member": { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "pick", purpose: "member" }) },
   // report a message: the quote, six reasons, one chosen
@@ -181,12 +193,25 @@ export const OVERLAY_STATES: Record<string, ThreadState> = {
     thread: EXAMPLE_THREADS["c-walk"],
     preview: overlayOf({ kind: "report", what: "message", memberId: OLLIE.id, messageId: "c-walk-m3", reason: null }),
   },
+  // Send report did not go through: the server's words above the button
+  "report-failed": {
+    thread: EXAMPLE_THREADS["c-walk"],
+    preview: {
+      overlay: { kind: "report", what: "message", memberId: OLLIE.id, messageId: "c-walk-m3", reason: "pay_outside" },
+      stepError: "Your report didn’t send. Try again.",
+    },
+  },
   // report sent, with the offer to block too
   "report-sent": { thread: EXAMPLE_THREADS["c-walk"], preview: overlayOf({ kind: "sent", what: "message", memberId: OLLIE.id }) },
   // block, the dialog
   block: { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "block", memberId: PRIYA.id, from: "info" }) },
   // leave, the dialog
   leave: { thread: EXAMPLE_THREADS["c-brunch"], preview: overlayOf({ kind: "leave", from: "info" }) },
+  // Block did not go through: the server's words above the buttons
+  "block-failed": {
+    thread: EXAMPLE_THREADS["c-brunch"],
+    preview: { overlay: { kind: "block", memberId: PRIYA.id, from: "info" }, stepError: "We couldn’t block them. Try again." },
+  },
 };
 
 function threadScreen(id: string, title: string, states: Record<string, ThreadState>): PreviewScreen {
@@ -207,7 +232,7 @@ function threadScreen(id: string, title: string, states: Record<string, ThreadSt
           now={EXAMPLE_NOW}
           openChatId={state.open ?? state.thread.chat.id}
           auto={state.auto}
-          pane={<ThreadView thread={state.thread} now={EXAMPLE_NOW} youId={EXAMPLE_YOU.id} preview={state.preview} local />}
+          pane={<ThreadView thread={state.thread} now={EXAMPLE_NOW} youId={state.as ?? EXAMPLE_YOU.id} preview={state.preview} local />}
           settingsHref={settingsHref(params)}
           youId={EXAMPLE_YOU.id}
           local
@@ -367,6 +392,7 @@ export const messagesScreens: PreviewScreen[] = [
       "limit",
       "link",
       "number",
+      "rate",
       "sending",
       "failed",
       "closed",
@@ -383,12 +409,16 @@ export const messagesScreens: PreviewScreen[] = [
     "msg-sheet",
     "Messages: chat info and reports",
     Object.fromEntries(
-      ["info", "info-question", "pick-member", "report-message", "report-member", "report-photo", "report-empty", "report-sent"].map(
+      ["info", "info-question", "info-host", "pick-member", "report-message", "report-member", "report-photo", "report-empty", "report-failed", "report-sent"].map(
         (key) => [key, OVERLAY_STATES[key]],
       ),
     ),
   ),
-  threadScreen("msg-dialog", "Messages: block and leave", Object.fromEntries(["block", "leave"].map((key) => [key, OVERLAY_STATES[key]]))),
+  threadScreen(
+    "msg-dialog",
+    "Messages: block and leave",
+    Object.fromEntries(["block", "leave", "block-failed"].map((key) => [key, OVERLAY_STATES[key]])),
+  ),
   handoverScreen,
   notificationsScreen,
   blockedScreen,
