@@ -47,19 +47,22 @@ exec(`update members set membership_status = 'paused', paused_at = now() where i
 const move = await action('plan.editOpenInvite', [planId, { title: 'Dispatcher plan', type: 'Sport', date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 9 * 86400000)), time: '20:15', where: 'Somewhere new', places: 8, hostGoing: true, note: '', cost: null }], host.session);
 ok(move.result.ok, 'the host moves the plan');
 const changedTo = sql(`select member_id from updates where plan_id = ${q(planId)} and kind = 'changed'`).map((r) => r.member_id).sort();
-eq(changedTo, [plain.id, noEmail.id, noTopic.id].sort(), '"changed" Updates for everyone going, whatever their switches; none for the blocker or the paused member');
-await waitFor(() => logRows(`plan_id = ${q(planId)} and template = 'plan-changed'`).length >= 1, 'the plan-changed email logged');
+// Stage 2 fixes (QB1-02, QB2-01): a member who blocked the host still hears the facts of a plan they are going to
+// (the Update without the host, the email by their own switches).
+eq(changedTo, [plain.id, noEmail.id, noTopic.id, blocker.id].sort(), '"changed" Updates for everyone going, whatever their switches, the member who blocked the host too; none for the paused member');
+eq(sql1(`select actor_id from updates where plan_id = ${q(planId)} and kind = 'changed' and member_id = ${q(blocker.id)}`).actor_id, null, 'the blocker\'s Update does not name the host');
+await waitFor(() => logRows(`plan_id = ${q(planId)} and template = 'plan-changed'`).length >= 2, 'the plan-changed emails logged');
 await new Promise((r) => setTimeout(r, 1500));
-eq(logRows(`plan_id = ${q(planId)} and template = 'plan-changed'`).map((r) => r.member_id), [plain.id], 'the email only to the member with Email and "Plans you’re in" on (not email off, not the topic off, not the blocker, not the paused member)');
+eq(logRows(`plan_id = ${q(planId)} and template = 'plan-changed'`).map((r) => r.member_id).sort(), [plain.id, blocker.id].sort(), 'the email to the members with Email and "Plans you’re in" on, the blocker included (not email off, not the topic off, not the paused member)');
 const mark1 = fakesMark();
 await action('plan.cancelOpenInvite', [planId], host.session);
-await waitFor(() => logRows(`plan_id = ${q(planId)} and template = 'plan-cancelled'`).length >= 1, 'plan-cancelled logged');
+await waitFor(() => logRows(`plan_id = ${q(planId)} and template = 'plan-cancelled'`).length >= 2, 'plan-cancelled logged');
 await new Promise((r) => setTimeout(r, 1500));
-eq(logRows(`plan_id = ${q(planId)} and template = 'plan-cancelled'`).map((r) => r.member_id), [plain.id], 'the cancelled email: the same rule');
+eq(logRows(`plan_id = ${q(planId)} and template = 'plan-cancelled'`).map((r) => r.member_id).sort(), [plain.id, blocker.id].sort(), 'the cancelled email: the same rule');
 const cancelledUpd = sql(`select member_id, actor_id from updates where plan_id = ${q(planId)} and kind = 'cancelled' order by member_id`);
 eq(cancelledUpd.map((r) => r.member_id).sort(), [plain.id, noEmail.id, noTopic.id, blocker.id].sort(), '"cancelled" Updates for everyone going and able to hear (the paused member hears nothing)');
 eq(cancelledUpd.find((r) => r.member_id === blocker.id).actor_id, null, 'the member who blocked the host: an Update without naming the host');
-eq(emailsTo(mark1, blocker.email).length + emailsTo(mark1, pausedLater.email).length, 0, 'no email to the blocker or the paused member');
+eq(emailsTo(mark1, pausedLater.email).length, 0, 'no email to the paused member');
 ok(sql(`select count(*)::int n from message_log where plan_id = ${q(planId)} and channel = 'sms'`)[0].n === 0, 'and no texts: plan changes are never texted');
 
 // ---------------------------------------------------------------- the club removes a plan
@@ -72,8 +75,10 @@ const admin = await adminSession('bf.');
 const rem = await action('admin.reports.adminRemoveReportedPlan', [reportId, 'Not a real plan'], admin);
 ok(rem.result.ok, 'the club removes a reported plan', rem.result);
 eq(sql1(`select kind, actor_id from updates where plan_id = ${q(removed)} and member_id = ${q(plain.id)}`), { kind: 'cancelled', actor_id: null }, 'the member going gets an Update (no host named)');
-await new Promise((r) => setTimeout(r, 1000));
-eq(logRows(`plan_id = ${q(removed)} and template = 'plan-cancelled'`).length, 0, 'and no "Priya cancelled" email (there is no design for a removal)');
+// Stage 2 fixes (QB3-07): the club's plan-cancelled email (its own words, not "Priya cancelled"), to the people
+// going and to the host.
+await waitFor(() => logRows(`plan_id = ${q(removed)} and template = 'plan-cancelled' and status = 'sent'`).length === 2, 'the club\'s plan-cancelled email, to the member going and the host');
+eq(sql1(`select role, actor_id from updates where plan_id = ${q(removed)} and member_id = ${q(host.id)} and kind = 'cancelled'`), { role: 'host', actor_id: null }, 'and the host gets an Update');
 
 // ---------------------------------------------------------------- chat emails, on a fake clock
 const chatPlan = await postPlan(host, { title: 'Chatty plan', places: 8 });

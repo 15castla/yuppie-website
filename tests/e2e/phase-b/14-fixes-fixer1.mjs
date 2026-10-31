@@ -101,17 +101,22 @@ const cancelLater = [];
   await off();
   ok((await on()).ok, 'and again two minutes later');
   eq(checks(), 1, 'QB2-02/QB3-12: still one check text in 24 hours, however often Text is switched (it stays on for that number)');
+  // A new number gets its own check text at the next Text on, within the limits (3 check texts a day per member).
   exec(`update members set phone = '+447700900612' where id = ${q(T.id)}`);
   const prefs = (await action('notifications.getNotificationSettings', [], T.session)).result.preferences;
   eq(prefs.channels.text, false, 'a changed number turns texts off');
+  ok((await on()).ok, 'Text on for the new number');
+  exec(`update members set phone = '+447700900615' where id = ${q(T.id)}`);
+  ok((await on()).ok, 'and for a third number');
+  eq(sql(`select to_address from message_log where member_id = ${q(T.id)} and template = 'reminders-on' and status = 'sent' order by created_at`).map((r) => r.to_address), ['+447700900611', '+447700900612', '+447700900615'], 'each new number got its one check text');
+  exec(`update members set phone = '+447700900616' where id = ${q(T.id)}`);
   const refused = await on();
-  eq([refused.ok, refused.reason], [false, 'check_limit'], 'Text on for the new number within 24 hours of the last check text: refused, plainly');
+  eq([refused.ok, refused.reason], [false, 'check_limit'], 'QB3-12: a fourth number in a day: refused, plainly (3 check texts a day at most)');
   eq(refused.error, 'We’ve sent you a check text in the last 24 hours, so try again tomorrow.', 'the words (new, flagged)');
-  eq(checks(), 1, 'nothing sent');
-  exec(`update notification_preferences set text_check_sent_at = now() - interval '25 hours' where member_id = ${q(T.id)}`);
+  eq(checks(), 3, 'nothing more sent');
   exec(`update message_log set created_at = now() - interval '25 hours' where member_id = ${q(T.id)} and template = 'reminders-on'`);
-  ok((await on()).ok, 'a day later: Text on for the new number');
-  eq(sql(`select to_address from message_log where member_id = ${q(T.id)} and template = 'reminders-on' and status = 'sent' order by created_at`).map((r) => r.to_address), ['+447700900611', '+447700900612'], 'its one check text goes to the new number');
+  ok((await on()).ok, 'a day later: Text on for it');
+  eq(sql1(`select to_address from message_log where member_id = ${q(T.id)} and template = 'reminders-on' and status = 'sent' order by created_at desc limit 1`).to_address, '+447700900616', 'its check text goes');
 
   // The daily cap on all texts: a member at the cap gets no more today (logged as skipped).
   const U = await makeMemberWithPhoto('textcap', 'active', { phone: '+447700900613' });

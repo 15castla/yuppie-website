@@ -113,11 +113,13 @@ export function paidPlansLive(): boolean {
 // ---------------------------------------------------------------------------- stage 2 fixes (31 Oct 2026)
 
 /**
- * Texts cost money and land on a phone (QB2-02, QB3-12): at most one check text ("reminders by text are on") per
- * member in any 24 hours, and at most this many texts of any kind per member in any 24 hours (a reminder over the
- * cap is skipped and logged). Two reminders each for two events and a plan in one day is six.
+ * Texts cost money and land on a phone (QB2-02, QB3-12). The check text ("reminders by text are on"): at most one
+ * per number in any 24 hours (switching Text off and on again for the same number sends no new one), a new number
+ * gets its own, and at most checksPerDay check texts per member in any 24 hours whatever the numbers. All texts:
+ * at most perMemberPerDay per member in any 24 hours (one over the cap is skipped and logged). Two reminders each
+ * for two events and a plan in one day is six.
  */
-export const TEXT_LIMITS = { checkEveryHours: 24, perMemberPerDay: 8 } as const;
+export const TEXT_LIMITS = { checkEveryHours: 24, checksPerDay: 3, perMemberPerDay: 8 } as const;
 
 /**
  * Admin actions on a report or a photo claim it first (QB3-01): a claim older than this is stale (the server

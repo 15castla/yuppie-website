@@ -125,7 +125,8 @@ eq((await send(host, 'Ask myself?', 'self-ask', `ask-${planId}`)).reason, 'not_f
 eq((await chats(host)).map((c) => c.kind).sort(), ['plan', 'question'], 'the host\'s inbox has the question too');
 ok((await send(host, 'Yes, round the back.', 'q-2', q1.chatId)).ok, 'the host answers');
 await action('messages.blockMember', [{ memberId: asker.id, chatId: q1.chatId }], host.session);
-eq((await send(asker, 'Hello?', 'q-3', q1.chatId)).reason, 'blocked', 'a member the host blocked cannot send in their question');
+// Stage 2 fixes (QB1-04): the blocked member is not told: the closed chat's words, not "blocked".
+eq((await send(asker, 'Hello?', 'q-3', q1.chatId)).reason, 'closed', 'a member the host blocked cannot send in their question (told it is closed, not that they were blocked)');
 eq((await thread(host, q1.chatId)), null, 'the host no longer has the question');
 ok(!(await chats(host)).some((c) => c.id === q1.chatId), 'nor in the inbox');
 const planB = await postPlan(host, { title: 'Second plan' });
