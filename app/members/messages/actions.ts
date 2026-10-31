@@ -49,12 +49,14 @@ export async function markAllUpdatesRead(): Promise<{ ok: true; count: number } 
 
 /**
  * "Block {name}" (chat info, report sent, a question): they can't message you or ask you questions, you won't
- * see their messages even in a plan chat you share, and they aren't told. `chatId` is where it was done (kept
- * for the screen; the block covers everywhere).
+ * see their messages even in a plan chat you share, and they aren't told. Only someone you share or shared a
+ * chat or a plan with (QR-01; `chatId` is where it was done: a question not asked yet, ask-<plan id>, lets you
+ * block that plan's host); anyone else is refused with a line that says nothing about them. The block covers
+ * everywhere.
  */
 export async function blockMember(action: BlockAction): Promise<BlockResult | SessionEnded | Failed> {
   await requireMessages();
-  const result = await asMember("blockMember", (m) => block(m.id, action?.memberId));
+  const result = await asMember("blockMember", (m) => block(m.id, action?.memberId, action?.chatId));
   if ("ok" in result && result.ok) fresh();
   return result;
 }

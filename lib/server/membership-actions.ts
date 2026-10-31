@@ -245,11 +245,27 @@ export async function billingPortalUrl(memberId: string, returnPath: string = RO
   }
 }
 
-function avatarPath(url: string | null): string | null {
-  if (!url) return null;
+/**
+ * The member's own stage 1 photo file in member-media, from their avatar_url, or null. Only a file the stage 1
+ * upload made for this member (lib/media-storage.ts: avatars/<member id>-<time>.<ext>) is theirs to delete
+ * (QR-02): avatar_url was member-writable in stage 1, so it may point at anything in the bucket (an event image,
+ * a partner's logo, another member's photo), and none of that may go with this account.
+ */
+function avatarPath(url: string | null, memberId: string): string | null {
+  if (!url || !memberId) return null;
   const marker = "/storage/v1/object/public/member-media/";
   const i = url.indexOf(marker);
-  return i >= 0 ? decodeURIComponent(url.slice(i + marker.length).split("?")[0]) : null;
+  if (i < 0) return null;
+  let path: string;
+  try {
+    path = decodeURIComponent(url.slice(i + marker.length).split(/[?#]/)[0]);
+  } catch {
+    return null;
+  }
+  const own = `avatars/${memberId}-`;
+  if (!path.startsWith(own)) return null;
+  const name = path.slice(own.length);
+  return /^[A-Za-z0-9_-][A-Za-z0-9._-]*$/.test(name) && !name.includes("..") ? path : null;
 }
 
 /**
@@ -299,7 +315,7 @@ export async function deleteAccount(memberId: string, options: { by?: "member" |
 
     const cancelled = await cancelFutureBookingsForMember(memberId, "account_deleted");
 
-    const path = avatarPath(member.avatar_url);
+    const path = avatarPath(member.avatar_url, memberId);
     if (path) {
       const { error } = await db.storage.from("member-media").remove([path]);
       if (error) console.error(`deleteAccount: removing the photo failed for member ${memberId}:`, error);

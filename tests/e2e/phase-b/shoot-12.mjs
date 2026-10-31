@@ -180,7 +180,8 @@ try {
     const b = await makeMemberWithPhoto(`shb${mode}`);
     const o1 = await makeMemberWithPhoto('ollie');
     const o2 = await makeMemberWithPhoto('priya');
-    for (const o of [o1, o2]) await action('messages.blockMember', [{ memberId: o.id }], b.session);
+    // Straight into the table (a block needs a shared chat since QR-01; this list's shot only needs the rows).
+    for (const o of [o1, o2]) exec(`insert into blocks (blocker_id, blocked_id) values (${q(b.id)}, ${q(o.id)}) on conflict do nothing`);
     const bS = await session(b.email, mode);
     await shoot('blocked-list', mode, bS, open('/members/you/blocked'));
     await shoot('blocked-unblock', mode, bS, async (pg) => {

@@ -5,7 +5,7 @@
 // server actions. Shared by /members/you and /members/you/photo (the same page
 // with the Change photo sheet open). Not a route: only page.tsx files are.
 
-import { flags } from "@/lib/members/flags";
+import { flags, messagesOn } from "@/lib/members/flags";
 import { ROUTES } from "@/lib/members/routes";
 import { detectShellMode } from "@/lib/members/shell-mode";
 import { displayPhone, firstNameOf, legalLines, memberSince } from "@/lib/members/you/format";
@@ -49,13 +49,15 @@ export async function loadYou({ billingUnavailable = false }: { billingUnavailab
   const canCancel = Boolean(member.stripe_subscription_id);
 
   // Stage 2: the Settings rows from real data (the notification channels, the blocked count). Payments is a
-  // paid-plans row: none until paid plans are live (stage 3).
+  // paid-plans row: none until paid plans are live (stage 3). Blocked members goes with Messages: not in the app
+  // while Open Invite is hidden there (messagesOn; QR-04).
+  const messages = messagesOn(mode);
   const [photoUrl, preferences, blocked] = await Promise.all([
     member.photo_id ? currentPhotoUrl(member.id, "full") : Promise.resolve(null),
     flags.notifications ? getNotificationPreferences(member, mode) : Promise.resolve(null),
-    flags.messages ? blockedCount(member.id) : Promise.resolve(null),
+    messages ? blockedCount(member.id) : Promise.resolve(null),
   ]);
-  const settingsRows = buildSettingsRows(flags, {
+  const settingsRows = buildSettingsRows({ ...flags, messages }, {
     notifications: preferences ? notificationSummary(preferences, mode) : null,
     payments: null,
     blocked,

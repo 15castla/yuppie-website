@@ -334,12 +334,16 @@ try {
   const walk = await postPlan(host, { title: `Walk ${r}`, places: 6, ...londonFormDate(2, '10:00') });
   const X = await signIn(x);
   await shows(card(X.page, `Walk ${r}`), 'blocks: before, the plan is in the feed');
-  eq((await action('messages.blockMember', [{ memberId: host.id }], x.session)).result, { ok: true }, 'blocks: x blocks the host (the real action)');
+  // From a question not asked yet (chat info in ask-<plan id>): x can see the plan, so x may block its host (QR-01).
+  eq((await action('messages.blockMember', [{ memberId: host.id, chatId: `ask-${walk}` }], x.session)).result, { ok: true }, 'blocks: x blocks the host (the real action)');
   await X.page.reload({ waitUntil: 'networkidle' });
   eq(await card(X.page, `Walk ${r}`).count(), 0, 'blocks: a blocked member’s plans never show');
   await X.page.goto(planHref(walk), { waitUntil: 'networkidle' });
   await shows(X.page.getByText('Not on the list.'), 'blocks: their plan page is not found');
-  eq((await action('messages.blockMember', [{ memberId: y.id }], host.session)).result, { ok: true }, 'blocks: the host blocks y');
+  // A block needs a chat the two share (QR-01): y asks the host about the walk, and the host blocks y from it.
+  const yAsk = (await action('thread.sendMessage', [{ chatId: `ask-${walk}`, text: 'Is it flat?', clientId: `y-ask-${r}` }], y.session)).result;
+  ok(yAsk?.ok, 'blocks: y asks the host a question');
+  eq((await action('messages.blockMember', [{ memberId: y.id, chatId: yAsk.chatId }], host.session)).result, { ok: true }, 'blocks: the host blocks y');
   const Y = await signIn(y);
   eq(await card(Y.page, `Walk ${r}`).count(), 0, 'blocks: the host who blocked you: their plans never show');
   eq((await action('invite.joinOpenInvite', [walk], y.session)).result.reason, 'not_found', 'blocks: and joining is refused on the server');

@@ -446,7 +446,10 @@ try {
   // ================================================================ Blocked members
   const B = await makeMemberWithPhoto('blk');
   const O = await makeMemberWithPhoto('blko');
-  eq((await action('messages.blockMember', [{ memberId: O.id }], B.session)).result, { ok: true }, 'the member blocks someone (as from a chat)');
+  // A block needs a chat the two share (QR-01): B joins O's plan and blocks O from its chat.
+  const oPlan = await postPlan(O, { title: 'Blocked list walk', places: 4 });
+  const oChat = (await action('invite.joinOpenInvite', [oPlan], B.session)).result.chatId;
+  eq((await action('messages.blockMember', [{ memberId: O.id, chatId: oChat }], B.session)).result, { ok: true }, 'the member blocks someone (from a chat)');
   const { ctx: bCtx, pg: bpg } = await loggedIn(B.email);
   row = await youRow(bpg, '/members/you/blocked');
   eq(row.text, 'Blocked members 1 person', 'You > Settings: Blocked members "1 person"');

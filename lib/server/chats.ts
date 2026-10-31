@@ -171,13 +171,19 @@ function buildChat(ctx: Context, row: ChatRow, viewerId: string, now: Date): Cha
       ? { senderId: last.sender_id, text: last.body ?? "", at: iso(last.created_at) }
       : { senderId: null, text: systemPreview(ctx, last), at: iso(last.created_at) }
     : null;
+  // A question whose other member blocked this one (QR-05): closed, as a question is once its invite closes, before
+  // they type, so the page never offers a composer whose every send says "This chat is closed". Nothing in it says
+  // why (messages decision 6 A: the other isn't told), and no "This chat closed" line is dated for it (getThread).
+  const blockedOut = row.kind === "question" && Boolean(otherId) && ctx.sets.blockedBy.has(otherId!);
+  const natural = chatState(row.kind, plan, now);
+  const state = blockedOut && natural.status === "open" ? { status: "closed" as const, closedReason: "invite_closed" as const } : natural;
   return {
     id: row.id,
     kind: row.kind,
     plan: chatPlan(ctx, plan, now),
     other: otherId ? refOf(ctx, otherId) : null,
     participants,
-    ...chatState(row.kind, plan, now),
+    ...state,
     muted: Boolean(mine?.muted),
     unreadCount: ctx.unread.get(row.id) ?? 0,
     lastMessage,
@@ -294,8 +300,8 @@ export async function getThread(
   // finished or a question whose plan started. A cancelled plan has its own "cancelled" line already, and its
   // questions say why in the lock row ("Dan cancelled this plan."): never a "closed" line dated at a start that
   // will not happen.
-  if (chat.status === "closed" && chat.closedReason !== "host_cancelled" && chat.plan.status !== "cancelled") {
-    const plan = ctx.plans.get(row.plan_id)!;
+  const plan = ctx.plans.get(row.plan_id)!;
+  if (chatState(row.kind, plan, now).status === "closed" && chat.closedReason !== "host_cancelled" && chat.plan.status !== "cancelled") {
     const at = new Date(new Date(plan.starts_at).getTime() + (row.kind === "plan" ? 24 * HOUR : 0)).toISOString();
     items.push({ kind: "system", id: `closed-${row.id}`, at, event: "closed", memberId: null });
   }

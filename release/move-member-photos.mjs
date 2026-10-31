@@ -1,10 +1,15 @@
 // Release step (stage 2): move every member's photo from the public bucket (member-media/avatars/, readable by
 // anyone with the link) into the private bucket member-photos, where members see it only through short-lived
-// signed URLs. For each member whose avatar_url is a member-media/avatars/ file and who has no current photo:
+// signed URLs. For each member whose avatar_url is their own member-media/avatars/ file (avatars/<member id>-...,
+// as the stage 1 upload named it; a link to any other file in the bucket is reported, never moved: QR-02) and who
+// has no current photo:
 //   * downloads the file and checks it is a photo (from its bytes) and big enough (the shorter side at least
 //     400px, the photo rule; a smaller one is left, and the member meets the photo gate);
 //   * makes the same 480px and 160px squares the app makes (sharp, which comes with Next; if it is missing the
-//     file is copied as it is, when it is a JPEG, PNG or WebP, with its metadata, location included, stripped);
+//     file is copied as it is, when it is a JPEG, PNG or WebP, with its metadata, location included, stripped;
+//     a photo stored turned, with an EXIF orientation other than upright, cannot be turned without sharp and would
+//     show sideways once its metadata is gone, so it is left where it is and reported "needs a look": the member
+//     meets the photo gate, QR-03);
 //   * uploads them to member-photos/<member id>/migrated-<photo id>-full.jpg (and -thumb.jpg);
 //   * records the photo as approved (it was already public and members have seen it: photo decision 4 A puts
 //     only members with no photo through the gate), source "migrated", with the old URL in legacy_url;
@@ -28,7 +33,7 @@
 // (the path for a platform without sharp).
 import { randomUUID } from 'node:crypto';
 import { createClient } from '@supabase/supabase-js';
-import { classify, membersWithAvatars, SIZES, stripMetadata, TO } from './lib/avatars.mjs';
+import { classify, exifOrientation, membersWithAvatars, SIZES, stripMetadata, TO } from './lib/avatars.mjs';
 
 const args = process.argv.slice(2);
 const APPLY = args.includes('--apply');
@@ -75,6 +80,11 @@ async function moveOne(member) {
 
   const { path, bytes, type, size } = plan;
   if (!sharp && type === 'image/gif') return note(member, 'needs a look: a GIF, and no converter here (sharp is missing)', path);
+  // Without sharp the pixels stay as stored and the orientation goes with the metadata (QR-03): not moved.
+  const orientation = sharp ? 1 : exifOrientation(bytes, type);
+  if (orientation !== 1) {
+    return note(member, `needs a look: stored turned (EXIF orientation ${orientation}) and sharp is missing, so it cannot be turned; not moved, they meet the photo gate`, path);
+  }
   if (!APPLY) return note(member, 'would move', `${path} (${type}, ${size.width} x ${size.height}, ${bytes.length} bytes${sharp ? ', resized' : ', as it is, metadata stripped'})`);
 
   const photoId = randomUUID();

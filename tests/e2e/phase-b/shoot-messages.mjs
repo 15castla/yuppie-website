@@ -76,7 +76,7 @@ if (which !== 'harness') {
   const spin = await postPlan(jas, { title: 'Saturday spin', places: 6, where: 'The Spin Room' });
   await joined(sam, spin);
   exec(`update plans set starts_at = now() - interval '26 hours' where id = ${q(spin)}`);
-  await action('messages.blockMember', [{ memberId: pri.id, chatId: null }], tom.session); // Tom's Blocked members list
+  exec(`insert into blocks (blocker_id, blocked_id) values (${q(tom.id)}, ${q(pri.id)}) on conflict do nothing`); // Tom's Blocked members list (a block needs a shared chat since QR-01)
   // Sam has seen the safety note (it shows once); an unread one stays in the inbox.
   await action('thread.markSafetyNoteSeen', [], sam.session);
   await action('thread.markChatRead', [qChat], sam.session);
