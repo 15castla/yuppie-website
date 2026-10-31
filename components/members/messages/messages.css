@@ -344,6 +344,8 @@
 /* a plan's title and place (members write them) wrap anywhere, never past the card (QB1-06); so do the sheets' words */
 .msg-upd-plan > div{min-width:0}
 .msg-upd-plan .mk-h3,.msg-upd-plan .mk-meta-line,.msg-upd-hd .mk-h2,.msg-sheet-hd,.msg-quote,.msg-intro{overflow-wrap:anywhere}
+/* a row's title (a plan title, an update about one) breaks a long word so its two lines end in an ellipsis, never mid-letter */
+.msg-title{overflow-wrap:anywhere}
 .msg-upd-list{display:flex;flex-direction:column;gap:0}
 .msg-upd-p{display:flex;align-items:center;gap:14px;min-height:60px;border-bottom:1.5px solid var(--ink)}
 .msg-upd-p:last-child{border-bottom:0}
