@@ -14,7 +14,7 @@ import { absoluteUrl, PAYMENT_GRACE_DAYS, tombstoneEmail } from "./config";
 import { cancelFutureBookingsForMember, bookingsAfter, type CancelledFutureBooking } from "./bookings";
 import { MEMBER_ROW_COLUMNS, errorMessage, serviceDb, stripeErrorCode, type EndedReason, type MemberRow } from "./db";
 import { deleteMemberPhotos } from "./photos";
-import { leaveOpenInviteForDeletion } from "./plans";
+import { leaveOpenInviteForDeletion, leaveOpenInviteForGate } from "./plans";
 import { dayDate, londonEndOfDay, pounds } from "./format";
 import { later } from "./later";
 import { membershipCardData, membershipState, type MemberStateFields } from "./membership";
@@ -419,6 +419,9 @@ export async function pauseMember(memberId: string, options: { stripe: boolean }
       .update({ membership_status: "paused", paused_at: new Date().toISOString() })
       .eq("id", memberId);
     if (error) return fail("db", "Saving the pause failed.");
+    // Stage 2 (QB3-06): out of Open Invite until resumed (their plans cancelled by the club, out of the plans and
+    // chats they are in). Never throws.
+    await leaveOpenInviteForGate(memberId, "paused");
     return { ok: true, stripe: stripeDone };
   } catch (err) {
     console.error(`pauseMember ${memberId} failed:`, err);
@@ -531,6 +534,9 @@ export async function endMembership(
     const { error } = await db.from("members").update({ membership_status: "cancelled" }).eq("id", memberId);
     if (error) throw new Error(`ending member ${memberId}: ${error.message}`);
   }
+
+  // Stage 2 (QB3-06): an ended membership leaves Open Invite as a paused one does. Safe to run again; never throws.
+  await leaveOpenInviteForGate(memberId, "ended");
 
   // As it is now: a Delete my account that marked the row meanwhile wins.
   const now = (await loadMember(memberId)) ?? member;

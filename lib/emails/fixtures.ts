@@ -425,6 +425,16 @@ export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
         place: "The bandstand by the north gate of Calder Park, near the cafe",
       },
     },
+    {
+      id: "club",
+      label: "Cancelled by the club, to the people going (not drawn)",
+      data: { hostName: "Priya", plan: WALK, place: "Calder Park", by: "club" },
+    },
+    {
+      id: "club-host",
+      label: "Cancelled by the club, to the host (not drawn)",
+      data: { hostName: "Priya", plan: WALK, place: "Calder Park", by: "club", to: "host" },
+    },
   ],
   "plan-reminder": [
     {

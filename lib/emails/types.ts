@@ -354,6 +354,14 @@ export type PlanCancelledData = {
   place: string;
   /** "See Open Invite". Default "/members/open-invite" (ROUTES.openInvite). */
   openInviteUrl?: EmailLink;
+  /**
+   * Who cancelled it. "host" (default): the drawn email. "club": the club removed the plan, or cancelled it because
+   * the host's membership was paused or ended (stage 2 fixes, QB3-06 and QB3-07; new wording, not drawn: Albert's
+   * eye). The host did not cancel it, so the host is not named as having done so.
+   */
+  by?: "host" | "club";
+  /** With by "club": "going" (default) to the people who were in, "host" to the host whose plan it was. */
+  to?: "going" | "host";
 };
 
 /** 24h and 2h before a plan: to the host (when going) and everyone who is in (round 3, notif-email-reminder-plan). */

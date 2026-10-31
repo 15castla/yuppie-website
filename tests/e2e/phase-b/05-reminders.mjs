@@ -46,14 +46,15 @@ const mark1 = fakesMark();
 const r24 = await cronAt('reminders', aStart - 23 * HOUR);
 ok(r24.json.ok, '23 hours before (19:00 the day before): the job runs', r24.json);
 const upd24 = sql(`select member_id from updates where plan_id = ${q(A)} and kind = 'reminder' and reminder_hours = 24`).map((r) => r.member_id).sort();
-eq(upd24, [host.id, texter.id, no24.id].sort(), 'a 24-hour reminder Update for the host (going) and everyone in before the 24-hour mark; none for who joined later');
+// Stage 2 fixes (QB2-09): the reminder Update follows the reminder's switch, so none for the member who switched the 24-hour reminder off.
+eq(upd24, [host.id, texter.id].sort(), 'a 24-hour reminder Update for the host (going) and everyone in before the 24-hour mark; none for who joined later, nor for the member who switched it off');
 eq(sentFor(`plan_id = ${q(A)} and template = 'plan-reminder' and channel = 'email'`).map((r) => r.member_id).sort(), [host.id, texter.id].sort(), 'the 24-hour email, but not to the member who switched the 24-hour reminder off');
 const t24 = texts(mark1, 'Reminder plan A');
 eq(t24.map((t) => t.body), ['Club Yuppie: Reminder plan A is tomorrow at 18:00, Calder Park. See the plan: localhost:3101/members'], 'the 24-hour text, to the member with Text on, in the approved words');
 eq(sentFor(`plan_id = ${q(A)} and channel = 'sms'`).map((r) => r.dedupe_key), [`plan-reminder-text-24h:${A}:${texter.id}:${aStart.getTime()}`], 'logged with its own key');
 const [p1, p2] = await Promise.all([cronAt('reminders', aStart - 23 * HOUR + MIN), cronAt('reminders', aStart - 23 * HOUR + MIN)]);
 ok(p1.json.ok && p2.json.ok, 'two runs at once');
-eq([sentFor(`plan_id = ${q(A)} and template = 'plan-reminder' and channel = 'email'`).length, sentFor(`plan_id = ${q(A)} and channel = 'sms'`).length, sql1(`select count(*)::int n from updates where plan_id = ${q(A)} and kind = 'reminder'`).n], [2, 1, 3], 'and still one of each');
+eq([sentFor(`plan_id = ${q(A)} and template = 'plan-reminder' and channel = 'email'`).length, sentFor(`plan_id = ${q(A)} and channel = 'sms'`).length, sql1(`select count(*)::int n from updates where plan_id = ${q(A)} and kind = 'reminder'`).n], [2, 1, 2], 'and still one of each');
 const mark2 = fakesMark();
 await cronAt('reminders', aStart - 110 * MIN);
 eq(sql(`select member_id from updates where plan_id = ${q(A)} and kind = 'reminder' and reminder_hours = 2`).map((r) => r.member_id).sort(), [host.id, texter.id, no24.id, lateJoin.id].sort(), '110 minutes before (a run every 15 minutes): the 2-hour reminder for everyone in before the 2-hour mark (the later joiner too; not the last-minute one)');

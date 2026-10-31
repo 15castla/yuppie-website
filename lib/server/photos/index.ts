@@ -13,7 +13,7 @@ import { randomUUID } from "node:crypto";
 
 import type { PhotoRemovedReason } from "@/lib/emails";
 import { audit } from "../audit";
-import { PHOTO_MAX_BYTES, PHOTO_MIN_UPLOAD_PX, photoGateSince } from "../config";
+import { PHOTO_MAX_BYTES, PHOTO_MIN_UPLOAD_PX, PHOTO_REVIEW_HOLD_SECONDS, photoGateSince } from "../config";
 import { errorMessage, serviceDb } from "../db";
 import { firstName as firstNameOf } from "../format";
 import { notify } from "../notify";
@@ -257,19 +257,41 @@ type QueueRow = PhotoRow & {
 
 const PHOTO_REPORT_FILTER = "kind.eq.photo,and(kind.eq.member,reason.eq.photo_not_them_or_unsuitable)";
 
+/**
+ * The open photo reports (photo reports, and member reports about their photo), by the photo they are about now:
+ * a report on a photo the member has since replaced is about their current photo (QB3-10: a photo report always
+ * reaches the Photos queue; QB3-02: the new photo is the one to check). Newest report per photo.
+ */
 async function openPhotoReports(): Promise<Map<string, { id: string; reason: string; by: string; at: string; memberId: string }>> {
-  const { data } = await serviceDb()
+  const db = serviceDb();
+  const { data } = await db
     .from("reports")
-    .select("id, reason, created_at, member_id, photo_id, reporter:members!reports_reporter_id_fkey(full_name)")
+    .select("id, reason, created_at, member_id, photo_id, reporter:members!reports_reporter_id_fkey(full_name), photo:member_photos!reports_photo_id_fkey(status)")
     .eq("status", "open")
     .or(PHOTO_REPORT_FILTER)
     .order("created_at", { ascending: false });
+  type Row = { id: string; reason: string; created_at: string; member_id: string; photo_id: string | null; reporter: { full_name: string | null } | null; photo: { status: PhotoStatus } | { status: PhotoStatus }[] | null };
+  const rows = (data ?? []) as unknown as Row[];
+  const statusOf = (r: Row) => (Array.isArray(r.photo) ? r.photo[0]?.status : r.photo?.status) ?? null;
+  const moved = [...new Set(rows.filter((r) => r.photo_id && statusOf(r) === "replaced" && r.member_id).map((r) => r.member_id))];
+  const current = new Map<string, string>();
+  if (moved.length) {
+    const { data: members } = await db.from("members").select("id, photo_id").in("id", moved);
+    for (const m of (members ?? []) as { id: string; photo_id: string | null }[]) if (m.photo_id) current.set(m.id, m.photo_id);
+  }
   const byPhoto = new Map<string, { id: string; reason: string; by: string; at: string; memberId: string }>();
-  for (const r of (data ?? []) as unknown as { id: string; reason: string; created_at: string; member_id: string; photo_id: string | null; reporter: { full_name: string | null } | null }[]) {
-    if (!r.photo_id || byPhoto.has(r.photo_id)) continue;
-    byPhoto.set(r.photo_id, { id: r.id, reason: r.reason, by: firstNameOf(r.reporter?.full_name) || "A member", at: r.created_at, memberId: r.member_id });
+  for (const r of rows) {
+    const photoId = statusOf(r) === "replaced" ? current.get(r.member_id) ?? null : r.photo_id;
+    if (!photoId || byPhoto.has(photoId)) continue;
+    byPhoto.set(photoId, { id: r.id, reason: r.reason, by: firstNameOf(r.reporter?.full_name) || "A member", at: r.created_at, memberId: r.member_id });
   }
   return byPhoto;
+}
+
+/** This photo and the member's earlier photos it replaced (open reports on those are about this one now). */
+export async function photoAndReplaced(photoId: string, memberId: string): Promise<string[]> {
+  const { data } = await serviceDb().from("member_photos").select("id").eq("member_id", memberId).eq("status", "replaced");
+  return [photoId, ...((data ?? []) as { id: string }[]).map((r) => r.id)];
 }
 
 export async function adminPhotoQueue(tab: "check" | "done", now: Date = new Date()): Promise<AdminPhotoQueue> {
@@ -341,23 +363,71 @@ export async function adminPhotoQueue(tab: "check" | "done", now: Date = new Dat
 
 export type AdminPhotoResult = { ok: true } | { ok: false; error: string };
 
-/** Close the open reports about a photo (photo reports, and member reports about their photo). Two plain updates: PostgREST takes no `or` on an update. */
-async function closePhotoReports(photoId: string, fields: Record<string, string>): Promise<void> {
+/**
+ * Close the open reports about a photo (photo reports, and member reports about their photo), and about the earlier
+ * photos it replaced (those reports are about this one now). Two plain updates: PostgREST takes no `or` on an update.
+ */
+async function closePhotoReports(photo: Pick<PhotoRow, "id" | "member_id">, fields: Record<string, string>): Promise<void> {
   const db = serviceDb();
-  await db.from("reports").update(fields).eq("photo_id", photoId).eq("status", "open").eq("kind", "photo");
-  await db.from("reports").update(fields).eq("photo_id", photoId).eq("status", "open").eq("kind", "member").eq("reason", "photo_not_them_or_unsuitable");
+  const ids = await photoAndReplaced(photo.id, photo.member_id);
+  await db.from("reports").update(fields).in("photo_id", ids).eq("status", "open").eq("kind", "photo");
+  await db.from("reports").update(fields).in("photo_id", ids).eq("status", "open").eq("kind", "member").eq("reason", "photo_not_them_or_unsuitable");
+}
+
+const PHOTO_WORDS = {
+  missing: "That photo couldn’t be found.",
+  removed: "That photo was removed already.",
+  replaced: "The member has changed that photo since. Check the new one.",
+  taken: "Someone dealt with this photo just now. Nothing changed.",
+  failed: "We couldn’t save that. Try again in a moment.",
+} as const;
+
+const stateWords = (status: string | undefined): string =>
+  status === "removed" ? PHOTO_WORDS.removed : status === "replaced" ? PHOTO_WORDS.replaced : PHOTO_WORDS.taken;
+
+/**
+ * Claim a photo for one decision (QB3-01): a conditional update in the database, so of two admins pressing Keep and
+ * Remove at once only one acts and the other is told and changes nothing. The claim is held a few seconds after the
+ * decision, so a second one sent at the same moment loses too.
+ */
+async function claimPhoto(photoId: string): Promise<{ ok: true; token: string } | { ok: false; error: string }> {
+  const token = randomUUID();
+  const { data, error } = await serviceDb().rpc("claim_photo_review", { p_photo: photoId, p_token: token, p_statuses: ["pending", "approved"], p_hold_seconds: PHOTO_REVIEW_HOLD_SECONDS });
+  if (error) {
+    console.error(`photos: claiming ${photoId} failed:`, error);
+    return { ok: false, error: PHOTO_WORDS.failed };
+  }
+  const r = data as { status: "claimed" | "taken" | "state" | "not_found"; photo_status?: string };
+  if (r.status === "claimed") return { ok: true, token };
+  if (r.status === "not_found") return { ok: false, error: PHOTO_WORDS.missing };
+  return { ok: false, error: r.status === "state" ? stateWords(r.photo_status) : PHOTO_WORDS.taken };
+}
+
+async function releasePhoto(photoId: string, token: string): Promise<void> {
+  await serviceDb().from("member_photos").update({ review_claim: null, review_claimed_at: null }).eq("id", photoId).eq("review_claim", token);
 }
 
 /** "Keep photo": approve it (a pending one), and close any open reports about it as dismissed. Changes nothing the member sees. */
 export async function adminKeepPhoto(adminId: string, photoId: string): Promise<AdminPhotoResult> {
   const db = serviceDb();
   const row = await photoRow(photoId);
-  if (!row) return { ok: false, error: "That photo couldn’t be found." };
-  if (row.status === "removed" || row.status === "replaced") return { ok: false, error: row.status === "removed" ? "That photo was removed already." : "The member has changed that photo since. Check the new one." };
+  if (!row) return { ok: false, error: PHOTO_WORDS.missing };
+  if (row.status === "removed" || row.status === "replaced") return { ok: false, error: stateWords(row.status) };
+  const claim = await claimPhoto(photoId);
+  if (!claim.ok) return claim;
   const at = new Date().toISOString();
-  const { error } = await db.from("member_photos").update({ status: "approved", reviewed_at: at, reviewed_by: adminId }).eq("id", photoId).in("status", ["pending", "approved"]);
-  if (error) return { ok: false, error: "We couldn’t save that. Try again in a moment." };
-  await closePhotoReports(photoId, { status: "dismissed", acted_at: at, acted_by: adminId, action_note: "photo kept" });
+  const { data: kept, error } = await db
+    .from("member_photos")
+    .update({ status: "approved", reviewed_at: at, reviewed_by: adminId })
+    .eq("id", photoId)
+    .eq("review_claim", claim.token)
+    .in("status", ["pending", "approved"])
+    .select("id");
+  if (error || !kept?.length) {
+    await releasePhoto(photoId, claim.token);
+    return { ok: false, error: error ? PHOTO_WORDS.failed : PHOTO_WORDS.taken };
+  }
+  await closePhotoReports(row, { status: "dismissed", acted_at: at, acted_by: adminId, action_note: "photo kept" });
   await audit(adminId, "photo.keep", { type: "member_photo", id: photoId }, { memberId: row.member_id });
   return { ok: true };
 }
@@ -371,19 +441,29 @@ export async function adminRemovePhoto(adminId: string, photoId: string, reason:
   if (!PHOTO_REMOVAL_REASONS.includes(reason)) return { ok: false, error: "Pick a reason the member will see." };
   const db = serviceDb();
   const row = await photoRow(photoId);
-  if (!row) return { ok: false, error: "That photo couldn’t be found." };
-  if (row.status === "removed") return { ok: false, error: "That photo was removed already." };
+  if (!row) return { ok: false, error: PHOTO_WORDS.missing };
+  // A photo the member has replaced is not on show any more: removing it would send the member a "we removed your
+  // photo" email about a photo nobody sees, and leave the new one unchecked (QB3-02). The new one is in the queue.
+  if (row.status === "removed" || row.status === "replaced") return { ok: false, error: stateWords(row.status) };
+  const claim = await claimPhoto(photoId);
+  if (!claim.ok) return claim;
   const at = new Date().toISOString();
   const { data: updated, error } = await db
     .from("member_photos")
     .update({ status: "removed", removal_reason: reason, removed_at: at, reviewed_at: at, reviewed_by: adminId })
     .eq("id", photoId)
-    .neq("status", "removed")
+    .eq("review_claim", claim.token)
+    .in("status", ["pending", "approved"])
     .select("id");
-  if (error || !updated?.length) return { ok: false, error: "We couldn’t save that. Try again in a moment." };
+  if (error || !updated?.length) {
+    await releasePhoto(photoId, claim.token);
+    return { ok: false, error: error ? PHOTO_WORDS.failed : PHOTO_WORDS.taken };
+  }
   await db.from("members").update({ photo_id: null }).eq("id", row.member_id).eq("photo_id", photoId);
+  // No new page gets its URL (this server's cache forgets it; other servers read photo_id, now cleared), and a URL
+  // already handed out runs out within PHOTO_URL_TTL_SECONDS (10 minutes, QB2-08).
   forgetSigned([row.path, row.thumb_path]);
-  await closePhotoReports(photoId, { status: "photo_removed", acted_at: at, acted_by: adminId });
+  await closePhotoReports(row, { status: "photo_removed", acted_at: at, acted_by: adminId });
   await audit(adminId, "photo.remove", { type: "member_photo", id: photoId }, { memberId: row.member_id, reason });
   await notify({ type: "photo.removed", memberId: row.member_id, photoId, reason });
   return { ok: true };

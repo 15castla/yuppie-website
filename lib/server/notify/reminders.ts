@@ -26,7 +26,9 @@ import { eventHref, messageThreadHref, openInviteHref } from "@/lib/members/rout
 import { CHAT_NUDGE, QUIET_HOURS, REMINDER_HOURS, REMINDER_LATE_MINUTES, UPDATES_KEEP_DAYS } from "../config";
 import { BOOKING_ROW_COLUMNS, EVENT_ROW_COLUMNS, one, serviceDb, type BookingRow, type EventRow } from "../db";
 import { dayDate, firstName, time24 } from "../format";
+import { isGated, membershipState, type MemberStateFields } from "../membership";
 import { logSkipped, sendEmail, sendText } from "../messages";
+import { topicOn } from "../notification-prefs";
 import { canHear, channelsFor, people, writeUpdates, type Person } from "./index";
 import { isQuietHours, relativeDay } from "./quiet";
 
@@ -176,8 +178,10 @@ export async function runEventReminders(now: Date): Promise<EventRemindersSummar
               place: { venue: event.location?.trim() || event.title, address },
               bookingUrl: eventHref(event.slug),
             },
-            // Stage 1's key, unchanged, so a reminder already sent before the release is never sent again.
-            dedupeKey: `event-reminder-${window}:${row.id}`,
+            // Stage 1's key, unchanged, so a reminder already sent before the release is never sent again; once the
+            // event has moved, the key carries the start, so the reminder goes again for the new time (QB2-05: the
+            // move clears the claims, lib/server/events.ts recordEventMove).
+            dedupeKey: event.changed_at ? `event-reminder-${window}:${row.id}:${startMs}` : `event-reminder-${window}:${row.id}`,
             refs: { memberId: member.id, bookingId: row.id, eventId: event.id },
           });
           if (result.status === "failed") {
@@ -249,11 +253,19 @@ export async function runPlanReminders(now: Date): Promise<PlanRemindersSummary>
   // Who else is going, for the email's "Jasmin and Priya are going too.", in the order they said yes.
   const planIds = [...new Set(rows.map((r) => r.plan_id))];
   const { data: goingRows } = planIds.length
-    ? await db.from("plan_members").select("plan_id, member_id, joined_at, member:members(full_name)").in("plan_id", planIds).eq("status", "going").order("joined_at", { ascending: true })
+    ? await db
+        .from("plan_members")
+        .select("plan_id, member_id, joined_at, member:members(full_name, membership_status, cancel_at, payment_failed_at, grace_until, paused_at, ended_at, deleted_at)")
+        .in("plan_id", planIds)
+        .eq("status", "going")
+        .order("joined_at", { ascending: true })
     : { data: [] };
   const goingBy = new Map<string, { id: string; name: string }[]>();
-  for (const g of (goingRows ?? []) as unknown as { plan_id: string; member_id: string; member: { full_name: string | null } | null }[]) {
-    goingBy.set(g.plan_id, [...(goingBy.get(g.plan_id) ?? []), { id: g.member_id, name: firstName(one(g.member)?.full_name) || "Member" }]);
+  for (const g of (goingRows ?? []) as unknown as { plan_id: string; member_id: string; member: (MemberStateFields & { full_name: string | null }) | null }[]) {
+    // The email's "Going" list is the people who will be there: not a paused or ended member (QB2-09).
+    const m = one(g.member);
+    if (!m || m.deleted_at || isGated(membershipState(m, now).state)) continue;
+    goingBy.set(g.plan_id, [...(goingBy.get(g.plan_id) ?? []), { id: g.member_id, name: firstName(m.full_name) || "Member" }]);
   }
 
   for (const row of rows) {
@@ -273,7 +285,9 @@ export async function runPlanReminders(now: Date): Promise<PlanRemindersSummary>
       const column = window === "24h" ? "reminder_24h_sent_at" : "reminder_2h_sent_at";
       if (await claim("plan_members", match, column, now)) {
         const wants = channelsFor(`reminder.${window}`, member, now);
-        if (wants.update) {
+        // The reminder Update follows the reminder's own switch (QB2-09): with "24 hours before" off, no 24-hour
+        // Update either.
+        if (wants.update && topicOn(member.prefs, window === "24h" ? "reminder24" : "reminder2")) {
           summary.updates += await writeUpdates([
             { member_id: member.id, kind: "reminder", plan_id: plan.id, role, reminder_hours: window === "24h" ? 24 : 2, dedupe_key: `upd:reminder:${plan.id}:${member.id}:${window}:${startMs}`, created_at: now.toISOString() },
           ]);

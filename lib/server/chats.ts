@@ -261,13 +261,18 @@ export async function getThread(
   const chat = buildChat(ctx, row, viewer.id, now);
   if (!chat) return null;
   if (chat.kind === "question" && chat.other && sets.blocked.has(chat.other.id)) return null;
+  // Everyone a system line is about, also anyone no longer in the chat (QB1-08).
+  const aboutMissing = [...new Set(((messages ?? []) as MessageRow[]).map((m) => m.about_member_id).filter((id): id is string => Boolean(id) && !ctx.refs.has(id!)))];
+  if (aboutMissing.length) for (const [id, ref] of await peopleRefs(aboutMissing)) ctx.refs.set(id, ref);
 
   const items: ChatItem[] = [];
   let firstUnreadId: string | null = null;
   const readAt = me.last_read_at ? new Date(me.last_read_at).getTime() : -Infinity;
   for (const m of ((messages ?? []) as MessageRow[]).reverse()) {
     if (m.kind === "system") {
-      items.push({ kind: "system", id: m.id, at: iso(m.created_at), event: m.system_event ?? "closed", memberId: m.about_member_id });
+      // The member it is about, by name, even after they withdrew (QB1-08): they are no longer a participant.
+      const member = m.about_member_id ? ctx.refs.get(m.about_member_id) ?? null : null;
+      items.push({ kind: "system", id: m.id, at: iso(m.created_at), event: m.system_event ?? "closed", memberId: m.about_member_id, member });
       continue;
     }
     if (m.sender_id && sets.blocked.has(m.sender_id)) continue;
@@ -345,11 +350,15 @@ export const SEND_WORDS: Record<SendRefusal, string> = {
 };
 const refuse = (reason: SendRefusal): SendMessageResult => ({ ok: false, reason, error: SEND_WORDS[reason] });
 
-// Control characters (not the new line or the tab), zero-width and direction characters, the line and paragraph
-// separators, and the byte order mark. Built from code points so no invisible character sits in this file.
+// Control characters (not the new line or the tab), the zero-width space, the line and paragraph separators, the
+// direction embeddings, overrides and isolates (text that reads one way and is stored another), the invisible
+// operators and the byte order mark. Kept (QB3-13): the zero-width non-joiner and joiner (U+200C, U+200D: emoji
+// sequences such as the rainbow flag, and Persian, Hindi and other scripts need them) and the left-to-right and
+// right-to-left marks (U+200E, U+200F: Arabic and Hebrew text). Built from code points so no invisible character
+// sits in this file.
 const INVISIBLE = new RegExp(
   "[" +
-    [[0x00, 0x08], [0x0b, 0x0c], [0x0e, 0x1f], [0x7f, 0x9f], [0x200b, 0x200f], [0x2028, 0x202e], [0x2060, 0x2064], [0xfeff, 0xfeff]]
+    [[0x00, 0x08], [0x0b, 0x0c], [0x0e, 0x1f], [0x7f, 0x9f], [0x200b, 0x200b], [0x2028, 0x202e], [0x2060, 0x2064], [0x2066, 0x2069], [0xfeff, 0xfeff]]
       .map(([a, b]) => `\\u${a.toString(16).padStart(4, "0")}-\\u${b.toString(16).padStart(4, "0")}`)
       .join("") +
     "]",
@@ -404,24 +413,29 @@ export async function sendChatMessage(viewer: Viewer, input: { chatId: string; t
   if (chatState(row.kind, plan, now).status === "closed") return refuse("closed");
   if (row.kind === "question") {
     const other = row.asker_id === viewer.id ? plan.host_id : row.asker_id;
-    if (other && eitherBlocked(await blockSets(viewer.id), other)) return refuse("blocked");
+    const sets = other ? await blockSets(viewer.id) : null;
+    // The member who blocked the other is told plainly; the member who was blocked is not told (messages decision
+    // 6 A, QB1-04): their send is refused with the closed chat's own words, which say nothing about a block.
+    if (other && sets?.blocked.has(other)) return refuse("blocked");
+    if (other && sets?.blockedBy.has(other)) return refuse("closed");
   }
-  const { count } = await db
-    .from("messages")
-    .select("id", { count: "exact", head: true })
-    .eq("sender_id", viewer.id)
-    .eq("kind", "text")
-    .gte("created_at", new Date(Date.now() - MESSAGE_RATE_LIMIT.perSeconds * 1000).toISOString());
-  if ((count ?? 0) >= MESSAGE_RATE_LIMIT.count) return refuse("rate_limited");
 
-  const { data: inserted, error } = await db.from("messages").insert({ chat_id: row.id, kind: "text", sender_id: viewer.id, body: text, client_id: clientId }).select(MESSAGE_COLUMNS).single<MessageRow>();
-  if (error) {
-    if (error.code === "23505" && clientId) {
-      const { data: same } = await db.from("messages").select(MESSAGE_COLUMNS).eq("chat_id", row.id).eq("sender_id", viewer.id).eq("client_id", clientId).maybeSingle<MessageRow>();
-      if (same) return { ok: true, message: toMessage(same), chatId: row.id };
-    }
-    throw error;
-  }
+  // The same message again, the rate limit and the insert, under one lock per sender (QB3-09: sixty sends at once
+  // store at most the limit), in the database.
+  const { data: sent, error } = await db.rpc("send_chat_message", {
+    p_chat: row.id,
+    p_sender: viewer.id,
+    p_body: text,
+    p_client_id: clientId,
+    p_limit: MESSAGE_RATE_LIMIT.count,
+    p_window_seconds: MESSAGE_RATE_LIMIT.perSeconds,
+  });
+  if (error) throw error;
+  const result = sent as { status: "sent" | "duplicate" | "rate_limited"; id?: string };
+  if (result.status === "rate_limited") return refuse("rate_limited");
+  const { data: inserted, error: readError } = await db.from("messages").select(MESSAGE_COLUMNS).eq("id", result.id!).single<MessageRow>();
+  if (readError) throw readError;
+  if (result.status === "duplicate") return { ok: true, message: toMessage(inserted), chatId: row.id };
   await db.rpc("mark_chat_read", { p_member: viewer.id, p_chat: row.id });
   await notify({ type: "chat.message", chatId: row.id, messageId: inserted.id, senderId: viewer.id });
   return { ok: true, message: toMessage(inserted), chatId: row.id };

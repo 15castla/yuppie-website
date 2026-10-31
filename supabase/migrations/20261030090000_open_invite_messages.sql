@@ -1075,10 +1075,14 @@ $$;
 
 -- ---------------------------------------------------------------------------
 -- 12. The private bucket for member photos. Members never read, list or
---     write it directly: the restrictive policy below is ANDed with every
---     other storage policy, so no permissive policy (today's or a future
---     one) can open it to anon or authenticated. The server uploads with the
---     service role and hands out short-lived signed URLs.
+--     write it directly. A private bucket needs no policy for that: RLS is
+--     on for storage.objects and no permissive policy lets members in (live
+--     has none). The restrictive policy below is a second lock, ANDed with
+--     every other storage policy, so no permissive policy (a future one)
+--     can open it to anon or authenticated. Where this role may not create
+--     policies on storage.objects (hosted Supabase can refuse it), it is
+--     skipped with a notice and the migration goes on. The server uploads
+--     with the service role and hands out short-lived signed URLs.
 -- ---------------------------------------------------------------------------
 
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
@@ -1088,10 +1092,20 @@ on conflict (id) do update
       file_size_limit = excluded.file_size_limit,
       allowed_mime_types = excluded.allowed_mime_types;
 
-drop policy if exists "Member photos are server only" on storage.objects;
-create policy "Member photos are server only" on storage.objects
-  as restrictive
-  for all
-  to anon, authenticated
-  using (bucket_id <> 'member-photos')
-  with check (bucket_id <> 'member-photos');
+do $$
+begin
+  begin
+    execute 'drop policy if exists "Member photos are server only" on storage.objects';
+    execute $policy$
+      create policy "Member photos are server only" on storage.objects
+        as restrictive
+        for all
+        to anon, authenticated
+        using (bucket_id <> 'member-photos')
+        with check (bucket_id <> 'member-photos')
+    $policy$;
+  exception when insufficient_privilege then
+    raise notice 'Skipped the restrictive storage policy "Member photos are server only": this role cannot create policies on storage.objects. The bucket is private and storage.objects has RLS on, so members still cannot read it.';
+  end;
+end;
+$$;

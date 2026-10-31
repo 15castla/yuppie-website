@@ -7,7 +7,9 @@ import "server-only";
 //   - a channel is used when the trigger allows it AND the topic is on AND the channel is on;
 //   - "always" emails (the photo-removed account email) ignore the switches; club alerts go to ADMIN_ALERTS_EMAIL;
 //   - a muted chat sends no chat email (and would send no push);
-//   - a recipient who blocked the member an event is about hears nothing about them;
+//   - a recipient who blocked the member an event is about hears nothing about them, but always hears the facts
+//     of a plan they are going to (a change, a cancel: blocks hide messages and plans in the feed, never those;
+//     QB1-02), as an Update without the blocked member's name and by their own email switch;
 //   - paused, ended and deleted members hear nothing;
 //   - texts are reminders only (plus the check text), and quiet hours hold them (./reminders.ts);
 //   - push is not in stage 2: decided, never sent (MEMBERS_PUSH_LIVE stays off);
@@ -121,6 +123,31 @@ export async function writeUpdates(rows: UpdateInsert[]): Promise<number> {
   return data?.length ?? 0;
 }
 
+/**
+ * Updates about the people on a plan (joined, full, left, a place opened): written only while the plan is still
+ * on, under the plan's row lock (write_plan_updates), so none lands after a cancel (QB3-14). Returns how many were new.
+ */
+export async function writePlanUpdates(planId: string, rows: UpdateInsert[]): Promise<number> {
+  if (!rows.length) return 0;
+  const payload = rows.map((r) => ({
+    member_id: r.member_id,
+    kind: r.kind,
+    actor_id: r.actor_id ?? null,
+    role: r.role,
+    reminder_hours: r.reminder_hours ?? null,
+    previous_starts_at: r.previous_starts_at ?? null,
+    refund_pence: r.refund_pence ?? null,
+    going_count: r.going_count ?? null,
+    dedupe_key: r.dedupe_key,
+  }));
+  const { data, error } = await serviceDb().rpc("write_plan_updates", { p_plan: planId, p_rows: payload });
+  if (error) {
+    console.error(`notify: writing updates for plan ${planId} failed:`, error);
+    return 0;
+  }
+  return Number(data ?? 0);
+}
+
 // ---------------------------------------------------------------------------- plans
 
 type PlanFacts = { id: string; host_id: string; title: string; starts_at: string; place: string; places: number; status: string; changed_at: string | null; cancelled_at: string | null };
@@ -180,7 +207,7 @@ async function planJoined(e: Extract<NotifyEvent, { type: "plan.joined" }>, now:
       }
     }
   }
-  return { ...none(), updates: await writeUpdates(rows) };
+  return { ...none(), updates: await writePlanUpdates(plan.id, rows) };
 }
 
 async function planLeft(e: Extract<NotifyEvent, { type: "plan.left" }>, now: Date): Promise<NotifyOutcome> {
@@ -196,6 +223,10 @@ async function planLeft(e: Extract<NotifyEvent, { type: "plan.left" }>, now: Dat
   const host = everyone.get(plan.host_id);
   if (host && !blockers.has(host.id) && channelsFor("host.left", host, now).update) {
     rows.push({ member_id: host.id, kind: "left", plan_id: plan.id, actor_id: e.memberId, role: "host", dedupe_key: `upd:left:${plan.id}:${e.memberId}:${leftAt}` });
+  } else if (host && blockers.has(host.id) && e.wasFull && channelsFor("host.left", host, now).update) {
+    // The host blocked the member who withdrew: not their name, but the fact that matters about the host's own
+    // plan, that the full plan has a place again (QB1-02).
+    rows.push({ member_id: host.id, kind: "place_opened", plan_id: plan.id, role: "host", going_count: going.length, dedupe_key: `upd:place_opened:${plan.id}:${host.id}:${leftAt}` });
   }
   if (e.wasFull) {
     for (const id of others) {
@@ -205,7 +236,7 @@ async function planLeft(e: Extract<NotifyEvent, { type: "plan.left" }>, now: Dat
       }
     }
   }
-  return { ...none(), updates: await writeUpdates(rows) };
+  return { ...none(), updates: await writePlanUpdates(plan.id, rows) };
 }
 
 async function planChanged(e: Extract<NotifyEvent, { type: "plan.changed" }>, now: Date): Promise<NotifyOutcome> {
@@ -222,10 +253,12 @@ async function planChanged(e: Extract<NotifyEvent, { type: "plan.changed" }>, no
   const emails: Email[] = [];
   for (const id of ids) {
     const p = everyone.get(id);
-    if (!p || blockers.has(id)) continue;
+    if (!p) continue;
     const c = channelsFor("in.changed", p, now);
+    // A member who blocked the host still hears that a plan they are going to moved (QB1-02); the Update leaves
+    // the host out (no name, no photo), the email is the plan's own facts.
     if (c.update) {
-      rows.push({ member_id: id, kind: "changed", plan_id: plan.id, actor_id: plan.host_id, role: "going", previous_starts_at: e.timeChanged ? e.previousStartsAt : null, dedupe_key: `upd:changed:${plan.id}:${id}:${changedAt}` });
+      rows.push({ member_id: id, kind: "changed", plan_id: plan.id, actor_id: blockers.has(id) ? null : plan.host_id, role: "going", previous_starts_at: e.timeChanged ? e.previousStartsAt : null, dedupe_key: `upd:changed:${plan.id}:${id}:${changedAt}` });
     }
     if (c.email) {
       emails.push({
@@ -260,6 +293,7 @@ async function planCancelled(e: Extract<NotifyEvent, { type: "plan.cancelled" }>
   const hostName = firstName(everyone.get(plan.host_id)?.full_name) || "The host";
   const rows: UpdateInsert[] = [];
   const emails: Email[] = [];
+  const cancelData = { hostName, plan: { title: plan.title, start: start(plan.starts_at) }, place: plan.place, openInviteUrl: ROUTES.openInvite };
   for (const id of ids) {
     const p = everyone.get(id);
     if (!p) continue;
@@ -267,16 +301,31 @@ async function planCancelled(e: Extract<NotifyEvent, { type: "plan.cancelled" }>
     if (c.update) {
       rows.push({ member_id: id, kind: "cancelled", plan_id: plan.id, actor_id: e.byClub || blockers.has(id) ? null : plan.host_id, role: "going", dedupe_key: `upd:cancelled:${plan.id}:${id}` });
     }
-    // The club removing a plan has no email design ("Priya cancelled" would be wrong): the Update only.
-    if (c.email && !e.byClub && !blockers.has(id)) {
+    // Everyone going hears it by their email switch, a member who blocked the host too (QB1-02: a fact about a
+    // plan they are going to). The club's cancel has the club's words (the host did not cancel it).
+    if (c.email) {
       emails.push({
         template: "plan-cancelled",
         to: p.email,
-        data: { hostName, plan: { title: plan.title, start: start(plan.starts_at) }, place: plan.place, openInviteUrl: ROUTES.openInvite },
+        data: e.byClub ? { ...cancelData, by: "club", to: "going" } : cancelData,
         dedupeKey: `plan-cancelled:${plan.id}:${id}`,
         refs: { memberId: id, planId: plan.id },
       });
     }
+  }
+  // The club removed or cancelled the host's plan: the host is told too (QB3-07), an Update and an account email
+  // (it is the club acting on what they posted, like the photo-removed email: sent whatever the switches say).
+  // A host who was paused or ended hears nothing (canHear).
+  const host = everyone.get(plan.host_id);
+  if (e.byClub && host && canHear(host, now)) {
+    rows.push({ member_id: host.id, kind: "cancelled", plan_id: plan.id, actor_id: null, role: "host", dedupe_key: `upd:cancelled:${plan.id}:${host.id}` });
+    emails.push({
+      template: "plan-cancelled",
+      to: host.email,
+      data: { ...cancelData, by: "club", to: "host" },
+      dedupeKey: `plan-cancelled:${plan.id}:${host.id}`,
+      refs: { memberId: host.id, planId: plan.id },
+    });
   }
   const updates = await writeUpdates(rows);
   sendLater(`plan cancelled ${plan.id}`, emails);

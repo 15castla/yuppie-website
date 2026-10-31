@@ -161,6 +161,8 @@ export function updateText(update: UpdateItem, now: string): string {
     case "changed":
       return `${title} moved to ${clock(update.plan.startsAt)}`;
     case "cancelled":
+      // No actor: the club cancelled it, or the reader blocked the host (a fact about their plan, without the name).
+      if (!who) return update.refundMinor ? `${title} was cancelled. ${pounds(update.refundMinor)} refunded` : `${title} was cancelled`;
       return update.refundMinor
         ? `${who} cancelled ${title}. ${pounds(update.refundMinor)} refunded`
         : `${who} cancelled ${title}`;
