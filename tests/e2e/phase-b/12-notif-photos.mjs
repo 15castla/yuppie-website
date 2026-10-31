@@ -19,7 +19,7 @@ import { chromium } from '/home/claude/stack/node_modules/playwright/index.mjs';
 import { loginMember } from '/home/claude/stack/tools/login.mjs';
 import {
   ANON, BASE, SUPA, action, adminSession, cronAt, done, emailsTo, eq, exec, fakesMark, fakesSince, logRows, londonFormDate, makeBooking, makeEvent,
-  makeMember, makeMemberWithPhoto, memberSession, ok, page, planInput, postPlan, q, redirectedTo, setPlanStart, sql, sql1, waitFor,
+  makeMember, makeMemberWithPhoto, memberSession, ok, page, planInput, postPlan, q, redirectedTo, setPlanStart, sql1, waitFor,
 } from './lib.mjs';
 
 const FIX = '/home/claude/stack/tools/fixtures';
