@@ -560,3 +560,5 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 .ad-willsee p{margin-top:4px;font:400 15px/1.45 var(--font-body)}
 .ad-segsk{flex:1 1 0;display:flex;align-items:center;justify-content:center;min-height:44px;border-radius:999px;font:700 15px/1.2 var(--font-body)}
 .ad-segsk.on{background:var(--ink);color:var(--yellow)}
+/* the narrowest card (a 320 phone): a long action label wraps rather than poke past the card */
+@container adcard (max-width:300px){ .ad-acts.q .ad-btn{white-space:normal;text-align:center;padding:8px 16px;line-height:1.2} }

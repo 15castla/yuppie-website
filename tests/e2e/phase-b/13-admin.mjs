@@ -467,7 +467,9 @@ try {
     ok(/^\/(;|$)/.test(m.redirect ?? '') && !leaks(m.body), `QA2-01 action ${a.name}, a member’s session: refused (sent home)`, { status: m.status, redirect: m.redirect });
   }
   eq(snapshot(), before, 'QA2-01 after every refused call: the report, the photo, the member, the chat and the audit are exactly as before');
-  eq(fakesSince(stripeMark, 'stripe').filter((l) => l.method !== 'GET').length, 0, 'QA2-01 and nothing was written to Stripe');
+  // The fakes' log is shared with the other agents' tests: look for writes about this run's members only.
+  const ours = [host, bad, rep1, rep2].flatMap((m) => [m.customer, m.subscription]).filter(Boolean);
+  eq(fakesSince(stripeMark, 'stripe').filter((l) => l.method !== 'GET' && ours.some((id) => JSON.stringify(l).includes(id))).length, 0, 'QA2-01 and nothing was written to Stripe for them');
   // Control: the same call with the aal2 session goes through.
   const ctl = await callAction(newActions.find((a) => a.name === 'adminDismissReport'), cookieFor(admin));
   ok(!ctl.redirect && sql1(`select status from reports where id = ${q(openRep.reportId)}`).status === 'dismissed', 'QA2-01 adminDismissReport with the aal2 cookie goes through (control)');
