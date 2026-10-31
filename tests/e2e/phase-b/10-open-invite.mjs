@@ -402,10 +402,13 @@ try {
   ok(pausedJoin.redirect === '/members/membership' || pausedJoin.result?.ok === false, 'paused: I’m in is refused', pausedJoin);
   eq(going(walk).some((g) => g.member_id === p.id), false, 'paused: nothing was joined');
   const P = await signIn(p);
-  eq(new URL(P.page.url()).pathname, '/members/membership', 'paused: logging in lands on the gate, not Open Invite');
+  // the landing page's own check sends a paused member on to the gate (the redirect arrives in the page's stream)
+  const gate = await P.page.waitForURL('**/members/membership', { timeout: 15000 }).then(() => true, () => false);
+  ok(gate, 'paused: logging in ends on the membership gate, not Open Invite', P.page.url());
 
   // ---------------------------------------------------------------- the app: hidden while its own switch is off
   const App = await signIn(a, { userAgent: NATIVE_UA });
+  await App.page.waitForURL('**/members/events', { timeout: 15000 }).catch(() => {});
   eq(new URL(App.page.url()).pathname, '/members/events', 'app: logging in lands on Events (Open Invite hidden in the app)');
   const appTabs = (await App.page.locator('nav.mk-tabbar a').allInnerTexts()).map((t) => t.trim());
   ok(appTabs.length > 0 && !appTabs.includes('Open Invite'), 'app: no Open Invite tab', appTabs);
