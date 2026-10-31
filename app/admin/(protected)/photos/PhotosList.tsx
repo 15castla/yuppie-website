@@ -44,11 +44,10 @@ export function PhotosList({ check, done }: { check: PhotoListRow[]; done: Photo
     );
   }
   return (
-    <div className="ad-q" role="list" aria-label={tab === "done" ? "Photos checked" : "Photos to check"}>
+    <div className="ad-q">
       {rows.map((r, i) => (
         <Link
           key={r.photoId}
-          role="listitem"
           className="ad-qi ph"
           href={`/admin/photos/${r.photoId}${keep}`}
           aria-current={r.photoId === openId ? "true" : undefined}

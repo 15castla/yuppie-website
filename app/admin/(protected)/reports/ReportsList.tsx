@@ -46,13 +46,12 @@ export function ReportsList({ open, done }: { open: ReportListRow[]; done: Repor
     );
   }
   return (
-    <div className="ad-q" role="list" aria-label={tab === "done" ? "Reports dealt with" : "Open reports"}>
+    <div className="ad-q">
       {rows.map((r, i) => {
         const pill = STATUS_PILL[r.status] ?? STATUS_PILL.open;
         return (
           <Link
             key={r.id}
-            role="listitem"
             className="ad-qi"
             href={`/admin/reports/${r.id}${keep}`}
             aria-current={r.id === openId ? "true" : undefined}
