@@ -45,7 +45,9 @@ import { EXAMPLE_HOST_PAYMENTS, EXAMPLE_PLAN_PAYMENTS, EXAMPLE_RECEIPTS } from "
 import type { InviteMember, NewOpenInviteContext, OpenInvite, OpenInvitePage } from "@/lib/members/invite/types";
 import type { PreviewParams, PreviewScreen } from "./types";
 
-const FLAGS = ["openInvite", "messages"] as const;
+// openInviteApp: the app frames draw Open Invite as it will be once the app's own switch is on (decision 6; the
+// tab bar then has Open Invite first). The live app keeps it off for now.
+const FLAGS = ["openInvite", "openInviteApp", "messages"] as const;
 
 const CONTEXT: NewOpenInviteContext = {
   me: SAM,
@@ -207,8 +209,8 @@ const POST_COST_STATES = [
 ] as const;
 
 // ---- paid plans: the plan page with a pay, leave or cancel sheet open (the underlay is the real plan page)
-const PAY_FLAGS = ["openInvite", "messages", "paidPlans"] as const;
-const PAY_PAGE_FLAGS = ["openInvite", "paidPlans"] as const;
+const PAY_FLAGS = ["openInvite", "openInviteApp", "messages", "paidPlans"] as const;
+const PAY_PAGE_FLAGS = ["openInvite", "openInviteApp", "paidPlans"] as const;
 // A second payer needs her own payment id and receipt number (Tom's are pay-0418 and 0418): two rows with one id share a React key.
 const PRIYA_POLO_PAYMENT = {
   ...TOM_POLO_PAYMENT,

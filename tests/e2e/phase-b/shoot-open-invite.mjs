@@ -68,8 +68,8 @@ const HARNESS = [
   ['edit-errors', 'invite-edit', 'errors'],
 ];
 
-// ---------------------------------------------------------------- a clean feed for bo.active
-const others = sql(
+// ---------------------------------------------------------------- a clean feed for bo.active (the real pages only)
+const others = only === 'harness' ? [] : sql(
   `select distinct p.host_id id from plans p join members m on m.id = p.host_id where p.status = 'scheduled' and p.starts_at > now() and not (m.email like 'bo.%' and m.email not like 'bo.t-%')`,
 ).map((r) => r.id);
 const added = [];
@@ -124,7 +124,7 @@ try {
   }
   if (only !== 'real') {
     for (const shell of ['web', 'app']) {
-      for (const [name, screen, state] of HARNESS) await shoot(`harness-${shell}-${name}`, `/dev-preview/${screen}?shell=${shell}&state=${state}`);
+      for (const [name, screen, state] of HARNESS) await shoot(`harness-${shell}-${name}`, `/dev-preview/${screen}?shell=${shell}&state=${state}&unread=2`);
     }
   }
 } finally {
