@@ -15,7 +15,7 @@ import type { ReactNode } from "react";
 
 import { Avatar, ExampleNote, Icon, KitLink, Segmented } from "@/components/members/kit";
 import { MessagesButton } from "@/components/members/shell/messages-button";
-import { useShell } from "@/components/members/shell/shell-context";
+import { useMessagesBadge, useShell } from "@/components/members/shell/shell-context";
 import { TopActions } from "@/components/members/shell/top-actions";
 import type { InviteMember } from "@/lib/members/invite/types";
 import { ROUTES } from "@/lib/members/routes";
@@ -23,7 +23,8 @@ import { CountChip } from "./invite-card";
 
 /** The messages icon at the end of a plan page's back row (Open Invite pages only; the shell says whether to draw it). */
 export function BarMessages() {
-  const { showMessages, unread, messagesCurrent } = useShell();
+  const { showMessages, messagesCurrent } = useShell();
+  const unread = useMessagesBadge();
   return showMessages ? <MessagesButton unread={unread} current={messagesCurrent} /> : null;
 }
 

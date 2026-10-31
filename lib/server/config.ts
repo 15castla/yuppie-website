@@ -67,8 +67,8 @@ export const REMINDER_LATE_MINUTES = 20;
 /** Member photos: the private bucket, the sizes the server makes, and how long a signed URL lasts. */
 export const PHOTO_BUCKET = "member-photos";
 export const PHOTO_SIZES = { full: 480, thumb: 160 } as const;
-/** The browser checks the chosen photo is 400px or more (photo decision 2 A); the cropped square it uploads can be smaller after a zoom, so the server's floor is the thumb size. */
-export const PHOTO_MIN_UPLOAD_PX = 160;
+/** At least 400px (photo decision 2 A): the browser refuses a photo whose shorter side is under 400 and never zooms the crop below it, so the square it uploads is 400px or more, and the server holds the same floor. */
+export const PHOTO_MIN_UPLOAD_PX = 400;
 export const PHOTO_MAX_BYTES = 10 * 1024 * 1024;
 /** Signed photo URLs last an hour; a cached one is handed out again while it has 15 minutes or more left. */
 export const PHOTO_URL_TTL_SECONDS = 60 * 60;
@@ -90,6 +90,15 @@ export function photoGateSince(): Date {
  */
 export function pushLive(): boolean {
   return process.env.MEMBERS_PUSH_LIVE === "on";
+}
+
+/**
+ * Member photos are fully private only once the old public copies in member-media/avatars/ are deleted
+ * (release/delete-public-avatars.mjs --apply). Until this server-only switch is "on", no page may say a photo
+ * is never public.
+ */
+export function photosPrivateDone(): boolean {
+  return process.env.MEMBERS_PHOTOS_PRIVATE_DONE === "on";
 }
 
 /**

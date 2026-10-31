@@ -114,8 +114,13 @@ try {
   const day = londonFormDate(2);
   await H.page.getByLabel('When').fill(day.date);
   await H.page.getByLabel('Time').fill('18:30');
-  eq(await H.page.getByLabel('Where').getAttribute('maxlength'), '120', 'Where: 120 characters at most');
-  eq(await H.page.getByLabel('Note').getAttribute('maxlength'), '280', 'Note: 280 characters at most');
+  // at most 120 and 280 characters, counted as the server counts them (code points: an emoji is one; QB1-10)
+  await H.page.getByLabel('Where').fill('🎾'.repeat(130));
+  eq([...(await H.page.getByLabel('Where').inputValue())].length, 120, 'Where: 120 characters at most');
+  await H.page.getByLabel('Where').fill('The Boulder Yard');
+  await H.page.getByLabel('Note').fill('n'.repeat(290));
+  eq([...(await H.page.getByLabel('Note').inputValue())].length, 280, 'Note: 280 characters at most');
+  await H.page.getByLabel('Note').fill('');
   ok(await H.page.getByText('A venue or a meeting point, not a home address.').count() === 0, 'Where: the help line goes once a place is in');
   ok(await H.page.getByLabel('I’m going too').isChecked(), 'I’m going too: ticked by default');
   const fewer = H.page.getByRole('button', { name: 'Fewer places' });
@@ -299,7 +304,8 @@ try {
   eq(sql1(`select host_going from plans where id = ${q(spare)}`).host_going, false, 'edit refused: nothing saved');
 
   // ---------------------------------------------------------------- past: the plan page and Yours
-  setPlanStart(spare, -60);
+  // over a day after the start (the plan chat closes 24 hours after it; an hour in, it is "started": 14-fixes-2)
+  setPlanStart(spare, -25 * 60);
   await A.page.goto(planHref(spare), { waitUntil: 'networkidle' });
   await shows(A.page.getByText('This plan has finished.'), 'plan page, past: "This plan has finished."');
   await shows(dock(A.page).getByText('Finished'), 'plan page, past: "Finished" in the bar');

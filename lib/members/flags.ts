@@ -70,3 +70,9 @@ export function noFlags(): Flags {
 export function openInviteOn(mode: "web" | "app", f: Pick<Flags, "openInvite" | "openInviteApp"> = flags): boolean {
   return f.openInvite && (mode === "web" || f.openInviteApp);
 }
+
+// Is Messages on for this shell? Every chat belongs to an Open Invite, so in the app Messages follows Open Invite:
+// while Open Invite is hidden there (decision 6), so is Messages (no route, no icon, no actions). The web: messages.
+export function messagesOn(mode: "web" | "app", f: Pick<Flags, "messages" | "openInvite" | "openInviteApp"> = flags): boolean {
+  return f.messages && (mode === "web" || openInviteOn(mode, f));
+}

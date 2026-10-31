@@ -63,6 +63,9 @@
 .mk-invite.oi-card dl{grid-template-columns:88px minmax(0,1fr);gap:2px 0;margin:0 0 14px;font-size:15px;line-height:1.35}
 @media (min-width:768px){ .mk-invite.oi-card dl{grid-template-columns:96px minmax(0,1fr);gap:8px 0;margin-bottom:20px} }
 .oi-card dd{min-width:0}
+/* Words members write (title, place, note, questions) wrap anywhere rather than push the page sideways: a long
+   unbroken word never overflows, at any width (QB1-06). Ordinary words still break at spaces. */
+.oi-card h3,.oi-card dd,.oi-facts dd,.oi-note p,.oi-qs,.oi-sh-sum{overflow-wrap:anywhere}
 .oi-card dd.oi-ell{display:block}
 .oi-going{display:inline-flex;align-items:center;gap:8px;min-width:0;font:400 13px/1.2 var(--font-body)}
 .oi-going .mk-avatars{flex:none}
@@ -225,6 +228,7 @@
 
 /* ---- 8. post an Open Invite ------------------------------------------------------------------------------- */
 .oi-form-head{padding-top:20px}
+.oi-form-head .mk-sub-serif{overflow-wrap:anywhere}  /* the plan being edited is its title (QB1-06) */
 .mk-screen.mk-app .oi-form-head{padding-top:12px}
 .oi-form{display:flex;flex-direction:column;gap:24px;margin-top:24px}
 .oi-lab{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}

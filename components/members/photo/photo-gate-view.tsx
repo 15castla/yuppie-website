@@ -88,6 +88,7 @@ export function PhotoGateView({
   upload,
   signOut,
   gate,
+  neverPublic = false,
   demo,
 }: {
   mode: ShellMode;
@@ -101,6 +102,8 @@ export function PhotoGateView({
   signOut: () => void | Promise<void>;
   /** The removed notice and the existing-member line (the server's photoGateState). */
   gate?: GateInfo;
+  /** "It’s never public." may be said (MEMBERS_PHOTOS_PRIVATE_DONE=on: the old public copies are deleted). The preview draws the design's line. */
+  neverPublic?: boolean;
   demo?: GateDemo;
 }) {
   const router = useRouter();
@@ -477,7 +480,7 @@ export function PhotoGateView({
   const below = (
     <div className="ph-below">
       {error || removed ? null : <Tips />}
-      <PrivacyNote />
+      <PrivacyNote neverPublic={demo ? true : neverPublic} />
     </div>
   );
   const ring = (

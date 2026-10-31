@@ -50,6 +50,7 @@ import { CheckRow, FieldError, Lab } from "./form-parts";
 import { InkDrawing } from "./ink-drawing";
 import { InviteCard } from "./invite-card";
 import { TRY_AGAIN, useInviteActions } from "./invite-actions";
+import { charCount, clipChars, utf16Cap } from "@/lib/members/chars";
 
 export type PostValues = {
   title: string;
@@ -356,7 +357,7 @@ export function PostView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [answered]);
 
-  const titleLeft = TITLE_MAX - values.title.length;
+  const titleLeft = TITLE_MAX - charCount(values.title);
   const whenError = errors.date ?? errors.time;
   const others = values.places - 1;
   const placesText = values.hostGoing
@@ -366,20 +367,20 @@ export function PostView({
   const fields: ReactNode[] = [
     // What
     <div key="what">
-      <Lab htmlFor={ids.title} text="What" count={`${values.title.length}/${TITLE_MAX}`} near={titleLeft <= 5} />
+      <Lab htmlFor={ids.title} text="What" count={`${charCount(values.title)}/${TITLE_MAX}`} near={titleLeft <= 5} />
       <div className={cn("oi-in", errors.title && "is-error", posting && "is-off")}>
         <input
           id={ids.title}
           type="text"
           value={values.title}
-          maxLength={TITLE_MAX}
+          maxLength={utf16Cap(TITLE_MAX)}
           placeholder="Saturday morning class + brunch"
           autoComplete="off"
           enterKeyHint="next"
           disabled={posting}
           aria-invalid={errors.title ? true : undefined}
           aria-describedby={errors.title ? `${ids.title}-e` : undefined}
-          onChange={(event) => set("title", event.target.value)}
+          onChange={(event) => set("title", clipChars(event.target.value, TITLE_MAX))}
         />
       </div>
       <FieldError id={`${ids.title}-e`} message={errors.title} />
@@ -452,14 +453,14 @@ export function PostView({
           id={ids.where}
           type="text"
           value={values.where}
-          maxLength={WHERE_MAX}
+          maxLength={utf16Cap(WHERE_MAX)}
           placeholder="A venue or a meeting point"
           autoComplete="off"
           enterKeyHint="next"
           disabled={posting}
           aria-invalid={errors.where ? true : undefined}
           aria-describedby={errors.where ? `${ids.where}-e` : `${ids.where}-h`}
-          onChange={(event) => set("where", event.target.value)}
+          onChange={(event) => set("where", clipChars(event.target.value, WHERE_MAX))}
         />
         <Icon name="map-pin" size={20} />
       </div>
@@ -519,18 +520,18 @@ export function PostView({
         htmlFor={ids.note}
         text="Note"
         optional
-        count={`${values.note.length}/${NOTE_MAX}`}
-        near={NOTE_MAX - values.note.length <= 20}
+        count={`${charCount(values.note)}/${NOTE_MAX}`}
+        near={NOTE_MAX - charCount(values.note) <= 20}
       />
       <div className={cn("oi-in oi-ta", posting && "is-off")}>
         <textarea
           id={ids.note}
           value={values.note}
-          maxLength={NOTE_MAX}
+          maxLength={utf16Cap(NOTE_MAX)}
           rows={3}
           placeholder="Level, what to bring, what happens after"
           disabled={posting}
-          onChange={(event) => set("note", event.target.value)}
+          onChange={(event) => set("note", clipChars(event.target.value, NOTE_MAX))}
         />
       </div>
     </div>,

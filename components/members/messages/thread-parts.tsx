@@ -23,6 +23,7 @@ import type { GroupMessage, StreamRow } from "@/lib/members/messages/thread-mode
 import { MESSAGE_COUNTER_FROM, MESSAGE_COUNTER_NEAR, MESSAGE_MAX_LENGTH, type Chat } from "@/lib/members/messages/types";
 import { ROUTES, openInviteHref } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
+import { charCount, clipChars, utf16Cap } from "@/lib/members/chars";
 
 export function ThreadHeader({ chat, infoOpen, onInfo }: { chat: Chat; infoOpen: boolean; onInfo: () => void }) {
   return (
@@ -201,7 +202,8 @@ export function Composer({
   onKeyDown: (event: KeyboardEvent<HTMLTextAreaElement>) => void;
   onSend: () => void;
 }) {
-  const length = draft.length;
+  // characters as the server counts them (code points: an emoji is one)
+  const length = charCount(draft);
   const has = draft.trim().length > 0;
   const off = !has || link;
   const label = !has ? "Send, disabled: write a message first" : link ? "Send, disabled: remove the link first" : "Send";
@@ -239,13 +241,13 @@ export function Composer({
           ref={inputRef}
           className="msg-input"
           rows={1}
-          maxLength={MESSAGE_MAX_LENGTH}
+          maxLength={utf16Cap(MESSAGE_MAX_LENGTH)}
           placeholder="Write a message"
           aria-label="Message"
           enterKeyHint="send"
           autoComplete="off"
           value={draft}
-          onChange={(event) => onChange(event.target.value)}
+          onChange={(event) => onChange(clipChars(event.target.value, MESSAGE_MAX_LENGTH))}
           onKeyDown={onKeyDown}
         />
         <button

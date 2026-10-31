@@ -7,7 +7,7 @@ import {
 } from "@/components/templates/creative-studio/fonts";
 import { MembersShell } from "@/components/members/shell/members-shell";
 import { tabsFor } from "@/components/members/shell/tabs";
-import { flags } from "@/lib/members/flags";
+import { flags, messagesOn } from "@/lib/members/flags";
 import { detectShellMode } from "@/lib/members/shell-mode";
 import { getMemberSummary, requireMember } from "./require-member";
 import MembersLoading from "./loading";
@@ -56,7 +56,7 @@ export default async function MembersLayout({
         mode={mode}
         tabs={tabs}
         member={getMemberSummary()}
-        messagesEnabled={flags.messages}
+        messagesEnabled={messagesOn(mode)}
       >
         <Suspense fallback={<MembersLoading />}>
           <AuthGate>{children}</AuthGate>

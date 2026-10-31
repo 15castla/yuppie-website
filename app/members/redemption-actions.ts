@@ -1,10 +1,16 @@
 "use server";
 
+import { currentPhotoUrl } from "@/lib/server/photos";
 import { createClient } from "@/lib/supabase/server";
 
 export type RedemptionStatus = {
   full_name: string | null;
-  avatar_url: string | null;
+  /**
+   * The member's current photo (approved or pending) from the private bucket, through a short-lived signed URL
+   * (lib/server/photos), never the old public avatar_url. Only for an active membership: the card shows no photo
+   * otherwise.
+   */
+  photo_url: string | null;
   membership_status: string;
   // When this read happened (ISO, the server's clock). The redeem card prints
   // it as "Checked 09:41" so an old screenshot gives itself away, and a member
@@ -30,10 +36,11 @@ export async function getRedemptionStatus(): Promise<RedemptionStatus | null> {
 
   const { data: member } = await supabase
     .from("members")
-    .select("full_name, avatar_url, membership_status")
+    .select("full_name, membership_status")
     .eq("id", user.id)
-    .maybeSingle();
+    .maybeSingle<{ full_name: string | null; membership_status: string }>();
 
   if (!member) return null;
-  return { ...(member as Omit<RedemptionStatus, "checked_at">), checked_at: new Date().toISOString() };
+  const photoUrl = member.membership_status === "active" ? await currentPhotoUrl(user.id, "full") : null;
+  return { full_name: member.full_name, membership_status: member.membership_status, photo_url: photoUrl, checked_at: new Date().toISOString() };
 }

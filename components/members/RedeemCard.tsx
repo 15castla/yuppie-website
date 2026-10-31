@@ -66,7 +66,7 @@ export function phaseFor(status: RedemptionStatus | null): RedeemPhase {
     return {
       kind: "active",
       name: status.full_name?.trim() || "Member",
-      photoUrl: status.avatar_url,
+      photoUrl: status.photo_url,
       checked: formatChecked(status.checked_at),
     };
   }

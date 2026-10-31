@@ -302,7 +302,8 @@ export async function redirectedTo(path, session = null) {
   const r = await page(path, session);
   if (r.location) return new URL(r.location, BASE).pathname;
   const m = /NEXT_REDIRECT;(?:replace|push);([^;"\\]+);/.exec(r.text);
-  return m ? m[1] : null;
+  // the path, as for a real Location above (the photo gate's address can carry ?next=, the page to return to)
+  return m ? new URL(m[1], BASE).pathname : null;
 }
 
 /** PostgREST as the session's user (anon key plus their JWT), for the security checks. */

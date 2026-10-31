@@ -149,7 +149,9 @@ export async function uploadMemberPhoto(
   if (!type) return fail("type");
   const size = dimensions(bytes, type);
   if (!size) return fail("type");
-  if (Math.min(size.width, size.height) < PHOTO_MIN_UPLOAD_PX) return fail("small");
+  if (size.width < PHOTO_MIN_UPLOAD_PX) return fail("small");
+  // wide enough but not tall enough (Edit details sends the photo uncropped): the line says so, to stay true
+  if (size.height < PHOTO_MIN_UPLOAD_PX) return { success: false, error: "Too small. Choose a photo at least 400 pixels tall.", reason: "small" };
 
   const db = serviceDb();
   const { data: member } = await db.from("members").select("id, photo_id").eq("id", memberId).maybeSingle<{ id: string; photo_id: string | null }>();

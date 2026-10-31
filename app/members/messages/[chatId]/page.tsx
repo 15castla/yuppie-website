@@ -2,11 +2,12 @@ import { notFound } from "next/navigation";
 
 import { InboxView } from "@/components/members/messages/inbox-view";
 import { ThreadView } from "@/components/members/messages/thread-view";
-import { flags, requireFlag } from "@/lib/members/flags";
+import { flags } from "@/lib/members/flags";
 import { ROUTES } from "@/lib/members/routes";
 import { getThread, listChats, markChatRead } from "@/lib/server/chats";
 import { listUpdates } from "@/lib/server/updates";
 import { requireMember } from "../../require-member";
+import { requireMessages } from "../guard";
 
 // One chat: a plan chat or a question, real data. "ask-<plan id>" is a question not asked yet (the first send
 // makes it and moves the address to the real chat). A chat that is not the member's is a 404. Opening it reads
@@ -14,7 +15,7 @@ import { requireMember } from "../../require-member";
 // app/members/messages/[chatId]/actions.ts. The asker's question keeps one view from "ask-" to the real chat (its
 // key is their question on that plan), so the composer keeps its focus when the address moves.
 export default async function MessageThreadPage({ params }: { params: Promise<{ chatId: string }> }) {
-  requireFlag("messages");
+  await requireMessages();
   const member = await requireMember();
   const { chatId } = await params;
   const now = new Date();
