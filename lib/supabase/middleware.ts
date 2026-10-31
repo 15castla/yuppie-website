@@ -60,7 +60,7 @@ async function isMissingMembersPage(pathname: string, supabase: SupabaseClient, 
     const app = isNativeAppUserAgent(request.headers.get("user-agent") ?? "") || isNativeAppCookie(request.headers.get("cookie") ?? "");
     if (!openInviteOn(app ? "app" : "web")) return true;
   }
-  if (route.id === "openInviteDetail") {
+  if (route.id === "openInviteDetail" || route.id === "openInviteEdit") {
     let id: string;
     try {
       id = decodeURIComponent(path.split("/")[3] ?? "");

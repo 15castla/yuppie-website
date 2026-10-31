@@ -459,6 +459,8 @@ export function PlanView({
 
   // ---- desktop action card
   const questions = invite.you.questions;
+  // "new": questions with something unread (a question already read stays in the list, without a number)
+  const newQuestions = questions.filter((question) => question.unread > 0).length;
   let secondary: ReactNode = null;
   if ((state === "open" || state === "full") && askHref) {
     secondary = (
@@ -470,7 +472,7 @@ export function PlanView({
     secondary = (
       <Button variant="outline" href="#questions">
         Questions
-        {questions.length > 0 ? <CountBadge n={questions.length} /> : null}
+        {newQuestions > 0 ? <CountBadge n={newQuestions} /> : null}
       </Button>
     );
   }
@@ -572,7 +574,7 @@ export function PlanView({
             leading={<Avatar photoUrl={question.from.photoUrl} name={question.from.firstName} size={48} />}
             title={question.from.firstName}
             meta={question.text}
-            end={<CountChip n={question.unread} />}
+            end={question.unread > 0 ? <CountChip n={question.unread} /> : null}
           />
         ))}
       </>
@@ -580,7 +582,7 @@ export function PlanView({
   const questionHead = (
     <div className="mk-sh" id="questions">
       <h2 className="mk-h2">Questions</h2>
-      <span className="oi-meta">{questions.length} new</span>
+      {newQuestions > 0 ? <span className="oi-meta">{newQuestions} new</span> : null}
     </div>
   );
 

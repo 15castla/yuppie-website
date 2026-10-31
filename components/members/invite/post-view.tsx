@@ -25,7 +25,7 @@
 
 import "./invite.css";
 
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { BackRow, Button, ExampleNote, Icon, Main, Shape } from "@/components/members/kit";
@@ -257,6 +257,8 @@ export function PostView({
   const [errors, setErrors] = useState<PostErrors>(initialErrors ?? {});
   const [posting, setPosting] = useState(initialPosting);
   const [formError, setFormError] = useState<string | null>(initialFormError ?? null);
+  // The server's answer moves focus to its first error once it is drawn (a number that changes per answer).
+  const [answered, setAnswered] = useState(0);
   // Paid plans (stage 3, the harness only): Get paid starts as the context says and turns ready when "Done" is tapped on Stripe's outline screen.
   const [getPaid, setGetPaid] = useState<GetPaidStatus>(context.getPaid.status);
   const [mode, setMode] = useState<GetPaidMode>(initialMode);
@@ -344,9 +346,15 @@ export function PostView({
     const general = result.error ?? (Object.keys(fieldErrors).length > 0 ? null : TRY_AGAIN);
     setErrors(fieldErrors);
     setFormError(general);
-    // after the errors are drawn
-    requestAnimationFrame(() => showFirst(fieldErrors, general));
+    setAnswered((n) => n + 1);
   }
+
+  // After the server's errors are on screen: the first one, scrolled to and focused.
+  useEffect(() => {
+    if (answered > 0) showFirst(errors, formError);
+    // only when a new answer arrives, not on every keystroke
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [answered]);
 
   const titleLeft = TITLE_MAX - values.title.length;
   const whenError = errors.date ?? errors.time;

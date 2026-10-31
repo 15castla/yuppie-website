@@ -8,6 +8,7 @@
 
 import { useEffect } from "react";
 
+import { useShell } from "@/components/members/shell/shell-context";
 import { TopActions } from "@/components/members/shell/top-actions";
 import { ErrorView } from "@/components/members/system/error-view";
 import { OwnDockTabs } from "@/components/members/system/own-dock-tabs";
@@ -18,6 +19,8 @@ export default function MembersError({ error, retry }: { error: Error & { digest
     // The browser's console; the server logged the same digest when it caught the error.
     console.error("Members page error:", error, error.digest ? `(reference ${error.digest})` : "");
   }, [error]);
+  // The landing page of this shell: in the app Open Invite also needs its own switch (Open Invite decision 6).
+  const { mode } = useShell();
 
   return (
     <>
@@ -26,7 +29,7 @@ export default function MembersError({ error, retry }: { error: Error & { digest
         error={error}
         retry={retry}
         reference={error.digest ?? null}
-        back={{ href: landingPath(), label: `Back to ${landingLabel()}` }}
+        back={{ href: landingPath(undefined, mode), label: `Back to ${landingLabel(undefined, mode)}` }}
         titleActions={<TopActions />}
       />
       <OwnDockTabs />

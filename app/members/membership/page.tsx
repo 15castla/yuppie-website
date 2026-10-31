@@ -19,9 +19,9 @@ import { getMembershipState, requireMember } from "../require-member";
 export default async function MembershipGatePage() {
   await requireMember({ allowGated: true, allowMissingPhoto: true });
   const state = await getMembershipState();
-  if (!state || !isGated(state.state)) redirect(landingPath());
-
   const mode = await detectShellMode();
+  if (!state || !isGated(state.state)) redirect(landingPath(undefined, mode));
+
   const legal = legalLines(new Date().getFullYear());
 
   if (state.state === "cancelled") {
