@@ -61,6 +61,10 @@
 .cn-rec .cn-addr .mk-ico{flex:none}
 .cn-rec .cn-maps{padding:0 10px}
 
+/* the pages its places came from (web search results must show their sources), small under the cards */
+.cn-sources{font:400 13px/1.4 var(--font-body);color:var(--muted);padding:2px 4px 4px;overflow-wrap:anywhere}
+.cn-sources a{color:var(--ink);text-decoration:underline;text-underline-offset:2px;display:inline-block;min-height:24px;padding:2px 0}
+
 /* what it just learned, and the way to take it back */
 .cn-learn{display:flex;align-items:center;gap:6px;min-height:44px;font:400 13px/1.35 var(--font-body);color:var(--muted);padding-left:4px}
 .cn-learn .mk-ico{flex:none}

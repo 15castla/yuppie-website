@@ -32,6 +32,16 @@ export type ConciergeRecommendation = {
   mapsUrl: string;
 };
 
+/**
+ * A page the concierge relied on, shown under its reply ("Sources: timeout.com"). Anthropic's terms ask for the
+ * sources of web search results to be shown to the people who see them. Added 1 Nov 2026 for the real backend.
+ */
+export type ConciergeSource = {
+  /** The site's name as it reads in the link: "timeout.com". */
+  label: string;
+  url: string;
+};
+
 /** One thing the concierge has learned about the member's taste. */
 export type ConciergeMemoryItem = {
   id: string;
@@ -60,6 +70,8 @@ export type ConciergeReply = {
   closing?: string;
   /** Places to show as cards under the bubble. */
   recommendations?: ConciergeRecommendation[];
+  /** The pages its places came from, drawn small under the cards. */
+  sources?: ConciergeSource[];
   /**
    * What it learned from this exchange: drawn as a chip under the reply
    * ("Remembered: …") with Undo, which forgets this one item. The item is

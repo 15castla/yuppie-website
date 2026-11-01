@@ -229,6 +229,19 @@ export function ReplyBlock({
       {places.map((place) => (
         <RecommendationCard key={place.id} place={place} />
       ))}
+      {reply.sources?.length ? (
+        <p className="cn-sources">
+          Sources:{" "}
+          {reply.sources.map((source, index) => (
+            <span key={source.url}>
+              {index > 0 ? ", " : null}
+              <a href={source.url} target="_blank" rel="noopener noreferrer">
+                {source.label}
+              </a>
+            </span>
+          ))}
+        </p>
+      ) : null}
       {learned ? (
         <RememberedChip item={learned} remembered={inMemory.has(learned.id)} onUndo={() => onUndo(learned.id)} />
       ) : null}

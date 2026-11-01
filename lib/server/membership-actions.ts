@@ -23,6 +23,7 @@ import { sendEmail } from "./messages";
 import { cardLabelForMembership } from "./stripe/card";
 import { subscriptionPaidUp } from "./stripe/subscription";
 import { periodEndSeconds } from "./stripe/period";
+import { purgeConcierge } from "./concierge";
 
 export type ActionResult<T extends object = object> = ({ ok: true } & T) | { ok: false; code: string; error: string };
 
@@ -324,6 +325,8 @@ export async function deleteAccount(memberId: string, options: { by?: "member" |
     // left, messages removed, blocks, Updates and switches deleted). Both never throw.
     await deleteMemberPhotos(memberId);
     await leaveOpenInviteForDeletion(memberId);
+    // The Concierge (1 Nov 2026): the conversation and everything it remembered.
+    await purgeConcierge(memberId).catch((err) => console.error(`deleteAccount: clearing the Concierge failed for member ${memberId}:`, err));
 
     // To the address they have now, before it is replaced.
     await sendEmail({

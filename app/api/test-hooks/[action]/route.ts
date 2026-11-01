@@ -20,6 +20,7 @@ import * as plan from "@/app/members/open-invite/[id]/actions";
 import * as photo from "@/app/members/photo/actions";
 import * as shell from "@/app/members/shell-actions";
 import * as blocked from "@/app/members/you/blocked/actions";
+import * as concierge from "@/app/members/concierge/actions";
 import * as notifications from "@/app/members/you/notifications/actions";
 
 export const dynamic = "force-dynamic";
@@ -57,6 +58,7 @@ const MODULES: Record<string, Record<string, unknown>> = {
   shell,
   blocked,
   notifications,
+  concierge,
 };
 
 function enabled(): boolean {
