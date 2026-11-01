@@ -6,12 +6,13 @@
 // approved design's (v3 pages_events.py).
 //
 //   phones      title, "Your plans" (the next booked events), What's on
-//               (filter chips, month sections), then the Open Invite band
+//               (filter chips, month sections)
 //   computers   the same, with "Your plans" as a card in the right rail
 //
-// The Open Invite band, and every link to Open Invite, is drawn only when
-// `openInvite` is on (flags.openInvite: the route is hidden until it is). The
-// page reads well without it: it simply ends after the last month.
+// The page ends after the last month. The Open Invite band that used to close
+// it was taken off on 1 Nov 2026 (Albert: "Pls remove Open Invite from the
+// bottom of events"); Open Invite stays one tap away in the tab bar. The empty
+// state's "See Open Invites" link is drawn only when `openInvite` is on.
 
 import { useMemo, useState } from "react";
 
@@ -22,14 +23,12 @@ import {
   ChipRow,
   EmptyState,
   Main,
-  Pill,
   SectionHead,
   SectionTitle,
   TitleBlock,
-  TrainerDrawing,
 } from "@/components/members/kit";
 import { countLabel, groupByMonth } from "@/lib/members/event-dates";
-import { openInviteHref, ROUTES } from "@/lib/members/routes";
+import { ROUTES } from "@/lib/members/routes";
 import { EventRowList } from "./event-row";
 import type { Event, EventCategory } from "./event-types";
 import "./events-view.css";
@@ -64,23 +63,6 @@ function matchesFilter(event: Event, filter: EventsFilter) {
   }
 }
 
-/**
- * The Open Invite shown on the band's card: the next one, or a good one. It
- * comes from the Open Invite backend, which does not exist yet, so the page
- * passes none today and the band is drawn without the card. Example data
- * exists only in the preview harness.
- */
-export type EventsInviteTeaser = {
-  id: string;
-  title: string;
-  /** "Sat 24 Oct, 10:00" */
-  when: string;
-  /** "Psycle, Oxford Circus" */
-  where: string;
-  /** First name of the host. */
-  postedBy: string;
-};
-
 export type EventsViewProps = {
   /** Upcoming events, soonest first (getCachedEvents: past events are already hidden). */
   events: Event[];
@@ -88,79 +70,18 @@ export type EventsViewProps = {
   bookedEventIds: string[];
   /** Upcoming events with no spots left. */
   fullEventIds?: string[];
-  /** flags.openInvite. Off: no band, no link to Open Invite. */
+  /** flags.openInvite (and, in the app, its own switch). Off: no link to Open Invite. */
   openInvite?: boolean;
-  /** The Open Invite on the band's card. None: the band has no card. */
-  inviteTeaser?: EventsInviteTeaser | null;
   /** Preview harness only: start with a filter on. */
   initialFilter?: EventsFilter;
 };
 
-function Where({ text }: { text: string }) {
-  const parts = text.split(", ");
-  return (
-    <>
-      {parts.map((part, index) => (
-        <span key={part} className="mk-nb">
-          {index < parts.length - 1 ? `${part},` : part}{" "}
-        </span>
-      ))}
-    </>
-  );
-}
-
-function InviteBand({ teaser }: { teaser: EventsInviteTeaser | null }) {
-  return (
-    <section className="mk-band ev-band" aria-label="Open Invite">
-      <div className="mk-wrap">
-        <div className="mk-inner mk-band-grid">
-          <div className="mk-band-words">
-            <h2 className="mk-display-serif">Open Invite</h2>
-            <p className="mk-lead">
-              Fancy company for something that isn’t on the list? Post your own plan and see who’s in.
-            </p>
-            <div className="mk-band-actions">
-              <Button href={ROUTES.openInvite} blockPhone>
-                See Open Invites
-              </Button>
-            </div>
-          </div>
-          {teaser ? (
-            <div className="mk-band-card">
-              <div className="mk-invite-wrap">
-                <TrainerDrawing />
-                <figure className="mk-invite" aria-label={`Open Invite: ${teaser.title}`}>
-                  <Pill kind="ink">Open Invite</Pill>
-                  <h3>{teaser.title}</h3>
-                  <dl>
-                    <dt>When</dt>
-                    <dd>{teaser.when}</dd>
-                    <dt>Where</dt>
-                    <dd>
-                      <Where text={teaser.where} />
-                    </dd>
-                    <dt>Posted by</dt>
-                    <dd>{teaser.postedBy}</dd>
-                  </dl>
-                  <Button href={openInviteHref(teaser.id)} size="sm">
-                    I’m in
-                  </Button>
-                </figure>
-              </div>
-            </div>
-          ) : null}
-        </div>
-      </div>
-    </section>
-  );
-}
 
 export function EventsView({
   events,
   bookedEventIds,
   fullEventIds = [],
   openInvite = false,
-  inviteTeaser = null,
   initialFilter = "all",
 }: EventsViewProps) {
   const booked = useMemo(() => new Set(bookedEventIds), [bookedEventIds]);
@@ -290,7 +211,6 @@ export function EventsView({
           ) : null}
         </div>
       </div>
-      {openInvite ? <InviteBand teaser={inviteTeaser} /> : null}
     </Main>
   );
 }

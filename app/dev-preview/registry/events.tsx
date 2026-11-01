@@ -9,7 +9,7 @@ import ConciergeLoading from "@/app/members/concierge/loading";
 import EventsLoading from "@/app/members/events/loading";
 import PlansLoading from "@/app/members/plans/loading";
 import { ConciergeView } from "@/components/members/concierge/concierge-view";
-import { EventsView, type EventsInviteTeaser } from "@/components/members/events-view";
+import { EventsView } from "@/components/members/events-view";
 import type { Event } from "@/components/members/event-types";
 import { PlansView } from "@/components/members/plans/plans-view";
 import {
@@ -83,14 +83,6 @@ const LONG_EVENTS: Event[] = [
   event("no-place", "Open studio, no place given yet", "2026-12-05T10:00:00Z", null, 0, "personal_progression"),
 ];
 
-const TEASER: EventsInviteTeaser = {
-  id: "example-invite",
-  title: "Saturday morning class + brunch",
-  when: "Sat 24 Oct, 10:00",
-  where: "Psycle, Oxford Circus",
-  postedBy: "Jasmin",
-};
-
 const EVENTS_STATES = [
   "default",
   "loading",
@@ -114,7 +106,7 @@ const eventsListScreens: PreviewScreen[] = [
     tab: "events",
     defaultFlags: ["openInvite"],
     render: ({ state, flags }) => {
-      const base = { events: EVENTS, bookedEventIds: BOOKED, openInvite: flags.openInvite, inviteTeaser: TEASER };
+      const base = { events: EVENTS, bookedEventIds: BOOKED, openInvite: flags.openInvite };
       switch (state) {
         case "loading":
           return <EventsLoading />;
