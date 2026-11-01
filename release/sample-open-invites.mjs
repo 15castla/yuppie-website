@@ -30,6 +30,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createClient } from '@supabase/supabase-js';
 
 const APPLY = process.argv.includes('--apply');
@@ -40,7 +41,8 @@ if (!SUPA || !process.env.SUPABASE_SECRET_KEY) {
   process.exit(1);
 }
 const db = createClient(SUPA, process.env.SUPABASE_SECRET_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-const PHOTOS = path.join(path.dirname(new URL(import.meta.url).pathname), 'sample-photos');
+// fileURLToPath, not URL.pathname: a folder name with a space ("Yuppie Website") is %20 in a URL's pathname.
+const PHOTOS = path.join(path.dirname(fileURLToPath(import.meta.url)), 'sample-photos');
 const DOMAIN = '@clubyuppie.invalid';
 const isSample = (email) => typeof email === 'string' && email.startsWith('sample.') && email.endsWith(DOMAIN);
 
