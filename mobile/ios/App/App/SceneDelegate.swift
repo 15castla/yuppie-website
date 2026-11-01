@@ -4,24 +4,23 @@ import Capacitor
 
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
-    private var cometRingView: CometSpinnerView?
-    private var splashImageView: UIImageView?
+    private var openingScreen: OpeningScreenView?
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         startupLog("SceneDelegate.scene(_:willConnectTo:) entered")
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
-        // The gap between here and addCometRing() below (bridge/WebView
+        // The gap between here and addOpeningScreen() below (bridge/WebView
         // creation via makeKeyAndVisible(), which has been measured
         // taking anywhere from ~1s to several seconds on a cold
         // Simulator boot, and is not bounded by anything in this file)
         // has no splash overlay in it yet — Capacitor's own SplashScreen
-        // view and our CometSpinnerView are both added later in this
+        // view and our OpeningScreenView are both added later in this
         // method. Without an explicit background, that gap renders
         // whatever UIWindow's default is (black), which is exactly the
         // "black screen, then the yellow spinner appears" symptom from
-        // the cold-launch investigation: not the splash/comet-ring
+        // the cold-launch investigation: not the splash/loading-indicator
         // logic itself, but the bare window underneath it before either
         // splash layer exists. Matches Base.lproj/LaunchScreen.storyboard's
         // imageView backgroundColor (1, 0.8509803921568627,
@@ -41,10 +40,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         observeCapacitorViewDidAppear()
         disableScrollViewTouchDelay(on: bridgeVC)
         fixSafeAreaInsetFirstFrame(on: bridgeVC)
+        // Before the readiness polling below, so there is always an opening
+        // screen for it to hide.
+        addOpeningScreen(to: bridgeVC)
         hideSplashWhenWebViewReady(on: bridgeVC)
         registerExternalLinkPlugin(on: bridgeVC)
-        addSplashImage(to: bridgeVC)
-        addCometRing(to: bridgeVC)
 
         startupLog("scene(_:willConnectTo:) about to call SceneDelegateProxy")
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
@@ -223,8 +223,9 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // capacitor.config.ts's SplashScreen.launchAutoHide: true +
     // launchShowDuration: 3000 would hide the native splash on a flat 3s
     // timer, whether or not the page is on screen yet. This replaces that
-    // timer with the real signal: hide the splash (and the comet ring) as
-    // soon as the server-rendered page has painted.
+    // timer with the real signal: hide the splash (our OpeningScreenView,
+    // whose line finishes drawing first) as soon as the server-rendered
+    // page has painted.
     //
     // Deliberately does NOT touch capacitor.config.ts's launchAutoHide/
     // launchShowDuration to do this — that config is shared with Android,
@@ -299,26 +300,27 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
                 // TEMPORARY — part of the startupLog timing set.
                 startupLog("waitForContentThenHideSplash: readiness first passed after \(attempt) poll(s)")
             }
-            startupLog("waitForContentThenHideSplash: ready=\(ready) after \(attempt) poll(s), hiding splash + comet ring")
-            self.hideSplashAndCometRing(on: webView)
+            startupLog("waitForContentThenHideSplash: ready=\(ready) after \(attempt) poll(s), hiding the opening screen")
+            self.hideSplash(on: webView)
         }
     }
 
-    private func hideSplashAndCometRing(on webView: WKWebView) {
-        webView.evaluateJavaScript("window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen && window.Capacitor.Plugins.SplashScreen.hide()")
+    private func hideSplash(on webView: WKWebView?) {
+        webView?.evaluateJavaScript("window.Capacitor && window.Capacitor.Plugins && window.Capacitor.Plugins.SplashScreen && window.Capacitor.Plugins.SplashScreen.hide()")
 
-        let viewsToFade = [cometRingView, splashImageView].compactMap { $0 }
-        cometRingView = nil
-        splashImageView = nil
-        guard !viewsToFade.isEmpty else { return }
-        // Matches capacitor.config.ts's SplashScreen.launchFadeOutDuration
-        // (300ms), so the native splash, our own splash image, and the
-        // comet ring all fade out together.
-        UIView.animate(withDuration: 0.3, delay: 0, options: .curveLinear, animations: {
-            viewsToFade.forEach { $0.alpha = 0 }
-        }, completion: { _ in
-            viewsToFade.forEach { $0.removeFromSuperview() }
-        })
+        guard let screen = openingScreen else { return }
+        openingScreen = nil
+        // Capacitor's own splash fades underneath straight away (unseen:
+        // ours covers it). Ours first lets its line run out to the edge
+        // (0.15-0.35s), then fades over capacitor.config.ts's
+        // launchFadeOutDuration (300ms), as the old splash image and ring did.
+        screen.finish {
+            UIView.animate(withDuration: 0.3, delay: 0, options: .curveLinear, animations: {
+                screen.alpha = 0
+            }, completion: { _ in
+                screen.removeFromSuperview()
+            })
+        }
     }
 
     // TEMPORARY — see AppDelegate.swift's startupLog definition. Posted
@@ -376,123 +378,62 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     }
 
     // Capacitor's own native SplashScreen view (LaunchScreen.storyboard's
-    // background + wordmark image) is auto-hidden by a flat
-    // capacitor.config.ts launchShowDuration (3000ms) timer that can't be
-    // cancelled (see hideSplashWhenWebViewReady's comment — confirmed via
+    // Splash image) is auto-hidden by a flat capacitor.config.ts
+    // launchShowDuration (3000ms) timer that can't be cancelled (see
+    // hideSplashWhenWebViewReady's comment — confirmed via
     // SplashScreen.swift's source) and isn't safe to change globally
     // either, since it's shared with Android, whose splash mechanism has
     // no equivalent of this app's own early-hide logic and would simply
     // show its splash longer on every launch, fast or slow, if this were
     // increased. So on a page that takes longer than 3s to be ready —
     // routine in testing (6-20s, sometimes more, depending on network) —
-    // Capacitor's own splash disappears on schedule regardless, dropping
-    // straight to the WebView's own plain yellow background (no wordmark)
-    // while the comet ring — now correctly tied to real readiness instead
-    // of a timer — keeps spinning on top alone. Confirmed live: this is
-    // exactly the "wordmark disappears, ring spins by itself" symptom.
+    // Capacitor's own splash disappears on schedule regardless. Confirmed
+    // live with the old splash: the wordmark disappeared and the loading
+    // indicator went on alone on plain yellow.
     //
-    // Rather than fight Capacitor's own splash timer, this duplicates its
-    // visual content under our own control: a second, identical
-    // full-screen rendering of the same Splash image, stacked above
-    // whatever Capacitor's splash does and below the comet ring. When
-    // Capacitor's own splash view fades out at the 3s mark, this duplicate
-    // is already sitting on top showing the exact same thing, so nothing
-    // visibly changes — then hideSplashAndCometRing fades this out
-    // together with the ring once real content is actually ready,
-    // matching the ring's own dismissal exactly instead of being at the
-    // mercy of an uncancellable native timer.
-    private func addSplashImage(to bridgeVC: CAPBridgeViewController) {
-        guard let image = UIImage(named: "Splash") else { return }
-        let imageView = UIImageView(image: image)
-        imageView.contentMode = .scaleAspectFill
-        imageView.clipsToBounds = true
-        imageView.translatesAutoresizingMaskIntoConstraints = false
-        imageView.layer.zPosition = 500
-        bridgeVC.view.addSubview(imageView)
+    // So the opening screen runs under our own control instead:
+    // OpeningScreenView shows the same Splash image full screen, stacked
+    // above whatever Capacitor's splash does (when that fades at the 3s
+    // mark, nothing visibly changes), with the line the figures stand on
+    // drawing itself as the loading indicator. hideSplash fades it once
+    // real content is actually ready, not on a timer.
+    //
+    // It is added as a subview of the bridge view controller's view, the
+    // same way Capacitor's SplashScreen plugin adds its own views
+    // (capacitor.config.ts sets showSpinner: false so Capacitor adds no
+    // spinner of its own). It can't live in LaunchScreen.storyboard: a
+    // launch screen can't host a custom-class view at all — ibtool rejects
+    // it outright ("Launch screens may not set custom classnames"), a hard
+    // platform restriction on the first native-only frame, and nothing
+    // there can animate anyway. The storyboard shows the same picture
+    // without the line, so the hand-over has no seam. An explicit high
+    // zPosition keeps it above whatever Capacitor adds afterward,
+    // regardless of the exact timing of its plugin-load lifecycle relative
+    // to this method. Where the line goes (the figures' feet, at any
+    // screen size or orientation) is worked out in OpeningScreenView.
+    private func addOpeningScreen(to bridgeVC: CAPBridgeViewController) {
+        startupLog("addOpeningScreen: start")
+        let screen = OpeningScreenView()
+        screen.translatesAutoresizingMaskIntoConstraints = false
+        screen.layer.zPosition = 999
+        bridgeVC.view.addSubview(screen)
         NSLayoutConstraint.activate([
-            imageView.topAnchor.constraint(equalTo: bridgeVC.view.topAnchor),
-            imageView.bottomAnchor.constraint(equalTo: bridgeVC.view.bottomAnchor),
-            imageView.leadingAnchor.constraint(equalTo: bridgeVC.view.leadingAnchor),
-            imageView.trailingAnchor.constraint(equalTo: bridgeVC.view.trailingAnchor)
+            screen.topAnchor.constraint(equalTo: bridgeVC.view.topAnchor),
+            screen.bottomAnchor.constraint(equalTo: bridgeVC.view.bottomAnchor),
+            screen.leadingAnchor.constraint(equalTo: bridgeVC.view.leadingAnchor),
+            screen.trailingAnchor.constraint(equalTo: bridgeVC.view.trailingAnchor)
         ])
-        splashImageView = imageView
-    }
-
-    // Capacitor's SplashScreen plugin (see
-    // mobile/node_modules/@capacitor/splash-screen's SplashScreenPlugin.swift)
-    // adds its own views — the LaunchScreen storyboard's background image
-    // and, if showSpinner were true, a system UIActivityIndicatorView — as
-    // subviews of this same bridge view controller's .view. This adds the
-    // bespoke comet ring the same way, replacing that generic spinner
-    // (capacitor.config.ts sets showSpinner: false so Capacitor doesn't
-    // also add its own on top).
-    //
-    // This can't live in the storyboard itself: a launch screen storyboard
-    // can't host a custom-class view at all — ibtool rejects it outright
-    // ("Launch screens may not set custom classnames"), a hard platform
-    // restriction on the first native-only frame, not a bug in the XML.
-    // So it's added here in code instead. An explicit high zPosition
-    // keeps it stacked above whatever Capacitor adds afterward regardless
-    // of the exact timing of its plugin-load lifecycle relative to this
-    // method. Dismissal is handled by hideSplashAndCometRing above, once
-    // the WebView actually has real content ready — not on a fixed timer.
-    //
-    // Sized and centered to frame the wordmark baked into the Splash
-    // image (Assets.xcassets/Splash.imageset), not just float below it.
-    // The wordmark isn't a live view here — it's part of a static
-    // scaleAspectFill'd image — so its on-screen geometry is derived from
-    // the same fractions the wordmark pixels were placed at
-    // (wordmark_width_frac=0.227, vertical_center_frac=0.47 of the
-    // 2732x2732 square canvas), confirmed against the actual shipped
-    // asset by measuring its non-background bounding box. The original
-    // 0.434 (matching a reference app's splash) read as sitting too high
-    // once seen on a real device; the wordmark pixels were re-baked lower
-    // (see Assets.xcassets/Splash.imageset — cropped out, background
-    // flood-filled since it's flat #FFD904 with no gradient, pasted back
-    // at the new position) and this constant moved to match, so the ring
-    // keeps framing the wordmark rather than the ring alone drifting down
-    // and leaving the two out of sync. Because scaleAspectFill on a
-    // square image scales both dimensions by screenHeight/2732 — height
-    // fits the screen exactly, width overflows and gets cropped evenly
-    // off both sides — those canvas fractions translate directly to
-    // screen points as fractions of screen HEIGHT alone, regardless of
-    // device aspect ratio or screen width:
-    //   wordmark width (pt)        = 0.227 * screenHeight
-    //   wordmark center, Y (pt)    = 0.47 * screenHeight
-    //   wordmark center, X         = screen's horizontal center (it's
-    //                                 centered in the canvas, and cropping
-    //                                 trims both sides equally)
-    private func addCometRing(to bridgeVC: CAPBridgeViewController) {
-        startupLog("addCometRing: start")
-        let ring = CometSpinnerView()
-        ring.translatesAutoresizingMaskIntoConstraints = false
-        ring.layer.zPosition = 999
-        bridgeVC.view.addSubview(ring)
-
-        let screenHeight = bridgeVC.view.bounds.height
-        let wordmarkWidthFraction: CGFloat = 0.227
-        let wordmarkVerticalCenterFraction: CGFloat = 0.47
-        let wordmarkWidth = wordmarkWidthFraction * screenHeight
-        // How much larger the ring's diameter is than the wordmark's
-        // width — the wordmark's longer dimension — so the ring reads as
-        // a loose circle framing it with visible breathing room on every
-        // side, matching the reference (Reiss's app splash): the ring
-        // isn't a tight circumscribe, it's a comfortably larger halo.
-        let ringPaddingFactor: CGFloat = 1.4
-        let ringDiameter = wordmarkWidth * ringPaddingFactor
-        // view.centerYAnchor is screen-center (0.5); the wordmark sits
-        // slightly above that, so the ring needs the same upward offset
-        // to share its center point.
-        let verticalOffsetFromCenter = (wordmarkVerticalCenterFraction - 0.5) * screenHeight
-
-        NSLayoutConstraint.activate([
-            ring.centerXAnchor.constraint(equalTo: bridgeVC.view.centerXAnchor),
-            ring.centerYAnchor.constraint(equalTo: bridgeVC.view.centerYAnchor, constant: verticalOffsetFromCenter),
-            ring.widthAnchor.constraint(equalToConstant: ringDiameter),
-            ring.heightAnchor.constraint(equalTo: ring.widthAnchor)
-        ])
-        cometRingView = ring
-        startupLog("addCometRing: done")
+        openingScreen = screen
+        // A backstop for the 10s cap in waitForContentThenHideSplash, which
+        // depends on the page answering its JavaScript (and never starts if
+        // there is no web view): whatever happens, the opening screen goes
+        // after 11s. hideSplash does nothing if it has already gone.
+        DispatchQueue.main.asyncAfter(deadline: .now() + 11) { [weak self, weak bridgeVC] in
+            guard let self, self.openingScreen != nil else { return }
+            startupLog("addOpeningScreen: backstop hiding the opening screen after 11s")
+            self.hideSplash(on: bridgeVC?.webView)
+        }
+        startupLog("addOpeningScreen: done")
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
