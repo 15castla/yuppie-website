@@ -3,9 +3,10 @@
 // The Concierge, app only: an AI that recommends places and never books.
 // A pure component of props (the page does the auth and hands over a
 // snapshot), so the preview harness can draw every state. All interaction is
-// local state: nothing is sent anywhere. With no backend yet, `script`
-// stands in for it (canned replies after a short wait); the real one passes
-// `send`.
+// local state unless the page passes the real backend: `send`, `onForget` and
+// `onForgetAll` (server actions, lib/server/concierge.ts, since 1 Nov 2026).
+// Without them `script` stands in (canned replies after a short wait), as the
+// example screen and the preview harness use it.
 //
 //   first open   title block, the brick phone on its rule, "Try asking" tiles
 //   a chat       compact header, the thread, recommendation cards, the memory
@@ -19,6 +20,7 @@
 import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { ExampleNote, Icon, Main, PerkDrawing, SectionTitle, TitleBlock } from "@/components/members/kit";
+import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import type {
   ConciergeMemoryItem,
   ConciergeMessage,
@@ -43,8 +45,15 @@ export type ConciergeViewProps = {
   snapshot: ConciergeSnapshot;
   /** The fake adapter's canned replies. Ignored when `send` is given. */
   script?: ConciergeScript;
-  /** The real backend's send (a server action). Rejects when there is no connection. */
-  send?: (text: string) => Promise<ConciergeReply>;
+  /**
+   * The real backend's send (a server action). A failure (no connection, the AI unreachable) shows as "Not sent"
+   * with Try again; a session that has ended goes to Log in.
+   */
+  send?: (text: string) => Promise<ConciergeReply | SessionEnded | { ok: false; error: string }>;
+  /** The real backend's forget (the x on the sheet, Undo on the chip). Without it, forgetting is local only. */
+  onForget?: (itemId: string) => Promise<unknown>;
+  /** The real backend's Forget everything. */
+  onForgetAll?: () => Promise<unknown>;
   /** Preview harness only: open with the memory sheet showing. */
   initialSheet?: boolean;
   /** Preview harness only: and its confirm on top. */
@@ -112,6 +121,8 @@ export function ConciergeView({
   snapshot,
   script,
   send,
+  onForget,
+  onForgetAll,
   initialSheet = false,
   initialConfirm = false,
   initialDraft = "",
@@ -150,7 +161,16 @@ export function ConciergeView({
 
   const ask = useCallback(
     (text: string): Promise<ConciergeReply> => {
-      if (send) return send(text);
+      if (send) {
+        return send(text).then((result) => {
+          if (isSessionEnded(result)) {
+            goToSessionEnded();
+            throw new Error("Session ended");
+          }
+          if ("ok" in result && result.ok === false) throw new Error(result.error);
+          return result as ConciergeReply;
+        });
+      }
       return new Promise<ConciergeReply>((resolve, reject) => {
         const replies = script?.replies ?? [];
         const exact = replies.find((candidate) => candidate.prompt === text);
@@ -309,11 +329,46 @@ export function ConciergeView({
     sheetWasOpen.current = sheetOpen;
   }, [sheetOpen]);
 
-  const forgetOne = useCallback((id: string) => {
-    setMemory((previous) => previous.filter((item) => item.id !== id));
-  }, []);
+  // Forgetting shows at once; if the server could not do it, the item comes back.
+  const forgetOne = useCallback(
+    (id: string) => {
+      let removed: ConciergeMemoryItem | undefined;
+      setMemory((previous) => {
+        removed = previous.find((item) => item.id === id);
+        return previous.filter((item) => item.id !== id);
+      });
+      onForget?.(id).then(
+        (result) => {
+          if (isSessionEnded(result)) return goToSessionEnded();
+          if (result && typeof result === "object" && "ok" in result && result.ok === false) restore();
+        },
+        () => restore(),
+      );
+      function restore() {
+        if (!removed || !alive.current) return;
+        const back = removed;
+        setMemory((previous) => (previous.some((item) => item.id === back.id) ? previous : [...previous, back]));
+      }
+    },
+    [onForget],
+  );
 
-  const forgetAll = useCallback(() => setMemory([]), []);
+  const forgetAll = useCallback(() => {
+    let before: ConciergeMemoryItem[] = [];
+    setMemory((previous) => {
+      before = previous;
+      return [];
+    });
+    onForgetAll?.().then(
+      (result) => {
+        if (isSessionEnded(result)) return goToSessionEnded();
+        if (result && typeof result === "object" && "ok" in result && result.ok === false && alive.current) setMemory(before);
+      },
+      () => {
+        if (alive.current) setMemory(before);
+      },
+    );
+  }, [onForgetAll]);
 
   // Focus in: the tab bar steps aside at once. Focus out: it comes back a moment later, because a tap on a
   // button in the thread blurs the input first and the layout must not move before that tap has landed.
