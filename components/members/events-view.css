@@ -15,7 +15,6 @@
 .ev-miss p{font:400 16px/1.4 var(--font-body)}
 
 /* the Open Invite band: the public site's cream band, a card on the right (below the words on a phone) */
-.ev-band{margin-top:56px}
 
 /* tablet widths (768 to 1023): a 320px rail keeps the list column readable (the kit's 400px max leaves it about 270px wide).
    The same fix the Your plans design made for its own page (cyp.css, "tablet widths"). */

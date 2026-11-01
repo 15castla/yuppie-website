@@ -32,9 +32,8 @@ export default async function MembersEventsPage() {
 
   const bookedEventIds = (bookings ?? []).map((booking) => booking.event_id as string);
 
-  // The Open Invite band shows only where Open Invite is on: the flag, and in
-  // the app its own switch too (decision 6), so the app never links to a page
-  // it does not have. It is drawn without a teaser card.
+  // The empty state links to Open Invite only where Open Invite is on: the
+  // flag, and in the app its own switch too (decision 6).
   return (
     <EventsView
       events={events}
