@@ -12,6 +12,7 @@ import {
   BrickPhoneDrawing,
   CheckIcon,
   CoupesDrawing,
+  MessageIcon,
   PriceTagDrawing,
   TrainerAndCoffeeDrawing,
   VelvetRopeDrawing,
@@ -236,14 +237,26 @@ function Perks() {
   );
 }
 
-// The example invite card's rows, in order, as [label, value] (Albert,
-// 23 Oct). Times in the 24-hour house style. Change a value here to swap
-// it; the card is an example, which its figure's aria-label says.
-const OPEN_INVITE_EXAMPLE: [label: string, value: string][] = [
-  ["When", "Saturday, 10:00"],
-  ["Where", "Psycle, Oxford Circus"],
-  ["Posted by", "Jasmin"],
-];
+// The example invite card (Albert, 23 Oct; since 2 Nov drawn as the members
+// area's Open Invite card, components/members/invite/invite-card.tsx, in its
+// "open" state). Times in the 24-hour house style; "When" names the day, not
+// a date, so the example never goes out of date (the app shows "Sat 7 Nov,
+// 10:00"). Change a value here to swap it; the card is an example, which its
+// figure's aria-label says. The photos are the drawn heads the app's example
+// members use (release/sample-photos), in public/open-invite.
+const OPEN_INVITE_EXAMPLE = {
+  title: "Saturday morning class + brunch",
+  when: "Saturday, 10:00",
+  where: "Psycle, Oxford Circus",
+  host: { name: "Jasmin", photo: "/open-invite/jasmin.jpg" },
+  // Who's going, in the order they said yes (the host first), and the places.
+  going: ["/open-invite/jasmin.jpg", "/open-invite/tom.jpg", "/open-invite/sam.jpg"],
+  places: 4,
+};
+
+// The members area's card buttons: 44px pills, equal halves (.oi-actions).
+const CARD_BUTTON_CLASS =
+  "inline-flex min-h-11 min-w-0 items-center justify-center gap-2 rounded-full border-2 border-foreground px-3 text-[15px] font-bold leading-[1.2] whitespace-nowrap @max-[280px]:px-2";
 
 // A card value breaks only after a comma, never inside a name: where its
 // column is too narrow for one line (320 wide, and about 768 to 900) it
@@ -316,39 +329,84 @@ function OpenInvite() {
             size={168}
             className="pointer-events-none absolute top-[-91px] right-6 z-10 block size-[96px] [stroke-width:3.5] md:top-[-87.2px] md:right-12 md:size-[168px] md:[stroke-width:calc(clamp(96px,9.5vw,137px)*0.020833)]"
           />
-          {/* An example invite, not a real one: the "I'm in" pill is part
-              of the picture, so it isn't a button. It is the small 44px
-              pill sized to its word (the header Apply pill's height and
-              15px type), so it never looks like the page's real Apply
-              buttons. The `!`s are needed because cn() is a plain join:
-              without them PRIMARY_BUTTON_CLASS's min-h-14, px-7 and
-              text-[17px] come later in the CSS and win. */}
+          {/* An example invite, not a real one, drawn as members see it in
+              the app and the members area: the pill and who's going, the
+              title, When, Where, Posted by with the host's photo, then I'm in
+              and Ask. The buttons are part of the picture, so they aren't
+              buttons (aria-hidden spans), and they are the members area's
+              44px card pills, never the page's 56px Apply buttons. Sizes are
+              the app card's (.oi-card): 18/20px padding and a 22px title on
+              phones, 28px padding and a 28px title from 768. The app's
+              narrow-screen rules go by the card's own width (a container
+              query), since from 768 the card shares the row with the words
+              and is narrowest there: under 280px inside, no icon on Ask;
+              under 270px, "3 of 4" without "going"; under 215px, two photos. */}
           <figure
             aria-label="Example Open Invite"
-            className="relative m-0 mr-1.5 flex flex-col rounded-[20px] border-2 border-foreground bg-background px-[22px] pt-6 pb-[22px] shadow-[6px_6px_0_var(--foreground)] md:mr-0 md:gap-5 md:p-[clamp(28px,3vw,40px)] md:shadow-[8px_8px_0_var(--foreground)]"
+            className="@container relative m-0 mr-1.5 flex flex-col rounded-[20px] border-2 border-foreground bg-background px-5 pt-[18px] pb-5 shadow-[6px_6px_0_var(--foreground)] md:mr-0 md:p-7 md:shadow-[8px_8px_0_var(--foreground)]"
           >
-            <span className="inline-flex min-h-6 items-center self-start rounded-full bg-foreground px-2.5 text-xs font-bold text-background md:min-h-[26px] md:px-3">
-              Open Invite
-            </span>
-            <h3 className="m-0 mt-3.5 mb-4 text-2xl font-extrabold leading-[1.1] tracking-[-0.015em] md:m-0 md:text-[28px]">
-              Saturday morning class + brunch
+            <div className="flex min-h-7 items-center justify-between gap-3">
+              <span className="inline-flex h-[22px] min-w-20 flex-none items-center justify-center rounded-full bg-foreground px-3 text-xs font-bold leading-4 whitespace-nowrap text-background">
+                Open Invite
+              </span>
+              {/* Overlapping 28px photos with a 2px yellow ring, then the
+                  count. */}
+              <span className="inline-flex min-w-0 items-center gap-2 text-[13px] leading-[1.2]">
+                <span aria-hidden className="inline-flex flex-none items-center">
+                  {OPEN_INVITE_EXAMPLE.going.map((photo, i) => (
+                    <Image
+                      key={photo}
+                      src={photo}
+                      alt=""
+                      width={28}
+                      height={28}
+                      className={cn(
+                        "block size-7 rounded-full border-[1.5px] border-foreground bg-cream shadow-[0_0_0_2px_var(--background)]",
+                        i > 0 && "-ml-1",
+                        i > 1 && "@max-[215px]:hidden",
+                      )}
+                    />
+                  ))}
+                </span>
+                <span className="whitespace-nowrap">
+                  <b className="font-bold">
+                    {OPEN_INVITE_EXAMPLE.going.length} of {OPEN_INVITE_EXAMPLE.places}
+                  </b>
+                  <span className="@max-[270px]:hidden"> going</span>
+                </span>
+              </span>
+            </div>
+            <h3 className="m-0 my-2.5 text-[22px] font-extrabold leading-[1.12] tracking-[-0.015em] md:my-4 md:text-[28px]">
+              {OPEN_INVITE_EXAMPLE.title}
             </h3>
-            <dl className="m-0 mb-5 grid grid-cols-[96px_1fr] gap-x-0 gap-y-2 text-[15px] md:mb-0 md:grid-cols-[auto_1fr] md:gap-x-5 md:gap-y-2.5 md:text-[15px]">
-              {OPEN_INVITE_EXAMPLE.map(([label, value]) => (
-                <Fragment key={label}>
-                  <dt className="font-bold">{label}</dt>
-                  <dd className="m-0">
-                    <CommaBreaks text={value} />
-                  </dd>
-                </Fragment>
-              ))}
+            <dl className="m-0 mb-3.5 grid grid-cols-[88px_minmax(0,1fr)] gap-y-0.5 text-[15px] leading-[1.35] md:mb-5 md:grid-cols-[96px_minmax(0,1fr)] md:gap-y-2">
+              <dt className="font-bold">When</dt>
+              <dd className="m-0 min-w-0">{OPEN_INVITE_EXAMPLE.when}</dd>
+              <dt className="font-bold">Where</dt>
+              <dd className="m-0 min-w-0">
+                <CommaBreaks text={OPEN_INVITE_EXAMPLE.where} />
+              </dd>
+              <dt className="font-bold">Posted by</dt>
+              <dd className="m-0 flex min-w-0 items-center gap-2">
+                <Image
+                  src={OPEN_INVITE_EXAMPLE.host.photo}
+                  alt=""
+                  width={22}
+                  height={22}
+                  className="block size-[22px] flex-none rounded-full border-[1.5px] border-foreground bg-cream"
+                />
+                {OPEN_INVITE_EXAMPLE.host.name}
+              </dd>
             </dl>
-            <span
-              aria-hidden
-              className={cn(PRIMARY_BUTTON_CLASS, "hover:opacity-100 min-h-11! self-start px-5! text-[15px]!")}
-            >
-              I’m in
-            </span>
+            <div aria-hidden className="grid w-full grid-cols-2 gap-2">
+              <span className={cn(CARD_BUTTON_CLASS, "bg-foreground text-background")}>
+                <span className="min-w-0 overflow-hidden text-ellipsis">I’m in</span>
+              </span>
+              <span className={cn(CARD_BUTTON_CLASS, "bg-transparent text-foreground")}>
+                <MessageIcon className="block flex-none @max-[280px]:hidden" />
+                <span className="min-w-0 overflow-hidden text-ellipsis">Ask {OPEN_INVITE_EXAMPLE.host.name}</span>
+              </span>
+            </div>
           </figure>
         </div>
       </div>
@@ -390,10 +448,11 @@ function Membership() {
           </span>
           <span className="text-[17px] text-site-muted">/month</span>
         </p>
-        <p className="m-0 mt-3 mb-[18px] text-[15.5px] leading-[1.45] text-site-muted md:m-0 md:text-base md:leading-normal">
-          Basically, a skeleton key to the city’s <span className="max-md:whitespace-nowrap">social scene.</span>
-        </p>
-        <ul className="m-0 flex list-none flex-col gap-3 border-t-[1.5px] border-foreground p-0 pt-[18px] text-base md:gap-2.5 md:border-t-0 md:pt-0 md:text-[15px]">
+        {/* No line under the price (Albert, 2 Nov: the old "Basically, a
+            skeleton key to the city's social scene." read as AI). Phones:
+            18px from the price to the list's rule, the same as from the rule
+            to the first item. */}
+        <ul className="m-0 mt-[18px] flex list-none flex-col gap-3 border-t-[1.5px] border-foreground p-0 pt-[18px] text-base md:mt-0 md:gap-2.5 md:border-t-0 md:pt-0 md:text-[15px]">
           {MEMBERSHIP_INCLUDES.map((item) => (
             <li key={item} className="flex items-center gap-2.5">
               <CheckIcon />
