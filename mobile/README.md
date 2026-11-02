@@ -72,6 +72,14 @@ image plus `#FFD904` as the background color for both icons (Android's
 adaptive-icon background layer) and splash screens, writing directly into
 `ios/` and `android/`.
 
+iOS's opening screen is not generated from the icon. It is two finished
+pictures, `assets/opening-on-the-rule.png` (upright) and
+`assets/opening-on-the-rule-landscape.png` (an iPhone on its side), which
+`npm run assets` copies into `ios/App/App/Assets.xcassets/Splash.imageset`
+last (`node scripts/build-splash.cjs ios` does just that step). The line the
+figures stand on is drawn in code, `ios/App/App/OpeningScreenView.swift`, at
+rows measured in those pictures: change one and the other must follow.
+
 ## What's actually implemented
 
 - **`capacitor.config.ts`** — appId/appName/backgroundColor, `server.url`

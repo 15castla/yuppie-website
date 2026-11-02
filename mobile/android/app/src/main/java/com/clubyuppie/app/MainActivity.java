@@ -48,7 +48,8 @@ public class MainActivity extends BridgeActivity {
     // block and can animate immediately — the same mechanism Capacitor's
     // own legacy spinner dialog uses (see showDialog() in the plugin
     // above). This shows the bespoke comet ring, the Android counterpart
-    // of ios/App/App/CometSpinnerView.swift, layered on top of the static
+    // of iOS's old comet ring (iOS now has ios/App/App/OpeningScreenView.swift
+    // instead), layered on top of the static
     // background for exactly Capacitor's own splash window
     // (launchShowDuration + launchFadeOutDuration from
     // capacitor.config.ts) so it's never cut off mid-spin or left

@@ -3,7 +3,7 @@ import Capacitor
 import os
 
 // TEMPORARY — investigating a reported 2-3 minute black screen on cold
-// launch before the splash (wordmark + comet ring) ever appears, with no
+// launch before the splash (then wordmark + comet ring) ever appears, with no
 // crash and no console output. appStartUptime is a shared reference point
 // (ProcessInfo.systemUptime is monotonic, fine for elapsed-time deltas)
 // so every startupLog(...) call across AppDelegate.swift and

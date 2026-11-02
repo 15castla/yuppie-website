@@ -12,7 +12,8 @@ import android.view.animation.LinearInterpolator;
 
 // Bespoke splash-screen loading indicator: a thin stroked ring with a
 // partial-opacity "comet" tail, continuously rotating -- the Android
-// counterpart of ios/App/App/CometSpinnerView.swift. Replaces the generic
+// counterpart of the iOS comet ring (since 1 Nov 2026 iOS has its own
+// opening screen, ios/App/App/OpeningScreenView.swift). Replaces the generic
 // system spinner Capacitor's SplashScreen plugin would otherwise show on
 // its legacy dialog fallback path (capacitor.config.ts sets
 // showSpinner: false).
