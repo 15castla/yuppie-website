@@ -1,0 +1,6 @@
+/* The rules gate (rules-view.tsx). The text itself uses the privacy policy's classes (you.css .yu-pol*). */
+.rl-gate .rl-h1{margin-top:28px}
+.rl-gate .rl-lead{margin-top:10px}
+.rl-gate .rl-agree{margin-top:36px}
+.rl-gate .rl-quiet{margin-top:20px}
+@media (min-width:768px){ .rl-gate .rl-h1{margin-top:48px} .rl-gate .rl-agree{margin-top:44px} }

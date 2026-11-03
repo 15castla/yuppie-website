@@ -54,6 +54,8 @@ export type ConciergeViewProps = {
   onForget?: (itemId: string) => Promise<unknown>;
   /** The real backend's Forget everything. */
   onForgetAll?: () => Promise<unknown>;
+  /** The real backend's Turn off (3 Nov 2026): withdraws permission; the page shows the permission screen again. */
+  onTurnOff?: () => Promise<unknown>;
   /** Preview harness only: open with the memory sheet showing. */
   initialSheet?: boolean;
   /** Preview harness only: and its confirm on top. */
@@ -82,7 +84,7 @@ function prefersReducedMotion(): boolean {
 const replyDomId = (id: string) => `cn-reply-${id}`;
 
 /** First open: the brick phone on its rule under the intro, then three questions to start with. */
-function FirstOpen({ suggestions, onPick }: { suggestions: string[]; onPick: (text: string) => void }) {
+function FirstOpen({ suggestions, onPick, onTurnOff }: { suggestions: string[]; onPick: (text: string) => void; onTurnOff?: () => void }) {
   return (
     <>
       <section className="cn-hero" aria-label="What the concierge does">
@@ -111,6 +113,14 @@ function FirstOpen({ suggestions, onPick }: { suggestions: string[]; onPick: (te
               </button>
             ))}
           </div>
+          {/* Before the first question there is no book icon (and no sheet), so Turn off is here too. */}
+          {onTurnOff ? (
+            <p className="cn-p cn-off">
+              <button type="button" className="mk-link" onClick={onTurnOff}>
+                Turn off the Concierge
+              </button>
+            </p>
+          ) : null}
         </div>
       </section>
     </>
@@ -123,6 +133,7 @@ export function ConciergeView({
   send,
   onForget,
   onForgetAll,
+  onTurnOff,
   initialSheet = false,
   initialConfirm = false,
   initialDraft = "",
@@ -447,7 +458,7 @@ export function ConciergeView({
           </div>
         </div>
       ) : (
-        <FirstOpen suggestions={snapshot.suggestions} onPick={submit} />
+        <FirstOpen suggestions={snapshot.suggestions} onPick={submit} onTurnOff={onTurnOff ? () => void onTurnOff() : undefined} />
       )}
       {composer}
       {started && sheetOpen ? (
@@ -456,6 +467,7 @@ export function ConciergeView({
           onRemove={forgetOne}
           onForgetAll={forgetAll}
           onClose={() => setSheetOpen(false)}
+          onTurnOff={onTurnOff ? () => void onTurnOff() : undefined}
           startConfirming={initialConfirm}
         />
       ) : null}

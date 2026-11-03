@@ -113,3 +113,11 @@
 /* The example strip under the bar once the chat has started (kit/example-note). It stays under the sticky bar as the page scrolls. */
 .cn-page > .cn-ex{position:sticky;top:calc(57px + var(--safe-top));z-index:39;margin:0;padding:6px var(--cn-pad,var(--gutter));border:0;border-bottom:1.5px dashed var(--ink);border-radius:0;font-size:13px;line-height:1.35;text-align:center}
 @media (min-width:768px){ .cn-page > .cn-ex{top:140px} }
+
+/* The permission screen (concierge-consent.tsx, 3 Nov 2026) and the sheet's Turn off link. */
+.cn-consent-list{margin:0;padding:0 0 0 20px;display:flex;flex-direction:column;gap:14px;font:400 16px/1.5 var(--font-body);max-width:60ch}
+.cn-consent-acts{display:flex;flex-direction:column;gap:12px;margin-top:28px}
+@media (min-width:768px){ .cn-consent-acts{flex-direction:row;align-items:center} }
+.cn-consent-more{margin-top:20px}
+.cn-consent-more a{font-weight:700;text-decoration:underline;text-underline-offset:2px;color:var(--ink)}
+.cn-off{margin-top:18px;text-align:center}

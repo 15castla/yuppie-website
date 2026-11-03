@@ -66,6 +66,18 @@ type StoredReply = {
 
 type Row = { id: string; role: string; body: string; reply: unknown; created_at: string; failed_at: string | null };
 
+// ---------------------------------------------------------------- permission
+
+/**
+ * When the member agreed that their questions go to Anthropic (members.concierge_consent_at, 3 Nov 2026), read fresh
+ * rather than from the request's cached member: Agree and Turn off redirect back to the same page in the same request.
+ */
+export async function conciergeConsentAt(memberId: string): Promise<string | null> {
+  const { data, error } = await serviceDb().from("members").select("concierge_consent_at").eq("id", memberId).maybeSingle();
+  if (error) throw error;
+  return (data?.concierge_consent_at as string | null | undefined) ?? null;
+}
+
 // ---------------------------------------------------------------- load
 
 export async function loadConcierge(memberId: string): Promise<ConciergeSnapshot> {

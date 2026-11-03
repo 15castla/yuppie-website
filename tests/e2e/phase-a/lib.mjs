@@ -171,7 +171,9 @@ export async function makeMember(name, state = 'active', fields = {}) {
   }
   const c = await stripe('POST', 'customers', { email, name });
   const s = await stripe('POST', 'subscriptions', { customer: c.json.id, items: { 0: { price: 'price_membership' } } });
-  const row = { id: user.id, email, full_name: `${name[0].toUpperCase()}${name.slice(1)} Tester`, phone: '+447700900123', membership_status: 'active', stripe_customer_id: c.json.id, stripe_subscription_id: s.json.id };
+  // Test members have agreed to the community rules and to the Concierge (3 Nov 2026) unless a test says otherwise.
+  const agreed = new Date().toISOString();
+  const row = { id: user.id, email, full_name: `${name[0].toUpperCase()}${name.slice(1)} Tester`, phone: '+447700900123', membership_status: 'active', stripe_customer_id: c.json.id, stripe_subscription_id: s.json.id, rules_agreed_at: agreed, concierge_consent_at: agreed };
   const now = Date.now();
   if (state === 'ending') {
     const u = await stripe('POST', `subscriptions/${s.json.id}`, { cancel_at_period_end: 'true' });
