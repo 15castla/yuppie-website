@@ -12,7 +12,7 @@ import type { PolicySection } from "@/components/site/privacy-data";
 import { ROUTES } from "@/lib/members/routes";
 import { SubPageHead } from "./you-parts";
 
-// Help: the three pages, as one list. The lines under the titles are the
+// Help: the four pages, as one list. The lines under the titles are the
 // design's own subtitles for each page.
 export function HelpIndexView() {
   return (
@@ -24,6 +24,7 @@ export function HelpIndexView() {
             <Row href={ROUTES.youHelpFaq} className="yu-nav" title="FAQs" meta="Answers to the usual questions." end={<Icon name="chevron-right" size={20} />} />
             <Row href={ROUTES.youHelpContact} className="yu-nav" title="Contact us" meta="We’re here to help." end={<Icon name="chevron-right" size={20} />} />
             <Row href={ROUTES.youHelpPrivacy} className="yu-nav" title="Privacy policy" meta="How we look after your details." end={<Icon name="chevron-right" size={20} />} />
+            <Row href={ROUTES.youHelpRules} className="yu-nav" title="Community rules" meta="How members treat each other." end={<Icon name="chevron-right" size={20} />} />
           </Rows>
         </section>
       </div>

@@ -358,12 +358,15 @@ export function MemorySheet({
   onRemove,
   onForgetAll,
   onClose,
+  onTurnOff,
   startConfirming = false,
 }: {
   memory: ConciergeMemoryItem[];
   onRemove: (itemId: string) => void;
   onForgetAll: () => void;
   onClose: () => void;
+  /** The real backend's Turn off: withdraws the member's permission (the Concierge asks again next time). */
+  onTurnOff?: () => void;
   /** Preview harness only: open with the confirm already showing. */
   startConfirming?: boolean;
 }) {
@@ -458,6 +461,13 @@ export function MemorySheet({
         <div className="cn-acts">
           <Button onClick={onClose}>Done</Button>
         </div>
+        {onTurnOff ? (
+          <p className="cn-p cn-off">
+            <button type="button" className="mk-link" onClick={onTurnOff}>
+              Turn off the Concierge
+            </button>
+          </p>
+        ) : null}
       </div>
       {confirming ? <ForgetAlert onForget={forgetAll} onKeep={() => setConfirming(false)} /> : null}
     </>

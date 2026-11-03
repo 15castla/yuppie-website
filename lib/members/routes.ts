@@ -38,12 +38,16 @@ export const ROUTES = {
   youHelpFaq: "/members/you/help/faq",
   youHelpContact: "/members/you/help/contact",
   youHelpPrivacy: "/members/you/help/privacy",
+  /** The community rules' permanent copy (the rules gate's text). */
+  youHelpRules: "/members/you/help/rules",
   /** Change photo (from You). */
   youPhoto: "/members/you/photo",
   /** The photo gate: full screen, no tabs, shown until a photo is saved. */
   photo: "/members/photo",
   /** The membership gate (A-D4): a paused or ended member sees this and nothing else. Full screen, no tabs. */
   membership: "/members/membership",
+  /** The rules gate (3 Nov 2026, Apple guideline 1.2): every member agrees to the community rules once. Full screen, no tabs. */
+  rules: "/members/rules",
   /** Not a page: opens the Stripe billing portal (Manage, Update card; the payment-failed email links here). */
   billing: "/members/billing",
   /** Kept: edit your details. Not renamed, so saved links keep working. */
@@ -110,9 +114,11 @@ export const ROUTE_TABLE: readonly RouteDef[] = [
   { id: "youHelpFaq", pattern: ROUTES.youHelpFaq, tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youHelpContact", pattern: ROUTES.youHelpContact, tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youHelpPrivacy", pattern: ROUTES.youHelpPrivacy, tab: null, messages: "none", dock: "tabs", you: true },
+  { id: "youHelpRules", pattern: ROUTES.youHelpRules, tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youPhoto", pattern: ROUTES.youPhoto, flag: "photoGate", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "photo", pattern: ROUTES.photo, flag: "photoGate", tab: null, messages: "none", dock: "own", chrome: "bare" },
   { id: "membership", pattern: ROUTES.membership, tab: null, messages: "none", dock: "own", chrome: "bare" },
+  { id: "rules", pattern: ROUTES.rules, tab: null, messages: "none", dock: "own", chrome: "bare" },
   { id: "profileEdit", pattern: ROUTES.profileEdit, tab: null, messages: "none", dock: "tabs", you: true },
 ];
 

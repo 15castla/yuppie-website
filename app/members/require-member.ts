@@ -38,10 +38,14 @@ export type Member = {
   ended_at: string | null;
   ended_reason: string | null;
   deleted_at: string | null;
+  /** When they agreed to the community rules (3 Nov 2026). Null: the rules gate. Server-written only. */
+  rules_agreed_at: string | null;
+  /** When they agreed that Concierge questions go to Anthropic (3 Nov 2026). Null: the Concierge asks first. Server-written only. */
+  concierge_consent_at: string | null;
 };
 
 const MEMBER_COLUMNS =
-  "id, full_name, email, phone, employer, role_title, bio, avatar_url, photo_id, membership_status, stripe_customer_id, stripe_subscription_id, created_at, cancel_at, cancel_requested_at, payment_failed_at, grace_until, paused_at, ended_at, ended_reason, deleted_at";
+  "id, full_name, email, phone, employer, role_title, bio, avatar_url, photo_id, membership_status, stripe_customer_id, stripe_subscription_id, created_at, cancel_at, cancel_requested_at, payment_failed_at, grace_until, paused_at, ended_at, ended_reason, deleted_at, rules_agreed_at, concierge_consent_at";
 
 // Non-redirecting check, for pages that need to know whether a valid
 // member session exists without forcing a redirect on failure (e.g.
@@ -101,6 +105,11 @@ export type RequireMemberOptions = {
   // help pages, billing, the layout's login check and the account actions
   // that still work from the gate (log out, delete my account) pass this.
   allowGated?: boolean;
+  // The rules gate's escape hatch: only the rules page and its Agree action. The
+  // gate is also skipped wherever the membership or photo gate is (allowGated,
+  // allowMissingPhoto), so the three gates never send a member round in a loop:
+  // membership first, then the photo, then the rules.
+  allowNoRules?: boolean;
 };
 
 // The member's membership state, worked out on the server for this request
@@ -153,6 +162,14 @@ export async function requireMember(options: RequireMemberOptions = {}): Promise
     // the landing page needs no ?next= (Continue goes there anyway): the gate after a login keeps its plain address
     const landing = back === ROUTES.root || back === landingPath(flags, await detectShellMode());
     redirect(back && !landing ? `${ROUTES.photo}?next=${encodeURIComponent(back)}` : ROUTES.photo);
+  }
+
+  // THE RULES GATE (3 Nov 2026, Apple guideline 1.2): every member agrees to the community rules once, before
+  // anything else (posting, joining, chatting). Same ?next= as the photo gate.
+  if (!options.allowNoRules && !options.allowGated && !options.allowMissingPhoto && !member.rules_agreed_at) {
+    const back = returnPath((await headers()).get(MEMBERS_PATH_HEADER));
+    const landing = back === ROUTES.root || back === landingPath(flags, await detectShellMode());
+    redirect(back && !landing ? `${ROUTES.rules}?next=${encodeURIComponent(back)}` : ROUTES.rules);
   }
 
   return member;

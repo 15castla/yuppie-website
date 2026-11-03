@@ -1,13 +1,15 @@
 import { requireMember } from "@/app/members/require-member";
 import { ConciergeView } from "@/components/members/concierge/concierge-view";
-import { requireFlag } from "@/lib/members/flags";
+import { flags, requireFlag } from "@/lib/members/flags";
 import { ExampleScope } from "@/components/members/kit";
 import { assertMockAllowed } from "@/lib/members/mock/guard";
 import { getConciergeScript, getConciergeSnapshot } from "@/lib/members/mock/concierge";
-import { conciergeLive, loadConcierge } from "@/lib/server/concierge";
+import { conciergeConsentAt, conciergeLive, loadConcierge } from "@/lib/server/concierge";
 import { notFound } from "next/navigation";
 import { detectShellMode } from "@/lib/members/shell-mode";
-import { forgetAllConciergeMemory, forgetConciergeMemory, sendConciergeMessage } from "./actions";
+import { ConciergeConsentView } from "@/components/members/concierge/concierge-consent";
+import { landingPath } from "@/lib/members/routes";
+import { agreeToConcierge, forgetAllConciergeMemory, forgetConciergeMemory, sendConciergeMessage, turnOffConcierge } from "./actions";
 
 // A reply checks places on the web first, which can take a while: the page's server actions get up to a minute.
 export const maxDuration = 60;
@@ -22,6 +24,8 @@ export default async function MembersConciergePage() {
   if (conciergeLive()) {
     if ((await detectShellMode()) !== "app") notFound();
     const member = await requireMember();
+    // Apple guideline 5.1.2(i): the member's permission first; nothing is read from or sent to Anthropic before it.
+    if (!(await conciergeConsentAt(member.id))) return <ConciergeConsentView agree={agreeToConcierge} notNowHref={landingPath(flags, "app")} />;
     const snapshot = await loadConcierge(member.id);
     return (
       <ConciergeView
@@ -29,6 +33,7 @@ export default async function MembersConciergePage() {
         send={sendConciergeMessage}
         onForget={forgetConciergeMemory}
         onForgetAll={forgetAllConciergeMemory}
+        onTurnOff={turnOffConcierge}
       />
     );
   }

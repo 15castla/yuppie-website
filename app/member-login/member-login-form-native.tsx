@@ -36,6 +36,7 @@ import {
   type SendErrorKey,
   type VerifyErrorKey,
 } from "./login-errors";
+import { checkReviewAccount, signInReviewAccount } from "./review-actions";
 
 // Every message the screen can show (r2a section 7). The app's "not
 // recognised" has no "apply to join below": the app has no Apply link.
@@ -91,6 +92,8 @@ export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice 
   const [resending, setResending] = useState(false);
   const [error, setError] = useState<ErrorKey | null>(null);
   const [resent, setResent] = useState(false);
+  // The App Review account (lib/server/review-login.ts): no email is sent, and its fixed code is checked on the server.
+  const [review, setReview] = useState(false);
   // When the code now in use was sent: Auth answers the same for a wrong code and an expired one (login-errors.ts).
   const sentAt = useRef<number | null>(null);
 
@@ -128,6 +131,20 @@ export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice 
 
     setError(null);
     setSubmitting(true);
+    let isReview = false;
+    try {
+      isReview = await checkReviewAccount(address);
+    } catch {
+      isReview = false;
+    }
+    setReview(isReview);
+    if (isReview) {
+      setSubmitting(false);
+      setResent(false);
+      sentAt.current = Date.now();
+      setStep("code");
+      return;
+    }
     const failure = await sendCode(address);
     setSubmitting(false);
 
@@ -150,6 +167,22 @@ export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice 
     setError(null);
     setResent(false);
     setSubmitting(true);
+
+    if (review) {
+      let result = "failed";
+      try {
+        result = await signInReviewAccount(email.trim(), code);
+      } catch (err) {
+        console.error("signInReviewAccount threw:", err);
+      }
+      if (result === "ok") {
+        router.push("/members");
+        return;
+      }
+      setSubmitting(false);
+      setError(result === "wrong" ? "wrong" : result === "locked" ? "too-many" : "generic");
+      return;
+    }
 
     const supabase = createClient();
     let verifyError: Parameters<typeof classifyVerifyError>[0] = null;
@@ -176,6 +209,13 @@ export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice 
 
   async function handleResend() {
     if (resending || submitting) return;
+    // The App Review account has no emailed code to send again.
+    if (review) {
+      setError(null);
+      setCode("");
+      inputRef.current?.focus({ preventScroll: true });
+      return;
+    }
     setResending(true);
     setResent(false);
     const failure = await sendCode(email.trim());
@@ -226,7 +266,8 @@ export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice 
       ? "Verifying…"
       : "Verify code";
 
-  const codeStepHelper = `We sent a 6-digit code to ${email.trim()}.`;
+  // The App Review account gets no email: its code is in the App Review notes.
+  const codeStepHelper = review ? "Enter the review code from the App Review notes." : `We sent a 6-digit code to ${email.trim()}.`;
   const errorId = useId();
   const inputId = useId();
   const resendOn = error === "expired" || error === "too-many";
