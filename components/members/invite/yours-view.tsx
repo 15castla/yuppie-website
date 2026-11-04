@@ -9,7 +9,7 @@ import "./invite.css";
 
 import { useMemo } from "react";
 
-import { Button, Main, Pill, Row, Rows, Shape } from "@/components/members/kit";
+import { Button, Main, Pill, Row, Rows } from "@/components/members/kit";
 import { dateColumn, formatTime } from "@/lib/members/invite/format";
 import type { OpenInvite, OpenInviteYours } from "@/lib/members/invite/types";
 import { openInviteHref, ROUTES } from "@/lib/members/routes";
@@ -145,29 +145,8 @@ export function YoursLoading() {
       <div className="mk-wrap">
         <div className="oi-top">
           <InviteTitle />
-          <div className="oi-seg-wrap">
-            <Shape width={264} height={48} kind="pill" />
-          </div>
-          <div className="oi-compose-wrap">
-            <Shape height={52} kind="pill" />
-          </div>
-          <div className="oi-chips-wrap oi-yours-gap" />
         </div>
       </div>
-      <section className="mk-band oi-band" aria-hidden="true">
-        <div className="mk-wrap">
-          <div className="oi-feed oi-yours">
-            <div className="oi-col">
-              <Shape width={168} height={32} />
-              <Shape height={264} kind="tile" className="oi-sk-card" />
-            </div>
-            <div className="oi-col">
-              <Shape width={128} height={32} />
-              <Shape height={264} kind="tile" className="oi-sk-card" />
-            </div>
-          </div>
-        </div>
-      </section>
     </Main>
   );
 }

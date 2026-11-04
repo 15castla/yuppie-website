@@ -16,7 +16,6 @@ import {
   EmptyState,
   FormField,
   Icon,
-  LoadingShapes,
   Main,
   Pill,
   Row,
@@ -319,7 +318,8 @@ export const shellDemoScreens: PreviewScreen[] = [
         case "loading":
           return (
             <Main busy>
-              <LoadingShapes chips title={<TitleBlock title="Events." sub="Run by us, at cost." />} />
+              <span className="mk-sr">Loading</span>
+              <TitleBlock title="Events." sub="Run by us, at cost." />
             </Main>
           );
         case "empty":

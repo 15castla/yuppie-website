@@ -1,6 +1,6 @@
 import { OpenInviteLoading } from "@/components/members/invite/browse-view";
 
-// Pale shapes where the cards will be, a real <main aria-busy="true">, no spinner.
+// The real title only, a real <main aria-busy="true">, no spinner (components/members/kit/main.tsx).
 export default function Loading() {
   return <OpenInviteLoading />;
 }

@@ -26,9 +26,9 @@
 import "./invite.css";
 
 import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 
-import { BackRow, Button, ExampleNote, Icon, Main, Shape } from "@/components/members/kit";
+import { BackRow, Button, ExampleNote, Icon, Main } from "@/components/members/kit";
 import { GetPaidHandOff, type GetPaidMode } from "@/components/members/payments/get-paid";
 import { EMPTY_COST, usablePence, validateCost, type CostValues } from "@/lib/members/invite/cost";
 import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
@@ -684,35 +684,25 @@ export function PostedView({ invite, me }: { invite: OpenInvite; me: InviteMembe
   );
 }
 
-/** The form's loading page. `editing`: the host's edit (the title is the edit form's). */
+/** The form's loading page: the back row and the real title only (components/members/kit/main.tsx). `editing`: the host's edit. */
 export function PostLoading({ editing = false }: { editing?: boolean }) {
+  // Cancel goes where the form's own Cancel goes: back to the plan when editing.
+  const { id } = useParams<{ id?: string }>();
+  const backHref = editing && typeof id === "string" ? openInviteHref(id) : ROUTES.openInvite;
   return (
     <Main busy pad={false}>
       <span className="mk-sr">Loading</span>
-      <BackRow href={ROUTES.openInvite} label="Cancel" />
-      <div className="mk-wrap" aria-hidden="true">
+      <BackRow href={backHref} label="Cancel" />
+      <div className="mk-wrap">
         <div className="oi-form-head">
           {editing ? (
-            <>
-              <h1 className="mk-h1">Edit invite.</h1>
-              <Shape width="52%" height={26} style={{ marginTop: 8 }} />
-            </>
+            <h1 className="mk-h1">Edit invite.</h1>
           ) : (
             <>
               <h1 className="mk-h1">Got a plan?</h1>
               <p className="mk-sub-serif">See who’s in.</p>
             </>
           )}
-        </div>
-        <div className="oi-form-grid">
-          <div className="oi-form">
-            {[0, 1, 2, 3].map((index) => (
-              <div key={index}>
-                <Shape width={88} height={16} style={{ marginBottom: 8 }} />
-                <Shape height={50} />
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     </Main>

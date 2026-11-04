@@ -1,5 +1,12 @@
 // The page's <main>. Every members page has a real <main> (the native app's
 // splash waits for one), and a loading state keeps aria-busy="true" on it.
+//
+// What a loading state shows (Albert, 17 Oct, and again 4 Nov 2026): the
+// page's real title (or its back row) where it will be, and nothing else. No
+// placeholder shapes, no lines, no spinner: the rest of the page appears in
+// one go when it arrives, so a fast load never flashes anything. A route with
+// no title to show (a thread) shows the plain page (app/members/loading.tsx).
+//
 // Kit counterpart: the <main class="main-pad"> inside .page. It is a direct
 // child of the shell's .mk-page, so .mk-page > .mk-main fills the height and
 // the tab bar sits at the foot.

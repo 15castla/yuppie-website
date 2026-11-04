@@ -271,7 +271,6 @@
 .msg-status b{display:block;font:800 16px/1.3 var(--font-body)}
 .msg-status p{margin-top:2px;font:400 14px/1.45 var(--font-body)}
 .msg-status .mk-btn{margin-top:14px}
-.msg-loadline{margin-top:28px;font:400 16px/1.45 var(--font-body);color:var(--muted)}
 
 .mk-btn .msg-inbtn{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:999px;background:var(--yellow);color:var(--ink);font:800 12px/1 var(--font-body)}
 .mk-btn.mk-secondary .msg-inbtn{background:var(--ink);color:var(--yellow)}
@@ -312,6 +311,8 @@
 .msg-input.is-multi .msg-tx{display:flex;flex-direction:column;justify-content:flex-end;max-height:calc(1.35em * 4);overflow:hidden}
 /* 12. Chats | Updates: the kit's segmented control, one count chip in each segment. The chip is 22px, ink on the idle segment, yellow on the ink one. */
 .msg-segwrap{margin-top:20px}
+/* while the inbox loads: the switch keeps its place (nothing moves when it arrives) but is not drawn or usable */
+.msg-segwrap.is-loading{visibility:hidden}
 .msg-seg{max-width:none}
 @media (min-width:768px){ .msg-segwrap{margin-top:24px} }
 .msg-seg a{gap:8px}
