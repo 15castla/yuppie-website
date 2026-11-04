@@ -3,4 +3,13 @@
 .rl-gate .rl-lead{margin-top:10px}
 .rl-gate .rl-agree{margin-top:36px}
 .rl-gate .rl-quiet{margin-top:20px}
-@media (min-width:768px){ .rl-gate .rl-h1{margin-top:48px} .rl-gate .rl-agree{margin-top:44px} }
+.rl-gate{padding-bottom:40px}
+/* In the app the gate has no bar above it (the shell's chrome is off, as on the other gates), so the heading clears
+   the status bar and Dynamic Island itself, like the membership gate's (you.css .yu-gate-hero), and the last row
+   clears the home indicator. */
+.mk-screen.mk-app .rl-gate .rl-h1{margin-top:calc(var(--safe-top) + 10px)}
+.mk-screen.mk-app .rl-gate{padding-bottom:calc(var(--safe-bottom) + 24px)}
+@media (min-width:768px){
+  .rl-gate .rl-h1,.mk-screen.mk-app .rl-gate .rl-h1{margin-top:48px}
+  .rl-gate .rl-agree{margin-top:44px}
+}
