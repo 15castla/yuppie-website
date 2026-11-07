@@ -10,6 +10,7 @@ import { usePathname } from "next/navigation";
 import type { CSSProperties, ReactNode } from "react";
 
 import {
+  ROUTES,
   activeTabFor,
   chromeFor,
   dockFor,
@@ -17,6 +18,7 @@ import {
   messagesIconFor,
 } from "@/lib/members/routes";
 import { MembersFrame } from "./members-frame";
+import { useFreshTabs } from "./use-fresh-tabs";
 import { useUnread } from "./use-unread";
 import type { TabSpec } from "./tabs";
 import type { MemberSummary, ShellMode } from "./types";
@@ -51,6 +53,16 @@ export function MembersShell({
   // One source for the number on the messages icon: the server's unread chats plus unread updates, fetched on
   // the pages that show the icon (Open Invite and Messages), when the page changes and once a minute.
   const live = useUnread(unread === undefined && messagesEnabled && messages !== "none", pathname);
+  const showMessages = messagesEnabled && messages !== "none";
+  // The tabs, You and (where its icon shows) Messages stay fetched ahead, so a tap opens the whole page at once.
+  // The real layout only: the preview harness (a pathname override) fetches nothing, and neither do the bare gate
+  // pages (photo, rules, membership: no tabs there, and every tab would only send the member back to the gate).
+  const chrome = chromeFor(pathname);
+  useFreshTabs(
+    pathnameOverride === undefined && chrome !== "bare"
+      ? [...tabs.map((tab) => tab.href), ROUTES.you, ...(showMessages ? [ROUTES.messages] : [])]
+      : [],
+  );
   return (
     <MembersFrame
       mode={mode}
@@ -59,11 +71,11 @@ export function MembersShell({
       member={member}
       unread={unread ?? live}
       unreadAtStart={unread ?? 0}
-      showMessages={messagesEnabled && messages !== "none"}
+      showMessages={showMessages}
       messagesCurrent={messages === "current"}
       youCurrent={isYouPath(pathname)}
       dock={dockFor(pathname)}
-      chrome={chromeFor(pathname)}
+      chrome={chrome}
       style={style}
     >
       {children}

@@ -15,6 +15,9 @@
 // docked bar, and pages with no dock, get the .mk-tint strip instead
 // (MembersFrame), so the contract holds on every route. An in-flow spacer of
 // the same height (.mk-dock-spacer) keeps the page's bottom clearance.
+//
+// Each tab fetches its whole page ahead (prefetch), so a tap opens it at once
+// (7 Nov 2026: no loading screens, whole pages only; see kit/link.tsx).
 
 import { Icon } from "../kit/icons";
 import { KitLink } from "../kit/link";
@@ -29,6 +32,7 @@ export function DockBar({ tabs, activeTab }: { tabs: TabSpec[]; activeTab: TabKe
           <KitLink
             key={tab.key}
             href={tab.href}
+            prefetch
             className="mk-tab"
             aria-current={tab.key === activeTab ? "page" : undefined}
           >

@@ -36,14 +36,20 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    // Keep visited dynamic pages (every /members page) in the client router
-    // cache for 30s, so going back to a tab shows it instantly instead of
-    // re-rendering on the server behind the loading screen. Actions that
-    // change what a member sees call revalidatePath("/members", "layout")
-    // (app/members/events/actions.ts, app/members/profile/actions.ts),
-    // which clears it; admin forms call router.refresh() after saving.
+    // dynamic: a visited members page (every /members page is dynamic) is kept
+    // in the client router cache for 30s, so going back to it shows it at once.
+    // Most actions that change what a member sees call
+    // revalidatePath("/members", "layout") (events, profile, You, Open Invite;
+    // the Concierge its own page), which clears it; admin forms call
+    // router.refresh() after saving. Messages asks the server again on screen.
+    //
+    // static: a page fetched whole ahead (the members tabs, Messages and You
+    // prefetch in full: components/members/kit/link.tsx) is used for 60s, so
+    // a tab opens at once, at most a minute old (7 Nov 2026; the default is
+    // 5 minutes). It also applies to the public site's static pages.
     staleTimes: {
       dynamic: 30,
+      static: 60,
     },
   },
 };
