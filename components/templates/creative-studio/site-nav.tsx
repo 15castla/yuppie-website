@@ -55,11 +55,11 @@ const SIGN_IN_PATH = "/member-login";
 // The phone menu (round 2, menu A): the club first, in big type, then the
 // site's pages in small type. The club links go to the home page's
 // sections, in the home page's order; the ids belong to
-// components/site/home.tsx (OpenInvite, Perks, Membership), so if they
+// components/site/home.tsx (Perks, OpenInvite, Membership), so if they
 // change there they must change here.
 const MENU_CLUB_ITEMS: { label: string; id: string }[] = [
-  { label: "Open Invite", id: "open-invite" },
   { label: "Perks", id: "perks" },
+  { label: "Open Invite", id: "open-invite" },
   { label: "Membership", id: "membership" },
 ];
 
