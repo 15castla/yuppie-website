@@ -90,18 +90,6 @@ const MEMBERSHIP_INCLUDES = [
   "Discounts, access and the concierge",
 ];
 
-// Starts a drawing's small loop, if it has one (globals.css: the coupes
-// clink, the coffee steams, the price tag swings). The drawing is always
-// there in full; only those parts move, and nothing moves with reduced
-// motion. display: contents, so it never changes the layout.
-function ArtLoop({ children }: { children: ReactNode }) {
-  return (
-    <span data-art-loop="" className="contents">
-      {children}
-    </span>
-  );
-}
-
 function ApplyButton({ children, className }: { children: ReactNode; className?: string }) {
   return (
     <Link href="/apply" className={cn(PRIMARY_BUTTON_CLASS, className)}>
@@ -116,10 +104,8 @@ export function SiteHome() {
     <div className={cn(almarai.variable, instrumentSerif.variable, SITE_PAGE_CLASS)} style={SITE_FONT_STYLE}>
       <main>
         <Hero />
-        {/* Open Invite comes straight after the hero: it is the heart of
-            the club (Albert, 6 Nov). */}
-        <OpenInvite />
         <Perks />
+        <OpenInvite />
         <Membership />
       </main>
       <SiteFooter />
@@ -168,14 +154,13 @@ function Hero() {
         </div>
         {/* Phones: second (order-1), 16px under the headline. */}
         <div className="order-1 mt-4 flex flex-col gap-[22px] px-5 md:order-none md:col-start-1 md:row-start-2 md:mt-0 md:gap-7 md:px-0 md:pt-7 md:pb-[clamp(56px,8vw,136px)]">
-          <p className="m-0 text-[17px] leading-[1.45] max-md:[text-wrap:balance] md:max-w-[460px] md:text-[19px] md:leading-normal md:[text-wrap:pretty]">
+          <p className="m-0 text-[17px] leading-[1.45] max-md:[text-wrap:balance] md:max-w-[460px] md:text-[19px] md:leading-normal">
             <span className="md:hidden">
-              A club for full diaries and empty weekends. Dinners, sport,
-              nights out and perks, all in one app.
+              A club for full diaries and empty weekends.
             </span>
             <span className="hidden md:inline">
               A club for full diaries and empty weekends. Dinners, sport,
-              nights out and perks, all in one app. You just show up.
+              parties and perks, all planned for you. You just show up.
             </span>
           </p>
           <div>
@@ -227,16 +212,14 @@ function Perks() {
               {/* The slot times this drawing's fit shares (unitless
                   --fit-w and --fit-h); its own stroke (--fit-stroke, grid
                   units) gives every drawing the same rendered line. */}
-              <ArtLoop>
-                <Drawing
-                  size={PERK_SLOT_MIN * fit.w}
-                  viewBox={ink.join(" ")}
-                  width={PERK_SLOT_MIN * fit.w}
-                  height={PERK_SLOT_MIN * fit.h}
-                  className="block h-[calc(var(--perk-slot)*var(--fit-h))] w-[calc(var(--perk-slot)*var(--fit-w))] overflow-visible [stroke-width:var(--fit-stroke)]"
-                  style={{ "--fit-w": fit.w, "--fit-h": fit.h, "--fit-stroke": fit.stroke } as CSSProperties}
-                />
-              </ArtLoop>
+              <Drawing
+                size={PERK_SLOT_MIN * fit.w}
+                viewBox={ink.join(" ")}
+                width={PERK_SLOT_MIN * fit.w}
+                height={PERK_SLOT_MIN * fit.h}
+                className="block h-[calc(var(--perk-slot)*var(--fit-h))] w-[calc(var(--perk-slot)*var(--fit-w))] overflow-visible [stroke-width:var(--fit-stroke)]"
+                style={{ "--fit-w": fit.w, "--fit-h": fit.h, "--fit-stroke": fit.stroke } as CSSProperties}
+              />
             </div>
             <h3 className="m-0 col-start-1 row-start-2 mb-1.5 self-end text-2xl leading-[1.2] font-extrabold tracking-[-0.01em] md:row-start-1 md:mb-2.5 md:self-auto">
               {title}
@@ -250,11 +233,6 @@ function Perks() {
           </article>
         ))}
       </div>
-      {/* No partner has signed yet, so say plainly when discounts and
-          access arrive. */}
-      <p className="m-0 mt-6 text-[15px] leading-[1.45] text-site-muted md:mt-8">
-        Discounts and access appear in the app as we sign partners.
-      </p>
     </section>
   );
 }
@@ -295,7 +273,7 @@ function CommaBreaks({ text }: { text: string }) {
 
 function OpenInvite() {
   return (
-    <section id="open-invite" className="border-b-[3px] border-foreground bg-cream">
+    <section id="open-invite" className="border-y-[3px] border-foreground bg-cream">
       <div
         className={cn(
           SITE_CONTAINER_CLASS,
@@ -347,12 +325,10 @@ function OpenInvite() {
             on phones and must never catch a tap. From 768 the 72px top
             padding also makes the band's gaps equal (RULE-10). */}
         <div className="relative mt-[68px] min-w-0 md:mt-0 md:max-w-[440px] md:flex-[1_1_300px] md:pt-[72px] md:pr-6">
-          <ArtLoop>
-            <TrainerAndCoffeeDrawing
-              size={168}
-              className="pointer-events-none absolute top-[-91px] right-6 z-10 block size-[96px] [stroke-width:3.5] md:top-[-87.2px] md:right-12 md:size-[168px] md:[stroke-width:calc(clamp(96px,9.5vw,137px)*0.020833)]"
-            />
-          </ArtLoop>
+          <TrainerAndCoffeeDrawing
+            size={168}
+            className="pointer-events-none absolute top-[-91px] right-6 z-10 block size-[96px] [stroke-width:3.5] md:top-[-87.2px] md:right-12 md:size-[168px] md:[stroke-width:calc(clamp(96px,9.5vw,137px)*0.020833)]"
+          />
           {/* An example invite, not a real one, drawn as members see it in
               the app and the members area: the pill and who's going, the
               title, When, Where, Posted by with the host's photo, then I'm in
@@ -513,21 +489,25 @@ const FOOTER_LINK_CLASS = cn(
   FOCUS_UNDERLINE_CLASS,
 );
 
-// Only links that are live are listed (no "Soon" placeholders, which read
-// as unfinished): fill a URL in links.ts and it appears here.
-const LIVE_SOCIAL = [EXTERNAL_LINKS.instagram, EXTERNAL_LINKS.tiktok].filter(
-  (link): link is { label: string; url: string } => Boolean(link.url),
-);
-const LIVE_APPS = [EXTERNAL_LINKS.appStore, EXTERNAL_LINKS.googlePlay].filter(
-  (link): link is { label: string; url: string } => Boolean(link.url),
-);
-const DESKTOP_FOOTER_COLUMNS: Record<number, string> = {
-  2: "md:grid-cols-[repeat(2,minmax(max-content,1fr))]",
-  3: "md:grid-cols-[repeat(3,minmax(max-content,1fr))]",
-  4: "md:grid-cols-[repeat(4,minmax(max-content,1fr))]",
-};
-
-function ExternalLinkItem({ link, className }: { link: { label: string; url: string }; className?: string }) {
+// whitespace-nowrap: a label and its "Soon" tag never break across a row
+// (at 320 "Google Play" used to wrap inside its 44px row). The footer
+// columns grow to fit them instead (minmax(max-content, 1fr)).
+function ExternalLinkItem({ link, className }: { link: { label: string; url: string | null }; className?: string }) {
+  if (!link.url) {
+    return (
+      <span
+        className={cn(
+          "flex min-h-11 items-center gap-2 whitespace-nowrap text-base font-bold text-foreground md:min-h-9",
+          className,
+        )}
+      >
+        {link.label}
+        <span className="inline-flex min-h-[22px] items-center rounded-full border-[1.5px] border-foreground px-2 text-[11px] font-bold uppercase tracking-[0.04em]">
+          Soon
+        </span>
+      </span>
+    );
+  }
   return (
     <a
       href={link.url}
@@ -549,19 +529,10 @@ function FooterColumn({ heading, className, children }: { heading: string; class
   );
 }
 
-// The company's details, as the law asks of a company's website (project
-// doc Company_Details.md). The number and the postcode never break.
-function LegalLine({ year }: { year: number }) {
-  if (!COMPANY.name || !COMPANY.number) return <>{`© ${year} Club Yuppie. All rights reserved.`}</>;
-  const postcode = REGISTERED_OFFICE.match(/[A-Z]{1,2}\d[A-Z\d]? \d[A-Z]{2}$/)?.[0] ?? "";
-  const street = postcode ? REGISTERED_OFFICE.slice(0, -postcode.length) : REGISTERED_OFFICE;
-  return (
-    <>
-      © {year} {COMPANY.name}. Registered in England and Wales, company no.{" "}
-      <span className="whitespace-nowrap">{COMPANY.number}</span>. Registered office: {street}
-      <span className="whitespace-nowrap">{postcode}</span>.
-    </>
-  );
+function legalLine(year: number) {
+  return COMPANY.name && COMPANY.number
+    ? `© ${year} ${COMPANY.name}. Registered in England and Wales, company no. ${COMPANY.number}. Registered office: ${REGISTERED_OFFICE}.`
+    : `© ${year} Club Yuppie. All rights reserved.`;
 }
 
 // Homepage only: the other public pages have no footer.
@@ -589,7 +560,7 @@ function SiteFooter() {
               This isn’t for everyone.
               <br />
               <span className={SERIF_ACCENT_CLASS}>
-                Might be for <span className="max-md:whitespace-nowrap">you, though.</span>
+                Might be for <span className="max-md:whitespace-nowrap">you though.</span>
               </span>
             </h2>
             <p className="m-0 mt-4 text-[17px] leading-[1.45] [text-wrap:balance] md:mt-5 md:max-w-[520px] md:text-[19px] md:leading-normal">
@@ -643,22 +614,12 @@ function SiteFooter() {
           </a>
         </div>
         <div className="flex min-w-0 flex-col">
-          {LIVE_SOCIAL.length > 0 && (
-            <>
-              <h3 className={PHONE_FOOTER_HEADING_CLASS}>Follow</h3>
-              {LIVE_SOCIAL.map((link) => (
-                <ExternalLinkItem key={link.label} link={link} className="h-11" />
-              ))}
-            </>
-          )}
-          {LIVE_APPS.length > 0 && (
-            <>
-              <h3 className={PHONE_FOOTER_HEADING_CLASS}>Get the app</h3>
-              {LIVE_APPS.map((link) => (
-                <ExternalLinkItem key={link.label} link={link} className="h-11" />
-              ))}
-            </>
-          )}
+          <h3 className={PHONE_FOOTER_HEADING_CLASS}>Follow</h3>
+          <ExternalLinkItem link={EXTERNAL_LINKS.instagram} className="h-11" />
+          <ExternalLinkItem link={EXTERNAL_LINKS.tiktok} className="h-11" />
+          <h3 className={PHONE_FOOTER_HEADING_CLASS}>Get the app</h3>
+          <ExternalLinkItem link={EXTERNAL_LINKS.appStore} className="h-11" />
+          <ExternalLinkItem link={EXTERNAL_LINKS.googlePlay} className="h-11" />
         </div>
       </nav>
 
@@ -666,8 +627,7 @@ function SiteFooter() {
         aria-label="Footer"
         className={cn(
           SITE_CONTAINER_CLASS,
-          "hidden pb-16 md:grid md:gap-10 md:pt-14",
-          DESKTOP_FOOTER_COLUMNS[2 + (LIVE_SOCIAL.length > 0 ? 1 : 0) + (LIVE_APPS.length > 0 ? 1 : 0)],
+          "hidden pb-16 md:grid md:grid-cols-[repeat(4,minmax(max-content,1fr))] md:gap-10 md:pt-14",
         )}
       >
         <FooterColumn heading="Explore">
@@ -689,20 +649,14 @@ function SiteFooter() {
             {CONTACT_EMAIL}
           </a>
         </FooterColumn>
-        {LIVE_SOCIAL.length > 0 && (
-          <FooterColumn heading="Follow">
-            {LIVE_SOCIAL.map((link) => (
-              <ExternalLinkItem key={link.label} link={link} />
-            ))}
-          </FooterColumn>
-        )}
-        {LIVE_APPS.length > 0 && (
-          <FooterColumn heading="Get the app">
-            {LIVE_APPS.map((link) => (
-              <ExternalLinkItem key={link.label} link={link} />
-            ))}
-          </FooterColumn>
-        )}
+        <FooterColumn heading="Follow">
+          <ExternalLinkItem link={EXTERNAL_LINKS.instagram} />
+          <ExternalLinkItem link={EXTERNAL_LINKS.tiktok} />
+        </FooterColumn>
+        <FooterColumn heading="Get the app">
+          <ExternalLinkItem link={EXTERNAL_LINKS.appStore} />
+          <ExternalLinkItem link={EXTERNAL_LINKS.googlePlay} />
+        </FooterColumn>
       </nav>
 
       <div className={cn(SITE_CONTAINER_CLASS, "mt-2")}>
@@ -734,9 +688,7 @@ function SiteFooter() {
           "flex flex-row items-baseline justify-between gap-1 gap-x-6 pt-7 pb-[calc(32px+env(safe-area-inset-bottom))] text-[13px] leading-normal text-site-muted md:flex-row md:items-baseline md:justify-between md:gap-x-10 md:text-sm",
         )}
       >
-        <p className="m-0">
-          <LegalLine year={new Date().getFullYear()} />
-        </p>
+        <p className="m-0">{legalLine(new Date().getFullYear())}</p>
         <Link
           href="/privacy"
           className={cn("inline-flex min-h-11 shrink-0 items-center self-baseline text-site-muted no-underline hover:opacity-70 max-md:-ml-2 max-md:pl-2 max-md:justify-end md:min-h-0 md:self-start", FOCUS_UNDERLINE_CLASS)}
