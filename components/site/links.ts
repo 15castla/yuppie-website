@@ -7,7 +7,7 @@ export const EXTERNAL_LINKS: Record<
 > = {
   instagram: { label: "Instagram", url: null },
   tiktok: { label: "TikTok", url: null },
-  appStore: { label: "App Store", url: null },
+  appStore: { label: "App Store", url: "https://apps.apple.com/app/id6820262199" },
   googlePlay: { label: "Google Play", url: null },
 };
 
