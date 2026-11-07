@@ -54,7 +54,10 @@ ok(req1.headers.key && req1.headers.version === '2023-06-01', 'AI call: the key 
 eq(req1.body.model, 'claude-sonnet-5-5', 'AI call: the default model');
 const ws = req1.body.tools.find((t) => t.name === 'web_search');
 ok(ws && ws.type === 'web_search_20250305' && ws.max_uses === 3 && ws.user_location.city === 'London', 'AI call: web search, three at most, in London');
-ok(req1.body.tools.some((t) => t.name === 'reply') && req1.body.tool_choice.type === 'any', 'AI call: the reply tool, and a tool must be used');
+ok(req1.body.tools.some((t) => t.name === 'reply'), 'AI call: the reply tool');
+// Sonnet 5.5 thinks, and a thinking model refuses a forced tool choice (the API's 400): the choice is left to it
+// ("auto"; the instructions say to finish with the reply tool), at medium effort, with room for the thinking.
+eq([req1.body.tool_choice, req1.body.output_config, req1.body.max_tokens], [{ type: 'auto' }, { effort: 'medium' }, 8000], 'AI call: Sonnet 5.5 chooses its own tools, at medium effort, 8000 tokens');
 ok(/never book/i.test(req1.body.system) && /You recommend/.test(req1.body.system), 'AI call: the never-books rule is in the instructions');
 ok(req1.body.system.includes(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', weekday: 'long' }).format(new Date())), 'AI call: today’s date in London');
 eq(req1.body.messages.at(-1), { role: 'user', content: 'Somewhere for supper on Thursday, four of us, nothing too loud.' }, 'AI call: the question is the last message');
@@ -98,7 +101,11 @@ ok((rb2.steps ?? []).includes('Ring them and ask for the round table.'), 'never 
 await mode('text'); await clear();
 const rt = await send(B, 'Anything near Angel?');
 ok(rt.recommendations?.length === 2, 'no reply tool: asked for it once, and answers');
-eq((await requests())[1].body.tool_choice, { type: 'tool', name: 'reply' }, 'no reply tool: the second call forces it');
+{
+  const [first, second] = await requests();
+  eq(second.body.messages.at(-1), { role: 'user', content: 'Now send your answer with the reply tool.' }, 'no reply tool: the second call asks for it in words (Sonnet cannot be forced)');
+  ok(second.body.messages.at(-2).role === 'assistant' && Array.isArray(second.body.messages.at(-2).content) && first.body.messages.length === second.body.messages.length - 2, 'no reply tool: with what it found so far, as it was');
+}
 await mode('pause'); await clear();
 const rp = await send(B, 'Brunch on Sunday?');
 ok(rp.recommendations?.length === 2, 'pause_turn: carries on and answers');
@@ -122,8 +129,9 @@ ok(rc.text.includes('Which part of town') && !rc.recommendations, 'a question ba
 // ---------------------------------------------------------------- when it fails
 const before = count(B2);
 const shownBefore = (await app('concierge.getConcierge', [], B2)).result.messages.length;
-await mode('error');
+await mode('error'); await clear();
 const fail = await app('concierge.sendConciergeMessage', ['This one fails'], B2);
+eq((await requests()).length, 3, 'the AI down: tried three times (two waits) before giving up');
 eq(fail.result?.ok, false, 'the AI down: the action fails (the screen says Not sent)');
 eq(count(B2), before + 1, 'the AI down: the question is kept...');
 eq(sql1(`select count(*)::int n from concierge_messages where member_id = ${q(B2.id)} and failed_at is not null`).n, 1, '...as failed (it counts for the day, so failures cannot run up the bill)');

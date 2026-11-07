@@ -12,6 +12,11 @@ import "server-only";
 // claude-sonnet-5-5); CONCIERGE_DAILY_LIMIT (default 20 questions a member a day, failed ones included);
 // ANTHROPIC_BASE_URL (local tests only: ignored on Vercel Production). Off, the page keeps its earlier behaviour.
 //
+// Hardening (7 Nov 2026, after a bad key value was printed into the logs and the first question after a change
+// failed): the key is checked before it is used and never appears in an error or a log line; a busy or briefly
+// unreachable API is tried again (twice, inside the deadline); and models that refuse a forced tool choice (the
+// 5.5 generation with thinking, such as Sonnet 5.5) are asked with tool_choice "auto" and a nudge instead.
+//
 // What the server holds the AI to after it answers (lib/server/concierge-rules.ts): no offer to book or contact a
 // place (asked once more, then the offending lines are dropped); a place only with a source the search actually
 // returned (a place it could not check is not shown); the sources shown under the reply (Anthropic's terms for
@@ -309,26 +314,141 @@ function apiBase(): string {
   return (configured || "https://api.anthropic.com").replace(/\/$/, "");
 }
 
+/**
+ * The key, checked before it goes anywhere: letters, digits, dashes and underscores only (an Anthropic key never has
+ * spaces, quotes or colons). Anything else, such as a whole curl command pasted into Vercel, fails here with a
+ * message that never contains the value, instead of inside fetch, whose error would print the header value.
+ */
+function apiKey(): string {
+  const key = process.env.ANTHROPIC_API_KEY?.trim() ?? "";
+  if (!/^[A-Za-z0-9_-]{8,256}$/.test(key)) {
+    throw new ConciergeUnavailable("ANTHROPIC_API_KEY is not a valid API key value: check it in Vercel (the value is never printed)");
+  }
+  return key;
+}
+
+/** Takes the key (and anything shaped like an Anthropic key) out of text before it can reach a log. */
+function redact(text: string): string {
+  const key = process.env.ANTHROPIC_API_KEY?.trim();
+  let out = key && key.length >= 8 ? text.split(key).join("[key]") : text;
+  out = out.replace(/sk-ant-[A-Za-z0-9_-]+/g, "[key]");
+  return out;
+}
+
+/** An error answer from the API: its status, and its text with the key taken out. */
+class ApiError extends ConciergeUnavailable {
+  constructor(readonly status: number, detail: string) {
+    super(`anthropic ${status}: ${detail}`);
+  }
+}
+
+/** Worth trying again: the API was busy, overloaded or briefly down (not a request it refused). */
+const RETRY_STATUS = new Set([408, 409, 429, 500, 502, 503, 504, 529]);
+const RETRY_WAIT_MS = [800, 2000];
+/** A try is only worth it with this much of the deadline left after waiting. */
+const RETRY_ROOM_MS = 8000;
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function retryAfterMs(res: Response): number | null {
+  const seconds = Number.parseFloat(res.headers.get("retry-after") ?? "");
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.min(seconds * 1000, 3000) : null;
+}
+
 async function call(body: unknown, deadline: number): Promise<ApiReply> {
-  const left = deadline - Date.now();
-  if (left < 3000) throw new ConciergeUnavailable("out of time");
-  const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), left);
+  const key = apiKey();
+  for (let attempt = 0; ; attempt++) {
+    const left = deadline - Date.now();
+    if (left < 3000) throw new ConciergeUnavailable("out of time");
+    const canRetry = (wait: number) => attempt < RETRY_WAIT_MS.length && deadline - Date.now() - wait > RETRY_ROOM_MS;
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), left);
+    try {
+      let res: Response;
+      try {
+        res = await fetch(`${apiBase()}/v1/messages`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-api-key": key, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify(body),
+          signal: ctrl.signal,
+          cache: "no-store",
+        });
+      } catch (err) {
+        if (ctrl.signal.aborted) throw new ConciergeUnavailable("out of time");
+        const wait = RETRY_WAIT_MS[attempt] ?? 0;
+        if (canRetry(wait)) {
+          console.log(`concierge: network error, trying again (${attempt + 1})`);
+          await sleep(wait);
+          continue;
+        }
+        throw new ConciergeUnavailable(`network: ${redact(err instanceof Error ? err.message : String(err)).slice(0, 200)}`);
+      }
+      if (!res.ok) {
+        const detail = redact((await res.text()).slice(0, 300));
+        const wait = retryAfterMs(res) ?? RETRY_WAIT_MS[attempt] ?? 0;
+        if (RETRY_STATUS.has(res.status) && canRetry(wait)) {
+          console.log(`concierge: anthropic ${res.status}, trying again (${attempt + 1})`);
+          await sleep(wait);
+          continue;
+        }
+        throw new ApiError(res.status, detail);
+      }
+      const json = (await res.json()) as ApiReply;
+      console.log(`concierge: stop ${json.stop_reason}, usage ${JSON.stringify(json.usage ?? {})}`);
+      if (json.stop_reason === "max_tokens") throw new ConciergeUnavailable("the answer was cut off");
+      return json;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
+/**
+ * Models that refuse a forced tool choice (tool_choice "any" or naming a tool): the 5.5 generation with thinking
+ * (Opus and Sonnet 5.5, Fable, Mythos). Haiku 5.5 accepts it. Any other model that refuses is learned from its first
+ * refusal and remembered while the server runs.
+ */
+const THINKING_MODEL = /(opus|sonnet)-5|fable|mythos/i;
+const refusesForcedChoice = new Set<string>();
+const refusesEffort = new Set<string>();
+
+function forcedChoiceOk(model: string): boolean {
+  return !THINKING_MODEL.test(model) && !refusesForcedChoice.has(model);
+}
+
+/**
+ * One request. force: "any" asks for a tool, "reply" asks for the reply tool; a model that refuses forcing gets
+ * "auto" instead (the instructions say to finish with the reply tool, and answerOnce nudges it once if it does not).
+ * Thinking models get effort "medium", so a search and an answer fit inside the deadline. max_tokens leaves room for
+ * thinking, which counts against it.
+ */
+async function turn(model: string, system: string, messages: unknown[], force: "any" | "reply", deadline: number): Promise<ApiReply> {
+  const forced = forcedChoiceOk(model);
+  const effort = THINKING_MODEL.test(model) && !refusesEffort.has(model);
+  const body = {
+    model,
+    max_tokens: 8000,
+    system,
+    tools: [SEARCH_TOOL, REPLY_TOOL],
+    tool_choice: !forced ? { type: "auto" } : force === "reply" ? { type: "tool", name: "reply" } : { type: "any" },
+    ...(effort ? { output_config: { effort: "medium" } } : {}),
+    messages,
+  };
   try {
-    const res = await fetch(`${apiBase()}/v1/messages`, {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-api-key": process.env.ANTHROPIC_API_KEY ?? "", "anthropic-version": "2023-06-01" },
-      body: JSON.stringify(body),
-      signal: ctrl.signal,
-      cache: "no-store",
-    });
-    if (!res.ok) throw new ConciergeUnavailable(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
-    const json = (await res.json()) as ApiReply;
-    console.log(`concierge: stop ${json.stop_reason}, usage ${JSON.stringify(json.usage ?? {})}`);
-    if (json.stop_reason === "max_tokens") throw new ConciergeUnavailable("the answer was cut off");
-    return json;
-  } finally {
-    clearTimeout(timer);
+    return await call(body, deadline);
+  } catch (err) {
+    if (!(err instanceof ApiError) || err.status !== 400) throw err;
+    if (forced && /tool_choice/i.test(err.message)) {
+      console.log(`concierge: ${model} refuses a forced tool choice, asking with auto`);
+      refusesForcedChoice.add(model);
+      return turn(model, system, messages, force, deadline);
+    }
+    if (effort && /output_config|effort/i.test(err.message)) {
+      console.log(`concierge: ${model} refuses effort, asking without it`);
+      refusesEffort.add(model);
+      return turn(model, system, messages, force, deadline);
+    }
+    throw err;
   }
 }
 
@@ -382,24 +502,38 @@ function shape(input: Record<string, unknown>, results: Set<string>, dropOffers:
   return { text: text || "Here’s what I found.", steps, closing, recommendations, sources, remembered, offers };
 }
 
+const NUDGE = "Now send your answer with the reply tool.";
+
+function lastText(content: Block[]): string {
+  for (let i = content.length - 1; i >= 0; i--) {
+    const b = content[i];
+    if (b.type === "text" && typeof b.text === "string" && b.text.trim()) return b.text.trim();
+  }
+  return "";
+}
+
 async function answerOnce(system: string, base: { role: string; content: string }[], deadline: number): Promise<{ input: Record<string, unknown>; content: Block[] }> {
   const model = process.env.CONCIERGE_MODEL?.trim() || DEFAULT_MODEL;
   let messages: unknown[] = base;
   const content: Block[] = [];
-  // A long search can pause the turn: carry on from where it stopped, twice at most.
+  // A long search can pause the turn: carry on from where it stopped, twice at most. The assistant's turn goes back
+  // exactly as it came (thinking blocks included), as the API asks.
   for (let leg = 0; leg < 3; leg++) {
-    const res = await call({ model, max_tokens: 2000, system, tools: [SEARCH_TOOL, REPLY_TOOL], tool_choice: { type: "any" }, messages }, deadline);
+    const res = await turn(model, system, messages, "any", deadline);
     content.push(...res.content);
     const tool = res.content.find((b) => b.type === "tool_use" && b.name === "reply");
     if (tool) return { input: (tool.input ?? {}) as Record<string, unknown>, content };
     messages = [...messages, { role: "assistant", content: res.content }];
     if (res.stop_reason === "pause_turn") continue;
     // Ended without the reply tool: with what it found so far, asked for exactly that, once.
-    messages = [...messages, { role: "user", content: "Now send your answer with the reply tool." }];
-    const forced = await call({ model, max_tokens: 2000, system, tools: [SEARCH_TOOL, REPLY_TOOL], tool_choice: { type: "tool", name: "reply" }, messages }, deadline);
-    content.push(...forced.content);
-    const t = forced.content.find((b) => b.type === "tool_use" && b.name === "reply");
+    messages = [...messages, { role: "user", content: NUDGE }];
+    const nudged = await turn(model, system, messages, "reply", deadline);
+    content.push(...nudged.content);
+    const t = nudged.content.find((b) => b.type === "tool_use" && b.name === "reply");
     if (t) return { input: (t.input ?? {}) as Record<string, unknown>, content };
+    // Still no reply tool: what it wrote becomes a plain answer (no places: a place needs a checked source).
+    const words = lastText(nudged.content) || lastText(res.content);
+    if (words) return { input: { text: words }, content };
     break;
   }
   throw new ConciergeUnavailable("no reply from the model");
