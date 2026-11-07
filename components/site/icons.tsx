@@ -52,13 +52,22 @@ function Coupe() {
 export function CoupesDrawing(props: DrawingProps) {
   return (
     <Drawing {...props}>
-      <Coupe />
-      <g transform="translate(200 0) scale(-1 1)">
+      {/* draw-cl, draw-cr and draw-spark only name the parts for the home
+          page's little clink (globals.css, home.tsx ArtLoop); elsewhere
+          they do nothing. */}
+      <g className="draw-cl">
         <Coupe />
       </g>
-      <path d="M100,40 L100,24" />
-      <path d="M84,46 L76,32" />
-      <path d="M116,46 L124,32" />
+      <g className="draw-cr">
+        <g transform="translate(200 0) scale(-1 1)">
+          <Coupe />
+        </g>
+      </g>
+      <g className="draw-spark">
+        <path d="M100,40 L100,24" />
+        <path d="M84,46 L76,32" />
+        <path d="M116,46 L124,32" />
+      </g>
     </Drawing>
   );
 }
@@ -67,14 +76,17 @@ export function CoupesDrawing(props: DrawingProps) {
 export function PriceTagDrawing(props: DrawingProps) {
   return (
     <Drawing {...props}>
-      <g transform="rotate(-18 100 100)">
-        <path d="M40,64 L124,64 L166,100 L124,136 L40,136 Z" fill={YELLOW} />
-        <circle cx="138" cy="100" r="6" />
-        <circle cx="66" cy="86" r="7" />
-        <circle cx="96" cy="114" r="7" />
-        <path d="M98,82 L64,118" />
+      {/* draw-swing: the home page's gentle swing from the string's end (globals.css). */}
+      <g className="draw-swing">
+        <g transform="rotate(-18 100 100)">
+          <path d="M40,64 L124,64 L166,100 L124,136 L40,136 Z" fill={YELLOW} />
+          <circle cx="138" cy="100" r="6" />
+          <circle cx="66" cy="86" r="7" />
+          <circle cx="96" cy="114" r="7" />
+          <path d="M98,82 L64,118" />
+        </g>
+        <path d="M146,86 C168,70 176,46 164,30" />
       </g>
-      <path d="M146,86 C168,70 176,46 164,30" />
     </Drawing>
   );
 }
@@ -133,9 +145,12 @@ export function TrainerAndCoffeeDrawing(props: DrawingProps) {
       <path d="M126,182 C130,190 186,190 190,182 Z" fill={YELLOW} />
       <path d="M128,132 L132,170 C133,178 140,182 148,182 L162,182 C170,182 177,178 178,170 L182,132 Z" fill={YELLOW} />
       <path d="M180.9,142 C194,142 194,164 178.6,164" />
-      <path d="M142,118 C138,110 146,104 142,96" />
-      <path d="M155,118 C151,110 159,104 155,96" />
-      <path d="M168,118 C164,110 172,104 168,96" />
+      {/* draw-steam: the home page's rising steam (globals.css). */}
+      <g className="draw-steam">
+        <path d="M142,118 C138,110 146,104 142,96" />
+        <path d="M155,118 C151,110 159,104 155,96" />
+        <path d="M168,118 C164,110 172,104 168,96" />
+      </g>
     </Drawing>
   );
 }

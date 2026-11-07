@@ -42,7 +42,7 @@ export const FAQ_ITEMS: FaqEntry[] = [
     id: "book",
     question: "How do I book onto events?",
     answer:
-      "You can book through your Members Area or the Club Yuppie app, downloadable from the App Store and Google Play. Everything happening that month is listed there, so you just pick what you fancy.",
+      "You can book in your Members Area, and in the Club Yuppie iPhone app once it’s on the App Store. Everything happening that month is listed there, so you just pick what you fancy.",
   },
 ];
 
