@@ -18,7 +18,7 @@ import "./invite.css";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Button, Chip, ChipRow, Main, Shape } from "@/components/members/kit";
+import { Button, Chip, ChipRow, Main } from "@/components/members/kit";
 import {
   INVITE_FILTERS,
   matchesFilter,
@@ -159,7 +159,7 @@ export function OpenInviteView({
   );
 }
 
-/** The loading page: the real title and switch, pale shapes where the cards will be. No spinner. */
+/** The loading page: the real title only; the rest arrives in one go (components/members/kit/main.tsx). No spinner. */
 export function OpenInviteLoading() {
   return (
     <Main busy pad={false}>
@@ -167,28 +167,8 @@ export function OpenInviteLoading() {
       <div className="mk-wrap">
         <div className="oi-top">
           <InviteTitle />
-          <div className="oi-seg-wrap">
-            <Shape width={264} height={48} kind="pill" />
-          </div>
-          <div className="oi-compose-wrap">
-            <Shape height={52} kind="pill" />
-          </div>
-          <div className="oi-chips-wrap oi-sk-chips" aria-hidden="true">
-            {[72, 112, 96, 88].map((width) => (
-              <Shape key={width} width={width} height={44} kind="pill" style={{ flex: "none" }} />
-            ))}
-          </div>
         </div>
       </div>
-      <section className="mk-band oi-band" aria-hidden="true">
-        <div className="mk-wrap">
-          <div className="oi-feed">
-            {[0, 1].map((index) => (
-              <Shape key={index} height={264} kind="tile" className="oi-sk-card" />
-            ))}
-          </div>
-        </div>
-      </section>
     </Main>
   );
 }

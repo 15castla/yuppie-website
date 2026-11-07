@@ -19,7 +19,7 @@ import "./invite.css";
 import { useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
-import { Avatar, BackRow, Button, ExampleNote, Icon, KitLink, Main, Pill, Row, Rows, Shape, Status, useExample } from "@/components/members/kit";
+import { Avatar, BackRow, Button, ExampleNote, Icon, KitLink, Main, Pill, Row, Rows, Status, useExample } from "@/components/members/kit";
 import {
   formatWhen,
   gbp,
@@ -752,29 +752,6 @@ export function PlanLoading() {
     <Main busy pad={false}>
       <span className="mk-sr">Loading</span>
       <BackRow href={ROUTES.openInvite} label="Open Invite" actions={<BarMessages />} />
-      <section className="oi-hero" aria-hidden="true">
-        <div className="mk-wrap oi-hero-in">
-          <div className="oi-hero-grid">
-            <div className="oi-hero-main">
-              <div className="oi-pills">
-                <Shape width={104} height={22} kind="pill" />
-                <Shape width={104} height={22} kind="pill" />
-              </div>
-              <Shape width="80%" height={34} style={{ marginTop: 16 }} />
-              <Shape width="56%" height={34} style={{ marginTop: 8 }} />
-              <Shape width="44%" height={20} style={{ marginTop: 24 }} />
-              <Shape width="48%" height={20} style={{ marginTop: 12 }} />
-              <Shape width="30%" height={20} style={{ marginTop: 12 }} />
-            </div>
-          </div>
-        </div>
-      </section>
-      <section className="mk-band oi-detail" aria-hidden="true">
-        <div className="mk-wrap">
-          <Shape height={88} kind="tile" />
-          <Shape width={132} height={28} style={{ marginTop: 32 }} />
-        </div>
-      </section>
     </Main>
   );
 }

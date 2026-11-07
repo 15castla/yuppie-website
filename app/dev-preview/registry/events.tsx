@@ -6,7 +6,7 @@
 // events below are the approved mockups' own (v3 k2.EVENTS and pages_plans.py).
 
 import ConciergeLoading from "@/app/members/concierge/loading";
-import EventsLoading from "@/app/members/events/loading";
+import EventsLoading from "@/app/members/events/(list)/loading";
 import PlansLoading from "@/app/members/plans/loading";
 import { ConciergeView } from "@/components/members/concierge/concierge-view";
 import { EventsView } from "@/components/members/events-view";

@@ -49,20 +49,7 @@
 }
 @media (max-width:339px){ .dc-pill{margin-left:8px} }
 
-/* ---- 3. loading: pale shapes the size of what will arrive, two brand tones, no motion, no spinner --------------- */
-.dc-sk-chips{overflow:hidden}                                            /* with the kit's .mk-chips: runs to the screen edge, like the real row */
-.dc-sk-chips .mk-sk{flex:none;height:44px;border-radius:999px}
-.dc-sk-row{cursor:default;pointer-events:none}
-.dc-sk-row .dc-tile{border:0;background:var(--pale);border-radius:8px}
-.dc-sk-pill{grid-area:pill;align-self:start;margin-left:12px;width:80px;height:22px;border-radius:999px}
-.dc-sk-name{grid-area:name;height:16px;margin-top:2px}
-.dc-sk-offer{grid-area:offer;height:14px;margin-top:10px}
-.dc-sk-meta{grid-area:meta;height:12px;margin-top:10px}
-.dc-sk-h{width:132px;height:30px}
-.dc-sk-c{width:56px;height:14px}
-.dc-sk-month{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:10px}
-@media (min-width:768px){ .dc-sk-month{justify-content:flex-start;gap:20px} }
-@media (max-width:339px){ .dc-sk-pill{margin-left:8px} }
+/* ---- 3. loading: the real title only (components/members/kit/main.tsx); no styles of its own ------------------- */
 
 /* ---- 4. access: the spotlight card, and the sections ------------------------------------------------------------- */
 .dc-acc-top{display:block}
@@ -98,15 +85,6 @@
   .dc-ksec+.dc-ksec{margin-top:0}
   .dc-ksecs{margin-bottom:-48px}
 }
-/* the loading card keeps the spotlight's footprint, rope included, so nothing jumps when the card arrives */
-.mk-card.dc-sk-card{height:224px;gap:0}
-.dc-sk-card .mk-sk{background:var(--yellow)}
-.dc-sk-lab{width:108px;height:22px;border-radius:999px}
-.dc-sk-title{width:62%;height:28px;margin-top:18px}
-.dc-sk-line{width:84%;height:14px;margin-top:18px}
-.dc-sk-btn{width:144px;height:44px;margin-top:22px;border-radius:999px}
-.dc-sk-stand{--slot:120px;height:calc(var(--slot)*.7472)}                 /* the rope's height */
-@media (min-width:768px){ .dc-sk-stand{--slot:144px} }
 
 /* ---- 5. the redeem card ---------------------------------------------------------------------------------------- */
 /* the design draws the dialog over a frame; in the product it is the viewport: fixed, above the tab bar (50) and the

@@ -5,8 +5,8 @@ import type { Chat, ChatThread, UpdateItem } from "@/lib/members/messages/types"
 import { ROUTES } from "@/lib/members/routes";
 import { getThread, listChats } from "@/lib/server/chats";
 import { listUpdates } from "@/lib/server/updates";
-import { requireMember } from "../require-member";
-import { requireMessages } from "./guard";
+import { requireMember } from "../../require-member";
+import { requireMessages } from "../guard";
 
 // Messages: the inbox (Chats | Updates), real data (lib/server/chats.ts, updates.ts). On a computer the newest
 // open chat sits beside the list (it reads itself and polls only once it is on screen: ThreadView `beside`).

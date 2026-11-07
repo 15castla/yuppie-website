@@ -1,7 +1,7 @@
 import { requireMember } from "@/app/members/require-member";
 import { OpenInviteView } from "@/components/members/invite/browse-view";
 import { openInviteFeed } from "@/lib/server/plans";
-import { paidPlansShown, requireOpenInvite } from "./guard";
+import { paidPlansShown, requireOpenInvite } from "../guard";
 
 // Open Invite > Browse: the real feed (lib/server/plans.ts openInviteFeed: upcoming, not cancelled, hosts with an
 // active membership, never a plan of someone you blocked or who blocked you, soonest first). A 404 while the

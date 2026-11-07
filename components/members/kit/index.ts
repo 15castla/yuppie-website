@@ -16,7 +16,6 @@ export { EXAMPLE_WORDS, ExampleNote, ExampleScope, useExample } from "./example-
 export { FormField, FormTextarea } from "./form-field";
 export { Icon, ICON_NAMES, type IconName } from "./icons";
 export { KitLink, type KitLinkProps } from "./link";
-export { LoadingShapes, RowShape, Shape } from "./loading-shapes";
 export { Main } from "./main";
 export { Pill, Status, type PillKind } from "./pill";
 export { DateColumn, Row, Rows } from "./row";

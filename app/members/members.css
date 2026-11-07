@@ -206,12 +206,9 @@
 .mk-month span{font-size:14px;color:var(--muted)}
 @media (min-width:768px){ .mk-month h2{font-size:38px} }
 
-/* loading shapes (not in the kit: the area designs draw them as pale shapes,
-   static, no shimmer and no spinner; the native splash waits on this) */
+/* a pale block, used only by the redeem card while it checks a membership. Pages never draw these while they
+   load: a loading page shows its real title and nothing else (components/members/kit/main.tsx). */
 .mk-sk{display:block;background:var(--pale);border-radius:8px}
-.mk-sk.mk-sk-pill{border-radius:999px}
-.mk-sk.mk-sk-disc{border-radius:50%}
-.mk-sk.mk-sk-tile{border-radius:12px}
 
 /* bands (public site: 3px ink rules, cream for Open Invite) */
 .mk-band{background:var(--cream);border-top:3px solid var(--ink);border-bottom:3px solid var(--ink)}
@@ -476,9 +473,3 @@ textarea.mk-input{display:block;min-height:120px;padding:12px 14px;line-height:1
   .mk-empty-words .mk-lead{max-width:36ch}
 }
 
-/* B-D6 C (r2b section 8, You and system agent): a loading page shows its pale shapes only when the page has
-   not arrived after about 300 ms, so a fast page never flickers. The real title and labels show at once; the
-   shapes wait. No motion: they appear in one step. main keeps aria-busy="true" the whole time (the app's
-   launch picture waits for it), and nothing spins. */
-.mk-main[aria-busy="true"] .mk-sk{animation:mk-sk-wait .3s step-end both}
-@keyframes mk-sk-wait{from{visibility:hidden}to{visibility:visible}}

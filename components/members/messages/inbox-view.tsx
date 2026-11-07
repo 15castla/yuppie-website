@@ -6,8 +6,10 @@
 // card), and a selected row counts as read. Updates beside it show a card that
 // previews the plan the selected update is about.
 //
-// States: ready, empty (a cream band with a drawing), loading (one muted line,
-// aria-busy), error (a status card with "Try again").
+// States: ready, empty (a cream band with a drawing), loading (the back row and
+// the title only, the switch keeping its place unseen, aria-busy:
+// components/members/kit/main.tsx), error (a
+// status card with "Try again").
 //
 // Real data (app/members/messages/actions.ts): the page draws the lists; while
 // the inbox is open they are asked for again on a slow timer and when the tab
@@ -292,7 +294,12 @@ export function InboxView({
 
   let body: ReactNode;
   if (loading) {
-    body = <p className="msg-loadline">Getting your {what}.</p>;
+    // Nothing on screen (the page arrives in one go); said to screen readers only.
+    body = (
+      <p className="mk-sr" role="status">
+        Loading your {what}.
+      </p>
+    );
   } else if (state === "error") {
     body = (
       <div className="msg-status" role="alert">
@@ -439,7 +446,7 @@ export function InboxView({
                 <h1 className="mk-h1">Messages.</h1>
                 <p className="mk-sub-serif">Details, sorted.</p>
               </div>
-              <div className="msg-segwrap">
+              <div className={cn("msg-segwrap", loading && "is-loading")} aria-hidden={loading || undefined}>
                 <div className="mk-seg msg-seg" role="tablist" aria-label="Messages" onKeyDown={onTabKey}>
                   {tabs.map((item) => (
                     <button
