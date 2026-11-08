@@ -7,8 +7,8 @@
 //
 // r2a section 7: no public header, no Apply link, no Privacy link (the app
 // cannot sell or sign people up). The whole column (badge, "Members App",
-// headline, helper, card) is centred above the faint wordmark at the foot
-// (components/SiteWatermark.tsx). Every state of the web form, with the
+// headline, helper, card) starts near the top, the faint wordmark at the
+// foot (components/SiteWatermark.tsx). Every state of the web form, with the
 // app's own "not recognised" line. needs_device_check: all of it (the keyboard, the strip under the
 // clock, the safe areas).
 
@@ -61,8 +61,8 @@ const VERIFY_GENERIC = "We couldn’t reach Club Yuppie. Check your connection a
 
 const EMAIL_STEP_HELPER = "Enter your email and we’ll send you a one-time code.";
 
-// The space kept at the foot for the wordmark (its ink box), so the column stays where it was when the wordmark
-// stood there in solid ink on a rule (28 Oct to 8 Nov). The wordmark itself is the faint one behind the page
+// The space kept at the foot for the wordmark (its ink box): the size it took when it stood there in solid ink
+// on a rule (28 Oct to 8 Nov). The wordmark itself is the faint one behind the page
 // (components/SiteWatermark.tsx).
 const WORDMARK_INK = { width: 1911, height: 610 };
 
@@ -304,12 +304,10 @@ export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice 
           the same yellow as the page. */}
       <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 z-40 h-[var(--safe-top)] bg-background" />
       <section className="relative flex min-h-dvh flex-1 flex-col">
-        {/* The whole column (badge down to the card) is centred in the space
-            between the status area and the wordmark at the foot, keeping at
-            least 16px from the top inset and 24px from the foot. With the
-            keyboard up, useKeyboardReveal grows the spacer below to make
-            scroll room. */}
-        <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-5 pt-[calc(1rem+var(--safe-top))] pb-6 text-center">
+        {/* The whole column (badge down to the card) starts 24px under the status area (Albert, 8 Nov 2026,
+            option C: it read low centred), so the card sits high, clear of the keyboard; the faint wordmark is
+            at the foot. With the keyboard up, useKeyboardReveal grows the spacer below to make scroll room. */}
+        <main className="relative z-10 flex flex-1 flex-col items-center justify-start px-5 pt-[calc(1.5rem+var(--safe-top))] pb-6 text-center">
           {/* The "y" mark, framed by CSS to read as the app icon (3px ink keyline:
               the art's background is the page's yellow). Radius ~22%, as iOS masks icons. */}
           <motion.div {...fade(0.1)}>
@@ -490,9 +488,9 @@ export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice 
           </motion.div>
         </main>
 
-        {/* The foot: empty space the size the solid wordmark and its 3px rule took (28 Oct to 8 Nov), so the
-            column stays where it is. The wordmark is the faint one behind the page, edge to edge at the bottom
-            (components/SiteWatermark.tsx, Albert 8 Nov: option B). */}
+        {/* The foot: empty space the size the solid wordmark and its 3px rule took (28 Oct to 8 Nov), so on a
+            short phone the card never runs into the wordmark (the page scrolls instead). The wordmark is the faint
+            one behind the page, edge to edge at the bottom (components/SiteWatermark.tsx, Albert 8 Nov: option B). */}
         <div
           aria-hidden
           className="shrink-0"
