@@ -165,7 +165,8 @@ try {
   await shows(dialog(A.page).getByText('Hana can see you’re in.', { exact: false }), 'I’m in: the host can see you’re in');
   eq(await dialog(A.page).getByRole('link', { name: 'Open chat' }).getAttribute('href'), `/members/messages/${planChat}`, 'I’m in: "Open chat" opens the plan chat');
   await dialog(A.page).getByRole('button', { name: 'Done' }).click();
-  eq(await cardA.getAttribute('data-state'), 'in', 'browse: the card now says you’re in');
+  await A.page.getByRole('dialog').waitFor({ state: 'detached' });
+  eq(await cardA.count(), 0, 'browse: once you’re in, the plan leaves Browse (it is in Yours; 8 Nov 2026)');
   eq(going(planId).map((g) => g.member_id), [host.id, a.id], 'the place is taken in the database');
   await waitFor(() => updatesFor(host.id, planId).some((u) => u.kind === 'joined' && u.actor_id === a.id), 'the host has the "joined" Update');
 
