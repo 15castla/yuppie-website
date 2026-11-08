@@ -14,6 +14,7 @@ import { periodEndSeconds } from "@/lib/server/stripe/period";
 import { stripe } from "@/lib/stripe";
 import { ApplicationActions, ReleaseCardAgain, type ApplicationPreviews } from "./ApplicationActions";
 import { paymentProblem, tabOf } from "./applications-data";
+import { endedMemberByEmail } from "@/lib/server/rejoin";
 
 // The application card (r2b 16). Waiting: Approve and Decline, each behind a confirm dialog (B-D17) that
 // shows exactly what the person gets (rendered by lib/emails). Approved and Declined: what was done and sent.
@@ -92,11 +93,14 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
   const tab = tabOf(app.status);
   const name = app.full_name?.trim() || app.email;
   const first = firstNameOf(app.full_name, app.email);
-  const [{ data: logs }, { data: member }] = await Promise.all([
+  const [{ data: logs }, { data: member }, rejoining] = await Promise.all([
     db.from("message_log").select("template, channel, status").eq("application_id", app.id),
     tab === "approved"
       ? db.from("members").select("id, created_at").eq("email", app.email).maybeSingle()
       : Promise.resolve({ data: null }),
+    // A waiting application from someone whose membership ended (8 Nov 2026): approving it starts their old
+    // membership again, on the same account.
+    tab === "waiting" ? endedMemberByEmail(app.email) : Promise.resolve(null),
   ]);
   // The member's photo from the private bucket (a signed link), not the old public avatar_url (stage 2).
   const memberPhoto = member ? await currentPhotoUrl(member.id as string, "thumb") : null;
@@ -110,7 +114,10 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
         <h2 id={headId} className="ad-h2">
           {name}
         </h2>
-        <p className="sub">{tab === "approved" && member ? `Member since ${dayMonthYear(member.created_at)}` : `Applied ${dayDateTime(app.created_at)}`}</p>
+        <p className="sub">
+          {tab === "approved" && member ? `Member since ${dayMonthYear(member.created_at)}` : `Applied ${dayDateTime(app.created_at)}`}
+          {rejoining ? ` · Rejoining: a member until ${rejoining.endedAt ? dayMonthYear(rejoining.endedAt) : "their membership ended"}` : null}
+        </p>
       </div>
       {tab === "waiting" ? <Pill>Waiting</Pill> : tab === "approved" ? <Pill kind="ink">Approved</Pill> : <Pill kind="muted">Declined</Pill>}
     </div>

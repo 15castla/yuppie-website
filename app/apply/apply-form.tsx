@@ -41,7 +41,7 @@ import {
   TEXT_LINK_CLASS,
 } from "@/components/site/ui";
 import { STRIPE_APPEARANCE, getStripeErrorMessage } from "@/lib/stripe-ui";
-import { submitApplication } from "./actions";
+import { checkApplicant, submitApplication } from "./actions";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
@@ -185,6 +185,8 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
   const [error, setError] = useState<{
     message: string;
     isDuplicate: boolean;
+    /** A current member: the line ends with a Sign in link. */
+    signIn?: boolean;
   } | null>(null);
   // Per-field validation messages, shown under the field they are about.
   // `error` above is only for the form-level failures (Stripe, the server).
@@ -291,7 +293,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
         const result = await submitApplication(formData);
 
         if (!result.success) {
-          setError({ message: result.error, isDuplicate: Boolean(result.isDuplicate) });
+          setError({ message: result.error, isDuplicate: Boolean(result.isDuplicate), signIn: Boolean(result.signIn) });
           return;
         }
 
@@ -403,6 +405,13 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
     sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
 
     try {
+      // A member, or someone already waiting, is told before their card is taken (app/apply/actions.ts).
+      const early = await checkApplicant(String(formData.get("email") ?? ""));
+      if (!early.ok) {
+        setError({ message: early.error, isDuplicate: true, signIn: Boolean(early.signIn) });
+        return;
+      }
+
       const { error: stripeError, setupIntent } = await stripe.confirmSetup({
         elements,
         confirmParams: {
@@ -436,7 +445,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
       const result = await submitApplication(formData);
 
       if (!result.success) {
-        setError({ message: result.error, isDuplicate: Boolean(result.isDuplicate) });
+        setError({ message: result.error, isDuplicate: Boolean(result.isDuplicate), signIn: Boolean(result.signIn) });
         return;
       }
 
@@ -580,6 +589,14 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           )}
         >
           {error.message}
+          {error.signIn ? (
+            <>
+              {" "}
+              <Link href="/member-login" className="underline underline-offset-2">
+                Sign in instead.
+              </Link>
+            </>
+          ) : null}
         </p>
       )}
 

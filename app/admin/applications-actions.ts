@@ -9,35 +9,61 @@ import { declineApplicationById, sendApprovalMessages } from "@/lib/server/appli
 import { audit } from "@/lib/server/audit";
 import { absoluteUrl } from "@/lib/server/config";
 import { sendAdminAlert } from "@/lib/server/messages";
+import { approvalBlock, type ApprovalBlock } from "@/lib/server/rejoin";
+
+// What the admin is told when approval stops before charging (approvalBlock).
+const APPROVAL_BLOCKS: Record<ApprovalBlock, { reason: string; next: string }> = {
+  current: { reason: "This email already belongs to a current member", next: "Decline this application." },
+  deleted: { reason: "This email belongs to a deleted account", next: "Decline this application." },
+  subscription: {
+    reason: "This person’s old membership is still billing in Stripe",
+    next: "Cancel that subscription in Stripe, then approve again.",
+  },
+  mismatch: {
+    reason: "This person’s membership ended, but they sign in with a different email",
+    next: "Ask them to apply with the email they sign in with, then decline this one.",
+  },
+};
 
 // The installed @supabase/auth-js version has no getUserByEmail(), and
 // listUsers() takes no email/filter param (verified against
 // node_modules/@supabase/auth-js/dist/module/GoTrueAdminApi.d.ts), so
 // finding an existing user by email means paging through everyone and
 // matching locally.
-async function findAuthUserIdByEmail(
+// authUserIdByEmail throws when the lookup fails (the check before any charge must not pass on an error);
+// findAuthUserIdByEmail returns null then, as before.
+async function authUserIdByEmail(
   adminClient: ReturnType<typeof createAdminSupabaseClient>,
   email: string,
 ): Promise<string | null> {
-  const targetEmail = email.toLowerCase();
-  let page = 1;
+  const targetEmail = email.trim().toLowerCase();
+  const perPage = 1000;
 
-  for (;;) {
-    const { data, error } = await adminClient.auth.admin.listUsers({
-      page,
-      perPage: 1000,
-    });
+  // Page by page until a short page. Not by data.nextPage: this auth-js reads only the first digit of the next
+  // page number from the Link header, so past page 9 it goes back to page 1 and would loop for ever (seen 8 Nov
+  // 2026 with 11,000 test users).
+  for (let page = 1; page <= 1000; page++) {
+    const { data, error } = await adminClient.auth.admin.listUsers({ page, perPage });
 
-    if (error) {
-      console.error(`listUsers failed while looking up ${email}:`, error);
-      return null;
-    }
+    if (error) throw error;
 
     const match = data.users.find((user) => user.email?.toLowerCase() === targetEmail);
     if (match) return match.id;
 
-    if (!data.nextPage) return null;
-    page = data.nextPage;
+    if (data.users.length < perPage) return null;
+  }
+  throw new Error("listUsers: more than a million users, stopped looking");
+}
+
+async function findAuthUserIdByEmail(
+  adminClient: ReturnType<typeof createAdminSupabaseClient>,
+  email: string,
+): Promise<string | null> {
+  try {
+    return await authUserIdByEmail(adminClient, email);
+  } catch (error) {
+    console.error(`listUsers failed while looking up ${email}:`, error);
+    return null;
   }
 }
 
@@ -65,6 +91,37 @@ async function approve(id: string, adminEmail: string, adminId: string) {
   // already finished the whole thing. Safe no-op for a duplicate click.
   if (application.status === "approved") {
     console.log(`approve: application ${id} already fully approved, skipping`);
+    return;
+  }
+
+  // Never two memberships (8 Nov 2026), checked before any charge (lib/server/rejoin.ts approvalBlock): approval
+  // finds the member by the login for this email; a membership that ended starts again on that account. A lookup
+  // that fails stops too.
+  const charged = Boolean(application.stripe_subscription_id);
+  const stop = async (paymentError: string) => {
+    await adminClient.from("applications").update({ payment_error: paymentError }).eq("id", id);
+    revalidatePath("/admin/applications");
+    revalidatePath("/admin");
+  };
+  let block: ApprovalBlock | null;
+  try {
+    block = await approvalBlock(application.email, await authUserIdByEmail(adminClient, application.email));
+  } catch (err) {
+    console.error(`approve: checking whether ${id}'s email is a member failed:`, err);
+    await stop(
+      charged
+        ? "We couldn’t check whether this email is already a member. Try again."
+        : "We couldn’t check whether this email is already a member, so nothing was charged. Try again.",
+    );
+    return;
+  }
+  if (block) {
+    const { reason, next } = APPROVAL_BLOCKS[block];
+    await stop(
+      charged
+        ? `${reason}. A charge is already recorded on this application, so check it in Stripe first.`
+        : `${reason}, so nothing was charged. ${next}`,
+    );
     return;
   }
 

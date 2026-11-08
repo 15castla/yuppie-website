@@ -378,7 +378,7 @@ async function text(page) {
   ok((await text(page)).includes('Let’s see what’s on.'), 'the headline: "Welcome back. Let’s see what’s on."');
   await page.getByLabel('Email address').fill(`${mTag('nobody')}@example.com`);
   await page.getByRole('button', { name: 'Send login code' }).click();
-  await seen(page, 'We don’t recognise that email as a Club Yuppie member. Check for typos, or apply to join below.').waitFor();
+  await seen(page, 'We don’t recognise that email as a Club Yuppie member. If you’ve changed your email, use the new one. Otherwise check for typos, or apply to join below.').waitFor();
   ok(await seen(page, 'Applied already? We’ll email you when you’re approved.').isVisible(), 'not recognised (Auth: otp_disabled), with "Applied already?" (A-D5)');
   let otpCalls = 0;
   page.on('request', (r) => { if (r.url().includes('/auth/v1/otp')) otpCalls += 1; });
@@ -492,7 +492,7 @@ async function text(page) {
   ok(appText.includes('Your session ended.'), 'app: the session-ended notice');
   await page.getByLabel('Email address').fill(`${mTag('nobody')}@example.com`);
   await page.getByRole('button', { name: 'Send login code' }).click();
-  await seen(page, 'We don’t recognise that email as a Club Yuppie member. Check for typos and try again.').waitFor();
+  await seen(page, 'We don’t recognise that email as a Club Yuppie member. If you’ve changed your email, use the new one, or check for typos.').waitFor();
   ok(await seen(page, 'Applied already? We’ll email you when you’re approved.').isVisible(), 'app: not recognised, with the A-D5 line');
   await ctx.close();
 }
