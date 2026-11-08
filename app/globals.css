@@ -48,6 +48,16 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+/* The page shows once this stylesheet is here. app/layout.tsx hides the body
+   inline until then, so a page whose stylesheet never arrives (a poor
+   connection, or a copy of the page older than the site) is never shown as
+   bare text (Albert, 8 Nov 2026, from the app on poor 4G); its script then
+   reloads it. `html body` outranks the inline `body` rule wherever the two
+   land in <head>. */
+html body {
+  visibility: visible;
+}
+
 /* Tailwind v4's `container` utility no longer auto-centers or pads by
    default (v3 behavior) — restored here since components/templates/
    creative-studio/*.tsx use bare `container` expecting that. */
