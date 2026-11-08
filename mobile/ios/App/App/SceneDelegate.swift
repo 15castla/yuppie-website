@@ -5,6 +5,10 @@ import Capacitor
 class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
     private var openingScreen: OpeningScreenView?
+    // Each readiness poll and "Still loading." timer carries the number it was started with; Try again starts new
+    // ones, and the old ones stop when they see the number has moved on.
+    private var pollGeneration = 0
+    private var slowGeneration = 0
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         startupLog("SceneDelegate.scene(_:willConnectTo:) entered")
@@ -267,15 +271,42 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // /member-login, and so hides on the sign-in screen, not on the
     // redirecting page's loading state.
     //
-    // Capped at 10s from the start of polling: if the page never gets
-    // there, the splash hides anyway rather than staying up indefinitely.
-    // www-placeholder/offline.html has no <main>, so the offline screen
-    // currently only appears once that cap is reached.
+    // A slow connection (Albert, 8 Nov 2026, a fresh install on train wifi:
+    // the opening screen finished, then "just a yellow page"). This used to
+    // hide the opening screen after 10s whatever the page was doing, and
+    // until the page and its stylesheets arrived the web view had nothing to
+    // draw but plain yellow, with no sign anything was happening. Now the
+    // check answers one of three things:
+    //   "ready"    as above (a real <main>, no spinner), and the page can be
+    //              seen: hide.
+    //   "drawn"    the page can be seen but isn't "ready" (a spinner, a part
+    //              still streaming in): hide once 10s have passed, as the
+    //              old cap did, since the page is there to look at.
+    //   "waiting"  nothing to see yet: keep the opening screen.
+    // "Can be seen" means the body exists and isn't hidden. The website keeps
+    // the body hidden until its stylesheet is here (app/layout.tsx,
+    // STYLESHEET_GUARD_SCRIPT), and while any stylesheet in <head> is still
+    // on its way the browser holds back everything after it, so there is no
+    // body yet either. The website's own "Something went wrong." message
+    // (the guard's, a full-screen role="alert" on the body when the
+    // stylesheet keeps failing) counts as ready, so it is shown.
+    // www-placeholder/offline.html has a <main> and no hidden body, so the
+    // offline screen is ready at once.
+    //
+    // After 20s with the opening screen still up, it says "Still loading."
+    // with Try again, which loads the start page again (scheduleStillLoading).
+    // Polling carries on throughout, every 0.1s for the first 20s, then every
+    // 0.25s, until the opening screen goes.
     private static let readinessCheckJS = """
         (function () {
+          var body = document.body;
+          if (!body) return 'waiting';
+          if (document.querySelector('body > div[role="alert"][style*="2147483647"]')) return 'ready';
+          if (getComputedStyle(body).visibility === 'hidden') return 'waiting';
           var main = document.querySelector('main:not([aria-busy="true"])');
-          return main != null && !main.closest('[hidden]') &&
-            document.querySelector('[class*="animate-spin"]') == null;
+          if (main != null && !main.closest('[hidden]') &&
+            document.querySelector('[class*="animate-spin"]') == null) return 'ready';
+          return 'drawn';
         })()
         """
 
@@ -283,26 +314,70 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let webView = bridgeVC.webView else { return }
         // TEMPORARY — part of the startupLog timing set.
         startupLog("hideSplashWhenWebViewReady: readiness polling started")
-        waitForContentThenHideSplash(on: webView, deadline: Date().addingTimeInterval(10))
+        pollGeneration += 1
+        waitForContentThenHideSplash(on: webView, startedAt: Date(), generation: pollGeneration)
     }
 
-    private func waitForContentThenHideSplash(on webView: WKWebView, deadline: Date, attempt: Int = 0) {
+    private func waitForContentThenHideSplash(on webView: WKWebView, startedAt: Date, generation: Int, attempt: Int = 0) {
+        guard openingScreen != nil, generation == pollGeneration else { return }
         webView.evaluateJavaScript(Self.readinessCheckJS) { [weak self, weak webView] result, _ in
-            guard let self, let webView else { return }
-            let ready = (result as? Bool) ?? false
-            if !ready, Date() < deadline {
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
-                    self?.waitForContentThenHideSplash(on: webView, deadline: deadline, attempt: attempt + 1)
-                }
+            guard let self, let webView, self.openingScreen != nil, generation == self.pollGeneration else { return }
+            let state = Self.heldForTest() ? "waiting" : ((result as? String) ?? "waiting")
+            let waited = Date().timeIntervalSince(startedAt)
+            if state == "ready" || (state == "drawn" && waited >= 10) {
+                // TEMPORARY — part of the startupLog timing set.
+                startupLog("waitForContentThenHideSplash: \(state) after \(attempt) poll(s), \(String(format: "%.1f", waited))s, hiding the opening screen")
+                self.hideSplash(on: webView)
                 return
             }
-            if ready {
-                // TEMPORARY — part of the startupLog timing set.
-                startupLog("waitForContentThenHideSplash: readiness first passed after \(attempt) poll(s)")
+            DispatchQueue.main.asyncAfter(deadline: .now() + (waited < 20 ? 0.1 : 0.25)) { [weak self, weak webView] in
+                guard let self, let webView else { return }
+                self.waitForContentThenHideSplash(on: webView, startedAt: startedAt, generation: generation, attempt: attempt + 1)
             }
-            startupLog("waitForContentThenHideSplash: ready=\(ready) after \(attempt) poll(s), hiding the opening screen")
-            self.hideSplash(on: webView)
         }
+    }
+
+    // For checking the slow path in the Simulator without a slow network:
+    //   SIMCTL_CHILD_YUPPIE_TEST_HOLD_OPENING=25 xcrun simctl launch booted com.clubyuppie.app
+    // treats the page as not there for the first 25s after launch. Debug builds only: always false in a release build.
+    private static func heldForTest() -> Bool {
+        #if DEBUG
+        if let hold = ProcessInfo.processInfo.environment["YUPPIE_TEST_HOLD_OPENING"].flatMap({ Double($0) }),
+           ProcessInfo.processInfo.systemUptime - appStartUptime < hold {
+            return true
+        }
+        #endif
+        return false
+    }
+
+    // "Still loading." after 20s, with Try again (see readinessCheckJS's comment). Try again loads the start page again
+    // (capacitor.config.ts's server.url, as at launch: a load that has stalled is replaced by a new one), hides the
+    // message, and starts the polling and the 20s again.
+    private func scheduleStillLoading(on bridgeVC: CAPBridgeViewController, after seconds: TimeInterval) {
+        slowGeneration += 1
+        let generation = slowGeneration
+        DispatchQueue.main.asyncAfter(deadline: .now() + seconds) { [weak self, weak bridgeVC] in
+            guard let self, let bridgeVC, generation == self.slowGeneration, let screen = self.openingScreen else { return }
+            startupLog("opening screen: still waiting after \(Int(seconds))s, showing Still loading")
+            screen.showStillLoading { [weak self, weak bridgeVC] in
+                guard let self, let bridgeVC else { return }
+                self.tryAgain(on: bridgeVC)
+            }
+        }
+    }
+
+    private func tryAgain(on bridgeVC: CAPBridgeViewController) {
+        guard let webView = bridgeVC.webView, let screen = openingScreen else { return }
+        startupLog("opening screen: Try again, loading the start page again")
+        screen.hideStillLoading()
+        if let url = bridgeVC.bridge?.config.appStartServerURL {
+            _ = webView.load(URLRequest(url: url))
+        } else {
+            _ = webView.reload()
+        }
+        pollGeneration += 1
+        waitForContentThenHideSplash(on: webView, startedAt: Date(), generation: pollGeneration)
+        scheduleStillLoading(on: bridgeVC, after: 20)
     }
 
     private func hideSplash(on webView: WKWebView?) {
@@ -310,6 +385,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         guard let screen = openingScreen else { return }
         openingScreen = nil
+        pollGeneration += 1
+        slowGeneration += 1
         // Capacitor's own splash fades underneath straight away (unseen:
         // ours covers it). Ours first lets its line run out to the edge
         // (0.15-0.35s), then fades over capacitor.config.ts's
@@ -424,15 +501,11 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             screen.trailingAnchor.constraint(equalTo: bridgeVC.view.trailingAnchor)
         ])
         openingScreen = screen
-        // A backstop for the 10s cap in waitForContentThenHideSplash, which
-        // depends on the page answering its JavaScript (and never starts if
-        // there is no web view): whatever happens, the opening screen goes
-        // after 11s. hideSplash does nothing if it has already gone.
-        DispatchQueue.main.asyncAfter(deadline: .now() + 11) { [weak self, weak bridgeVC] in
-            guard let self, self.openingScreen != nil else { return }
-            startupLog("addOpeningScreen: backstop hiding the opening screen after 11s")
-            self.hideSplash(on: bridgeVC?.webView)
-        }
+        // Independent of the polling (which needs the page to answer its
+        // JavaScript): if the opening screen is still up after 20s, it says
+        // "Still loading." with Try again. It used to go after 11s whatever
+        // happened, onto plain yellow when the page wasn't there yet.
+        scheduleStillLoading(on: bridgeVC, after: 20)
         startupLog("addOpeningScreen: done")
     }
 
