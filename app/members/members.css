@@ -107,7 +107,11 @@
 .mk-link.mk-plain{text-decoration:none}
 .mk-inline-link{font-weight:700;text-decoration:underline;text-underline-offset:2px}
 
-.mk-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:0 var(--gutter);margin:0 calc(-1*var(--gutter))}
+/* The row scrolls sideways, so it clips its chips. In the iPhone app the scroller's edge can land a fraction of a
+   pixel inside the chips and take one device pixel off their bottom line (Albert, 8 Nov 2026, from his phone: "it
+   almost looks like the bottom line is slightly thinner than the rest"). 3px of room above and below, given back by
+   the margin, keeps the clip clear of the chips; nothing on the page moves. */
+.mk-chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:3px var(--gutter);margin:-3px calc(-1*var(--gutter))}
 .mk-chips::-webkit-scrollbar{display:none}
 @media (min-width:768px){ .mk-chips{flex-wrap:wrap;overflow:visible;padding:0;margin:0} }
 .mk-chip{
