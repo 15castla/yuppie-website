@@ -12,16 +12,25 @@
 // paid plans flag is off, so the page never shows a price before the money
 // side exists (the server sends none in stage 2 either). "I'm in" is a server
 // action under the plan's row lock (use-moments.tsx).
+//
+// Browse shows only plans the member can still join (Albert, 8 Nov 2026: "once
+// an event is full it won't show on the browse screen and only in peoples
+// yours ... once you book onto something you see it in the your section but
+// not the browse section", and the member's own plans too). Full plans, plans
+// they are in and plans they posted live in Yours; a full plan comes back here
+// when a place opens. The plan behind an open sheet stays until it closes, so
+// "You're in." still shows what was joined.
 
 import "./invite.css";
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-import { Button, Chip, ChipRow, Main } from "@/components/members/kit";
+import { Button, Chip, ChipRow, KitLink, Main } from "@/components/members/kit";
 import {
   INVITE_FILTERS,
   matchesFilter,
+  planState,
   type InviteFilter,
 } from "@/lib/members/invite/format";
 import type { OpenInviteFeed } from "@/lib/members/invite/types";
@@ -75,7 +84,7 @@ export function OpenInviteView({
     () => feed.invites.filter((invite) => paidPlans || invite.cost === null),
     [feed.invites, paidPlans],
   );
-  const { plans, pendingId, join, sheet } = useMoments({
+  const { plans: held, pendingId, join, sheet, moment } = useMoments({
     plans: upcoming,
     me: feed.me,
     nowIso: feed.now,
@@ -83,10 +92,18 @@ export function OpenInviteView({
     initialMoment,
     initialPendingId,
   });
+  // Only what can still be joined: not full, not one you are in, not your own (the one behind an open sheet stays).
+  const plans = held.filter(
+    (invite) => planState(invite) === "open" || invite.id === pendingId || invite.id === moment?.id,
+  );
   const visible = plans.filter((invite) => matchesFilter(invite, filter, feed.now));
   const none = plans.length === 0;
+  // Plans exist, but none to join: they are full, or yours, or ones you are in (all in Yours).
+  const allTaken = none && held.length > 0;
   const noMatch = !none && visible.length === 0;
-  const summary = none
+  const summary = allTaken
+    ? "No Open Invites to join right now"
+    : none
     ? "No Open Invites yet"
     : noMatch
       ? `No Open Invites for ${filter}`
@@ -96,7 +113,7 @@ export function OpenInviteView({
     <Main pad={false} fill={none || noMatch}>
       <InviteTop
         view="browse"
-        yoursCount={none ? 0 : feed.yoursCount}
+        yoursCount={none && !allTaken ? 0 : feed.yoursCount}
         me={feed.me}
         chips={none ? undefined : <FilterChips active={filter} onPick={setFilter} />}
       />
@@ -104,7 +121,20 @@ export function OpenInviteView({
         {summary}
       </p>
 
-      {none ? (
+      {allTaken ? (
+        <EmptyBand
+          title="Nothing new"
+          accent="to join."
+          lead="Plans you’re in or hosting are in Yours. A full one comes back here if a place opens."
+          primary={
+            <Button href={ROUTES.openInviteNew} blockPhone>
+              Post an Open Invite
+            </Button>
+          }
+          secondary={<YoursLink />}
+          drawing={{ name: "coupes", w: 124, line: 2 }}
+        />
+      ) : none ? (
         <EmptyBand
           title="No Open Invites"
           accent="yet."
@@ -156,6 +186,15 @@ export function OpenInviteView({
       )}
       {sheet}
     </Main>
+  );
+}
+
+/** The way to Yours from the empty Browse band, in the band's link style. */
+function YoursLink() {
+  return (
+    <KitLink className="mk-link" href={ROUTES.openInviteYours}>
+      See Yours
+    </KitLink>
   );
 }
 
