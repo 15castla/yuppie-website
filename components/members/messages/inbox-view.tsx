@@ -42,7 +42,6 @@ import { cn } from "@/lib/utils";
 import "./messages.css";
 import { StandingArt } from "./art";
 import { ChatRow, UpdateRow } from "./rows";
-import { shownBefore } from "./shown";
 import { UpdatePane } from "./update-pane";
 import { useTwoPanes } from "./use-wide";
 
@@ -187,8 +186,9 @@ export function InboxView({
         busy = false;
       }
     };
-    // A copy from the router's cache (Back, or a link within its 30 seconds) is asked for again at once.
-    if (shownBefore(`inbox:${mode}:${now}`)) void tick();
+    // Asked for again as soon as it is on screen: the inbox can be a copy fetched ahead (the Messages icon fetches
+    // it whole, used for up to a minute: kit/link.tsx) or one the router kept (Back, or a link within 30 seconds).
+    void tick();
     const timer = window.setInterval(tick, REFRESH_MS);
     const onVisible = () => {
       if (document.visibilityState === "visible") void tick();
@@ -397,6 +397,8 @@ export function InboxView({
                           }
                           event.preventDefault();
                           setReadUpdates((previous) => [...previous, update.id]);
+                          // The tap shows while the plan opens (kit/link.tsx's mark; this link opens by router.push).
+                          event.currentTarget.setAttribute("data-nav-pending", "");
                           const href = event.currentTarget.getAttribute("href") ?? openInviteHref(update.plan.id);
                           void Promise.race([readUpdate(update.id), wait(OPEN_AFTER_MS)]).finally(() => router.push(href));
                         }

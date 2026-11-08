@@ -10,7 +10,7 @@ import { tabsFor } from "@/components/members/shell/tabs";
 import { flags, messagesOn } from "@/lib/members/flags";
 import { detectShellMode } from "@/lib/members/shell-mode";
 import { getMemberSummary, requireMember } from "./require-member";
-import MembersLoading from "./loading";
+import { Main } from "@/components/members/kit/main";
 import "./members.css";
 
 // Isolated in its own Suspense boundary, rather than awaited directly in
@@ -28,6 +28,22 @@ async function AuthGate({ children }: { children: ReactNode }) {
   // enforced page by page, so the gate page and the help pages can open.
   await requireMember({ allowMissingPhoto: true, allowGated: true });
   return children;
+}
+
+// A cold load only (the app opening, a link from outside): the shell paints at
+// once and this plain <main aria-busy="true"> sits in it until the page is
+// ready. No spinner: the iOS app's launch picture
+// (mobile/ios/App/App/SceneDelegate.swift) hides once a <main> that is not
+// aria-busy exists and no "animate-spin" element is on the page. Moving
+// between members pages never shows it: there are no loading screens (7 Nov
+// 2026, whole pages only), so the current page stays until the next one is
+// ready (components/members/kit/link.tsx).
+function ColdLoad() {
+  return (
+    <Main busy>
+      <span className="mk-sr">Loading</span>
+    </Main>
+  );
 }
 
 export default async function MembersLayout({
@@ -58,7 +74,7 @@ export default async function MembersLayout({
         member={getMemberSummary()}
         messagesEnabled={messagesOn(mode)}
       >
-        <Suspense fallback={<MembersLoading />}>
+        <Suspense fallback={<ColdLoad />}>
           <AuthGate>{children}</AuthGate>
         </Suspense>
       </MembersShell>

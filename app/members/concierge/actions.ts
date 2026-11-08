@@ -41,7 +41,11 @@ export async function sendConciergeMessage(text: string): Promise<ConciergeReply
   await door();
   return asMember("sendConciergeMessage", async (m) => {
     if (!(await conciergeConsentAt(m.id))) return { ok: false as const, error: NO_PERMISSION };
-    return sendToConcierge(m.id, typeof text === "string" ? text : "");
+    const reply = await sendToConcierge(m.id, typeof text === "string" ? text : "");
+    // The router's copies of the page (the Concierge tab is fetched ahead, kit/link.tsx) go: coming back to the tab
+    // must show this exchange. The screen on view keeps its own state.
+    revalidatePath(ROUTES.concierge);
+    return reply;
   });
 }
 
@@ -80,6 +84,7 @@ export async function forgetConciergeMemory(itemId: string): Promise<{ ok: true 
   await door();
   return asMember("forgetConciergeMemory", async (m) => {
     await forgetMemory(m.id, typeof itemId === "string" ? itemId : "");
+    revalidatePath(ROUTES.concierge);
     return { ok: true as const };
   });
 }
@@ -88,6 +93,7 @@ export async function forgetAllConciergeMemory(): Promise<{ ok: true } | Session
   await door();
   return asMember("forgetAllConciergeMemory", async (m) => {
     await forgetAllMemory(m.id);
+    revalidatePath(ROUTES.concierge);
     return { ok: true as const };
   });
 }

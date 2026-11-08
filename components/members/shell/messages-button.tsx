@@ -21,6 +21,7 @@ export function MessagesButton({
   return (
     <KitLink
       href={ROUTES.messages}
+      prefetch
       className={cn("mk-icon-btn", ink && "mk-ink")}
       aria-label={unread ? `Messages, ${unread} unread` : "Messages"}
       aria-current={current ? "page" : undefined}

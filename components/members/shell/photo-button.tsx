@@ -27,6 +27,7 @@ export function PhotoButton({
   return (
     <KitLink
       href={ROUTES.you}
+      prefetch
       className="mk-me-btn"
       aria-label="You, your profile"
       aria-current={current ? "page" : undefined}

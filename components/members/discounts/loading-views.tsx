@@ -1,10 +1,8 @@
-// The loading states of Discounts and Access: the page's real title and line
-// where they will be, nothing else (the how-to line under them waits for the
-// page: it shows only when something is listed) (the loading rule: components/members/kit/main.tsx;
-// it replaces the pale shapes of v3 specs/discounts-access.md, section C). No
-// spinner (the native app's splash waits for a <main> that is not aria-busy and
-// no animate-spin). Used by the routes' loading.tsx files and by the preview
-// harness.
+// The loading views of Discounts and Access: the page's real title and line
+// where they will be, nothing else. Since 7 Nov 2026 no route uses them (whole
+// pages only: components/members/kit/main.tsx); kept for the preview harness.
+// No spinner (the native app's splash waits for a <main> that is not aria-busy
+// and no animate-spin).
 
 import { Main, TitleBlock } from "@/components/members/kit";
 import "./discounts.css";

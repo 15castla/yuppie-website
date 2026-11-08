@@ -1,11 +1,14 @@
 // The page's <main>. Every members page has a real <main> (the native app's
 // splash waits for one), and a loading state keeps aria-busy="true" on it.
 //
-// What a loading state shows (Albert, 17 Oct, and again 4 Nov 2026): the
-// page's real title (or its back row) where it will be, and nothing else. No
-// placeholder shapes, no lines, no spinner: the rest of the page appears in
-// one go when it arrives, so a fast load never flashes anything. A route with
-// no title to show (a thread) shows the plain page (app/members/loading.tsx).
+// Loading (Albert, 7 Nov 2026: "Any way to make the whole page instantly?"):
+// no loading screens. Moving between members pages keeps the current page
+// until the next one is ready, then shows it whole; the tapped link shows the
+// tap (kit/link.tsx), and the tabs, Messages and You fetch their pages ahead so
+// they open at once. Only a cold load shows a plain busy <main> inside the
+// shell (app/members/layout.tsx). Before: placeholder shapes (turned down 17
+// Oct), then the title only (4 Nov). The title-only views in system/,
+// discounts/ and invite/ are kept for the preview harness, unused by routes.
 //
 // Kit counterpart: the <main class="main-pad"> inside .page. It is a direct
 // child of the shell's .mk-page, so .mk-page > .mk-main fills the height and

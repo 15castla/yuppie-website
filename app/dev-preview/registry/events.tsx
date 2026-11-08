@@ -1,13 +1,11 @@
 // Preview screens for Events, Your plans and Concierge. OWNED BY THE EVENTS BUILDER.
 // ids: events-*, plans-*, concierge-*. Every state the approved designs draw
-// (default, loading, empty, long titles, past, filtered, error).
+// (default, empty, long titles, past, filtered, error). No loading states: since
+// 7 Nov 2026 the members routes have none (whole pages only, kit/link.tsx).
 //
 // EXAMPLE DATA: invented people and places, never shown to real members. The
 // events below are the approved mockups' own (v3 k2.EVENTS and pages_plans.py).
 
-import ConciergeLoading from "@/app/members/concierge/loading";
-import EventsLoading from "@/app/members/events/(list)/loading";
-import PlansLoading from "@/app/members/plans/loading";
 import { ConciergeView } from "@/components/members/concierge/concierge-view";
 import { EventsView } from "@/components/members/events-view";
 import type { Event } from "@/components/members/event-types";
@@ -85,7 +83,6 @@ const LONG_EVENTS: Event[] = [
 
 const EVENTS_STATES = [
   "default",
-  "loading",
   "launch",
   "filtered",
   "filter-empty",
@@ -108,8 +105,6 @@ const eventsListScreens: PreviewScreen[] = [
     render: ({ state, flags }) => {
       const base = { events: EVENTS, bookedEventIds: BOOKED, openInvite: flags.openInvite };
       switch (state) {
-        case "loading":
-          return <EventsLoading />;
         case "launch":
           return <EventsView {...base} openInvite={false} />;
         case "filtered":
@@ -173,7 +168,6 @@ const plansListScreens: PreviewScreen[] = [
       "filtered",
       "filter-empty",
       "long",
-      "loading",
       "launch",
       "launch-past",
       "launch-empty",
@@ -198,8 +192,6 @@ const plansListScreens: PreviewScreen[] = [
           );
         case "long":
           return <PlansView plans={LONG_PLANS} when="upcoming" openInvite={flags.openInvite} />;
-        case "loading":
-          return <PlansLoading />;
         case "launch":
           return <PlansView plans={EXAMPLE_CLUB_PLANS_UPCOMING} when="upcoming" openInvite={false} />;
         case "launch-past":
@@ -274,12 +266,11 @@ const conciergeScreens: PreviewScreen[] = [
   {
     id: "concierge-first",
     title: "Concierge: first open (app only)",
-    states: ["default", "typing", "loading"],
+    states: ["default", "typing"],
     tab: "concierge",
     defaultFlags: ["openInvite", "concierge"],
     render: ({ state, shell }) => {
       if (shell === "web") return webNote();
-      if (state === "loading") return <ConciergeLoading />;
       return (
         <ConciergeView
           snapshot={snapshot([], NO_MEMORY)}

@@ -41,6 +41,7 @@ function MeLink({ firstName, photoUrl, blank }: { firstName: string; photoUrl: s
   return (
     <KitLink
       href={ROUTES.you}
+      prefetch
       className="mk-me"
       aria-label={firstName ? `You, ${firstName}` : "You, your profile"}
       aria-current={youCurrent ? "page" : undefined}
@@ -85,6 +86,7 @@ export function DesktopHeader({
               <KitLink
                 key={tab.key}
                 href={tab.href}
+                prefetch
                 aria-current={tab.key === activeTab ? "page" : undefined}
               >
                 {tab.label}
