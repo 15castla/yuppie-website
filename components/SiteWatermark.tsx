@@ -17,10 +17,11 @@ import Image from "next/image";
 // first paint, by app/layout.tsx), so neither side flashes the other's
 // look on load.
 //
-// Members backend A (r2a section 7): the app's sign-in screen now draws its
-// own giant wordmark standing on a 3px rule, in the page's flow
-// (member-login-form-native.tsx), so this faint fixed one is shown nowhere.
-const WATERMARK_ROUTES: string[] = [];
+// Back on the app's sign-in screen (Albert, 8 Nov 2026, option B: "I don't
+// like the login page. What's with the Yuppie on the line?"). From 28 Oct the
+// screen drew the wordmark in solid ink on a 3px rule (members backend A, r2a
+// section 7); this faint one, edge to edge at the foot, is what it had before.
+const WATERMARK_ROUTES = ["/member-login"];
 
 export function SiteWatermark() {
   const pathname = usePathname();

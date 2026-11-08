@@ -7,9 +7,9 @@
 //
 // r2a section 7: no public header, no Apply link, no Privacy link (the app
 // cannot sell or sign people up). The whole column (badge, "Members App",
-// headline, helper, card) is centred above the giant wordmark standing on a
-// 3px rule. Every state of the web form, with the app's own "not recognised"
-// line. needs_device_check: all of it (the keyboard, the strip under the
+// headline, helper, card) is centred above the faint wordmark at the foot
+// (components/SiteWatermark.tsx). Every state of the web form, with the
+// app's own "not recognised" line. needs_device_check: all of it (the keyboard, the strip under the
 // clock, the safe areas).
 
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
@@ -61,9 +61,10 @@ const VERIFY_GENERIC = "We couldn’t reach Club Yuppie. Check your connection a
 
 const EMAIL_STEP_HELPER = "Enter your email and we’ll send you a one-time code.";
 
-// The giant wordmark at the foot (the You page's foot drawing): the file, and the box its ink fills.
-const WORDMARK_INK = { left: 16, top: 16, width: 1911, height: 610 };
-const WORDMARK_FILE = { width: 1942, height: 641 };
+// The space kept at the foot for the wordmark (its ink box), so the column stays where it was when the wordmark
+// stood there in solid ink on a rule (28 Oct to 8 Nov). The wordmark itself is the faint one behind the page
+// (components/SiteWatermark.tsx).
+const WORDMARK_INK = { width: 1911, height: 610 };
 
 // Same curve/pattern as Hero's entrance animation
 // (components/templates/creative-studio/hero.tsx), reused here so
@@ -333,10 +334,10 @@ export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice 
             {...fade(0.3)}
             className="mt-3 text-center text-[36px] font-extrabold leading-[0.95] tracking-[-0.03em] text-foreground [text-wrap:balance]"
           >
-            Welcome back.
+            One quick sign-in.
             <br />
             <em className="italic [font-family:var(--font-instrument-serif)] font-normal tracking-[-0.01em]">
-              Let’s see what’s on.
+              Then let’s see what’s on.
             </em>
           </motion.h1>
           {/* Purely instructional, never an error. Both steps' lines are
@@ -489,34 +490,18 @@ export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice 
           </motion.div>
         </main>
 
-        {/* The giant wordmark standing on a 3px rule, above the home indicator. */}
+        {/* The foot: empty space the size the solid wordmark and its 3px rule took (28 Oct to 8 Nov), so the
+            column stays where it is. The wordmark is the faint one behind the page, edge to edge at the bottom
+            (components/SiteWatermark.tsx, Albert 8 Nov: option B). */}
         <div
           aria-hidden
           className="shrink-0"
           style={{ paddingBottom: "var(--native-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px))" }}
         >
           <div className="px-5">
-            <span
-              className="relative block w-full overflow-hidden"
-              style={{ aspectRatio: `${WORDMARK_INK.width} / ${WORDMARK_INK.height}` }}
-            >
-              <Image
-                src="/yuppie_logo_forte_forward.png"
-                alt=""
-                width={WORDMARK_FILE.width}
-                height={WORDMARK_FILE.height}
-                sizes="100vw"
-                className="absolute block h-auto max-w-none"
-                style={{
-                  width: `${(WORDMARK_FILE.width / WORDMARK_INK.width) * 100}%`,
-                  height: `${(WORDMARK_FILE.height / WORDMARK_INK.height) * 100}%`,
-                  left: `${(-WORDMARK_INK.left / WORDMARK_INK.width) * 100}%`,
-                  top: `${(-WORDMARK_INK.top / WORDMARK_INK.height) * 100}%`,
-                }}
-              />
-            </span>
+            <span className="block w-full" style={{ aspectRatio: `${WORDMARK_INK.width} / ${WORDMARK_INK.height}` }} />
           </div>
-          <hr className="m-0 border-0 border-t-[3px] border-foreground" />
+          <div className="h-[3px]" />
         </div>
         {/* Extra scroll room while the keyboard covers part of the screen;
             0px otherwise. Sized by useKeyboardReveal. */}
