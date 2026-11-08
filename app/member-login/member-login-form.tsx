@@ -53,7 +53,7 @@ import {
 const MESSAGES: Record<SendErrorKey | VerifyErrorKey, string> = {
   required: "Email is required.",
   invalid: "That doesn’t look like a valid email address.",
-  "not-found": "We don’t recognise that email as a Club Yuppie member. Check for typos, or apply to join below.",
+  "not-found": "We don’t recognise that email as a Club Yuppie member. If you’ve changed your email, use the new one. Otherwise check for typos, or apply to join below.",
   rate: "Too many attempts. Please wait a few minutes and try again.",
   network: "We couldn’t reach Club Yuppie. Check your connection and try again.",
   // Auth answered with something unexpected (a 5xx): the network words, the nearest designed line (r2b: no

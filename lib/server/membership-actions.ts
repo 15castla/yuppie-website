@@ -578,7 +578,9 @@ export async function endMembership(
         template: "membership-ended",
         to: latest.email,
         data: { endedOn, reason: why },
-        dedupeKey: `membership-ended:${memberId}`,
+        // Once per ending, not once per member: a member who rejoins and ends again is told again (8 Nov 2026).
+        // Each membership has its own subscription, so the one that ended names the ending.
+        dedupeKey: `membership-ended:${memberId}:${member.stripe_subscription_id ?? endedAt ?? endedOn}`,
         refs: { memberId },
       });
     });
