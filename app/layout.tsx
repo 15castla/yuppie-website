@@ -81,6 +81,36 @@ export const viewport: Viewport = {
 // suppressHydrationWarning on <html>.
 const NATIVE_APP_MARKER_SCRIPT = `if(document.cookie.split(";").some(function(c){return c.trim()===${JSON.stringify(`${NATIVE_APP_COOKIE_NAME}=1`)}}))document.documentElement.setAttribute("data-native-app","")`;
 
+// A page whose stylesheet did not arrive (Albert, 8 Nov 2026: the app opened on
+// poor 4G as bare text, every heading, link and icon unstyled down the page).
+// The body stays hidden until globals.css is here (its `html body` rule), so
+// that is never shown; once every stylesheet has loaded or failed (without
+// waiting for images), one that failed (an error, no sheet, or an empty sheet,
+// which is what Chrome keeps for a failed one) or a body still hidden means the
+// page loads again, at most three times in two minutes, a little later each
+// time. Then, or if the
+// tab cannot keep count (no sessionStorage), a plain message with Try again,
+// in inline styles since the stylesheet is what is missing. The members error
+// screen's words.
+const STYLESHEET_GUARD_SCRIPT = `(function(){var K="cy-css-retry",bad=false,done=false;
+function isCss(t){return t&&t.tagName==="LINK"&&/stylesheet/i.test(t.rel)}
+function check(){if(done)return;var l=document.querySelectorAll('link[rel="stylesheet"]');for(var i=0;i<l.length;i++)if(!l[i].sheet&&!l[i].cyFailed)return;decide()}
+function broken(x){if(x.cyFailed||!x.sheet)return true;try{return x.sheet.cssRules.length===0}catch(e){return false}}
+document.addEventListener("error",function(e){if(isCss(e.target)){e.target.cyFailed=true;bad=true;check()}},true);
+document.addEventListener("load",function(e){if(isCss(e.target))check()},true);
+document.addEventListener("DOMContentLoaded",check);
+addEventListener("load",decide);
+function decide(){if(done)return;done=true;var l=document.querySelectorAll('link[rel="stylesheet"]');for(var i=0;i<l.length;i++)if(broken(l[i]))bad=true;
+if(document.body&&getComputedStyle(document.body).visibility==="hidden")bad=true;var s={};try{s=JSON.parse(sessionStorage.getItem(K)||"{}")||{}}catch(e){}
+if(!bad){if(s.n){try{sessionStorage.removeItem(K)}catch(e){}}return}
+var n=Date.now()-(s.t||0)<120000?(s.n||0):0;
+if(n<3){try{sessionStorage.setItem(K,JSON.stringify({n:n+1,t:Date.now()}));setTimeout(function(){location.reload()},200+n*1500);return}catch(e){}}
+try{sessionStorage.removeItem(K)}catch(e){}
+var d=document.createElement("div");d.setAttribute("role","alert");
+d.setAttribute("style","visibility:visible;position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;background:#ffd904;color:#1b1512;font:16px/1.4 -apple-system,system-ui,sans-serif;text-align:center");
+d.innerHTML='<p style="margin:0;font-weight:800;font-size:24px">Something went wrong.</p><p style="margin:0">Check your connection and try again.</p><button type="button" style="margin-top:8px;min-height:48px;padding:0 28px;border:0;border-radius:999px;background:#1b1512;color:#ffd904;font:700 16px -apple-system,system-ui,sans-serif">Try again</button>';
+d.querySelector("button").onclick=function(){location.reload()};(document.body||document.documentElement).appendChild(d)}})()`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
@@ -96,9 +126,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
             the toolbar safe-area strip's color before that stylesheet
             arrives, landing on the browser's own default white instead of
             the real background, and won't re-sample until the next trigger
-            (scroll, reload). Keep this in sync with --background above. */}
-        <style>{`html{background:#ffd904}`}</style>
+            (scroll, reload). Keep this in sync with --background above. The
+            body is hidden until globals.css arrives (STYLESHEET_GUARD_SCRIPT). */}
+        <style>{`html{background:#ffd904}body{visibility:hidden}`}</style>
         <script dangerouslySetInnerHTML={{ __html: NATIVE_APP_MARKER_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: STYLESHEET_GUARD_SCRIPT }} />
       </head>
       <body className="relative min-h-full flex flex-col bg-background text-foreground">
         <SiteWatermark />
