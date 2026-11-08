@@ -34,6 +34,8 @@ final class OpeningScreenView: UIView {
     private static let sideways = Layout(ruleTop: 1841.5, lineWidth: 2)
     private static let yellow = UIColor(red: 1.0, green: 0.8509803921568627, blue: 0.01568627450980392, alpha: 1.0)
     private static let ink = UIColor(red: 0x1B / 255, green: 0x15 / 255, blue: 0x12 / 255, alpha: 1)
+    // --foreground-muted in app/globals.css, as on the offline screen.
+    private static let muted = UIColor(red: 0x6B / 255, green: 0x65 / 255, blue: 0x60 / 255, alpha: 1)
 
     private let imageView = UIImageView()
     private let line = CAShapeLayer()
@@ -42,6 +44,14 @@ final class OpeningScreenView: UIView {
     private var finishing = false
     private var finished = false
     private var whenFinished: [() -> Void] = []
+
+    // "Still loading." (Albert, 8 Nov 2026, a fresh install on train wifi: the opening screen finished, then a plain
+    // yellow page). SceneDelegate shows it after 20s with the page still not there: the heading, "Your connection looks
+    // slow." and a Try again button in the website's message style (heavy heading, muted line, an ink pill), centred
+    // above the home indicator, under the figures' line on every upright iPhone and iPad (sized for the iPhone SE's
+    // room under it: 114pt). On a yellow panel, so it reads where it does cover the picture (an iPhone on its side).
+    private let stillLoading = UIStackView()
+    private var onRetry: (() -> Void)?
 
     override init(frame: CGRect) {
         super.init(frame: frame)
@@ -54,8 +64,8 @@ final class OpeningScreenView: UIView {
     }
 
     private func setUp() {
-        // Touches go through to the web view underneath, as they did with the old splash image.
-        isUserInteractionEnabled = false
+        // Touches go through to the web view underneath (point(inside:with:)), except on "Still loading.".
+        isUserInteractionEnabled = true
         backgroundColor = Self.yellow
         imageView.contentMode = .scaleAspectFill
         imageView.clipsToBounds = true
@@ -68,6 +78,82 @@ final class OpeningScreenView: UIView {
         line.lineCap = .butt
         line.strokeEnd = 0
         layer.addSublayer(line)
+
+        setUpStillLoading()
+    }
+
+    private func setUpStillLoading() {
+        let heading = UILabel()
+        heading.text = "Still loading."
+        heading.font = .systemFont(ofSize: 20, weight: .heavy)
+        heading.textColor = Self.ink
+        heading.textAlignment = .center
+        heading.accessibilityTraits = .header
+
+        let detail = UILabel()
+        detail.text = "Your connection looks slow."
+        detail.font = .systemFont(ofSize: 15)
+        detail.textColor = Self.muted
+        detail.textAlignment = .center
+        detail.numberOfLines = 0
+
+        var look = UIButton.Configuration.filled()
+        look.baseBackgroundColor = Self.ink
+        look.baseForegroundColor = Self.yellow
+        look.cornerStyle = .capsule
+        look.contentInsets = NSDirectionalEdgeInsets(top: 0, leading: 28, bottom: 0, trailing: 28)
+        var titleFont = AttributeContainer()
+        titleFont.font = UIFont.systemFont(ofSize: 16, weight: .bold)
+        look.attributedTitle = AttributedString("Try again", attributes: titleFont)
+        let button = UIButton(configuration: look)
+        button.heightAnchor.constraint(greaterThanOrEqualToConstant: 44).isActive = true
+        button.addAction(UIAction { [weak self] _ in self?.onRetry?() }, for: .touchUpInside)
+
+        stillLoading.axis = .vertical
+        stillLoading.alignment = .center
+        stillLoading.spacing = 4
+        stillLoading.addArrangedSubview(heading)
+        stillLoading.addArrangedSubview(detail)
+        stillLoading.setCustomSpacing(12, after: detail)
+        stillLoading.addArrangedSubview(button)
+        stillLoading.backgroundColor = Self.yellow
+        stillLoading.isLayoutMarginsRelativeArrangement = true
+        stillLoading.directionalLayoutMargins = NSDirectionalEdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16)
+        stillLoading.translatesAutoresizingMaskIntoConstraints = false
+        stillLoading.alpha = 0
+        stillLoading.isHidden = true
+        addSubview(stillLoading)
+        NSLayoutConstraint.activate([
+            stillLoading.centerXAnchor.constraint(equalTo: centerXAnchor),
+            stillLoading.leadingAnchor.constraint(greaterThanOrEqualTo: safeAreaLayoutGuide.leadingAnchor, constant: 8),
+            stillLoading.trailingAnchor.constraint(lessThanOrEqualTo: safeAreaLayoutGuide.trailingAnchor, constant: -8),
+            stillLoading.bottomAnchor.constraint(equalTo: safeAreaLayoutGuide.bottomAnchor, constant: -8)
+        ])
+        // Above the line's layer.
+        stillLoading.layer.zPosition = 1
+    }
+
+    func showStillLoading(onRetry: @escaping () -> Void) {
+        self.onRetry = onRetry
+        let wasHidden = stillLoading.isHidden || stillLoading.alpha == 0
+        stillLoading.isHidden = false
+        UIView.animate(withDuration: 0.3) { self.stillLoading.alpha = 1 }
+        if wasHidden { UIAccessibility.post(notification: .screenChanged, argument: stillLoading) }
+    }
+
+    func hideStillLoading() {
+        guard !stillLoading.isHidden else { return }
+        UIView.animate(withDuration: 0.2, animations: { self.stillLoading.alpha = 0 }, completion: { _ in
+            // Not if it was shown again meanwhile.
+            if self.stillLoading.alpha == 0 { self.stillLoading.isHidden = true }
+        })
+    }
+
+    // Touches go through to the web view underneath (as they did with the old splash image), except on "Still
+    // loading." while it shows.
+    override func point(inside point: CGPoint, with event: UIEvent?) -> Bool {
+        guard !stillLoading.isHidden, stillLoading.alpha > 0 else { return false }
+        return stillLoading.frame.contains(point)
     }
 
     override func layoutSubviews() {
@@ -125,9 +211,9 @@ final class OpeningScreenView: UIView {
     }
 
     // 0 to 85% of the width in 1.1s (the design's draw curve), past the figures' feet on every full-screen device; then
-    // on to 97% over the next 8.9s, so a slow start still shows the app is working. 10s is the longest SceneDelegate
-    // waits for the first page before it hides the opening screen anyway. With Reduce Motion on, the line is simply
-    // there.
+    // on to 97% over the next 8.9s, so a slow start still shows the app is working, and it waits there if the page takes
+    // longer (SceneDelegate keeps this screen until the page can be seen, and says "Still loading." after 20s). With
+    // Reduce Motion on, the line is simply there.
     private func startDrawing() {
         if UIAccessibility.isReduceMotionEnabled {
             CATransaction.begin()
