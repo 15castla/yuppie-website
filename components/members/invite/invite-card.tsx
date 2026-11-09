@@ -285,7 +285,9 @@ export function InviteCard({
         {state !== "cancelled" ? <Going invite={invite} full={state === "full"} /> : null}
       </div>
       <h3>
-        <KitLink href={href}>
+        {/* The whole plan page fetched ahead while the card is on screen, so a tap opens it at once (Albert, 9 Nov
+            2026: "when you click on an open invite there is quite a pause before opening"). */}
+        <KitLink href={href} prefetch>
           {placeholders?.title ? <span className="oi-ph">{placeholders.title}</span> : invite.title}
         </KitLink>
       </h3>

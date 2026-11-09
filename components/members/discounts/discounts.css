@@ -89,7 +89,7 @@
 /* ---- 5. the redeem card ---------------------------------------------------------------------------------------- */
 /* the design draws the dialog over a frame; in the product it is the viewport: fixed, above the tab bar (50) and the
    scrim (70). The scrim is the kit's own (.mk-scrim, cream at 86%). */
-.dc-modal{position:fixed;inset:0;z-index:71;display:flex;align-items:center;justify-content:center;padding:calc(var(--safe-top) + 12px) 20px calc(var(--safe-bottom) + 12px);overflow:auto;overscroll-behavior:contain;animation:dc-fade .2s ease-out}
+.dc-modal{position:fixed;inset:0;z-index:71;display:flex;align-items:center;justify-content:center;padding:calc(var(--safe-top) + 12px) 20px calc(var(--safe-bottom) + 12px);overflow:auto;overscroll-behavior:contain;animation:dc-fade .2s ease-out;touch-action:pan-y}
 @keyframes dc-fade{from{opacity:0}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){ .dc-modal{animation:none} }
 .dc-card{

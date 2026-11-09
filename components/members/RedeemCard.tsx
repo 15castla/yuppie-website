@@ -227,12 +227,87 @@ export function RedeemCardView({
     };
   }, []);
 
+  // Swipe the card away to the right (Albert, 9 Nov 2026: "you should also be able to swipe off of discount/access
+  // cards"), as the app's swipe back does for pages: the card follows the finger and the dim behind it lifts; let go
+  // past a third of the card's width, or flick, and it slides off and closes; otherwise it springs back. Anywhere on
+  // the screen while the card is open. Up and down still scroll a tall card (touch-action pan-y on .dc-modal).
+  const modalRef = useRef<HTMLDivElement>(null);
+  const scrimRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const modal = modalRef.current;
+    const card = cardRef.current;
+    if (!modal || !card) return;
+    const scrim = scrimRef.current;
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let startX = 0;
+    let startY = 0;
+    let startAt = 0;
+    let decided = false;
+    let dragging = false;
+    let dx = 0;
+    const paint = (x: number, animate: boolean) => {
+      const transition = animate && !still ? "transform .2s ease-out, opacity .2s ease-out" : "none";
+      card.style.transition = transition;
+      card.style.transform = x ? `translateX(${x}px)` : "";
+      card.style.opacity = x ? String(Math.max(0.4, 1 - x / (card.offsetWidth * 2))) : "";
+      if (scrim) {
+        scrim.style.transition = animate && !still ? "opacity .2s ease-out" : "none";
+        scrim.style.opacity = x ? String(Math.max(0, 1 - x / card.offsetWidth)) : "";
+      }
+    };
+    const onStart = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+      startAt = performance.now();
+      decided = false;
+      dragging = false;
+      dx = 0;
+    };
+    const onMove = (event: TouchEvent) => {
+      if (event.touches.length !== 1) return;
+      const mx = event.touches[0].clientX - startX;
+      const my = event.touches[0].clientY - startY;
+      if (!decided) {
+        if (Math.abs(mx) < 8 && Math.abs(my) < 8) return;
+        decided = true;
+        dragging = mx > 0 && mx > Math.abs(my) * 1.3;
+      }
+      if (!dragging) return;
+      event.preventDefault();
+      dx = Math.max(0, mx);
+      paint(dx, false);
+    };
+    const onEnd = () => {
+      if (!dragging) return;
+      dragging = false;
+      const speed = dx / Math.max(1, performance.now() - startAt);
+      if (dx > card.offsetWidth / 3 || (speed > 0.6 && dx > 24)) {
+        paint(window.innerWidth, true);
+        window.setTimeout(() => closeRef.current(), still ? 0 : 200);
+      } else {
+        paint(0, true);
+      }
+    };
+    modal.addEventListener("touchstart", onStart, { passive: true });
+    modal.addEventListener("touchmove", onMove, { passive: false });
+    modal.addEventListener("touchend", onEnd);
+    modal.addEventListener("touchcancel", onEnd);
+    return () => {
+      modal.removeEventListener("touchstart", onStart);
+      modal.removeEventListener("touchmove", onMove);
+      modal.removeEventListener("touchend", onEnd);
+      modal.removeEventListener("touchcancel", onEnd);
+    };
+  }, []);
+
   const loading = phase.kind === "loading";
 
   return (
     <>
-      <div className="mk-scrim" aria-hidden="true" onClick={onClose} />
+      <div ref={scrimRef} className="mk-scrim" aria-hidden="true" onClick={onClose} />
       <div
+        ref={modalRef}
         className="dc-modal"
         onClick={(event) => {
           if (event.target === event.currentTarget) onClose();

@@ -569,6 +569,8 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
     private var shade: UIView?
     private var settling = false
     private var settleGeneration = 0
+    /// The page the swipe shows underneath, gone back to exactly (see complete).
+    private var target: WKBackForwardListItem?
 
     init(webView: WKWebView, isPaused: @escaping () -> Bool) {
         self.webView = webView
@@ -676,6 +678,7 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
         cover.layer.zPosition = 1000
 
         let back = webView.backForwardList.backItem
+        target = back
         let picture = UIImageView(frame: bounds)
         picture.contentMode = .scaleAspectFill
         picture.clipsToBounds = true
@@ -729,7 +732,15 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
             self.settling = true
             self.settleGeneration += 1
             let generation = self.settleGeneration
-            _ = webView.goBack()
+            // To the page underneath, by its history entry, not goBack(): WebKit's goBack() skips entries the page
+            // added without a tap of its own, which is every page change in the site (Next adds them a moment
+            // after the tap), so it went all the way back to the first page, Open Invite (Albert, 9 Nov 2026).
+            if let target = self.target, webView.backForwardList.backList.contains(where: { $0 === target }) {
+                _ = webView.go(to: target)
+            } else {
+                _ = webView.goBack()
+            }
+            self.target = nil
             // If the page change never shows up (it always should), uncover anyway.
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 guard let self, self.settling, generation == self.settleGeneration else { return }
@@ -770,6 +781,7 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
     }
 
     private func removeCover() {
+        target = nil
         cover?.removeFromSuperview()
         cover = nil
         moving = nil
