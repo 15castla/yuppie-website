@@ -9,7 +9,9 @@ Microsoft Graph (POST /me/messages with the PDF as a fileAttachment), then write
 Safety:
   - Delegated permissions only: Mail.ReadWrite, User.Read, offline_access. Never Mail.Send: it is not asked for, a
     token that carries it anyway is refused, and nothing here calls a send endpoint. Albert sends every email himself.
-  - Single-tenant public-client app registration ("Club Yuppie Drafts"), device-code sign-in, no client secret.
+  - Single-tenant public-client app registration ("Club Yuppie Drafts"), no client secret. Sign-in is in the browser
+    (authorization code with PKCE, back to this Mac at http://localhost): Club Yuppie's security defaults block the
+    device-code sign-in Albert first chose (error 530035, 9 Nov 2026), so that is kept only as "signin --device-code".
   - The sign-in (a refresh token) is kept in the macOS Keychain (service "club-yuppie-drafts"), never in a file, and
     is never printed.
   - It drafts only into the mailbox in the config (albert@clubyuppie.com): signed in as anyone else, it stops.
@@ -22,7 +24,7 @@ Commands (installed as "draft-partner-emails" by install.sh):
   draft-partner-emails --only FILE.eml  just this file (any folder)
   draft-partner-emails --watch          keep looking, every 60 seconds, until Ctrl-C
   draft-partner-emails setup --tenant ID --client ID [--mailbox ADDR] [--root DIR] [--signature FILE.html]
-  draft-partner-emails signin           sign in once (a code to enter at microsoft.com/devicelogin)
+  draft-partner-emails signin           sign in once, in the browser (--device-code: with a code instead)
   draft-partner-emails signout          forget the sign-in (removes it from the Keychain)
   draft-partner-emails test             one dummy draft to the configured mailbox, to check it all works
   draft-partner-emails status           the settings, the folder, how many are waiting, signed in or not
@@ -40,6 +42,7 @@ import hashlib
 import json
 import os
 import platform
+import secrets
 import subprocess
 import sys
 import tempfile
@@ -47,11 +50,13 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import webbrowser
 from dataclasses import dataclass, field
 from email import policy
 from email.message import EmailMessage
 from email.parser import BytesParser
 from email.utils import getaddresses
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 DEFAULT_MAILBOX = "albert@clubyuppie.com"
@@ -70,6 +75,12 @@ DRAFT_KEY_PROPERTY = "String {566da39a-e7d3-4358-bb63-1a50b006da7f} Name ClubYup
 INLINE_LIMIT = 3 * 1024 * 1024
 UPLOAD_CHUNK = 320 * 1024 * 10  # a multiple of 320 KiB, as upload sessions need
 WATCH_SECONDS = 60
+# Browser sign-in: Microsoft sends the browser back to http://localhost:<a free port> on this Mac (the app
+# registration has the redirect URI "http://localhost" under "Mobile and desktop applications"; the port can vary).
+SIGNIN_WAIT = 300
+SIGNED_IN_PAGE = """<!doctype html><meta charset="utf-8"><title>Club Yuppie Drafts</title>
+<body style="font-family:-apple-system,Helvetica,sans-serif;max-width:32rem;margin:4rem auto;padding:0 1rem;line-height:1.5">
+<h1 style="font-size:1.4rem">{title}</h1><p>{text}</p></body>"""
 
 
 class DraftError(Exception):
@@ -309,6 +320,14 @@ def _scopes_in(token: str) -> set[str]:
         return set()
 
 
+def open_browser(url: str) -> bool:
+    """Opens the sign-in page in the Mac's default browser (replaced in the tests)."""
+    try:
+        return webbrowser.open(url)
+    except webbrowser.Error:
+        return False
+
+
 class Auth:
     def __init__(self, cfg: dict):
         self.tenant = cfg.get("tenant")
@@ -333,7 +352,89 @@ class Auth:
         self.access = token
         return token
 
-    def sign_in(self) -> str:
+    def sign_in(self, mailbox: str, device_code: bool = False) -> str:
+        return self._sign_in_with_code() if device_code else self._sign_in_in_browser(mailbox)
+
+    def _sign_in_in_browser(self, mailbox: str) -> str:
+        """Authorization code with PKCE: the browser signs in at Microsoft, which sends it back to a one-off listener
+        on this Mac (127.0.0.1 only) with a code; the code and the PKCE verifier are swapped for the sign-in."""
+        verifier = secrets.token_urlsafe(64)
+        challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).decode().rstrip("=")
+        state = secrets.token_urlsafe(24)
+        reply: dict = {}
+
+        class Callback(BaseHTTPRequestHandler):
+            timeout = 10  # a browser's idle pre-opened connection can't hold the listener up
+
+            def log_message(self, *args):
+                pass
+
+            def do_GET(self):  # noqa: N802
+                got = {k: v[0] for k, v in urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).items()}
+                if reply or ("code" not in got and "error" not in got):  # a favicon, or after the answer
+                    self.send_response(404)
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                if got.get("state") != state:
+                    reply["error"] = "This sign-in doesn't match the one Terminal started."
+                    title, text = "Not signed in", "This doesn't match the sign-in Terminal started. Run draft-partner-emails signin again."
+                elif "error" in got:
+                    reply["error"] = got.get("error_description") or got["error"]
+                    title, text = "Not signed in", "Microsoft didn't finish the sign-in. Go back to Terminal to see why."
+                else:
+                    reply["code"] = got["code"]
+                    title, text = "Signed in", "You can close this tab and go back to Terminal."
+                page = SIGNED_IN_PAGE.format(title=title, text=text).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "text/html; charset=utf-8")
+                self.send_header("Content-Length", str(len(page)))
+                self.end_headers()
+                self.wfile.write(page)
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Callback)
+        server.timeout = 1
+        try:
+            redirect = f"http://localhost:{server.server_address[1]}"
+            url = self._url("authorize") + "?" + urllib.parse.urlencode({
+                "client_id": self.client,
+                "response_type": "code",
+                "redirect_uri": redirect,
+                "response_mode": "query",
+                "scope": " ".join(SCOPES),
+                "state": state,
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+                "login_hint": mailbox,
+            })
+            print(f"Opening your browser to sign in as {mailbox}. If it doesn't open, copy this address into it:\n{url}")
+            open_browser(url)
+            print("Waiting for the sign-in (5 minutes at most)...")
+            deadline = time.time() + SIGNIN_WAIT
+            while not reply and time.time() < deadline:
+                server.handle_request()
+        finally:
+            server.server_close()
+        if not reply:
+            raise DraftError("The sign-in timed out. Run signin again. If the browser showed a Microsoft error such as AADSTS50011, "
+                             "add the redirect URI http://localhost under \"Mobile and desktop applications\" in the app registration.")
+        if "error" in reply:
+            raise DraftError(f"Sign-in didn't finish: {reply['error']}")
+        status, _, raw = http(
+            "POST",
+            self._url("token"),
+            form={"grant_type": "authorization_code", "client_id": self.client, "code": reply["code"], "redirect_uri": redirect,
+                  "code_verifier": verifier, "scope": " ".join(SCOPES)},
+        )
+        answer = _json(raw)
+        if status != 200:
+            why = str(answer.get("error_description") or answer.get("error") or status)
+            if "AADSTS7000218" in why:
+                why += ' (the redirect URI http://localhost must be under "Mobile and desktop applications", not "Web")'
+            raise DraftError(f"Sign-in didn't finish: {why}")
+        return self._accept(answer)
+
+    def _sign_in_with_code(self) -> str:
         status, _, raw = http("POST", self._url("devicecode"), form={"client_id": self.client, "scope": " ".join(SCOPES)})
         code = _json(raw)
         if status != 200 or "device_code" not in code:
@@ -615,10 +716,10 @@ def cmd_setup(args) -> int:
     return 0
 
 
-def cmd_signin(_args) -> int:
+def cmd_signin(args) -> int:
     cfg = load_config()
     auth = Auth(cfg)
-    auth.sign_in()
+    auth.sign_in(mailbox_of(cfg), device_code=args.device_code)
     signed_in = Graph(auth).mailbox()
     if signed_in != mailbox_of(cfg):
         auth.store.delete()
@@ -694,7 +795,8 @@ def main(argv: list[str] | None = None) -> int:
         setup.add_argument("--mailbox", help=f"the mailbox drafts go into (default {DEFAULT_MAILBOX})")
         setup.add_argument("--root", help='the OneDrive "Partner emails" folder, if it is not found by itself')
         setup.add_argument("--signature", help="an HTML file added at the end of each email (Outlook's own signature is not added to drafts made this way)")
-        sub.add_parser("signin")
+        signin = sub.add_parser("signin")
+        signin.add_argument("--device-code", action="store_true", help="sign in with a code at microsoft.com/devicelogin instead (blocked where security defaults are on)")
         sub.add_parser("signout")
         sub.add_parser("status")
         test = sub.add_parser("test")

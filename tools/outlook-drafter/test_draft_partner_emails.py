@@ -3,7 +3,7 @@
     python3 -m unittest discover -s tools/outlook-drafter -v
 
 Covers: reading the skill's .eml (HTML body, PDF, a curly apostrophe in the subject), which files are waiting, a dry
-run that touches nothing, sign-in by device code, drafting (the request Outlook gets), the marker, no second draft for
+run that touches nothing, sign-in in the browser (PKCE, the state checked, a refusal) and by device code, drafting (the request Outlook gets), the marker, no second draft for
 the same file, the wrong mailbox, a sign-in that could send, a PDF over 3 MB (upload session), a failed upload (the
 half draft is taken away), the test draft, a 401 retried once, and that nothing ever calls a send endpoint.
 """
@@ -20,10 +20,12 @@ import sys
 import tempfile
 import threading
 import unittest
+import urllib.error
+import urllib.request
 from email.message import EmailMessage
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlsplit
+from urllib.parse import parse_qs, unquote, urlencode, urlsplit
 
 sys.path.insert(0, str(Path(__file__).parent))
 import draft_partner_emails as dp  # noqa: E402
@@ -37,7 +39,9 @@ def jwt(scopes: str) -> str:
 
 
 class FakeMicrosoft:
-    """Login (device code, refresh) and Graph (/me, messages, attachments, upload sessions), recording each call."""
+    """Login (browser with PKCE, device code, refresh) and Graph (/me, messages, attachments, upload sessions), recording
+    each call. browser() stands in for the Mac's browser: it reads the sign-in address and comes back to the tool's
+    listener as Microsoft would ("approve"), with someone else's state ("wrong-state"), or refused ("deny")."""
 
     def __init__(self):
         self.calls: list[dict] = []
@@ -49,6 +53,9 @@ class FakeMicrosoft:
         self.fail_upload = False
         self.unauthorized_once = False
         self.messages: dict[str, dict] = {}
+        self.browser_mode = "approve"
+        self.authorize: dict = {}
+        self.browser_pages: list[str] = []
         fake = self
 
         class Handler(BaseHTTPRequestHandler):
@@ -83,6 +90,11 @@ class FakeMicrosoft:
                     if form.get("grant_type", "").endswith("device_code") and fake.pending_polls > 0:
                         fake.pending_polls -= 1
                         return self._reply(400, {"error": "authorization_pending"})
+                    if form.get("grant_type") == "authorization_code":
+                        verifier = form.get("code_verifier", "").encode()
+                        matches = base64.urlsafe_b64encode(hashlib.sha256(verifier).digest()).decode().rstrip("=") == fake.authorize.get("code_challenge")
+                        if form.get("code") != "auth-code-1" or not matches or form.get("redirect_uri") != fake.authorize.get("redirect_uri"):
+                            return self._reply(400, {"error": "invalid_grant", "error_description": "AADSTS70000: bad code"})
                     return self._reply(200, {"access_token": jwt(fake.token_scp), "refresh_token": "refresh-" + str(len(fake.calls)), "scope": fake.scope, "expires_in": 3600})
                 if not p.startswith("/upload/") and fake.unauthorized_once:
                     fake.unauthorized_once = False
@@ -117,6 +129,31 @@ class FakeMicrosoft:
         self.port = self.server.server_address[1]
         threading.Thread(target=self.server.serve_forever, daemon=True).start()
 
+    def browser(self, url: str) -> bool:
+        parts = urlsplit(url)
+        self.authorize = {"path": parts.path, **{k: v[0] for k, v in parse_qs(parts.query).items()}}
+        back = self.authorize["redirect_uri"]
+        if self.browser_mode == "deny":
+            answer = {"error": "access_denied", "error_description": "AADSTS65004: User declined to consent.", "state": self.authorize["state"]}
+        else:
+            answer = {"code": "auth-code-1", "state": self.authorize["state"] if self.browser_mode == "approve" else "someone-else"}
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+        def visit():
+            with contextlib.suppress(urllib.error.HTTPError):  # the favicon gets a 404
+                opener.open(back + "/favicon.ico", timeout=10).close()
+            with opener.open(back + "/?" + urlencode(answer), timeout=10) as page:
+                self.browser_pages.append(page.read().decode())
+
+        self.visit = threading.Thread(target=visit, daemon=True)
+        self.visit.start()
+        return True
+
+    def pages(self) -> list[str]:
+        """What the browser showed, once it has finished."""
+        self.visit.join(10)
+        return self.browser_pages
+
     def close(self):
         self.server.shutdown()
         self.server.server_close()
@@ -146,7 +183,8 @@ class DrafterTests(unittest.TestCase):
         self.root = base / "Partner emails"
         self.root.mkdir()
         self.fake = FakeMicrosoft()
-        self.saved = (dp.LOGIN_BASE, dp.GRAPH_BASE, dp.CONFIG_PATH, dp.time.sleep)
+        self.saved = (dp.LOGIN_BASE, dp.GRAPH_BASE, dp.CONFIG_PATH, dp.time.sleep, dp.open_browser)
+        dp.open_browser = self.fake.browser
         dp.LOGIN_BASE = f"http://127.0.0.1:{self.fake.port}"
         dp.GRAPH_BASE = f"http://127.0.0.1:{self.fake.port}/v1.0"
         dp.CONFIG_PATH = base / "config.json"
@@ -155,7 +193,7 @@ class DrafterTests(unittest.TestCase):
         dp.save_config({"tenant": "tenant-1", "client": "client-1", "mailbox": "albert@clubyuppie.com", "root": str(self.root)})
 
     def tearDown(self):
-        dp.LOGIN_BASE, dp.GRAPH_BASE, dp.CONFIG_PATH, dp.time.sleep = self.saved
+        dp.LOGIN_BASE, dp.GRAPH_BASE, dp.CONFIG_PATH, dp.time.sleep, dp.open_browser = self.saved
         os.environ.pop("CYD_TOKEN_FILE", None)
         self.fake.close()
         self.tmp.cleanup()
@@ -215,8 +253,43 @@ class DrafterTests(unittest.TestCase):
         self.assertFalse(dp.marker_for(path).exists())
 
     # ---------------------------------------------------------------- signing in and drafting
-    def test_sign_in_by_device_code(self):
+    def test_sign_in_in_the_browser(self):
         out = self.sign_in()
+        self.assertIn("Signed in as albert@clubyuppie.com", out)
+        asked = self.fake.authorize
+        self.assertEqual(asked["path"], "/tenant-1/oauth2/v2.0/authorize")
+        self.assertEqual((asked["client_id"], asked["response_type"], asked["code_challenge_method"], asked["login_hint"]), ("client-1", "code", "S256", "albert@clubyuppie.com"))
+        self.assertRegex(asked["redirect_uri"], r"^http://localhost:\d+$")
+        self.assertEqual(sorted(asked["scope"].split()), sorted(dp.SCOPES))
+        self.assertFalse(any("send" in s.lower() for s in asked["scope"].split()))
+        self.assertNotIn("code_verifier", asked)
+        swap = [c["form"] for c in self.fake.calls if c["path"].endswith("/token")][0]
+        self.assertEqual((swap["grant_type"], swap["code"], swap["redirect_uri"]), ("authorization_code", "auth-code-1", asked["redirect_uri"]))
+        self.assertNotIn("client_secret", swap)
+        self.assertNotIn(swap["code_verifier"], out)
+        self.assertIn("Signed in", self.fake.pages()[0])
+        self.assertTrue(Path(os.environ["CYD_TOKEN_FILE"]).read_text().startswith("refresh-"))
+
+    def test_browser_sign_in_with_the_wrong_state_keeps_nothing(self):
+        self.fake.browser_mode = "wrong-state"
+        code, out = self.main("signin")
+        self.assertEqual(code, 1)
+        self.assertIn("doesn't match", out)
+        self.assertIn("Not signed in", self.fake.pages()[0])
+        self.assertFalse(any(c["path"].endswith("/token") for c in self.fake.calls))
+        self.assertFalse(Path(os.environ["CYD_TOKEN_FILE"]).exists())
+
+    def test_browser_sign_in_refused(self):
+        self.fake.browser_mode = "deny"
+        code, out = self.main("signin")
+        self.assertEqual(code, 1)
+        self.assertIn("AADSTS65004", out)
+        self.assertIn("Not signed in", self.fake.pages()[0])
+        self.assertFalse(Path(os.environ["CYD_TOKEN_FILE"]).exists())
+
+    def test_sign_in_by_device_code(self):
+        code, out = self.main("signin", "--device-code")
+        self.assertEqual(code, 0, out)
         self.assertIn("ABCD-EFGH", out)
         self.assertIn("Signed in as albert@clubyuppie.com", out)
         asked = self.fake.calls[0]["form"]["scope"][0].split()
