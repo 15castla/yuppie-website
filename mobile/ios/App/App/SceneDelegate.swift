@@ -8,6 +8,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // Each readiness poll and "Still loading." timer carries the number it was started with; Try again starts new
     // ones, and the old ones stop when they see the number has moved on.
     private var pollGeneration = 0
+    // Swipe right from anywhere to go back (SwipeBack, below).
+    private var swipeBack: SwipeBack?
     private var slowGeneration = 0
 
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
@@ -43,7 +45,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         observeCapacitorViewDidAppear()
         disableScrollViewTouchDelay(on: bridgeVC)
-        enableSwipeBack(on: bridgeVC)
+        installSwipeBack(on: bridgeVC)
         fixSafeAreaInsetFirstFrame(on: bridgeVC)
         // Before the readiness polling below, so there is always an opening
         // screen for it to hide.
@@ -71,12 +73,13 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         bridgeVC.webView?.scrollView.delaysContentTouches = false
     }
 
-    // Swipe in from the left edge to go back (Albert, 8 Nov 2026: "You should be able to side swipe off of to the
-    // side as a back button"), as in Safari; from the right edge, forward again. WKWebView's own gesture: it goes
-    // through the web view's history, which includes the site's own page changes (Next's client navigations are
-    // history entries), and shows the previous page sliding back in. Off by default in a WKWebView.
-    private func enableSwipeBack(on bridgeVC: CAPBridgeViewController) {
-        bridgeVC.webView?.allowsBackForwardNavigationGestures = true
+    // Swipe right to go back (Albert, 8 Nov 2026: "You should be able to side swipe off of to the side as a back
+    // button"; 9 Nov, after trying WKWebView's own edge gesture: "nowhere near as responsive as something like
+    // instagram ... mainly that the swipe is hard to get started"). From anywhere on the page, not just the edge:
+    // see SwipeBack at the end of this file. Not while the opening screen is up.
+    private func installSwipeBack(on bridgeVC: CAPBridgeViewController) {
+        guard let webView = bridgeVC.webView else { return }
+        swipeBack = SwipeBack(webView: webView, isPaused: { [weak self] in self?.openingScreen != nil })
     }
 
     // Works around a real, long-standing WebKit bug (webkit.org/b/191872),
@@ -524,5 +527,315 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
         SceneDelegateProxy.shared.scene(scene, continue: userActivity)
+    }
+}
+
+// MARK: - Swipe back, as in Instagram
+
+/// Swipe right from anywhere on a page to go back (Albert, 9 Nov 2026: match Instagram, "mainly that the swipe is
+/// hard to get started"). WKWebView's own gesture (allowsBackForwardNavigationGestures) only starts from the very
+/// edge of the screen; this one starts wherever the finger is, once it moves more sideways than up or down.
+///
+/// While the finger moves, the page as it is now slides right with it (a still picture of it, so it follows the
+/// finger exactly), and the page before shows underneath, slightly shaded, from a picture taken while it was on
+/// screen. Let go past a third of the way, or flick: the page slides off and the web view goes back (Next's own
+/// history: the site's page changes are history entries), and the picture underneath stays until the page has had a
+/// moment to draw, then fades. Let go before that: it slides back and nothing changes.
+///
+/// It does not start where the page needs sideways touches itself, decided in the page as each touch starts (the
+/// script below tells the app): a row that scrolls sideways (the filter chips), anything that handles its own drags
+/// (touch-action none or pan-y: the photo cropper and its zoom slider), a range slider, anything marked
+/// data-swipe-back="off", or while a sheet or dialog is open. Not with two fingers, not when there is nothing to go
+/// back to. The page's own scrolling waits for it to decide, a moment, so a sideways swipe never scrolls as well.
+/// Swiping forward is gone with WKWebView's gesture (Instagram has none).
+final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHandler {
+    private static let messageName = "yuppieSwipeBack"
+    private static let yellow = UIColor(red: 1.0, green: 0.8509803921568627, blue: 0.01568627450980392, alpha: 1.0)
+    /// The pictures kept of earlier pages (the newest few), smaller than the screen to save memory.
+    private static let keep = 6
+
+    private weak var webView: WKWebView?
+    private let isPaused: () -> Bool
+    private let pan = UIPanGestureRecognizer()
+    private var shots: [(item: WKBackForwardListItem, image: UIImage)] = []
+    private var touchBlocked = false
+    private var urlWatch: NSKeyValueObservation?
+    private var scrollWatch: NSKeyValueObservation?
+    private var pendingShot: DispatchWorkItem?
+    // While a swipe is on screen: the cover over the web view, the page moving with the finger, the one underneath.
+    private var cover: UIView?
+    private var moving: UIView?
+    private var under: UIView?
+    private var shade: UIView?
+    private var settling = false
+    private var settleGeneration = 0
+
+    init(webView: WKWebView, isPaused: @escaping () -> Bool) {
+        self.webView = webView
+        self.isPaused = isPaused
+        super.init()
+        webView.allowsBackForwardNavigationGestures = false
+        pan.addTarget(self, action: #selector(handlePan(_:)))
+        pan.delegate = self
+        pan.maximumNumberOfTouches = 1
+        webView.addGestureRecognizer(pan)
+
+        let controller = webView.configuration.userContentController
+        controller.add(WeakScriptMessageHandler(self), name: Self.messageName)
+        controller.addUserScript(WKUserScript(source: Self.touchScript, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+
+        urlWatch = webView.observe(\.url, options: [.new]) { [weak self] _, _ in
+            DispatchQueue.main.async { self?.pageChanged() }
+        }
+        scrollWatch = webView.scrollView.observe(\.contentOffset, options: [.new]) { [weak self] _, _ in
+            DispatchQueue.main.async { self?.scheduleShot(after: 0.6) }
+        }
+        scheduleShot(after: 1.5)
+    }
+
+    // MARK: the page says whether this touch may start a swipe
+
+    /// Runs in every page (main frame). On each touch start: blocked or not, as described above.
+    private static let touchScript = """
+        (function () {
+          if (window.__yuppieSwipeBack) return;
+          window.__yuppieSwipeBack = true;
+          function shown(selector) {
+            var list = document.querySelectorAll(selector);
+            for (var i = 0; i < list.length; i++) if (list[i].getClientRects().length) return true;
+            return false;
+          }
+          function blocked(target) {
+            if (shown('dialog[open], [aria-modal="true"]')) return true;
+            for (var el = target; el && el.nodeType === 1 && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+              if (el.matches('input[type="range"], [data-swipe-back="off"]')) return true;
+              var style = getComputedStyle(el);
+              var touch = style.touchAction || '';
+              if (touch === 'none' || (touch.indexOf('pan-y') >= 0 && touch.indexOf('pan-x') < 0)) return true;
+              if ((style.overflowX === 'auto' || style.overflowX === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true;
+            }
+            return false;
+          }
+          document.addEventListener('touchstart', function (event) {
+            try {
+              var no = event.touches.length !== 1 || blocked(event.target);
+              window.webkit.messageHandlers.yuppieSwipeBack.postMessage(no);
+            } catch (e) {}
+          }, { capture: true, passive: true });
+        })();
+        """
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        guard message.name == Self.messageName else { return }
+        touchBlocked = (message.body as? Bool) ?? false
+    }
+
+    // MARK: the gesture
+
+    func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === pan, let webView, webView.canGoBack, cover == nil, !touchBlocked, !isPaused() else { return false }
+        let velocity = pan.velocity(in: webView)
+        return velocity.x > 0 && velocity.x > abs(velocity.y) * 1.3
+    }
+
+    /// The page's scrolling waits for this one to decide (it decides on the first movement), so a sideways swipe
+    /// never scrolls the page as well.
+    func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldBeRequiredToFailBy otherGestureRecognizer: UIGestureRecognizer) -> Bool {
+        guard gestureRecognizer === pan, let webView else { return false }
+        return otherGestureRecognizer === webView.scrollView.panGestureRecognizer
+    }
+
+    @objc private func handlePan(_ gesture: UIPanGestureRecognizer) {
+        guard let webView else { return }
+        let width = max(webView.bounds.width, 1)
+        let progress = min(max(0, gesture.translation(in: webView).x), width) / width
+        switch gesture.state {
+        case .began:
+            start(on: webView)
+            follow(progress)
+        case .changed:
+            follow(progress)
+        case .ended:
+            let speed = gesture.velocity(in: webView).x
+            if (progress > 0.33 && speed > -300) || speed > 800 {
+                complete(from: progress, speed: speed)
+            } else {
+                cancel(from: progress)
+            }
+        case .cancelled, .failed:
+            cancel(from: progress)
+        default:
+            break
+        }
+    }
+
+    private func start(on webView: WKWebView) {
+        let bounds = webView.bounds
+        let cover = UIView(frame: bounds)
+        cover.backgroundColor = Self.yellow
+        cover.layer.zPosition = 1000
+
+        let back = webView.backForwardList.backItem
+        let picture = UIImageView(frame: bounds)
+        picture.contentMode = .scaleAspectFill
+        picture.clipsToBounds = true
+        picture.backgroundColor = Self.yellow
+        picture.image = back.flatMap { shot(for: $0) }
+
+        let shade = UIView(frame: bounds)
+        shade.backgroundColor = UIColor(white: 0, alpha: 0.16)
+
+        let current = webView.backForwardList.currentItem
+        let moving: UIView = webView.snapshotView(afterScreenUpdates: false)
+            ?? UIImageView(image: current.flatMap { shot(for: $0) })
+        moving.frame = bounds
+        moving.backgroundColor = Self.yellow
+        moving.layer.shadowColor = UIColor.black.cgColor
+        moving.layer.shadowOpacity = 0.22
+        moving.layer.shadowRadius = 10
+        moving.layer.shadowOffset = CGSize(width: -3, height: 0)
+        moving.layer.shadowPath = UIBezierPath(rect: bounds).cgPath
+
+        cover.addSubview(picture)
+        cover.addSubview(shade)
+        cover.addSubview(moving)
+        webView.addSubview(cover)
+        self.cover = cover
+        self.under = picture
+        self.shade = shade
+        self.moving = moving
+    }
+
+    private func follow(_ progress: CGFloat) {
+        guard let cover, let moving, let under, let shade else { return }
+        let width = cover.bounds.width
+        moving.transform = CGAffineTransform(translationX: progress * width, y: 0)
+        under.transform = CGAffineTransform(translationX: -0.3 * width * (1 - progress), y: 0)
+        shade.alpha = 1 - progress
+    }
+
+    private func complete(from progress: CGFloat, speed: CGFloat) {
+        guard let webView, cover != nil else { return }
+        let width = max(webView.bounds.width, 1)
+        let left = (1 - progress) * width
+        let duration = max(0.12, min(0.3, Double(left / max(speed, 900))))
+        UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseOut, .allowUserInteraction], animations: {
+            self.follow(1)
+        }, completion: { _ in
+            self.moving?.removeFromSuperview()
+            self.shade?.removeFromSuperview()
+            self.moving = nil
+            self.shade = nil
+            self.settling = true
+            self.settleGeneration += 1
+            let generation = self.settleGeneration
+            _ = webView.goBack()
+            // If the page change never shows up (it always should), uncover anyway.
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                guard let self, self.settling, generation == self.settleGeneration else { return }
+                self.uncover()
+            }
+        })
+    }
+
+    private func cancel(from progress: CGFloat) {
+        guard cover != nil else { return }
+        UIView.animate(withDuration: max(0.12, Double(progress) * 0.3), delay: 0, options: [.curveEaseOut], animations: {
+            self.follow(0)
+        }, completion: { _ in
+            self.removeCover()
+        })
+    }
+
+    /// The previous page is back in the web view: give it a moment to draw, then fade the picture away.
+    private func pageChanged() {
+        if settling {
+            let generation = settleGeneration
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+                guard let self, self.settling, generation == self.settleGeneration else { return }
+                self.uncover()
+            }
+        }
+        scheduleShot(after: 0.7)
+    }
+
+    private func uncover() {
+        settling = false
+        guard let cover else { return }
+        UIView.animate(withDuration: 0.15, animations: {
+            cover.alpha = 0
+        }, completion: { _ in
+            self.removeCover()
+        })
+    }
+
+    private func removeCover() {
+        cover?.removeFromSuperview()
+        cover = nil
+        moving = nil
+        under = nil
+        shade = nil
+        settling = false
+        scheduleShot(after: 0.6)
+    }
+
+    // MARK: pictures of the pages
+
+    /// A picture of the page on screen, a moment after it changes or stops scrolling, kept for its history entry.
+    private func scheduleShot(after delay: TimeInterval) {
+        pendingShot?.cancel()
+        let work = DispatchWorkItem { [weak self] in self?.takeShot() }
+        pendingShot = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: work)
+    }
+
+    /// The picture of a history entry: the same entry, else the newest of the same address.
+    private func shot(for item: WKBackForwardListItem) -> UIImage? {
+        shots.last(where: { $0.item === item })?.image ?? shots.last(where: { $0.item.url == item.url })?.image
+    }
+
+    private func takeShot() {
+        // Not under the opening screen: the first page is pictured once it is showing.
+        if isPaused() {
+            scheduleShot(after: 1)
+            return
+        }
+        guard let webView, cover == nil, webView.window != nil, let item = webView.backForwardList.currentItem else { return }
+        let configuration = WKSnapshotConfiguration()
+        configuration.afterScreenUpdates = false
+        webView.takeSnapshot(with: configuration) { [weak self] image, _ in
+            guard let image else { return }
+            DispatchQueue.global(qos: .utility).async {
+                let small = SwipeBack.shrink(image)
+                DispatchQueue.main.async {
+                    guard let self, let webView = self.webView, webView.backForwardList.currentItem === item else { return }
+                    self.shots.removeAll { $0.item === item }
+                    self.shots.append((item: item, image: small))
+                    if self.shots.count > SwipeBack.keep { self.shots.removeFirst(self.shots.count - SwipeBack.keep) }
+                }
+            }
+        }
+    }
+
+    /// At most 1.5 pixels a point: the picture is only seen shaded, moving and for a moment.
+    private static func shrink(_ image: UIImage) -> UIImage {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = min(image.scale, 1.5)
+        return UIGraphicsImageRenderer(size: image.size, format: format).image { _ in
+            image.draw(in: CGRect(origin: .zero, size: image.size))
+        }
+    }
+}
+
+/// WKUserContentController keeps its message handlers strongly: this keeps SwipeBack weakly, so nothing leaks.
+private final class WeakScriptMessageHandler: NSObject, WKScriptMessageHandler {
+    private weak var target: WKScriptMessageHandler?
+
+    init(_ target: WKScriptMessageHandler) {
+        self.target = target
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        target?.userContentController(userContentController, didReceive: message)
     }
 }
