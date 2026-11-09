@@ -583,6 +583,11 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
     /// The page the swipe shows underneath: a history entry to go back to exactly (see complete), or a tab's address.
     private var target: WKBackForwardListItem?
     private var targetTab: String?
+    /// No picture of the page underneath (a tab or page not seen since the app opened): the swipe goes there as it
+    /// starts and shows the real page underneath, not plain yellow (Albert, 9 Nov 2026); `liveFrom` is the page to
+    /// come back to if the swipe is let go early.
+    private var live = false
+    private var liveFrom: WKBackForwardListItem?
 
     init(webView: WKWebView, isPaused: @escaping () -> Bool) {
         self.webView = webView
@@ -723,6 +728,14 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
         shade.backgroundColor = UIColor(white: 0, alpha: 0.16)
 
         let current = webView.backForwardList.currentItem
+        live = picture.image == nil
+        if live {
+            // The real page underneath: the web view shows through the cover, and goes there now, hidden behind the
+            // picture of this page that moves with the finger.
+            cover.backgroundColor = .clear
+            picture.isHidden = true
+            liveFrom = current
+        }
         let moving: UIView = webView.snapshotView(afterScreenUpdates: false)
             ?? UIImageView(image: current.flatMap { shot(for: $0) })
         moving.frame = bounds
@@ -741,6 +754,31 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
         self.under = picture
         self.shade = shade
         self.moving = moving
+        if live { goToTarget(on: webView) }
+    }
+
+    /// To the page underneath: the tab on the left through its own link, or the history entry shown underneath.
+    private func goToTarget(on webView: WKWebView) {
+        // By its history entry, not goBack(): WebKit's goBack() skips entries the page added without a tap of its
+        // own, which is every page change in the site (Next adds them a moment after the tap), so it went all the
+        // way back to the first page, Open Invite (Albert, 9 Nov 2026).
+        if let tab = targetTab {
+            // The tab's own link, as a tap on it (the site's page change, the tab fetched ahead); its address if the
+            // link is not there.
+            let href = (try? JSONEncoder().encode(tab)).flatMap { String(data: $0, encoding: .utf8) } ?? "\"/members\""
+            webView.evaluateJavaScript("""
+                (function (href) {
+                  var link = document.querySelector('.mk-tabbar a.mk-tab[href="' + href + '"]');
+                  if (link) link.click(); else location.assign(href);
+                })(\(href))
+                """)
+        } else if let target, webView.backForwardList.backList.contains(where: { $0 === target }) {
+            _ = webView.go(to: target)
+        } else {
+            _ = webView.goBack()
+        }
+        target = nil
+        targetTab = nil
     }
 
     private func follow(_ progress: CGFloat) {
@@ -756,6 +794,15 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
         let width = max(webView.bounds.width, 1)
         let left = (1 - progress) * width
         let duration = max(0.12, min(0.3, Double(left / max(speed, 900))))
+        if live {
+            // Already there: the picture of the old page slides off the real one.
+            UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseOut, .allowUserInteraction], animations: {
+                self.follow(1)
+            }, completion: { _ in
+                self.removeCover()
+            })
+            return
+        }
         UIView.animate(withDuration: duration, delay: 0, options: [.curveEaseOut, .allowUserInteraction], animations: {
             self.follow(1)
         }, completion: { _ in
@@ -766,26 +813,7 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
             self.settling = true
             self.settleGeneration += 1
             let generation = self.settleGeneration
-            // To the page underneath, by its history entry, not goBack(): WebKit's goBack() skips entries the page
-            // added without a tap of its own, which is every page change in the site (Next adds them a moment
-            // after the tap), so it went all the way back to the first page, Open Invite (Albert, 9 Nov 2026).
-            if let tab = self.targetTab {
-                // The tab's own link, as a tap on it (the site's page change, the tab fetched ahead); its address if
-                // the link is not there.
-                let href = (try? JSONEncoder().encode(tab)).flatMap { String(data: $0, encoding: .utf8) } ?? "\"/members\""
-                webView.evaluateJavaScript("""
-                    (function (href) {
-                      var link = document.querySelector('.mk-tabbar a.mk-tab[href="' + href + '"]');
-                      if (link) link.click(); else location.assign(href);
-                    })(\(href))
-                    """)
-            } else if let target = self.target, webView.backForwardList.backList.contains(where: { $0 === target }) {
-                _ = webView.go(to: target)
-            } else {
-                _ = webView.goBack()
-            }
-            self.target = nil
-            self.targetTab = nil
+            self.goToTarget(on: webView)
             // If the page change never shows up (it always should), uncover anyway.
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 guard let self, self.settling, generation == self.settleGeneration else { return }
@@ -799,7 +827,24 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
         UIView.animate(withDuration: max(0.12, Double(progress) * 0.3), delay: 0, options: [.curveEaseOut], animations: {
             self.follow(0)
         }, completion: { _ in
-            self.removeCover()
+            // A live swipe already went to the other page: back to this one, under its picture, then uncover.
+            guard self.live, let webView = self.webView, let from = self.liveFrom else {
+                self.removeCover()
+                return
+            }
+            let list = webView.backForwardList
+            guard list.currentItem !== from, (list.backList + list.forwardList).contains(where: { $0 === from }) else {
+                self.removeCover()
+                return
+            }
+            self.settling = true
+            self.settleGeneration += 1
+            let generation = self.settleGeneration
+            _ = webView.go(to: from)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                guard let self, self.settling, generation == self.settleGeneration else { return }
+                self.uncover()
+            }
         })
     }
 
@@ -828,6 +873,8 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
     private func removeCover() {
         target = nil
         targetTab = nil
+        live = false
+        liveFrom = nil
         cover?.removeFromSuperview()
         cover = nil
         moving = nil
