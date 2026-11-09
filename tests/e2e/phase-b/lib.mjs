@@ -65,7 +65,7 @@ export function londonFormDate(daysFromNow, hhmm = '18:30') {
 
 /** A free plan's form values. */
 export function planInput(over = {}) {
-  return { title: 'Test plan', type: 'Sport', ...londonFormDate(5), where: 'Calder Park', places: 4, hostGoing: true, note: '', cost: null, ...over };
+  return { title: 'Test plan', type: 'Sport', ...londonFormDate(5), where: 'Calder Park', places: 4, hostGoing: true, note: 'Meet at the gate.', cost: null, ...over };
 }
 
 /** Post a plan as a member through the real action; returns the plan id. */

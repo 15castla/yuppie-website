@@ -122,7 +122,7 @@ try {
   eq([...(await H.page.getByLabel('Note').inputValue())].length, 280, 'Note: 280 characters at most');
   await H.page.getByLabel('Note').fill('');
   ok(await H.page.getByText('A venue or a meeting point, not a home address.').count() === 0, 'Where: the help line goes once a place is in');
-  ok(await H.page.getByLabel('I’m going too').isChecked(), 'I’m going too: ticked by default');
+  eq(await H.page.getByLabel('I’m going too').count(), 0, 'no "I’m going too": the person posting is always going (8 Nov 2026)');
   const fewer = H.page.getByRole('button', { name: 'Fewer places' });
   const more = H.page.getByRole('button', { name: 'More places' });
   await fewer.click();
@@ -132,6 +132,8 @@ try {
   ok(await more.isDisabled(), 'Places: 12 at most');
   for (let i = 0; i < 9; i += 1) await fewer.click();
   await shows(H.page.getByText('You and 2 others'), 'Places: 3, "You and 2 others"');
+  await postButton.click();
+  await shows(form.getByText('Add a note so people know what to expect.'), 'Note: needed (8 Nov 2026)');
   await H.page.getByLabel('Note').fill('Shoes at the desk.');
   await postButton.click();
   await H.page.waitForURL(/\/members\/open-invite\/new\/done\?id=/);
@@ -160,6 +162,10 @@ try {
   ok(!(await cardA.isVisible()), 'browse: the Culture chip hides it');
   await A.page.getByRole('button', { name: 'Any day' }).click();
   await cardA.getByRole('button', { name: 'I’m in' }).click();
+  await dialog(A.page).getByRole('heading', { name: 'Join this plan?' }).waitFor();
+  ok(true, 'I’m in asks first: "Join this plan?" (8 Nov 2026)');
+  eq(going(planId).map((g) => g.member_id), [host.id], 'asking takes no place yet');
+  await dialog(A.page).getByRole('button', { name: 'I’m in' }).click();
   await dialog(A.page).getByRole('heading', { name: 'You’re in.' }).waitFor();
   ok(true, 'I’m in: "You’re in."');
   await shows(dialog(A.page).getByText('Hana can see you’re in.', { exact: false }), 'I’m in: the host can see you’re in');
@@ -176,7 +182,9 @@ try {
   await Promise.all([B.page.goto(planHref(planId), { waitUntil: 'networkidle' }), C.page.goto(planHref(planId), { waitUntil: 'networkidle' })]);
   await shows(dock(B.page).getByText('1 place left'), 'plan page, open: "1 place left" in the bar');
   await Promise.all([dock(B.page).getByRole('button', { name: 'I’m in' }).click(), dock(C.page).getByRole('button', { name: 'I’m in' }).click()]);
-  await Promise.all([dialog(B.page).waitFor(), dialog(C.page).waitFor()]);
+  await Promise.all([B, C].map((X) => dialog(X.page).getByRole('heading', { name: 'Join this plan?' }).waitFor()));
+  await Promise.all([B, C].map((X) => dialog(X.page).getByRole('button', { name: 'I’m in' }).click()));
+  await Promise.all([B, C].map((X) => dialog(X.page).getByRole('heading', { name: /You’re in\.|That was the last place\./ }).waitFor()));
   const sheets = [await dialog(B.page).innerText(), await dialog(C.page).innerText()];
   eq(sheets.filter((t) => t.includes('You’re in.')).length, 1, 'the race: one of the two gets the last place');
   eq(sheets.filter((t) => t.includes('That was the last place.')).length, 1, 'the race: the other sees "That was the last place."');
@@ -203,6 +211,7 @@ try {
   await waitFor(() => updatesFor(a.id, planId).some((u) => u.kind === 'place_opened'), 'withdraw: the people going hear a place opened');
   await L.page.reload({ waitUntil: 'networkidle' });
   await dock(L.page).getByRole('button', { name: 'I’m in' }).click();
+  await dialog(L.page).getByRole('button', { name: 'I’m in' }).click();
   await dialog(L.page).getByRole('heading', { name: 'You’re in.' }).waitFor();
   ok(true, 'the member who missed out gets the place that opened');
   await dialog(L.page).getByRole('button', { name: 'Done' }).click();
@@ -290,27 +299,30 @@ try {
   eq(logRows(`plan_id = ${q(planId)} and template = 'plan-changed'`).length, 2, 'edit: only the note changed: no new emails');
 
   // the server refuses: the line under the form (a race: the plan filled while the host was editing)
-  const spare = await postPlan(host, { title: `Spare ${r}`, places: 2, hostGoing: false });
+  // (Until 8 Nov 2026 this ticked "I'm going too" on a full plan; that box is gone: now the host cuts the places
+  // while two people join.)
+  const spare = await postPlan(host, { title: `Spare ${r}`, places: 4 });
   await H.page.goto(`${planHref(spare)}/edit`, { waitUntil: 'networkidle' });
-  ok(!(await H.page.getByLabel('I’m going too').isChecked()), 'edit: spare tickets, the host is not going');
+  await H.page.getByRole('button', { name: 'Fewer places' }).click();
+  await H.page.getByRole('button', { name: 'Fewer places' }).click();
   for (const m of [a, b]) eq((await action('invite.joinOpenInvite', [spare], m.session)).result.ok, true, 'meanwhile someone takes a place');
-  await H.page.getByLabel('I’m going too').check({ force: true });
   await dock(H.page).getByRole('button', { name: 'Save changes' }).click();
   const formLine = H.page.locator('.oi-form-e');
   await formLine.waitFor();
-  await shows(formLine.getByText('There’s no place left for you. Add a place first.'), 'edit refused: the server’s words under the form');
+  await shows(formLine.getByText('3 people are going, so keep at least 3 places.'), 'edit refused: the server’s words under the form');
   eq(await formLine.getByRole('alert').count(), 1, 'edit refused: announced (role=alert)');
   await waitFor(() => formLine.evaluate((el) => el === document.activeElement), 'edit refused: focus moves to it', 5000);
   ok(H.page.url().endsWith('/edit'), 'edit refused: still on the form');
-  eq(sql1(`select host_going from plans where id = ${q(spare)}`).host_going, false, 'edit refused: nothing saved');
+  eq(sql1(`select places from plans where id = ${q(spare)}`).places, 4, 'edit refused: nothing saved');
 
   // ---------------------------------------------------------------- past: the plan page and Yours
-  // over a day after the start (the plan chat closes 24 hours after it; an hour in, it is "started": 14-fixes-2)
+  // over a day after the start ("finished"; an hour in, it is "started": 14-fixes-2). The plan chat stays open
+  // (8 Nov 2026).
   setPlanStart(spare, -25 * 60);
   await A.page.goto(planHref(spare), { waitUntil: 'networkidle' });
   await shows(A.page.getByText('This plan has finished.'), 'plan page, past: "This plan has finished."');
   await shows(dock(A.page).getByText('Finished'), 'plan page, past: "Finished" in the bar');
-  await shows(A.page.locator('.oi-tail').getByText('Closed. You can still read it.'), 'plan page, past: the plan chat is closed');
+  await shows(A.page.getByText('The plan chat is still open.', { exact: false }), 'plan page, past: the plan chat is still open (8 Nov 2026)');
   await A.page.goto(`${BASE}/members/open-invite/yours`, { waitUntil: 'networkidle' });
   ok(/You were in/.test(await A.page.locator('.oi-past').innerText()), 'Yours: the past plan under Past, "You were in"');
 
@@ -400,6 +412,7 @@ try {
   await B.page.goto(planHref(walk), { waitUntil: 'networkidle' });
   await B.context.clearCookies();
   await dock(B.page).getByRole('button', { name: 'I’m in' }).click();
+  await dialog(B.page).getByRole('button', { name: 'I’m in' }).click();
   await B.page.waitForURL(/\/member-login\?state=session-ended/);
   ok(true, 'session ended: I’m in goes to Log in with "Your session ended."');
   eq(going(walk).some((g) => g.member_id === b.id), false, 'session ended: nothing was joined');

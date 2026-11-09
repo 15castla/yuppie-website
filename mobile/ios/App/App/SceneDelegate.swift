@@ -43,6 +43,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         observeCapacitorViewDidAppear()
         disableScrollViewTouchDelay(on: bridgeVC)
+        enableSwipeBack(on: bridgeVC)
         fixSafeAreaInsetFirstFrame(on: bridgeVC)
         // Before the readiness polling below, so there is always an opening
         // screen for it to hide.
@@ -68,6 +69,14 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     // page this WebView ever loads, not just the offline screen.
     private func disableScrollViewTouchDelay(on bridgeVC: CAPBridgeViewController) {
         bridgeVC.webView?.scrollView.delaysContentTouches = false
+    }
+
+    // Swipe in from the left edge to go back (Albert, 8 Nov 2026: "You should be able to side swipe off of to the
+    // side as a back button"), as in Safari; from the right edge, forward again. WKWebView's own gesture: it goes
+    // through the web view's history, which includes the site's own page changes (Next's client navigations are
+    // history entries), and shows the previous page sliding back in. Off by default in a WKWebView.
+    private func enableSwipeBack(on bridgeVC: CAPBridgeViewController) {
+        bridgeVC.webView?.allowsBackForwardNavigationGestures = true
     }
 
     // Works around a real, long-standing WebKit bug (webkit.org/b/191872),

@@ -150,6 +150,8 @@ export function InboxView({
   const [readUpdates, setReadUpdates] = useState<readonly string[]>([]);
   const [pickedUpdate, setPickedUpdate] = useState<string | null>(null);
   const [announce, setAnnounce] = useState("");
+  // Archived chats (8 Nov 2026) sit folded at the bottom of Chats; open when the chat on screen is one of them.
+  const [archiveOpen, setArchiveOpen] = useState(() => chatsProp.some((chat) => chat.archived && chat.id === openChatId));
 
   // The lists as the server last gave them: the page's, then the timer's. A new page (a navigation, a
   // refresh) brings its own.
@@ -257,8 +259,10 @@ export function InboxView({
   const chatsUnread = chats.filter(chatUnread).length;
   const updatesUnread = updates.filter(updateUnread).length;
 
-  const open = chats.filter((chat) => chat.status === "open");
-  const closed = chats.filter((chat) => chat.status === "closed");
+  // Archived (8 Nov 2026): a day after the plan and a day after the last message. The rest: open, then closed.
+  const archived = chats.filter((chat) => chat.archived);
+  const open = chats.filter((chat) => !chat.archived && chat.status === "open");
+  const closed = chats.filter((chat) => !chat.archived && chat.status === "closed");
 
   const what = tab === "chats" ? "chats" : "updates";
   const loading = state === "loading";
@@ -351,6 +355,36 @@ export function InboxView({
                 />
               ))}
             </div>
+          </>
+        ) : null}
+        {archived.length > 0 ? (
+          <>
+            <div className="msg-group-label">
+              <span className="mk-term">Archived · {archived.length}</span>
+              <button
+                type="button"
+                className="mk-link"
+                aria-expanded={archiveOpen}
+                aria-controls={`${ids}-archived`}
+                onClick={() => setArchiveOpen((now) => !now)}
+              >
+                {archiveOpen ? "Hide" : "Show"}
+              </button>
+            </div>
+            {archiveOpen ? (
+              <div className="msg-rows" id={`${ids}-archived`}>
+                {archived.map((chat) => (
+                  <ChatRow
+                    key={chat.id}
+                    chat={chat}
+                    now={now}
+                    selected={chat.id === openChatId}
+                    current={chat.id === openChatId && (isThread || twoPanes)}
+                    unread={chatUnread(chat)}
+                  />
+                ))}
+              </div>
+            ) : null}
           </>
         ) : null}
         <div className="msg-note">

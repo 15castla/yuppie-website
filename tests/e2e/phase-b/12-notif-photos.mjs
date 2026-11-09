@@ -419,28 +419,26 @@ try {
   ok(emailsTo(mark, F.email).length >= 1, 'and it reached the fake mail service');
   await rCtx.close();
 
-  // ---------------------------------------------------------------- the camera pre-prompt in the app (gate, then the sheet)
+  // ---------------------------------------------------------------- the app: the library only (8 Nov 2026: no Take a photo)
   const A = await makeMember('cam');
   const { ctx: aCtx, pg: apg } = await loggedIn(A.email, { app: true });
   await apg.waitForURL('**/members/photo', { timeout: 20000 });
   await ready(apg);
-  await apg.locator('.ph-dock').getByRole('button', { name: 'Take a photo' }).click();
-  await waitFor(async () => (await mainText(apg)).includes('We need the camera to take your photo.'), 'app: Take a photo shows our own pre-prompt first');
-  ok((await mainText(apg)).includes('Your phone will ask you to allow it. We only use the camera when you take your photo.'), 'with the design’s words');
-  const [chooser] = await Promise.all([apg.waitForEvent('filechooser'), apg.locator('.ph-dock').getByRole('button', { name: 'Continue' }).click()]);
-  eq(await chooser.element().getAttribute('capture'), 'user', 'Continue opens the camera (the front camera hint), where the phone asks');
-  const [again] = await Promise.all([apg.waitForEvent('filechooser'), apg.locator('.ph-dock').getByRole('button', { name: 'Take a photo' }).click()]);
-  eq(await again.element().getAttribute('capture'), 'user', 'the second time, straight to the camera (asked once per device)');
+  eq(await apg.getByRole('button', { name: 'Take a photo' }).count(), 0, 'app gate: no "Take a photo"');
+  const [chooser] = await Promise.all([apg.waitForEvent('filechooser'), apg.locator('.ph-dock').getByRole('button', { name: 'Choose from library' }).click()]);
+  eq(await chooser.element().getAttribute('capture'), null, 'app gate: "Choose from library" opens the library (no camera)');
+  const [ring] = await Promise.all([apg.waitForEvent('filechooser'), apg.getByRole('button', { name: 'Choose a photo' }).first().click()]);
+  eq(await ring.element().getAttribute('capture'), null, 'app gate: the ring opens the library too');
+  eq(await apg.locator('input[capture]').count(), 0, 'app gate: no camera input on the page');
   await aCtx.close();
   const S = await makeMemberWithPhoto('camsheet');
   const { ctx: sCtx, pg: spg } = await loggedIn(S.email, { app: true });
   await spg.goto(`${BASE}/members/you/photo`);
   await spg.locator('dialog[open]').waitFor();
   await spg.waitForLoadState('networkidle');
-  await spg.locator('dialog[open]').getByRole('button', { name: 'Take a photo' }).click();
-  await waitFor(async () => (await spg.locator('dialog[open]').innerText()).includes('We need the camera to take your photo.'), 'Change photo in the app: the same pre-prompt, in the sheet');
-  const [lib] = await Promise.all([spg.waitForEvent('filechooser'), spg.getByRole('button', { name: 'Choose from library instead' }).click()]);
-  eq(await lib.element().getAttribute('capture'), null, '"Choose from library instead" opens the library (no camera)');
+  eq(await spg.locator('dialog[open]').getByRole('button', { name: 'Take a photo' }).count(), 0, 'Change photo in the app: no "Take a photo"');
+  const [lib] = await Promise.all([spg.waitForEvent('filechooser'), spg.locator('dialog[open]').getByRole('button', { name: 'Choose from library' }).click()]);
+  eq(await lib.element().getAttribute('capture'), null, 'Change photo in the app: "Choose from library" opens the library (no camera)');
   await sCtx.close();
 
   // ================================================================ Blocked members

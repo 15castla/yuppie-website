@@ -12,6 +12,9 @@
 import { revalidatePath } from "next/cache";
 
 import { getMember, memberForAction } from "@/app/members/require-member";
+import { blockSets, eitherBlocked } from "@/lib/server/blocks";
+import { isUuid } from "@/lib/server/plans";
+import { personRef } from "@/lib/server/people";
 import { photoGateState, uploadMemberPhoto, type PhotoGateState } from "@/lib/server/photos";
 import { SESSION_ENDED, type SessionEnded } from "@/components/members/session-ended";
 import { TRY_AGAIN } from "../action-kit";
@@ -50,4 +53,22 @@ export async function getMyPhotoGate(): Promise<PhotoGateState | SessionEnded> {
   const member = await getMember();
   if (!member) return SESSION_ENDED;
   return photoGateState(member);
+}
+
+/**
+ * A member's photo at full size (480px), for "tap a photo to see it bigger" (Albert, 8 Nov 2026). The pages carry
+ * the small one (160px), which looks soft when enlarged. Null when the session ended, the id is not an id, either
+ * of them blocked the other, or they have no current photo: the enlarged view then keeps the small one.
+ */
+export async function largeMemberPhoto(memberId: string): Promise<string | null> {
+  const member = await memberForAction();
+  if (!member || !isUuid(memberId)) return null;
+  try {
+    if (memberId !== member.id && eitherBlocked(await blockSets(member.id), memberId)) return null;
+    // As the pages give out the small one (peopleRefs): a deleted account has no photo.
+    return (await personRef(memberId, "full")).photoUrl;
+  } catch (err) {
+    console.error(`largeMemberPhoto failed for ${memberId}:`, err);
+    return null;
+  }
 }

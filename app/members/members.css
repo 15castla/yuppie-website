@@ -149,6 +149,9 @@
 .mk-avatar.mk-ph img{display:block;width:100%;height:100%;object-fit:cover}
 .mk-avatar.mk-cream{background:var(--cream);color:var(--ink)}
 .mk-avatar.mk-pale{background:var(--pale);color:var(--ink)}
+/* a member's photo that opens bigger (components/members/photo/zoom-avatar.tsx) */
+.mk-zoom{display:inline-flex;flex:none;padding:0;margin:0;border:0;background:none;color:inherit;border-radius:50%;cursor:zoom-in;-webkit-tap-highlight-color:transparent}
+.mk-zoom:focus-visible{outline:3px solid var(--ink);outline-offset:2px}
 .mk-avatars{display:inline-flex;align-items:center}
 .mk-avatars .mk-avatar{--s:28px;border-width:1.5px;box-shadow:0 0 0 2px var(--ring,var(--yellow))}
 .mk-avatars .mk-avatar+.mk-avatar{margin-left:-6px}

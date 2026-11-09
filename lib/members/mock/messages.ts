@@ -167,6 +167,7 @@ const BRUNCH_CHAT: Chat = {
   participants: [participant(JASMIN, "host"), participant(PRIYA, "member"), participant(SAM, "member")],
   status: "open",
   closedReason: null,
+  archived: false,
   muted: false,
   unreadCount: 2,
   lastMessage: { senderId: PRIYA.id, text: "Ignore that, brunch. Obviously brunch.", at: "2026-10-23T09:13:00+01:00" },
@@ -181,6 +182,7 @@ const TOM_CHAT: Chat = {
   participants: [participant(TOM, "host"), participant(SAM, "member")],
   status: "open",
   closedReason: null,
+  archived: false,
   muted: false,
   unreadCount: 1,
   lastMessage: { senderId: TOM.id, text: "Totally. Doubles, all levels, I’ll bring spare rackets.", at: "2026-10-22T17:05:00+01:00" },
@@ -195,6 +197,7 @@ const COMEDY_CHAT: Chat = {
   participants: [participant(DAN, "host"), participant(SAM, "member"), participant(PRIYA, "member")],
   status: "open",
   closedReason: null,
+  archived: false,
   muted: false,
   unreadCount: 0,
   // As the inbox design draws it: the system line is the last thing the row shows.
@@ -215,6 +218,7 @@ const WALK_CHAT: Chat = {
   ],
   status: "open",
   closedReason: null,
+  archived: false,
   muted: false,
   unreadCount: 0,
   lastMessage: { senderId: PRIYA.id, text: "Meet by the bandstand.", at: "2026-10-21T18:31:00+01:00" },
@@ -229,6 +233,7 @@ const MARCUS_CHAT: Chat = {
   participants: [participant(MARCUS, "host"), participant(SAM, "member")],
   status: "open",
   closedReason: null,
+  archived: false,
   muted: false,
   unreadCount: 0,
   lastMessage: { senderId: MARCUS.id, text: "Around six minutes a kilometre, no rush.", at: "2026-10-19T12:30:00+01:00" },
@@ -241,8 +246,10 @@ const SPIN_CHAT: Chat = {
   plan: SPIN,
   other: null,
   participants: [participant(AISHA, "host"), participant(MARCUS, "member"), participant(SAM, "member")],
-  status: "closed",
-  closedReason: "plan_finished",
+  // Over a day after the plan and its last message: archived (8 Nov 2026), still open to write in.
+  status: "open",
+  closedReason: null,
+  archived: true,
   muted: false,
   unreadCount: 0,
   // As the inbox design draws it: Aisha is the sender of the last line.
@@ -256,6 +263,7 @@ const COMEDY_CANCELLED_CHAT: Chat = {
   plan: COMEDY_CANCELLED,
   status: "closed",
   closedReason: "host_cancelled",
+  archived: false,
 };
 
 /** The inbox, in the order the design draws it: open chats by latest activity, then closed ones. */
@@ -385,6 +393,7 @@ const CLIMBING_CHAT: Chat = {
   participants: [participant(SAM, "host"), participant(AISHA, "member"), participant(MARCUS, "member"), participant(PRIYA, "member")],
   status: "open",
   closedReason: null,
+  archived: false,
   muted: false,
   unreadCount: 0,
   lastMessage: null,

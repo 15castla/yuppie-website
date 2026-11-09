@@ -9,7 +9,8 @@
 // and no "book" action; it is a place, a reason, two facts and where it is.
 // Advice inside a reply may tell the member to book themselves ("Ring ahead")
 // but must never offer to do it for them. It is an AI, with no name, no photo
-// and no "she" or "he": the screen says "AI concierge" once.
+// and no "she" or "he". (The header's "AI concierge" line went on 8 Nov 2026, Albert; the first-open intro still
+// says "Ask the AI concierge".)
 //
 // App only (the web has no Concierge page).
 
@@ -30,11 +31,18 @@ export type ConciergeRecommendation = {
   address: string;
   /** Opens the place in the phone's maps app (the "Open in Maps" link). */
   mapsUrl: string;
+  /**
+   * The page this place was checked against, drawn small on its card ("via timeout.com"). Anthropic's terms ask for
+   * the sources of web search results to be shown. Missing on replies saved before 8 Nov 2026 (their sources are in
+   * the reply's own list).
+   */
+  source?: ConciergeSource;
 };
 
 /**
- * A page the concierge relied on, shown under its reply ("Sources: timeout.com"). Anthropic's terms ask for the
- * sources of web search results to be shown to the people who see them. Added 1 Nov 2026 for the real backend.
+ * A page the concierge relied on. Anthropic's terms ask for the sources of web search results to be shown to the
+ * people who see them. Added 1 Nov 2026 for the real backend; since 8 Nov 2026 (Albert: lighter, no "Sources:" line)
+ * a place's own page is on its card ("via timeout.com"), and any other page in one small "via" line under the reply.
  */
 export type ConciergeSource = {
   /** The site's name as it reads in the link: "timeout.com". */

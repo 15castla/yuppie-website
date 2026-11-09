@@ -332,6 +332,7 @@ export const POST_ERRORS = {
   whereLong: "Keep the place to 120 characters.",
   places: "Pick between 2 and 12 places.",
   note: "Keep the note to 280 characters.",
+  noteMissing: "Add a note so people know what to expect.",
   paid: "Paid plans aren’t open yet. Turn off Add a cost to post it free.",
 } as const;
 
@@ -362,7 +363,9 @@ export function checkNewInvite(input: NewOpenInvite, now: Date): { errors: PlanF
   if (!where) errors.where = POST_ERRORS.where;
   else if ([...where].length > 120) errors.where = POST_ERRORS.whereLong;
   if (!Number.isInteger(input?.places) || input.places < 2 || input.places > 12) error = POST_ERRORS.places;
-  if ([...note].length > 280) error = POST_ERRORS.note;
+  // A note is needed (Albert, 8 Nov 2026).
+  if (!note) errors.note = POST_ERRORS.noteMissing;
+  else if ([...note].length > 280) error = POST_ERRORS.note;
   if (typeof input?.hostGoing !== "boolean") error = error ?? POST_ERRORS.places;
   // Nothing in stage 2 takes or pretends to take money.
   if (input?.cost) errors.price = POST_ERRORS.paid;
@@ -384,7 +387,8 @@ export async function postOpenInvite(viewer: Viewer, input: NewOpenInvite, now: 
     p_place: input.where.trim(),
     p_note: input.note?.trim() || null,
     p_places: input.places,
-    p_host_going: input.hostGoing,
+    // The person posting is always going (Albert, 8 Nov 2026: "the person posting needs to be going").
+    p_host_going: true,
   });
   if (error) {
     console.error(`plans: post by ${viewer.id} failed:`, error);
@@ -417,7 +421,9 @@ export async function editOpenInvite(viewer: Viewer, planId: string, input: NewO
     p_place: input.where.trim(),
     p_note: input.note?.trim() || null,
     p_places: input.places,
-    p_host_going: input.hostGoing,
+    // Never from going to not going (8 Nov 2026: the host is always going; the form has no box for it). A plan
+    // posted before then for spare tickets keeps its host not going unless they choose to go.
+    p_host_going: row.host_going || input.hostGoing === true,
   });
   if (error) {
     console.error(`plans: edit of ${planId} failed:`, error);

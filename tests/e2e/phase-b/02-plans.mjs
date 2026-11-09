@@ -23,6 +23,8 @@ eq((await errs({ where: '' })).errors.where, 'Say where you’re meeting.', 'no 
 eq((await errs({ places: 13 })).error, 'Pick between 2 and 12 places.', '13 places refused');
 eq((await errs({ places: 1 })).error, 'Pick between 2 and 12 places.', '1 place refused');
 eq((await errs({ note: 'n'.repeat(281) })).error, 'Keep the note to 280 characters.', 'a note over 280 refused');
+// A note is needed (8 Nov 2026).
+eq((await errs({ note: '   ' })).errors.note, 'Add a note so people know what to expect.', 'no note refused');
 eq((await errs({ cost: { pricePence: 2200, faceValueConfirmed: true } })).errors.price, 'Paid plans aren’t open yet. Turn off Add a cost to post it free.', 'a cost is refused: nothing in stage 2 takes money');
 eq(sql1(`select count(*)::int n from plans where host_id = ${q(host.id)}`).n, 0, 'none of those made a plan');
 
@@ -35,8 +37,9 @@ eq(invite.going.map((g) => g.id), [host.id], 'the host is going (I’m going too
 ok(invite.you.chatId, 'the host has the plan chat');
 eq(sql(`select system_event from messages where chat_id = ${q(invite.you.chatId)}`).map((r) => r.system_event), ['opened'], 'the chat starts with "opened"');
 eq(invite.cost, null, 'no cost');
+// The person posting is always going (8 Nov 2026: "I'm going too" is gone): even a client asking otherwise.
 const spare = await post({ title: 'Spare tickets', hostGoing: false, places: 2 });
-eq([spare.result.invite.hostGoing, spare.result.invite.going.length], [false, 0], 'spare tickets: the host is not going and the places are all for others');
+eq([spare.result.invite.hostGoing, spare.result.invite.going.map((g) => g.id)], [true, [host.id]], 'the host is always going, whatever the form sends');
 
 // ---------------------------------------------------------------- the feed
 const feedIds = async (who) => (await action('invite.getOpenInviteFeed', [], who.session)).result.invites.map((i) => i.id);
@@ -142,6 +145,10 @@ ok(changedMail, 'the email went through Resend with the designed subject', email
 const noteOnly = await edit({ ...{ date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 6 * 86400000)), time: '19:00' }, where: 'The Boulder Yard', title: 'Climbing, renamed', note: 'New note' });
 ok(noteOnly.result.ok, 'a title or note change saves');
 eq(sql1(`select count(*)::int n from updates where plan_id = ${q(planId)} and kind = 'changed'`).n, 2, 'and tells nobody (only time and place changes do)');
+// The host stays going on an edit too, whatever a client sends (8 Nov 2026).
+const stay = await edit({ ...{ date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 6 * 86400000)), time: '19:00' }, where: 'The Boulder Yard', title: 'Climbing, renamed', note: 'New note', hostGoing: false });
+ok(stay.result.ok, 'an edit sending "not going" saves');
+eq([sql1(`select host_going from plans where id = ${q(planId)}`).host_going, sql1(`select status from plan_members where plan_id = ${q(planId)} and member_id = ${q(host.id)}`).status], [true, 'going'], 'and the host is still going');
 
 // ---------------------------------------------------------------- report a plan
 const mark3 = fakesMark();

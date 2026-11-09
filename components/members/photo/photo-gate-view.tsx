@@ -1,12 +1,14 @@
 "use client";
 
 // The photo gate: a full screen with no tab bar, shown straight after login
-// until a photo is saved. Take or choose a photo, move and zoom, "Looking
+// until a photo is saved. Choose a photo, move and zoom, "Looking
 // good?", save, "Your photo is on". Drawn from the approved design (specs/
 // photo.md section 1); one DOM for the web phone, the app and the computer.
 //
-// REAL: choosing a file (the camera pre-prompt then the camera hint in the
-// app, drag and drop on a computer), every check (not a photo, too big, too
+// REAL: choosing a file (from the library; drag and drop on a computer). No
+// "Take a photo" since 8 Nov 2026 (Albert: "everyone will want to choose a
+// picture from their photo library"; in the app it closed the app, which had
+// no camera permission text), every check (not a photo, too big, too
 // small, can't open it; the server checks again and its answer shows as the
 // same error), the circle crop with a JPEG export, the soft face check (the
 // browser's FaceDetector where it exists: "This doesn't look like a photo of
@@ -28,7 +30,6 @@ import { Button, Icon } from "@/components/members/kit";
 import { Wordmark } from "@/components/members/shell/wordmark";
 import type { ShellMode } from "@/components/members/shell/types";
 import type { CropState } from "@/lib/members/photo/crop";
-import { hasAskedCamera, markCameraAsked } from "@/lib/members/photo/notice";
 import type { PhotoErrorKind, PhotoSource } from "@/lib/members/photo/validate";
 import { ROUTES } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
@@ -36,7 +37,7 @@ import { GateFrame, NoteBox, PhotoError, PhotoRing, PrivacyNote, SavingBar, Size
 import { PhotoCropper } from "./photo-cropper";
 import { usePhotoFlow, type UploadResult } from "./use-photo-flow";
 
-export type GateScreen = "start" | "camera-ask" | "camera-off" | "crop" | "preview" | "saving" | "failed" | "noface" | "saved";
+export type GateScreen = "start" | "camera-off" | "crop" | "preview" | "saving" | "failed" | "noface" | "saved";
 
 /** Why the club removed the last photo (the admin's reason; lib/emails PhotoRemovedReason). */
 export type PhotoRemovedReason = "not_clear" | "not_member" | "not_suitable";
@@ -124,11 +125,8 @@ export function PhotoGateView({
       savedUrl: demo?.savedUrl,
     },
   });
-  // Screens the flow does not own: the camera pre-prompt (real, app only) and
-  // the drawn-only "camera is off".
-  const [aside, setAside] = useState<"camera-ask" | "camera-off" | null>(
-    demo?.screen === "camera-ask" || demo?.screen === "camera-off" ? demo.screen : null,
-  );
+  // A screen the flow does not own: the drawn-only "camera is off".
+  const [aside] = useState<"camera-off" | null>(demo?.screen === "camera-off" ? demo.screen : null);
   const [over, setOver] = useState(Boolean(demo?.over));
 
   // Someone who already has a photo has nothing to do here. Decided once, on
@@ -147,7 +145,6 @@ export function PhotoGateView({
   const inputs = (
     <>
       <input {...flow.inputProps("library")} />
-      {isApp ? <input {...flow.inputProps("camera")} /> : null}
     </>
   );
 
@@ -168,12 +165,8 @@ export function PhotoGateView({
   ) : null;
   const chrome = { bar, topLink };
 
-  function takePhoto() {
-    if (isApp && !hasAskedCamera()) {
-      setAside("camera-ask");
-      return;
-    }
-    flow.pick(isApp ? "camera" : "library");
+  function choosePhoto() {
+    flow.pick("library");
   }
 
   const chooseAnother = (
@@ -183,51 +176,6 @@ export function PhotoGateView({
   );
 
   // ------------------------------------------------------------ the camera
-  if (screen === "camera-ask") {
-    return (
-      <>
-        {inputs}
-        <GateFrame
-          {...chrome}
-          topLink={null}
-          h1="We need the camera to take your photo."
-          small
-          subSerif={false}
-          sub="Your phone will ask you to allow it. We only use the camera when you take your photo."
-          stage={
-            <div className="ph-ringwrap">
-              <PhotoRing glyph="camera" cam={false} />
-            </div>
-          }
-          acts={
-            <>
-              <Button
-                block
-                onClick={() => {
-                  markCameraAsked();
-                  setAside(null);
-                  flow.pick("camera");
-                }}
-              >
-                Continue
-              </Button>
-              <Button
-                variant="outline"
-                block
-                onClick={() => {
-                  setAside(null);
-                  flow.pick("library");
-                }}
-              >
-                Choose from library instead
-              </Button>
-            </>
-          }
-        />
-      </>
-    );
-  }
-
   // Drawn only: a web view cannot tell that the camera was refused.
   if (screen === "camera-off") {
     return (
@@ -487,8 +435,8 @@ export function PhotoGateView({
     <button
       type="button"
       className="ph-ring-btn"
-      aria-label={isApp ? "Take a photo" : "Choose a photo"}
-      onClick={takePhoto}
+      aria-label="Choose a photo"
+      onClick={choosePhoto}
     >
       <PhotoRing letter={firstName} />
     </button>
@@ -550,10 +498,7 @@ export function PhotoGateView({
 
   const acts = isApp ? (
     <>
-      <Button block icon={<Icon name="camera" size={20} />} onClick={takePhoto}>
-        Take a photo
-      </Button>
-      <Button variant="outline" block icon={<Icon name="image" size={20} />} onClick={() => flow.pick("library")}>
+      <Button block icon={<Icon name="image" size={20} />} onClick={choosePhoto}>
         Choose from library
       </Button>
     </>

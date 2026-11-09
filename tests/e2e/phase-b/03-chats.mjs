@@ -156,10 +156,30 @@ eq((await send(asker, 'Too late?', 'q-6', q1.chatId)).reason, 'closed', 'a quest
 const qClosed = await thread(asker, q1.chatId);
 eq([qClosed.chat.status, qClosed.chat.closedReason, qClosed.items.at(-1).event], ['closed', 'invite_closed', 'closed'], 'closed: invite_closed, with the "closed" line last');
 ok((await send(g1, 'On my way')).ok, 'the plan chat stays open on the day');
+// Plan chats no longer close a day after the plan (8 Nov 2026): they stay open and are archived a day after the
+// plan and a day after the last message, whichever is later; a new message brings them back.
 setPlanStart(planId, -(25 * 60));
-eq((await send(g1, 'Thanks all')).reason, 'closed', 'a plan chat closes 24 hours after the plan');
-const pClosed = await thread(g1);
-eq([pClosed.chat.status, pClosed.chat.closedReason, pClosed.chat.plan.status], ['closed', 'plan_finished', 'finished'], 'closed: plan_finished, the plan finished');
+ok((await send(g1, 'Thanks all')).ok, 'a plan chat stays open after the plan');
+const pAfter = await thread(g1);
+eq([pAfter.chat.status, pAfter.chat.closedReason, pAfter.chat.plan.status, pAfter.chat.archived], ['open', null, 'finished', false], 'open, the plan finished, not archived: a message in the last day');
+exec(`update chats set last_message_at = now() - interval '25 hours' where id = ${q(chatId)}`);
+const pArchived = (await chats(g1)).find((c) => c.id === chatId);
+eq([pArchived.status, pArchived.archived], ['open', true], 'a day after the plan and the last message: archived, still open');
+ok((await send(g1, 'One more thing')).ok, 'an archived chat takes a message');
+eq((await chats(g1)).find((c) => c.id === chatId).archived, false, 'and the message brings it back');
+// Never archived with something unread in it.
+ok((await send(host, 'Photos from the night', 'h-late')).ok, 'the host writes after the plan');
+exec(`update chats set last_message_at = now() - interval '25 hours' where id = ${q(chatId)}`);
+eq((await chats(g1)).find((c) => c.id === chatId).archived, false, 'not archived while it has something unread');
+await action('thread.markChatRead', [chatId], g1.session);
+eq((await chats(g1)).find((c) => c.id === chatId).archived, true, 'archived once it is read');
+// Seen by (8 Nov 2026): under your latest message, who has opened the chat since.
+const mine = await send(g1, 'Seen check', 'seen-1');
+ok(mine.ok, 'a message to be seen');
+eq((await thread(g1)).seen, null, 'nobody has seen it yet');
+await action('thread.markChatRead', [chatId], host.session);
+const seenNow = (await thread(g1)).seen;
+eq([seenNow?.messageId, seenNow?.by.map((p) => p.id)], [mine.message.id, [host.id]], 'the host opened the chat: seen by the host');
 const cancelPlan = await postPlan(host, { title: 'Will be cancelled' });
 const cChat = (await action('invite.joinOpenInvite', [cancelPlan], g1.session)).result.chatId;
 await action('plan.cancelOpenInvite', [cancelPlan], host.session);

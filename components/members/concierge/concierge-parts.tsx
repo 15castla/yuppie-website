@@ -61,7 +61,6 @@ export function CompactBar({
         <b role="heading" aria-level={1}>
           Concierge
         </b>
-        <span>AI concierge</span>
       </div>
       <div className="cn-r">
         <button
@@ -134,6 +133,14 @@ export function RecommendationCard({ place }: { place: ConciergeRecommendation }
       <div className="cn-bd">
         <h3>{place.name}</h3>
         <p className="cn-why">{place.why}</p>
+        {place.source ? (
+          <p className="cn-via">
+            via{" "}
+            <a href={place.source.url} target="_blank" rel="noopener noreferrer">
+              {place.source.label}
+            </a>
+          </p>
+        ) : null}
         {place.facts.length > 0 ? (
           <div className="cn-facts">
             {place.facts.slice(0, 2).map((fact) => (
@@ -202,6 +209,9 @@ export function ReplyBlock({
 }) {
   const advice = (reply.steps?.length ?? 0) > 0 || Boolean(reply.closing);
   const places = reply.recommendations ?? [];
+  // Pages not already on a place's card ("via timeout.com"): one small "via" line under the reply.
+  const onCards = new Set(places.map((place) => place.source?.url).filter(Boolean));
+  const otherSources = (reply.sources ?? []).filter((source) => !onCards.has(source.url));
   const learned = reply.remembered;
   return (
     <div className="cn-reply" id={domId}>
@@ -229,10 +239,10 @@ export function ReplyBlock({
       {places.map((place) => (
         <RecommendationCard key={place.id} place={place} />
       ))}
-      {reply.sources?.length ? (
+      {otherSources.length ? (
         <p className="cn-sources">
-          Sources:{" "}
-          {reply.sources.map((source, index) => (
+          via{" "}
+          {otherSources.map((source, index) => (
             <span key={source.url}>
               {index > 0 ? ", " : null}
               <a href={source.url} target="_blank" rel="noopener noreferrer">

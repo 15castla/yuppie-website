@@ -97,8 +97,8 @@ export function closedNote(chat: Chat): string {
     if (chat.plan.cancelledBy === "club") return "Club Yuppie cancelled this plan.";
     return `${chat.plan.host.firstName} cancelled this plan.`;
   }
-  if (chat.closedReason === "invite_closed") return "Questions close when the invite closes.";
-  return "Plan chats close 24 hours after the plan.";
+  // Plan chats close only when cancelled (8 Nov 2026); this last line is for a closed chat from before.
+  return "Questions close when the invite closes.";
 }
 
 export type SystemLineCopy = {
@@ -133,9 +133,8 @@ export function systemLineCopy(item: ChatSystemLine, chat: Chat, nameOf: (id: st
         icon: null,
         bold: null,
         text:
-          chat.closedReason === "invite_closed"
-            ? "This chat closed. Questions close when the invite closes."
-            : "This chat closed. Plan chats close 24 hours after the plan.",
+          // Only questions close by time now (8 Nov 2026): plan chats are archived instead.
+          "This chat closed. Questions close when the invite closes.",
       };
   }
 }

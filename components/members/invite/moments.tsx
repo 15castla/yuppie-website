@@ -4,6 +4,7 @@
 // counterpart: pages_oi.sheet_body(). Free plans only here: a paid plan's
 // Pay and join, receipt and leave sheets are in components/members/payments.
 //
+//   confirm   "Join this plan?"      I'm in asks first (8 Nov 2026)
 //   success   "You're in."           after I'm in
 //   withdraw  "Withdraw from this plan?"
 //   report    reasons, Send report   then "Report sent."
@@ -45,6 +46,43 @@ export function seenByNames(invite: OpenInvite, me: InviteMember): string {
 
 function Actions({ children, column = false }: { children: ReactNode; column?: boolean }) {
   return <div className={cn("oi-sh-act", column && "is-col")}>{children}</div>;
+}
+
+/**
+ * "I'm in" asks first (Albert, 8 Nov 2026: "When you select I'm in, it should ask are you sure or similar?"): the
+ * plan, when and where, who sees it, and the plan chat. A paid plan asks in its pay sheet instead.
+ */
+export function ConfirmJoinSheet({
+  invite,
+  onClose,
+  onConfirm,
+  busy = false,
+}: {
+  invite: OpenInvite;
+  onClose: () => void;
+  onConfirm: () => void;
+  busy?: boolean;
+}) {
+  const id = useId();
+  return (
+    <Sheet labelledBy={id} onClose={busy ? () => {} : onClose}>
+      <h2 className="oi-sh-h" id={id}>
+        Join this plan?
+      </h2>
+      <p className="oi-sh-p">
+        {invite.host.firstName} and everyone going will see you’re in, and you’ll join the plan chat.
+      </p>
+      <PlanSummary invite={invite} />
+      <Actions>
+        <Button block pending={busy} onClick={busy ? undefined : onConfirm}>
+          {busy ? "Joining…" : "I’m in"}
+        </Button>
+        <Button block variant="outline" disabled={busy} onClick={onClose}>
+          Not now
+        </Button>
+      </Actions>
+    </Sheet>
+  );
 }
 
 export function JoinedSheet({

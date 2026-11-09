@@ -371,13 +371,27 @@ const pastChat = (await join(gabe, planC)).chatId;
 ok(pastChat, 'Gabe joins Cora\'s plan');
 setPlanStart(planC, -25 * 60);
 await B.goto(threadUrl(pastChat), { waitUntil: 'networkidle' });
-const lockRow = (await B.locator('.msg-comp.is-closed').innerText().catch(() => '')).replace(/\s+/g, ' ').trim();
-eq(lockRow, 'This chat is closed Plan chats close 24 hours after the plan.', 'a plan that finished over 24 hours ago: closed, "Plan chats close 24 hours after the plan."');
-ok((await B.locator('.msg-sys').allInnerTexts()).includes('This chat closed. Plan chats close 24 hours after the plan.'), 'and the stream says so');
+// Plan chats no longer close a day after the plan (8 Nov 2026): open, and archived later.
+ok(await B.locator('textarea.msg-input').isVisible(), 'a plan that finished over 24 hours ago: the chat stays open');
+eq(await B.locator('.msg-comp.is-closed').count(), 0, 'no "This chat is closed"');
 ok(await B.locator('.msg-pin').getByText('Finished').isVisible(), 'the pin says "Finished"');
+// Seen by (8 Nov 2026): under your latest message, once the others have opened the chat.
+ok((await sendAs(gabe, 'Thanks for coming', 'bm-seen', pastChat)).ok, 'Gabe writes after the plan');
+await B.reload({ waitUntil: 'networkidle' });
+eq(await B.locator('.msg-seen').count(), 0, 'nobody has seen it yet: no "Seen by"');
+await action('thread.markChatRead', [pastChat], cora.session);
+await B.locator('.msg-seen', { hasText: 'Seen by Cora' }).waitFor({ timeout: 20000 });
+ok(true, 'Cora opens the chat: "Seen by Cora" under Gabe’s message, without a reload');
+// A day after the plan and a day after the last message: under Archived, folded.
+exec(`update chats set last_message_at = now() - interval '25 hours' where id = ${q(pastChat)}`);
 await B.goto(`${BASE}/members/messages`, { waitUntil: 'networkidle' });
-ok(await B.locator('.msg-group-label', { hasText: 'Closed' }).isVisible(), 'the inbox lists them under "Closed"');
-ok(await B.locator('.msg-row.is-closed', { hasText: 'Bm past plan' }).getByText('Closed · read only').isVisible(), '"Closed · read only"');
+const archivedLabel = B.locator('.msg-group-label', { hasText: 'Archived' });
+ok(await archivedLabel.isVisible(), 'the inbox has "Archived"');
+eq(await B.locator('.msg-row', { hasText: 'Bm past plan' }).count(), 0, 'folded: the archived chat is not in the list');
+await archivedLabel.getByRole('button', { name: 'Show' }).click();
+ok(await B.locator('.msg-row', { hasText: 'Bm past plan' }).isVisible(), 'Show: the archived chat');
+ok(await B.locator('.msg-group-label', { hasText: 'Closed' }).isVisible(), 'the cancelled plan’s chat is under "Closed"');
+ok(await B.locator('.msg-row.is-closed', { hasText: 'Bm chat plan' }).getByText('Closed · read only').isVisible(), '"Closed · read only"');
 
 // An update on a phone: a tap opens the plan, and reads it.
 const gabeUpdate = sql1(`select id from updates where member_id = ${q(gabe.id)} and plan_id = ${q(planId)} and kind = 'cancelled'`);

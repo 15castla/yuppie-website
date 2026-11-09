@@ -10,6 +10,7 @@
 import { useRef, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode, type RefObject } from "react";
 
 import { Avatar, AvatarStack, Button, DateColumn, Icon, KitLink, Pill, type IconName } from "@/components/members/kit";
+import { ZoomAvatar } from "@/components/members/photo/zoom-avatar";
 import { dateTile } from "@/lib/members/messages/format";
 import {
   LINK_BLOCKED_LINE,
@@ -121,7 +122,7 @@ export function QuestionIntro({ chat, youId }: { chat: Chat; youId: string }) {
   const intro = questionIntro(chat, youId);
   return (
     <div className="msg-intro">
-      <Avatar photoUrl={intro.member?.photoUrl} name={intro.name} size={64} />
+      {intro.member ? <ZoomAvatar person={intro.member} size={64} /> : <Avatar photoUrl={null} name={intro.name} size={64} />}
       <b>{intro.name}</b>
       <small>{intro.line}</small>
       <p>{intro.note}</p>

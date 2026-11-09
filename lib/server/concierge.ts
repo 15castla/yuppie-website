@@ -495,7 +495,7 @@ function shape(input: Record<string, unknown>, results: Set<string>, dropOffers:
     if (!name || !address || !why || typeof r.source_url !== "string" || !results.has(r.source_url)) continue;
     const facts = (Array.isArray(r.facts) ? r.facts : []).map((f) => keep(houseStyle(f, 24))).filter((f) => f && !isBadFact(f)).slice(0, 2);
     addSource(r.source_url);
-    recommendations.push({ id: crypto.randomUUID(), name, why, facts, address, mapsUrl: mapsUrl(name, address) });
+    recommendations.push({ id: crypto.randomUUID(), name, why, facts, address, mapsUrl: mapsUrl(name, address), source: { label: label(r.source_url), url: r.source_url } });
   }
   for (const url of Array.isArray(input.sources) ? input.sources : []) addSource(url);
   const remembered = houseStyle(input.remembered, 60).replace(/\.$/, "");

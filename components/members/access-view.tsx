@@ -16,7 +16,6 @@ import { useState } from "react";
 import {
   Button,
   Card,
-  ClosingBand,
   EmptyState,
   Icon,
   Main,
@@ -29,7 +28,6 @@ import {
 import { PartnerList, PartnerRow } from "@/components/members/discounts/partner-row";
 import { ACCESS_TITLE } from "@/components/members/discounts/loading-views";
 import {
-  SUGGEST_DOOR_HREF,
   accessMeta,
   discountMeta,
   groupAccessByKind,
@@ -181,18 +179,6 @@ export function AccessView({
           </div>
         ) : null}
 
-        <ClosingBand
-          label="Suggest a place"
-          title="Know a door we should try?"
-          accent="Tell us."
-          lead="Send us a name and we’ll see if they’ll have us."
-          action={
-            <Button href={SUGGEST_DOOR_HREF} blockPhone>
-              Suggest a place
-            </Button>
-          }
-          drawing="rope"
-        />
       </Main>
 
       {selected ? <RedeemCard perk={redeemPerkFor(selected)} onClose={() => setSelected(null)} /> : null}

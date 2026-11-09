@@ -183,12 +183,13 @@ const plan2 = await postPlan(host2, { title: 'Fx2 started plan', places: 4 });
 eq((await action('invite.joinOpenInvite', [plan2], going2.session)).result.ok, true, 'QB1-03: a member joins');
 const chat2 = sql1(`select id from chats where plan_id = ${q(plan2)} and kind = 'plan'`).id;
 setPlanStart(plan2, -60);
-const until = /The plan chat is open until \w{3} \d{1,2} \w{3}, \d{2}:\d{2}\./;
+// Since 8 Nov 2026 plan chats stay open after the plan (archived later), so the page no longer gives a closing time.
+const until = /The plan chat is open\./;
 for (const width of [390, 1280]) {
   const { ctx, pg } = await as(going2, { width });
   await open(pg, planHref(plan2));
   const text = await mainText(pg);
-  ok(text.includes('This plan has started.') && until.test(text), `QB1-03 ${width}: an hour in, the page says it has started and the plan chat is open until 24 hours after`, text.slice(0, 400));
+  ok(text.includes('This plan has started.') && until.test(text), `QB1-03 ${width}: an hour in, the page says it has started and the plan chat is open`, text.slice(0, 400));
   ok(!text.includes('The plan chat is closed') && !text.includes('Closed. You can still read it.') && !text.includes('This plan has finished.'), `QB1-03 ${width}: never that the chat is closed`);
   const button = width < 768 ? pg.locator('.mk-dock').getByRole('link', { name: /Open chat/ }) : pg.locator('.oi-act').getByRole('link', { name: /Open chat/ });
   await shows(button, `QB1-03 ${width}: the action is "Open chat"${width < 768 ? ' (docked bar, "Started")' : ' (the action card)'}`);
@@ -217,10 +218,11 @@ setPlanStart(plan2, -25 * 60);
   const { ctx, pg } = await as(going2);
   await open(pg, planHref(plan2));
   const text = await mainText(pg);
-  ok(text.includes('This plan has finished. The plan chat is closed. You can still read it.'), 'QB1-03: over 24 hours after the start: finished, the plan chat closed');
+  // 8 Nov 2026: the plan chat stays open after the plan (archived later, never read only by time).
+  ok(text.includes('This plan has finished. The plan chat is still open.'), 'QB1-03: over 24 hours after the start: finished, the plan chat still open');
   ok((await pg.locator('.mk-dock').innerText()).includes('Finished'), 'QB1-03: and the bar says "Finished"');
   await open(pg, `${BASE}/members/messages/${chat2}`);
-  eq(await visible(pg.locator('textarea.msg-input')).count(), 0, 'QB1-03: and the chat is read only');
+  eq(await visible(pg.locator('textarea.msg-input')).count(), 1, 'QB1-03: and the chat still takes messages');
   await ctx.close();
 }
 

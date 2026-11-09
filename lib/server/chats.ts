@@ -52,13 +52,27 @@ const iso = (value: string) => new Date(value).toISOString();
 
 // ---------------------------------------------------------------------------- open or closed
 
-/** A plan chat closes when the plan is cancelled or 24 hours after it starts; a question when the plan is cancelled or starts. */
+/**
+ * A plan chat closes only when the plan is cancelled; a question when the plan is cancelled or starts. Until 8 Nov
+ * 2026 a plan chat also closed (read only) 24 hours after the plan; now it stays open and is archived instead
+ * (Albert: "I don't think they should be read only after 24 hours, I think they should just be moved to archive").
+ */
 export function chatState(kind: ChatRow["kind"], plan: Pick<PlanRow, "status" | "starts_at">, now: Date): Pick<Chat, "status" | "closedReason"> {
   if (plan.status === "cancelled") return { status: "closed", closedReason: kind === "plan" ? "host_cancelled" : "invite_closed" };
   const start = new Date(plan.starts_at).getTime();
-  if (kind === "plan" && now.getTime() >= start + 24 * HOUR) return { status: "closed", closedReason: "plan_finished" };
   if (kind === "question" && now.getTime() >= start) return { status: "closed", closedReason: "invite_closed" };
   return { status: "open", closedReason: null };
+}
+
+/**
+ * Archived (Albert, 8 Nov 2026): "either 24 hours after the event or 24 hours after the last message was sent (a
+ * minimum of 24 hours after event)", so whichever is later. A cancelled plan never happens: its chats go 24 hours
+ * after their last message (the cancel line counts). A new message brings a chat back. Not stored: worked out here.
+ */
+export function chatArchived(row: Pick<ChatRow, "last_message_at" | "created_at">, plan: Pick<PlanRow, "status" | "starts_at">, now: Date): boolean {
+  const afterLast = new Date(row.last_message_at ?? row.created_at).getTime() + 24 * HOUR;
+  const afterPlan = plan.status === "cancelled" ? -Infinity : new Date(plan.starts_at).getTime() + 24 * HOUR;
+  return now.getTime() >= Math.max(afterLast, afterPlan);
 }
 
 function chatPlanStatus(plan: Pick<PlanRow, "status" | "starts_at">, now: Date): ChatPlan["status"] {
@@ -184,6 +198,8 @@ function buildChat(ctx: Context, row: ChatRow, viewerId: string, now: Date): Cha
     other: otherId ? refOf(ctx, otherId) : null,
     participants,
     ...state,
+    // Never folded away with something unread in it: the inbox would show a count with nothing to see.
+    archived: chatArchived(row, plan, now) && !((ctx.unread.get(row.id) ?? 0) > 0),
     muted: Boolean(mine?.muted),
     unreadCount: ctx.unread.get(row.id) ?? 0,
     lastMessage,
@@ -296,8 +312,8 @@ export async function getThread(
     });
     if (!firstUnreadId && !removed && m.sender_id !== viewer.id && new Date(m.created_at).getTime() > readAt) firstUnreadId = m.id;
   }
-  // "This chat closed. ..." (types: ChatSystemLine "closed"): drawn at the moment it closed, for a plan chat that
-  // finished or a question whose plan started. A cancelled plan has its own "cancelled" line already, and its
+  // "This chat closed. ..." (types: ChatSystemLine "closed"): drawn at the moment it closed, for a question whose
+  // plan started (plan chats no longer close when the plan is over: 8 Nov 2026). A cancelled plan has its own "cancelled" line already, and its
   // questions say why in the lock row ("Dan cancelled this plan."): never a "closed" line dated at a start that
   // will not happen.
   const plan = ctx.plans.get(row.plan_id)!;
@@ -305,7 +321,19 @@ export async function getThread(
     const at = new Date(new Date(plan.starts_at).getTime() + (row.kind === "plan" ? 24 * HOUR : 0)).toISOString();
     items.push({ kind: "system", id: `closed-${row.id}`, at, event: "closed", memberId: null });
   }
-  return { chat, items, firstUnreadId, safetyNoteSeen: await safetySeen(viewer.id) };
+  // "Seen by" (Albert, 8 Nov 2026: "like with WhatsApp ... you should see who has read the message as this encourages
+  // people to respond"): under your latest message, everyone else in the chat who has opened it since you sent it
+  // (their read marker, which moves while the chat is on their screen). Not anyone either of you blocked: a member
+  // who blocked you never sees your messages.
+  let seen: ChatThread["seen"] = null;
+  const mineLatest = [...items].reverse().find((item): item is ChatMessage => item.kind === "text" && item.senderId === viewer.id && item.status === "visible");
+  if (mineLatest) {
+    const sentAt = new Date(mineLatest.sentAt).getTime();
+    const others = (ctx.members.get(row.id) ?? []).filter((m) => !m.left_at && m.member_id !== viewer.id && !eitherBlocked(sets, m.member_id));
+    const by = others.filter((m) => m.last_read_at && new Date(m.last_read_at).getTime() >= sentAt).map((m) => refOf(ctx, m.member_id));
+    if (by.length) seen = { messageId: mineLatest.id, by, everyone: by.length === others.length };
+  }
+  return { chat, items, firstUnreadId, safetyNoteSeen: await safetySeen(viewer.id), seen };
 }
 
 async function isHostOrGoing(planId: string, memberId: string): Promise<boolean> {

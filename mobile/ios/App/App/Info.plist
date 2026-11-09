@@ -68,5 +68,7 @@
 	<true/>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>NSCameraUsageDescription</key>
+	<string>Club Yuppie uses the camera only if you choose to take a photo for your profile.</string>
 </dict>
 </plist>
