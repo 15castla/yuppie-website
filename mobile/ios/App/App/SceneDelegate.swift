@@ -542,6 +542,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 /// history: the site's page changes are history entries), and the picture underneath stays until the page has had a
 /// moment to draw, then fades. Let go before that: it slides back and nothing changes.
 ///
+/// On a tab's own page (Open Invite, Events, Concierge, Discounts, Access: the tab bar's links), the swipe goes to the
+/// tab on its left instead of back (Albert, 9 Nov 2026: "it should go to the page to the left, e.g. events to open
+/// invite, conciege to events, disocunts to conciege etc. Open invite to nowhere"), through that tab's own link, so
+/// it opens as a tap on the tab does. On the first tab it does not start. Every other page goes back, to the page
+/// shown underneath.
+///
 /// It does not start where the page needs sideways touches itself, decided in the page as each touch starts (the
 /// script below tells the app): a row that scrolls sideways (the filter chips), anything that handles its own drags
 /// (touch-action none or pan-y: the photo cropper and its zoom slider), a range slider, anything marked
@@ -559,6 +565,11 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
     private let pan = UIPanGestureRecognizer()
     private var shots: [(item: WKBackForwardListItem, image: UIImage)] = []
     private var touchBlocked = false
+    /// From the page, on each touch start: it is a tab's own page, and the tab on its left (nil: the first tab).
+    private var touchOnTab = false
+    private var touchLeftTab: String?
+    /// Pictures by address too, for the tab pages (a tab swipe goes to a page by its address, not its history entry).
+    private var pathShots: [(path: String, image: UIImage)] = []
     private var urlWatch: NSKeyValueObservation?
     private var scrollWatch: NSKeyValueObservation?
     private var pendingShot: DispatchWorkItem?
@@ -569,8 +580,9 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
     private var shade: UIView?
     private var settling = false
     private var settleGeneration = 0
-    /// The page the swipe shows underneath, gone back to exactly (see complete).
+    /// The page the swipe shows underneath: a history entry to go back to exactly (see complete), or a tab's address.
     private var target: WKBackForwardListItem?
+    private var targetTab: String?
 
     init(webView: WKWebView, isPaused: @escaping () -> Bool) {
         self.webView = webView
@@ -618,24 +630,39 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
             }
             return false;
           }
+          // A tab's own page: the tab bar's links, in order; the one on its left, or null for the first.
+          function tabs() {
+            var links = document.querySelectorAll('.mk-tabbar a.mk-tab[href]');
+            var path = location.pathname.replace(/[/]+$/, '');
+            for (var i = 0; i < links.length; i++) {
+              if (links[i].getAttribute('href') === path) return { tab: true, left: i > 0 ? links[i - 1].getAttribute('href') : null };
+            }
+            return { tab: false, left: null };
+          }
           document.addEventListener('touchstart', function (event) {
             try {
-              var no = event.touches.length !== 1 || blocked(event.target);
-              window.webkit.messageHandlers.yuppieSwipeBack.postMessage(no);
+              var where = tabs();
+              window.webkit.messageHandlers.yuppieSwipeBack.postMessage({
+                no: event.touches.length !== 1 || blocked(event.target), tab: where.tab, left: where.left
+              });
             } catch (e) {}
           }, { capture: true, passive: true });
         })();
         """
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        guard message.name == Self.messageName else { return }
-        touchBlocked = (message.body as? Bool) ?? false
+        guard message.name == Self.messageName, let body = message.body as? [String: Any] else { return }
+        touchBlocked = (body["no"] as? Bool) ?? false
+        touchOnTab = (body["tab"] as? Bool) ?? false
+        touchLeftTab = body["left"] as? String
     }
 
     // MARK: the gesture
 
     func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
-        guard gestureRecognizer === pan, let webView, webView.canGoBack, cover == nil, !touchBlocked, !isPaused() else { return false }
+        guard gestureRecognizer === pan, let webView, cover == nil, !touchBlocked, !isPaused() else { return false }
+        // A tab's page goes to the tab on its left (none on the first tab); any other page goes back.
+        if touchOnTab ? (touchLeftTab == nil) : !webView.canGoBack { return false }
         let velocity = pan.velocity(in: webView)
         return velocity.x > 0 && velocity.x > abs(velocity.y) * 1.3
     }
@@ -677,13 +704,20 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
         cover.backgroundColor = Self.yellow
         cover.layer.zPosition = 1000
 
-        let back = webView.backForwardList.backItem
-        target = back
         let picture = UIImageView(frame: bounds)
         picture.contentMode = .scaleAspectFill
         picture.clipsToBounds = true
         picture.backgroundColor = Self.yellow
-        picture.image = back.flatMap { shot(for: $0) }
+        if touchOnTab, let left = touchLeftTab {
+            targetTab = left
+            target = nil
+            picture.image = pathShots.last(where: { $0.path == left })?.image
+        } else {
+            let back = webView.backForwardList.backItem
+            target = back
+            targetTab = nil
+            picture.image = back.flatMap { shot(for: $0) }
+        }
 
         let shade = UIView(frame: bounds)
         shade.backgroundColor = UIColor(white: 0, alpha: 0.16)
@@ -735,12 +769,23 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
             // To the page underneath, by its history entry, not goBack(): WebKit's goBack() skips entries the page
             // added without a tap of its own, which is every page change in the site (Next adds them a moment
             // after the tap), so it went all the way back to the first page, Open Invite (Albert, 9 Nov 2026).
-            if let target = self.target, webView.backForwardList.backList.contains(where: { $0 === target }) {
+            if let tab = self.targetTab {
+                // The tab's own link, as a tap on it (the site's page change, the tab fetched ahead); its address if
+                // the link is not there.
+                let href = (try? JSONEncoder().encode(tab)).flatMap { String(data: $0, encoding: .utf8) } ?? "\"/members\""
+                webView.evaluateJavaScript("""
+                    (function (href) {
+                      var link = document.querySelector('.mk-tabbar a.mk-tab[href="' + href + '"]');
+                      if (link) link.click(); else location.assign(href);
+                    })(\(href))
+                    """)
+            } else if let target = self.target, webView.backForwardList.backList.contains(where: { $0 === target }) {
                 _ = webView.go(to: target)
             } else {
                 _ = webView.goBack()
             }
             self.target = nil
+            self.targetTab = nil
             // If the page change never shows up (it always should), uncover anyway.
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
                 guard let self, self.settling, generation == self.settleGeneration else { return }
@@ -782,6 +827,7 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
 
     private func removeCover() {
         target = nil
+        targetTab = nil
         cover?.removeFromSuperview()
         cover = nil
         moving = nil
@@ -824,9 +870,20 @@ final class SwipeBack: NSObject, UIGestureRecognizerDelegate, WKScriptMessageHan
                     self.shots.removeAll { $0.item === item }
                     self.shots.append((item: item, image: small))
                     if self.shots.count > SwipeBack.keep { self.shots.removeFirst(self.shots.count - SwipeBack.keep) }
+                    let path = SwipeBack.path(of: item.url)
+                    self.pathShots.removeAll { $0.path == path }
+                    self.pathShots.append((path: path, image: small))
+                    if self.pathShots.count > SwipeBack.keep { self.pathShots.removeFirst(self.pathShots.count - SwipeBack.keep) }
                 }
             }
         }
+    }
+
+    /// "/members/events", as the tab bar's links write it (no trailing slash).
+    private static func path(of url: URL) -> String {
+        var path = url.path
+        while path.count > 1 && path.hasSuffix("/") { path.removeLast() }
+        return path
     }
 
     /// At most 1.5 pixels a point: the picture is only seen shaded, moving and for a moment.
