@@ -5,7 +5,7 @@
 Covers: reading the skill's .eml (HTML body, PDF, a curly apostrophe in the subject), which files are waiting, a dry
 run that touches nothing, sign-in in the browser (PKCE, the state checked, a refusal) and by device code, drafting (the request Outlook gets), the marker, no second draft for
 the same file, the wrong mailbox, a sign-in that could send, a PDF over 3 MB (upload session), a failed upload (the
-half draft is taken away), the test draft, a 401 retried once, and that nothing ever calls a send endpoint.
+half draft is taken away), the test draft, a 401 retried once, copying the Outlook signature (logo included) into every draft, skip, and that nothing ever calls a send endpoint.
 """
 
 from __future__ import annotations
@@ -54,6 +54,7 @@ class FakeMicrosoft:
         self.unauthorized_once = False
         self.messages: dict[str, dict] = {}
         self.browser_mode = "approve"
+        self.drafts_folder: list[dict] = []  # drafts Albert made in Outlook: {"id", "subject", "lastModifiedDateTime", "body", "attachments"}
         self.authorize: dict = {}
         self.browser_pages: list[str] = []
         fake = self
@@ -101,6 +102,17 @@ class FakeMicrosoft:
                     return self._reply(401, {"error": {"code": "InvalidAuthenticationToken", "message": "expired"}})
                 if p == "/v1.0/me":
                     return self._reply(200, {"mail": fake.mailbox, "userPrincipalName": fake.mailbox})
+                if p == "/v1.0/me/mailFolders/drafts/messages" and self.command == "GET":
+                    want = unquote(url.query).split("subject eq '")[1].split("'")[0]
+                    hits = [{k: d[k] for k in ("id", "subject", "lastModifiedDateTime")} for d in fake.drafts_folder if d["subject"].lower() == want.lower()]
+                    return self._reply(200, {"value": hits})
+                if p.startswith("/v1.0/me/messages/") and self.command == "GET":
+                    mine = {d["id"]: d for d in fake.drafts_folder}.get(p.split("/")[4])
+                    if not mine:
+                        return self._reply(404, {"error": {"code": "ErrorItemNotFound", "message": "no"}})
+                    if p.endswith("/attachments"):
+                        return self._reply(200, {"value": mine["attachments"]})
+                    return self._reply(200, {"id": mine["id"], "body": mine["body"]})
                 if p == "/v1.0/me/messages" and self.command == "GET":
                     return self._reply(200, {"value": [fake.existing] if fake.existing else []})
                 if p == "/v1.0/me/messages" and self.command == "POST":
@@ -402,6 +414,78 @@ class DrafterTests(unittest.TestCase):
         self.assertIn("(delete me)", sent["subject"])
         self.assertTrue(base64.b64decode(sent["attachments"][0]["contentBytes"]).startswith(b"%PDF-1.4"))
         self.assertEqual(dp.waiting(self.root), [])
+
+    # ---------------------------------------------------------------- the signature
+    LOGO = b"\x89PNG\r\n\x1a\nlogo"
+
+    def outlook_signature_draft(self, html, attachments=None, when="2026-11-09T23:00:00Z", mid="sig2"):
+        self.fake.drafts_folder.append({"id": mid, "subject": dp.SIGNATURE_SUBJECT, "lastModifiedDateTime": when,
+                                        "body": {"contentType": "html", "content": html}, "attachments": attachments or []})
+
+    def test_signature_copied_from_outlook_goes_into_every_draft(self):
+        self.outlook_signature_draft(
+            "<html><head><style>p{margin:0}</style></head><body><div><br></div>"
+            '<div id="Signature"><div><p>Albert Castle<br>Founder, Club Yuppie Ltd.</p><img src="cid:image001.png@01DB"></div></div>'
+            "</body></html>",
+            [{"name": "image001.png", "contentType": "image/png", "isInline": True, "contentId": "image001.png@01DB", "contentBytes": base64.b64encode(self.LOGO).decode()},
+             {"name": "other.png", "contentType": "image/png", "isInline": True, "contentId": "other@x", "contentBytes": "AA=="}],
+        )
+        self.outlook_signature_draft("<html><body><p>an older one</p></body></html>", when="2026-01-01T00:00:00Z", mid="sig1")
+        self.sign_in()
+        code, out = self.main("signature")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Albert Castle / Founder, Club Yuppie Ltd.", out)
+        self.assertIn("(1 image)", out)
+        saved = json.loads(dp.signature_path().read_text())
+        self.assertEqual(saved["html"], '<div id="Signature"><div><p>Albert Castle<br>Founder, Club Yuppie Ltd.</p><img src="cid:image001.png@01DB"></div></div>')
+        self.assertEqual([i["contentId"] for i in saved["images"]], ["image001.png@01DB"])
+        self.assertEqual(oct(dp.signature_path().stat().st_mode & 0o777), "0o600")
+        # a dry run says so, and the draft carries it
+        path = self.eml()
+        code, out = self.main("--dry-run")
+        self.assertIn("Signature: your signature added", out)
+        self.assertNotIn("image001.png", out)
+        code, out = self.main()
+        self.assertEqual(code, 0, out)
+        sent = self.fake.messages["m1"]
+        self.assertIn('<p>Kind regards,</p><div id="Signature">', sent["body"]["content"])
+        logo = [a for a in sent["attachments"] if a.get("isInline")]
+        self.assertEqual([(a["contentId"], base64.b64decode(a["contentBytes"])) for a in logo], [("image001.png@01DB", self.LOGO)])
+        self.assertTrue(dp.marker_for(path).exists())
+        self.assertFalse(any("send" in c["path"].lower() for c in self.fake.calls))
+        # and it can be taken off again
+        code, out = self.main("signature", "--remove")
+        self.assertEqual(code, 0, out)
+        self.assertFalse(dp.signature_path().exists())
+
+    def test_signature_without_outlooks_wrapper_drops_the_blank_lines_above_it(self):
+        html = "<html><body><div><br></div><p>&nbsp;</p><div style='x'> <br/> </div><p>Albert Castle</p><p>Founder</p></body></html>"
+        self.assertEqual(dp.signature_part(html), "<p>Albert Castle</p><p>Founder</p>")
+
+    def test_no_signature_draft_says_how_to_make_one(self):
+        self.sign_in()
+        code, out = self.main("signature")
+        self.assertEqual(code, 1)
+        self.assertIn(f'no draft called "{dp.SIGNATURE_SUBJECT}"', out)
+        self.assertFalse(dp.signature_path().exists())
+
+    def test_no_signature_means_the_dry_run_says_add_it(self):
+        self.eml()
+        code, out = self.main("--dry-run")
+        self.assertIn("Signature: none (add your signature in Outlook before sending)", out)
+
+    # ---------------------------------------------------------------- skip
+    def test_skip_marks_a_brand_done_without_drafting(self):
+        a = self.eml("Headmasters")
+        b = self.eml("Bravo Gyms")
+        code, out = self.main("skip", "headmasters")
+        self.assertEqual(code, 0, out)
+        self.assertTrue(json.loads(dp.marker_for(a).read_text())["skipped"])
+        self.assertEqual(dp.waiting(self.root), [b])
+        self.assertEqual(self.fake.calls, [])
+        code, out = self.main("skip", "Nobody")
+        self.assertEqual(code, 1)
+        self.assertIn("Nothing waiting for Nobody. Waiting: Bravo Gyms.", out)
 
     def test_not_set_up_or_not_signed_in(self):
         self.eml()

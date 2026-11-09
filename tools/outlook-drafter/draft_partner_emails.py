@@ -15,6 +15,9 @@ Safety:
   - The sign-in (a refresh token) is kept in the macOS Keychain (service "club-yuppie-drafts"), never in a file, and
     is never printed.
   - It drafts only into the mailbox in the config (albert@clubyuppie.com): signed in as anyone else, it stops.
+  - Outlook's own signature is not added to drafts made through Graph, and Graph cannot read it. So "signature" copies
+    it once from a draft Albert makes in Outlook (subject "Club Yuppie signature": Outlook puts his signature in by
+    itself), logo included, into ~/.config/club-yuppie-drafts/signature.json, and every draft then ends with it.
   - A draft carries a hidden key (the .eml's SHA-256), so a run that is cut short before the marker is written finds
     the draft it made instead of making a second one.
 
@@ -26,6 +29,9 @@ Commands (installed as "draft-partner-emails" by install.sh):
   draft-partner-emails setup --tenant ID --client ID [--mailbox ADDR] [--root DIR] [--signature FILE.html]
   draft-partner-emails signin           sign in once, in the browser (--device-code: with a code instead)
   draft-partner-emails signout          forget the sign-in (removes it from the Keychain)
+  draft-partner-emails signature        copy Albert's Outlook signature (from a draft titled "Club Yuppie signature"),
+                                        added to every draft from then on (--remove: stop adding it)
+  draft-partner-emails skip BRAND       mark a brand's waiting email as done without drafting it (sent by hand)
   draft-partner-emails test             one dummy draft to the configured mailbox, to check it all works
   draft-partner-emails status           the settings, the folder, how many are waiting, signed in or not
 
@@ -42,6 +48,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import secrets
 import subprocess
 import sys
@@ -75,6 +82,8 @@ DRAFT_KEY_PROPERTY = "String {566da39a-e7d3-4358-bb63-1a50b006da7f} Name ClubYup
 INLINE_LIMIT = 3 * 1024 * 1024
 UPLOAD_CHUNK = 320 * 1024 * 10  # a multiple of 320 KiB, as upload sessions need
 WATCH_SECONDS = 60
+# Albert makes a draft in Outlook with this subject (Outlook adds his signature to it by itself); "signature" copies it.
+SIGNATURE_SUBJECT = "Club Yuppie signature"
 # Browser sign-in: Microsoft sends the browser back to http://localhost:<a free port> on this Mac (the app
 # registration has the redirect URI "http://localhost" under "Mobile and desktop applications"; the port can vary).
 SIGNIN_WAIT = 300
@@ -103,6 +112,10 @@ def save_config(cfg: dict) -> None:
     CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     CONFIG_PATH.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
     os.chmod(CONFIG_PATH, 0o600)
+
+
+def signature_path() -> Path:
+    return CONFIG_PATH.parent / "signature.json"
 
 
 def mailbox_of(cfg: dict) -> str:
@@ -159,6 +172,7 @@ class Draft:
     is_html: bool
     attachments: list[Attachment] = field(default_factory=list)
     key: str = ""
+    signed: bool = False
 
 
 def _addresses(msg: EmailMessage, header: str) -> list[tuple[str, str]]:
@@ -166,7 +180,7 @@ def _addresses(msg: EmailMessage, header: str) -> list[tuple[str, str]]:
     return [(name.strip(), addr.strip()) for name, addr in getaddresses(values) if addr.strip()]
 
 
-def parse_eml(path: Path, signature_html: str | None = None) -> Draft:
+def parse_eml(path: Path, signature_html: str | None = None, signature_images: list[Attachment] | None = None) -> Draft:
     """To, Cc, Subject, the HTML body (plain text if that is all there is) and the attachments."""
     try:
         raw = path.read_bytes()
@@ -188,7 +202,8 @@ def parse_eml(path: Path, signature_html: str | None = None) -> Draft:
         raise DraftError(f"{path.name} has no email text.")
     body = part.get_content()
     is_html = part.get_content_subtype() == "html"
-    if signature_html and is_html:
+    signed = bool(signature_html and is_html)
+    if signed:
         lower = body.lower()
         at = lower.rfind("</body>")
         body = body[:at] + signature_html + body[at:] if at >= 0 else body + signature_html
@@ -206,6 +221,8 @@ def parse_eml(path: Path, signature_html: str | None = None) -> Draft:
         )
     if not any(a.content_type == "application/pdf" or a.name.lower().endswith(".pdf") for a in attachments):
         raise DraftError(f"{path.name} has no PDF attached.")
+    if signed:
+        attachments += list(signature_images or [])
     return Draft(
         source=path,
         subject=subject,
@@ -215,14 +232,16 @@ def parse_eml(path: Path, signature_html: str | None = None) -> Draft:
         is_html=is_html,
         attachments=attachments,
         key=hashlib.sha256(raw).hexdigest(),
+        signed=signed,
     )
 
 
 def describe(draft: Draft) -> str:
     to = ", ".join(addr for _, addr in draft.to)
     cc = (" (cc " + ", ".join(addr for _, addr in draft.cc) + ")") if draft.cc else ""
-    files = ", ".join(f"{a.name} ({len(a.data) // 1024} KB)" for a in draft.attachments)
-    return f"To {to}{cc}\n    Subject: {draft.subject}\n    Attached: {files}"
+    files = ", ".join(f"{a.name} ({len(a.data) // 1024} KB)" for a in draft.attachments if not a.content_id)
+    signature = "your signature added" if draft.signed else "none (add your signature in Outlook before sending)"
+    return f"To {to}{cc}\n    Subject: {draft.subject}\n    Attached: {files}\n    Signature: {signature}"
 
 
 # ---------------------------------------------------------------------------------------------------- the sign-in
@@ -521,6 +540,23 @@ class Graph:
             return None
         return found[0] if found else None
 
+    def signature_draft(self) -> tuple[str, list[dict]]:
+        """The newest draft titled SIGNATURE_SUBJECT: its HTML and its attachments."""
+        rule = urllib.parse.quote(f"subject eq '{SIGNATURE_SUBJECT}'", safe="")
+        found = self.call("GET", f"/me/mailFolders/drafts/messages?$filter={rule}&$select=id,subject,lastModifiedDateTime&$top=20").get("value", [])
+        if not found:
+            raise DraftError(
+                f'There\'s no draft called "{SIGNATURE_SUBJECT}" in Outlook Drafts. In Outlook, start a new email (your signature '
+                f'appears by itself), type {SIGNATURE_SUBJECT} as the subject, close it so it is saved in Drafts, then run this again.'
+            )
+        newest = max(found, key=lambda m: m.get("lastModifiedDateTime") or "")
+        mid = urllib.parse.quote(newest["id"], safe="")
+        body = self.call("GET", f"/me/messages/{mid}?$select=body").get("body", {})
+        if str(body.get("contentType", "")).lower() != "html":
+            raise DraftError(f'The "{SIGNATURE_SUBJECT}" draft is plain text. Make it in Outlook as a normal (HTML) email.')
+        attachments = self.call("GET", f"/me/messages/{mid}/attachments").get("value", [])
+        return body.get("content", ""), attachments
+
     @staticmethod
     def _file(a: Attachment) -> dict:
         item = {
@@ -602,19 +638,59 @@ def write_marker(draft: Draft, made: dict, mailbox: str, found: bool) -> None:
     marker_for(draft.source).write_text(json.dumps(note, indent=2) + "\n", encoding="utf-8")
 
 
-def signature_of(cfg: dict) -> str | None:
+def signature_of(cfg: dict) -> tuple[str | None, list[Attachment]]:
+    """The signature added to each draft: an HTML file named in setup --signature, else the copy "signature" made."""
     path = cfg.get("signature")
-    if not path:
-        return None
+    if path:
+        try:
+            return Path(path).expanduser().read_text(encoding="utf-8"), []
+        except OSError as err:
+            raise DraftError(f"Couldn't read the signature file {path}: {err}") from None
+    store = signature_path()
+    if not store.exists():
+        return None, []
     try:
-        return Path(path).expanduser().read_text(encoding="utf-8")
-    except OSError as err:
-        raise DraftError(f"Couldn't read the signature file {path}: {err}") from None
+        saved = json.loads(store.read_text(encoding="utf-8"))
+        images = [Attachment(name=i["name"], content_type=i["contentType"], data=base64.b64decode(i["contentBytes"]), content_id=i["contentId"]) for i in saved.get("images", [])]
+        return saved["html"], images
+    except (OSError, ValueError, KeyError) as err:
+        raise DraftError(f"Couldn't read the copied signature ({err}). Run: draft-partner-emails signature") from None
+
+
+_BLANK_START = re.compile(r"^(?:\s+|<br\s*/?>|&nbsp;|<(div|p)\b[^>]*>(?:\s|&nbsp;|<br\s*/?>)*</\1>)", re.I)
+
+
+def signature_part(html: str) -> str:
+    """The signature in an Outlook draft's HTML: the <div id="Signature"> Outlook wraps it in, else the whole body
+    without the blank lines Outlook leaves above it for typing."""
+    start = re.search(r"<div\b[^>]*\bid\s*=\s*([\"']?)Signature\1(?=[\s/>])[^>]*>", html, re.I)
+    if start:
+        depth = 0
+        for tag in re.finditer(r"<(/?)div\b[^>]*>", html[start.start():], re.I):
+            depth += -1 if tag.group(1) else 1
+            if depth == 0:
+                return html[start.start(): start.start() + tag.end()]
+        return html[start.start():]
+    body = re.search(r"<body\b[^>]*>(.*)</body>", html, re.I | re.S)
+    part = body.group(1) if body else html
+    while True:
+        blank = _BLANK_START.match(part)
+        if not blank or not blank.group(0):
+            return part.strip()
+        part = part[blank.end():]
+
+
+def text_of(html: str) -> str:
+    """The words in some HTML, for a short preview."""
+    text = re.sub(r"<(style|script)\b.*?</\1>", " ", html, flags=re.I | re.S)
+    text = re.sub(r"<br\s*/?>|</(p|div|tr|li)>", " / ", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", " ", text).replace("&nbsp;", " ").replace("&amp;", "&")
+    return re.sub(r"(\s*/\s*)+", " / ", re.sub(r"\s+", " ", text)).strip(" /")
 
 
 def run(cfg: dict, files: list[Path], dry_run: bool) -> int:
     """Drafts each file in turn. Returns how many failed."""
-    signature = signature_of(cfg)
+    signature, signature_images = signature_of(cfg)
     mailbox = mailbox_of(cfg)
     graph: Graph | None = None
     if not dry_run:
@@ -632,7 +708,7 @@ def run(cfg: dict, files: list[Path], dry_run: bool) -> int:
     for path in files:
         label = f"{path.parent.name} / {path.name}"
         try:
-            draft = parse_eml(path, signature)
+            draft = parse_eml(path, signature, signature_images)
         except DraftError as err:
             print(f"Skipped {label}\n    {err}")
             failed += 1
@@ -729,6 +805,63 @@ def cmd_signin(args) -> int:
     return 0
 
 
+def cmd_signature(args) -> int:
+    cfg = load_config()
+    store = signature_path()
+    if args.remove:
+        store.unlink(missing_ok=True)
+        print("Drafts won't get a signature now. Add it in Outlook before sending, or run signature again.")
+        return 0
+    graph = Graph(Auth(cfg))
+    if graph.mailbox() != mailbox_of(cfg):
+        raise DraftError(f"Signed in as someone else, not {mailbox_of(cfg)}. Run signout, then signin.")
+    html, attachments = graph.signature_draft()
+    part = signature_part(html)
+    lowered = part.lower()
+    images = [
+        a for a in attachments
+        if a.get("isInline") and a.get("contentId") and a.get("contentBytes") and f"cid:{a['contentId']}".lower() in lowered
+    ]
+    if not text_of(part) and not images and "<img" not in lowered:
+        raise DraftError(f'The "{SIGNATURE_SUBJECT}" draft has no signature in it. Check Outlook adds your signature to new emails, then make it again.')
+    saved = {
+        "copiedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "from": f'Outlook draft "{SIGNATURE_SUBJECT}"',
+        "html": part,
+        "images": [{"name": a.get("name") or "image", "contentType": a.get("contentType") or "image/png", "contentId": a["contentId"], "contentBytes": a["contentBytes"]} for a in images],
+    }
+    store.parent.mkdir(parents=True, exist_ok=True)
+    store.write_text(json.dumps(saved, indent=2) + "\n", encoding="utf-8")
+    os.chmod(store, 0o600)
+    if cfg.pop("signature", None):
+        save_config(cfg)  # the copy from Outlook replaces an HTML file named in setup
+    preview = text_of(part)
+    print(f"Copied your Outlook signature ({len(images)} image{'s' if len(images) != 1 else ''}): {preview[:160] + ('...' if len(preview) > 160 else '')}")
+    print(f'Every draft gets it from now on. You can delete the "{SIGNATURE_SUBJECT}" draft. If you change your signature in Outlook, make that draft again and run this again.')
+    return 0
+
+
+def cmd_skip(args) -> int:
+    cfg = load_config()
+    given = Path(args.what).expanduser()
+    if given.is_file():
+        files = [given]
+    else:
+        root = find_root(cfg)
+        if not root or not root.is_dir():
+            raise DraftError('Couldn\'t find OneDrive\'s "Partner emails" folder. Run setup with --root "<path>".')
+        files = [f for f in waiting(root) if f.parent.name.casefold() == args.what.strip().casefold()]
+        if not files:
+            names = sorted({f.parent.name for f in waiting(root)})
+            raise DraftError(f"Nothing waiting for {args.what}." + (f" Waiting: {', '.join(names)}." if names else ""))
+    for path in files:
+        note = {"skippedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "skipped": True,
+                "reason": "marked as done without drafting (drafted or sent by hand)"}
+        marker_for(path).write_text(json.dumps(note, indent=2) + "\n", encoding="utf-8")
+        print(f"Marked as done, not drafted: {path.parent.name} / {path.name}")
+    return 0
+
+
 def cmd_signout(_args) -> int:
     cfg = load_config()
     token_store(cfg).delete()
@@ -744,6 +877,12 @@ def cmd_status(_args) -> int:
     print(f"Folder: {root if root else 'not found'}")
     if root and root.is_dir():
         print(f"Waiting to be drafted: {len(waiting(root))}")
+    if cfg.get("signature"):
+        print(f"Signature: from {cfg['signature']}")
+    elif signature_path().exists():
+        print("Signature: copied from Outlook (run signature again after changing it in Outlook)")
+    else:
+        print("Signature: none (run signature to copy yours from Outlook)")
     try:
         print("Signed in: " + ("yes" if token_store(cfg).get() else "no (run signin)"))
     except DraftError as err:
@@ -785,7 +924,7 @@ def cmd_run(args) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    commands = {"setup", "signin", "signout", "status", "test"}
+    commands = {"setup", "signin", "signout", "signature", "skip", "status", "test"}
     parser = argparse.ArgumentParser(prog="draft-partner-emails", description="Partner emails into Outlook Drafts. Never sends.")
     if argv and argv[0] in commands:
         sub = parser.add_subparsers(dest="command")
@@ -798,11 +937,16 @@ def main(argv: list[str] | None = None) -> int:
         signin = sub.add_parser("signin")
         signin.add_argument("--device-code", action="store_true", help="sign in with a code at microsoft.com/devicelogin instead (blocked where security defaults are on)")
         sub.add_parser("signout")
+        signature = sub.add_parser("signature", help=f'copy your Outlook signature from a draft titled "{SIGNATURE_SUBJECT}"')
+        signature.add_argument("--remove", action="store_true", help="stop adding a signature")
+        skip = sub.add_parser("skip", help="mark a brand's waiting email as done without drafting it")
+        skip.add_argument("what", metavar="BRAND", help='the brand folder name (e.g. Headmasters) or the .eml file')
         sub.add_parser("status")
         test = sub.add_parser("test")
         test.add_argument("--dry-run", action="store_true")
         args = parser.parse_args(argv)
-        handler = {"setup": cmd_setup, "signin": cmd_signin, "signout": cmd_signout, "status": cmd_status, "test": cmd_test}[args.command]
+        handler = {"setup": cmd_setup, "signin": cmd_signin, "signout": cmd_signout, "signature": cmd_signature, "skip": cmd_skip,
+                   "status": cmd_status, "test": cmd_test}[args.command]
     else:
         parser.add_argument("--dry-run", action="store_true", help="show what would be drafted; nothing is changed")
         parser.add_argument("--only", metavar="FILE", help="just this .eml")
