@@ -106,7 +106,7 @@ await join(E, texter, new Date(eStart - 72 * HOUR));
 await cronAt('reminders', eStart - 23 * HOUR);
 eq(sentFor(`plan_id = ${q(E)} and member_id = ${q(texter.id)} and channel = 'email'`).length, 1, 'the 24-hour email for the old time');
 const newStart = new Date(eStart.getTime() + 24 * HOUR);
-const moved = await action('plan.editOpenInvite', [E, { title: 'Reminder plan E', type: 'Sport', ...formDate(newStart), where: 'Calder Park', places: 8, hostGoing: true, note: '', cost: null }], host.session);
+const moved = await action('plan.editOpenInvite', [E, { title: 'Reminder plan E', type: 'Sport', ...formDate(newStart), where: 'Calder Park', places: 8, hostGoing: true, note: 'Meet at the gate.', cost: null }], host.session);
 ok(moved.result.ok, 'the host moves it a day later');
 eq(sql1(`select reminder_24h_sent_at from plan_members where plan_id = ${q(E)} and member_id = ${q(texter.id)}`).reminder_24h_sent_at, null, 'its reminder claims start again');
 await cronAt('reminders', newStart - 23 * HOUR);

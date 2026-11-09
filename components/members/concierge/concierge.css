@@ -62,6 +62,8 @@
 .cn-rec .cn-maps{padding:0 10px}
 
 /* the pages its places came from (web search results must show their sources), small under the cards */
+.cn-rec .cn-via{margin-top:4px;font:400 13px/1.4 var(--font-body);color:var(--muted);overflow-wrap:anywhere}
+.cn-rec .cn-via a{color:var(--muted);text-decoration:underline;text-underline-offset:2px;display:inline-block;min-height:24px;padding:2px 0}
 .cn-sources{font:400 13px/1.4 var(--font-body);color:var(--muted);padding:2px 4px 4px;overflow-wrap:anywhere}
 .cn-sources a{color:var(--ink);text-decoration:underline;text-underline-offset:2px;display:inline-block;min-height:24px;padding:2px 0}
 

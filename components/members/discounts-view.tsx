@@ -15,7 +15,6 @@ import {
   Button,
   Chip,
   ChipRow,
-  ClosingBand,
   EmptyState,
   Main,
   SectionHead,
@@ -24,7 +23,6 @@ import {
 import { PartnerList, PartnerRow } from "@/components/members/discounts/partner-row";
 import { DISCOUNTS_TITLE } from "@/components/members/discounts/loading-views";
 import {
-  SUGGEST_PLACE_HREF,
   categoryChips,
   discountMeta,
   displayCategory,
@@ -179,18 +177,6 @@ export function DiscountsView({
                 </PartnerList>
               </section>
             </div>
-            <ClosingBand
-              label="Suggest a place"
-              title="Know a place we should add?"
-              accent="Tell us."
-              lead="Send us a name and we’ll ask them."
-              action={
-                <Button href={SUGGEST_PLACE_HREF} blockPhone>
-                  Suggest a place
-                </Button>
-              }
-              drawing="tag"
-            />
           </>
         )}
       </Main>

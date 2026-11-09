@@ -106,15 +106,7 @@ try {
       await pg.getByRole('button', { name: 'Next' }).click();
       await text(pg, 'This is how members see you.');
     });
-    if (mode === 'app') {
-      await shoot('gate-camera-ask', mode, gS, async (pg) => {
-        await gate(pg);
-        await pg.evaluate(() => localStorage.removeItem('yuppie-camera-asked'));
-        // In the dock on a phone, under the words from 768px.
-        await pg.getByRole('button', { name: 'Take a photo', exact: true }).locator('visible=true').last().click();
-        await text(pg, 'We need the camera to take your photo.');
-      });
-    }
+    // (gate-camera-ask: gone with Take a photo, 8 Nov 2026)
     await shoot('gate-saved', mode, gS, async (pg) => {
       exec(`update members set photo_id = null where id = ${q(g.id)}; delete from member_photos where member_id = ${q(g.id)}`);
       await chosen(pg);
@@ -145,14 +137,7 @@ try {
       await pg.locator('dialog[open]').waitFor();
     };
     await shoot('change-start', mode, cpS, sheet, { full: false });
-    if (mode === 'app') {
-      await shoot('change-camera-ask', mode, cpS, async (pg) => {
-        await sheet(pg);
-        await pg.evaluate(() => localStorage.removeItem('yuppie-camera-asked'));
-        await pg.locator('dialog[open]').getByRole('button', { name: 'Take a photo' }).click();
-        await text(pg, 'We need the camera to take your photo.');
-      }, { full: false });
-    }
+    // (change-camera-ask: gone with Take a photo, 8 Nov 2026)
     await shoot('change-crop', mode, cpS, async (pg) => {
       await sheet(pg);
       await pg.locator('dialog[open] input[type=file]').first().setInputFiles(`${FIX}/photo-800.jpg`);

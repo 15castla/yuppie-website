@@ -23,7 +23,8 @@ export default async function MessagesPage() {
   let failed = false;
   try {
     [chats, updates] = await Promise.all([listChats(member.id, now), listUpdates(member.id, now)]);
-    const newest = chats.find((chat) => chat.status === "open");
+    // Beside the inbox on a computer: the newest open chat that is not archived (8 Nov 2026).
+    const newest = chats.find((chat) => chat.status === "open" && !chat.archived);
     first = newest ? await getThread(viewer, newest.id, now) : null;
   } catch (err) {
     console.error(`messages: the inbox failed for member ${member.id}:`, err);

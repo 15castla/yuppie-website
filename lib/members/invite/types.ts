@@ -158,7 +158,7 @@ export type NewOpenInvite = {
 };
 
 /** Field errors the post form shows, keyed by field. The messages are written in the form. */
-export type NewOpenInviteField = "title" | "type" | "date" | "time" | "where" | "price" | "faceValue" | "getPaid";
+export type NewOpenInviteField = "title" | "type" | "date" | "time" | "where" | "note" | "price" | "faceValue" | "getPaid";
 
 // ---------------------------------------------------------------- paid plans
 

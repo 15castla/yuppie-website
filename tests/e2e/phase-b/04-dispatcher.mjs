@@ -44,7 +44,7 @@ for (const who of [plain, noEmail, noTopic, blocker, pausedLater]) eq((await act
 eq(sql1(`select count(*)::int n from updates where member_id = ${q(host.id)} and plan_id = ${q(planId)} and kind = 'joined'`).n, 5, 'the host: a "joined" Update per member');
 exec(`insert into blocks values (${q(blocker.id)}, ${q(host.id)})`);
 exec(`update members set membership_status = 'paused', paused_at = now() where id = ${q(pausedLater.id)}`);
-const move = await action('plan.editOpenInvite', [planId, { title: 'Dispatcher plan', type: 'Sport', date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 9 * 86400000)), time: '20:15', where: 'Somewhere new', places: 8, hostGoing: true, note: '', cost: null }], host.session);
+const move = await action('plan.editOpenInvite', [planId, { title: 'Dispatcher plan', type: 'Sport', date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 9 * 86400000)), time: '20:15', where: 'Somewhere new', places: 8, hostGoing: true, note: 'Meet at the gate.', cost: null }], host.session);
 ok(move.result.ok, 'the host moves the plan');
 const changedTo = sql(`select member_id from updates where plan_id = ${q(planId)} and kind = 'changed'`).map((r) => r.member_id).sort();
 // Stage 2 fixes (QB1-02, QB2-01): a member who blocked the host still hears the facts of a plan they are going to

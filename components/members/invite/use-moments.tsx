@@ -29,6 +29,7 @@ import { TRY_AGAIN, useInviteActions } from "./invite-actions";
 import {
   CancelledSheet,
   CancelSheet,
+  ConfirmJoinSheet,
   JoinedSheet,
   RefusedSheet,
   ReportSentSheet,
@@ -39,6 +40,8 @@ import {
 
 /** Which sheet is open. `id` is the plan it is about. */
 export type Moment =
+  /** "Join this plan?": I'm in asks first (8 Nov 2026). */
+  | { kind: "confirm-join"; id: string }
   | { kind: "joined"; id: string }
   | { kind: "taken"; id: string }
   | { kind: "withdraw"; id: string }
@@ -110,13 +113,22 @@ export function useMoments({
   const drop = (id: string) => setHeld((current) => ({ ...current, plans: current.plans.filter((plan) => plan.id !== id) }));
   const refuse = (id: string, message: string, gone = false) => setMoment({ kind: "refused", id, message, gone });
 
-  /** I'm in. A plan with a cost opens the pay sheet instead (the harness only: nothing is taken until Pay). */
-  async function join(invite: OpenInvite) {
+  /**
+   * I'm in: "Join this plan?" first (8 Nov 2026). A plan with a cost opens the pay sheet instead (the harness only:
+   * nothing is taken until Pay), which asks in its own way.
+   */
+  function join(invite: OpenInvite) {
     if (pendingId) return;
     if (invite.cost && actions.paid) {
       setMoment({ kind: "pay", id: invite.id });
       return;
     }
+    setMoment({ kind: "confirm-join", id: invite.id });
+  }
+
+  /** "I'm in" on "Join this plan?": takes the place. */
+  async function confirmJoin(invite: OpenInvite) {
+    if (pendingId) return;
     setPendingId(invite.id);
     try {
       const result = await attempt(() => actions.join(invite.id));
@@ -187,6 +199,16 @@ export function useMoments({
   let sheet: ReactNode = null;
   if (moment && current) {
     switch (moment.kind) {
+      case "confirm-join":
+        sheet = (
+          <ConfirmJoinSheet
+            invite={current}
+            busy={pendingId === current.id}
+            onClose={close}
+            onConfirm={() => void confirmJoin(current)}
+          />
+        );
+        break;
       case "joined":
         sheet = <JoinedSheet invite={current} me={me} onClose={close} />;
         break;

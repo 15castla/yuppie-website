@@ -79,10 +79,17 @@ export type Chat = {
   other: MemberRef | null;
   participants: ChatParticipant[];
   /**
-   * "closed" is read only: a plan chat 24 hours after the plan, at once when
-   * the host cancels; a question when the invite closes.
+   * "closed" is read only: a plan chat when the host cancels; a question when
+   * the invite closes. (Plan chats no longer close 24 hours after the plan:
+   * they are archived instead, 8 Nov 2026.)
    */
   status: "open" | "closed";
+  /**
+   * Under Archived in the inbox (8 Nov 2026): 24 hours after the plan or 24
+   * hours after the last message, whichever is later. Still open to write in;
+   * a new message brings it back.
+   */
+  archived: boolean;
   closedReason: "plan_finished" | "host_cancelled" | "invite_closed" | null;
   /** Per member, per chat. A muted chat sends no push and no nudge email, but still shows new messages here. */
   muted: boolean;
@@ -123,7 +130,8 @@ export type ChatSystemLine = {
    * opened: "Jasmin opened this chat". joined: "Sam is in". paid: "Sam paid and
    * is in" (only once a payment succeeds). cancelled: "Dan cancelled this plan.
    * Everyone is refunded." (and the chat closes). closed: "This chat closed.
-   * Plan chats close 24 hours after the plan."
+   * Questions close when the invite closes." (plan chats are archived instead
+   * since 8 Nov 2026)
    */
   event: "opened" | "joined" | "paid" | "cancelled" | "closed";
   /** Who it is about (null for "closed", and for a cancel by the club). */
@@ -145,6 +153,11 @@ export type ChatThread = {
   firstUnreadId: string | null;
   /** The first-time safety note has been shown (once ever, then it lives in chat info). */
   safetyNoteSeen: boolean;
+  /**
+   * "Seen by" under your latest message (8 Nov 2026): who else in the chat has opened it since you sent it.
+   * Null (or missing): nobody yet, or you have not sent anything. `everyone`: all of them.
+   */
+  seen?: { messageId: string; by: MemberRef[]; everyone: boolean } | null;
 };
 
 /** A message waiting to leave the device (client state only, never stored by the backend). */

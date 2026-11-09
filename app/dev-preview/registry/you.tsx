@@ -262,7 +262,6 @@ type GateState =
   | "removed-not-member"
   | "removed-not-suitable"
   | "existing"
-  | "camera-ask"
   | "camera-off"
   | "crop"
   | "preview"
@@ -283,7 +282,6 @@ const GATE_STATES: GateState[] = [
   "removed-not-member",
   "removed-not-suitable",
   "existing",
-  "camera-ask",
   "camera-off",
   "crop",
   "preview",
@@ -309,7 +307,6 @@ const GATE_DEMOS: Record<GateState, GateDemo> = {
   "removed-not-member": { screen: "start", notice: "removed", reason: "not_member" },
   "removed-not-suitable": { screen: "start", notice: "removed", reason: "not_suitable" },
   existing: { screen: "start", variant: "existing" },
-  "camera-ask": { screen: "camera-ask" },
   "camera-off": { screen: "camera-off" },
   crop: { screen: "crop", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP },
   preview: { screen: "preview", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP },
@@ -321,8 +318,8 @@ const GATE_DEMOS: Record<GateState, GateDemo> = {
   saved: { screen: "saved", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_CROP, savedUrl: EXAMPLE_PHOTO_CROP },
 };
 
-type SheetState = "start" | "camera-ask" | "error" | "crop" | "noface" | "saving" | "failed" | "failed-small";
-const SHEET_STATES: SheetState[] = ["start", "camera-ask", "error", "crop", "noface", "saving", "failed", "failed-small"];
+type SheetState = "start" | "error" | "crop" | "noface" | "saving" | "failed" | "failed-small";
+const SHEET_STATES: SheetState[] = ["start", "error", "crop", "noface", "saving", "failed", "failed-small"];
 
 const SHEET_DEMOS: Record<SheetState, SheetDemo> = {
   start: { step: "start" },
@@ -330,8 +327,6 @@ const SHEET_DEMOS: Record<SheetState, SheetDemo> = {
   crop: { step: "crop", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP },
   saving: { step: "saving", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP },
   failed: { step: "failed", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, error: "upload" },
-  // the app's camera pre-prompt (the gate's words) in the sheet, before the phone's own dialog
-  "camera-ask": { step: "camera-ask" },
   // the soft face check found no face in the crop: the gate's warning, Use it anyway
   noface: { step: "noface", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, previewUrl: EXAMPLE_PHOTO_NOFACE },
   "failed-small": { step: "failed", source: EXAMPLE_PHOTO_WIDE, crop: DESIGN_CROP, error: "small" },

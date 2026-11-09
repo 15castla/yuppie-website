@@ -38,8 +38,14 @@ await pg.getByText('Looking for places…').waitFor({ timeout: 5000 }).then(() =
 await pg.getByRole('article', { name: 'Calder & Co' }).waitFor({ timeout: 30000 });
 ok(await pg.getByRole('article', { name: 'The Marlow Cellar' }).isVisible(), 'reply: both places as cards');
 eq(await pg.getByRole('link', { name: 'Open in Maps, Calder & Co' }).getAttribute('href'), `https://maps.apple.com/?q=${encodeURIComponent('Calder & Co, 14 Mill Street, London N1 1AA')}`, 'reply: Open in Maps');
-ok(await pg.locator('.cn-sources').innerText().then((t) => t.includes('calder.example.test') && t.includes('guide.example.test')), 'reply: the sources under the cards');
-eq(await pg.locator('.cn-sources a').first().getAttribute('href'), 'https://calder.example.test/', 'reply: a source links to its page');
+// Sources (8 Nov 2026, Albert: lighter): each place's page on its own card ("via calder.example.test"), no "Sources:" line.
+const via = pg.getByRole('article', { name: 'Calder & Co' }).locator('.cn-via');
+eq((await via.innerText()).trim(), 'via calder.example.test', 'reply: the place’s source on its card');
+eq(await via.locator('a').getAttribute('href'), 'https://calder.example.test/', 'reply: it links to its page');
+eq((await pg.getByRole('article', { name: 'The Marlow Cellar' }).locator('.cn-via').innerText()).trim(), 'via guide.example.test', 'reply: each card its own');
+eq(await pg.locator('.cn-sources').count(), 0, 'reply: no separate sources line when every page is on a card');
+ok(!(await pg.locator('main').innerText()).includes('Sources:'), 'reply: no "Sources:"');
+ok(!(await pg.locator('.cn-bar').innerText()).includes('AI concierge'), 'header: no "AI concierge" line (8 Nov 2026)');
 ok(!(await wide(pg)), '390: nothing wider than the screen');
 await pg.screenshot({ path: `${OUT}/reply-390.png` });
 

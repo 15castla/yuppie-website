@@ -46,7 +46,7 @@ import {
 import { openInviteHref, ROUTES } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import { CostBlock } from "./cost-block";
-import { CheckRow, FieldError, Lab } from "./form-parts";
+import { FieldError, Lab } from "./form-parts";
 import { InkDrawing } from "./ink-drawing";
 import { InviteCard } from "./invite-card";
 import { TRY_AGAIN, useInviteActions } from "./invite-actions";
@@ -95,6 +95,8 @@ const ERROR_TEXT = {
   time: "Add a time.",
   past: "Pick a time from now.",
   where: "Say where you’re meeting.",
+  // A note is needed (Albert, 8 Nov 2026: "the notes section on post an invite shouldn't be optional").
+  note: "Add a note so people know what to expect.",
 } as const;
 
 /** The same rules the server checks again. Returns the errors, empty when the form can be posted. */
@@ -109,6 +111,7 @@ export function validatePost(values: PostValues, today: string, nowIso: string, 
     if (at === null || new Date(at).getTime() < new Date(nowIso).getTime()) errors.time = ERROR_TEXT.past;
   }
   if (values.where.trim() === "") errors.where = ERROR_TEXT.where;
+  if (values.note.trim() === "") errors.note = ERROR_TEXT.note;
   const cost = validateCost(values.cost, getPaid);
   if (cost.price) errors.price = cost.price;
   if (cost.faceValue) errors.faceValue = cost.faceValue;
@@ -301,6 +304,7 @@ export function PostView({
       ["date", ids.date],
       ["time", ids.time],
       ["where", ids.where],
+      ["note", ids.note],
       ["price", costIds.price],
       ["faceValue", costIds.tick],
       ["getPaid", costIds.getPaid],
@@ -500,30 +504,16 @@ export function PostView({
         </div>
         <span className="t2">{placesText}</span>
       </div>
-      <CheckRow
-        checked={values.hostGoing}
-        disabled={posting}
-        onChange={(next) =>
-          setValues((current) => ({
-            ...current,
-            hostGoing: next,
-            // ticking "I'm going too" on an edit takes a place: keep room for everyone already going
-            places: Math.min(PLACES_MAX, Math.max(current.places, alreadyGoing.length + (next ? 1 : 0))),
-          }))
-        }
-        label="I’m going too"
-      />
     </div>,
     // Note
     <div key="note">
       <Lab
         htmlFor={ids.note}
         text="Note"
-        optional
         count={`${charCount(values.note)}/${NOTE_MAX}`}
         near={NOTE_MAX - charCount(values.note) <= 20}
       />
-      <div className={cn("oi-in oi-ta", posting && "is-off")}>
+      <div className={cn("oi-in oi-ta", errors.note && "is-error", posting && "is-off")}>
         <textarea
           id={ids.note}
           value={values.note}
@@ -531,9 +521,12 @@ export function PostView({
           rows={3}
           placeholder="Level, what to bring, what happens after"
           disabled={posting}
+          aria-invalid={errors.note ? true : undefined}
+          aria-describedby={errors.note ? `${ids.note}-e` : undefined}
           onChange={(event) => set("note", clipChars(event.target.value, NOTE_MAX))}
         />
       </div>
+      <FieldError id={`${ids.note}-e`} message={errors.note} />
     </div>,
   ];
   if (paidPlans) {

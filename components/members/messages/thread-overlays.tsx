@@ -33,6 +33,7 @@
 import { useEffect, useRef, useState, type Dispatch, type KeyboardEvent, type ReactNode, type SetStateAction } from "react";
 
 import { Avatar, Button, Icon, type IconName } from "@/components/members/kit";
+import { ZoomAvatar } from "@/components/members/photo/zoom-avatar";
 import { weekdayTime } from "@/lib/members/messages/format";
 import {
   REASONS,
@@ -284,7 +285,7 @@ function InfoSheet({
         <div className="msg-who-row">
           {people.map((p) => (
             <div className="msg-person" key={p.member.id}>
-              <Avatar photoUrl={p.member.photoUrl} name={p.member.firstName} size={48} />
+              <ZoomAvatar person={p.member} size={48} />
               <span>
                 {p.member.firstName}
                 {p.isYou || p.role === "host" ? (

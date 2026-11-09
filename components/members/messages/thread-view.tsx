@@ -52,13 +52,14 @@ import {
   setChatMuted,
 } from "@/app/members/messages/[chatId]/actions";
 import { blockMember, sendReport } from "@/app/members/messages/actions";
-import { Avatar, Button, Icon } from "@/components/members/kit";
+import { Button, Icon } from "@/components/members/kit";
+import { ZoomAvatar } from "@/components/members/photo/zoom-avatar";
 import { announceUnreadChanged } from "@/components/members/shell/use-unread";
 import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 import { containsLink } from "@/lib/members/messages/link-check";
 import { SELECT_BANNER, closedNote } from "@/lib/members/messages/thread-copy";
 import { buildRows, groupTime, memberOf, type GroupMessage, type StreamRow } from "@/lib/members/messages/thread-model";
-import type { ChatMessage, ChatThread, OutgoingMessage, ReportDraft } from "@/lib/members/messages/types";
+import type { Chat, ChatMessage, ChatThread, OutgoingMessage, ReportDraft } from "@/lib/members/messages/types";
 import { ROUTES, messageThreadHref } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import "./messages.css";
@@ -148,6 +149,22 @@ function newClientId(): string {
 }
 
 const INPUT_MAX_HEIGHT = 113.4;
+
+
+/**
+ * "Seen by Ana and Ben" under your latest message (8 Nov 2026, Albert: "like with WhatsApp"). A question has one
+ * other person: "Seen". Everyone else in the chat: "Seen by everyone". Three or more: two names and how many more.
+ */
+export function seenLine(seen: NonNullable<ChatThread["seen"]>, kind: Chat["kind"]): string | null {
+  if (!seen.by.length) return null;
+  if (kind === "question") return "Seen";
+  if (seen.everyone && seen.by.length > 1) return "Seen by everyone";
+  const names = seen.by.map((person) => person.firstName);
+  if (names.length === 1) return `Seen by ${names[0]}`;
+  if (names.length === 2) return `Seen by ${names[0]} and ${names[1]}`;
+  const more = names.length - 2;
+  return `Seen by ${names[0]}, ${names[1]} and ${more} other${more === 1 ? "" : "s"}`;
+}
 
 export function ThreadView({
   thread,
@@ -556,7 +573,8 @@ export function ThreadView({
   useEffect(() => {
     if (overlay.kind === "none") return;
     const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setOverlay({ kind: "none" });
+      // A native dialog open over it (a member's photo, opened from Chat info) closes first, on its own.
+      if (event.key === "Escape" && !document.querySelector("dialog[open]")) setOverlay({ kind: "none" });
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -704,12 +722,18 @@ export function ThreadView({
         </div>
       );
     } else {
-      tail = <span className="msg-t">{groupTime(row)}</span>;
+      const seen = row.mine && base.seen && base.seen.messageId === last.id ? seenLine(base.seen, chat.kind) : null;
+      tail = (
+        <span className="msg-t">
+          {groupTime(row)}
+          {seen ? <span className="msg-seen"> · {seen}</span> : null}
+        </span>
+      );
     }
     const sender = row.sender;
     return (
       <div key={row.key} className={cn("msg-grp", row.mine ? "is-me" : "is-them", !row.mine && !avatarOn && "no-av")}>
-        {!row.mine && avatarOn ? <Avatar photoUrl={sender?.photoUrl} name={sender?.firstName} size={32} /> : null}
+        {!row.mine && avatarOn ? <ZoomAvatar person={sender} size={32} /> : null}
         <div className="msg-col">
           {!row.mine && whoOn ? (
             <span className="msg-who">

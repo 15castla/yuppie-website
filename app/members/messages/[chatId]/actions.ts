@@ -34,9 +34,11 @@ export async function getThread(
 ): Promise<ChatThread | null | SessionEnded | Failed> {
   await requireMessages();
   return asMember("getThread", async (_m, viewer) => {
-    const thread = await loadThread(viewer, chatId, new Date(), { rejoin: !options.poll });
-    if (thread && options.markRead && !thread.chat.id.startsWith("ask-")) await markRead(viewer.id, thread.chat.id);
-    return thread;
+    // Read first, then load (8 Nov 2026, "Seen by"): a message that lands in between comes back in this answer but
+    // stays unread until the next poll, so nobody shows as having seen a message they were never sent. (Marking an
+    // id that is not the member's chat changes nothing: it updates their own row only.)
+    if (options.markRead && typeof chatId === "string" && !chatId.startsWith("ask-")) await markRead(viewer.id, chatId);
+    return loadThread(viewer, chatId, new Date(), { rejoin: !options.poll });
   });
 }
 
@@ -53,7 +55,7 @@ export async function sendMessage(input: { chatId: string; text: string; clientI
   return result;
 }
 
-/** Opening a chat reads it (no read receipts: nobody else sees this). */
+/** Opening a chat reads it. The others in the chat see it as "Seen by" under their latest message (8 Nov 2026). */
 export async function markChatRead(chatId: string): Promise<{ ok: boolean } | SessionEnded | Failed> {
   await requireMessages();
   return asMember("markChatRead", async (m) => ({ ok: await markRead(m.id, chatId) }));

@@ -20,6 +20,7 @@ import { useMemo, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { Avatar, BackRow, Button, ExampleNote, Icon, KitLink, Main, Pill, Row, Rows, Status, useExample } from "@/components/members/kit";
+import { ZoomAvatar } from "@/components/members/photo/zoom-avatar";
 import {
   formatWhen,
   gbp,
@@ -188,7 +189,7 @@ function MoneyOwn({ invite }: { invite: OpenInvite }) {
 function Person({ person, label }: { person: InviteMember; label: string }) {
   return (
     <div className="oi-person">
-      <Avatar photoUrl={person.photoUrl} name={person.firstName} size={64} />
+      <ZoomAvatar person={person} size={64} />
       <b title={person.firstName}>{person.firstName}</b>
       <small>{label}</small>
     </div>
@@ -293,10 +294,10 @@ export function PlanView({
   const unread = invite.you.unreadInChat;
   const moneyLine = hostMoneyLine(invite);
   const refunded = payment?.status === "refunded";
-  // A plan that has started is "past", but its plan chat stays open for 24 hours after the start (messages 3.4):
-  // until then the page says it has started and, to the host and the people going, that the chat is open.
-  const chatClosesAt = new Date(Date.parse(invite.startsAt) + 24 * 3_600_000).toISOString();
-  const started = state === "past" && Date.parse(now) < Date.parse(chatClosesAt);
+  // A plan that has started is "past". For the first 24 hours the page says it has started, then that it has
+  // finished. Its plan chat stays open either way (8 Nov 2026: plan chats no longer close; they are archived).
+  const startedUntil = new Date(Date.parse(invite.startsAt) + 24 * 3_600_000).toISOString();
+  const started = state === "past" && Date.parse(now) < Date.parse(startedUntil);
   const hasChat = Boolean(invite.you.chatId);
 
   // ---- pills
@@ -365,12 +366,12 @@ export function PlanView({
           {started ? (
             <>
               <b>This plan has started.</b>
-              {hasChat ? ` The plan chat is open until ${formatWhen(chatClosesAt)}.` : null}
+              {hasChat ? " The plan chat is open." : null}
             </>
           ) : (
             <>
               <b>This plan has finished.</b>
-              {hasChat ? " The plan chat is closed. You can still read it." : null}
+              {hasChat ? " The plan chat is still open." : null}
             </>
           )}
         </div>
@@ -406,7 +407,7 @@ export function PlanView({
       ) : null}
       <dt className="oi-host-dt">Posted by</dt>
       <dd className="oi-host">
-        <Avatar photoUrl={(isHost ? me : host).photoUrl} name={(isHost ? me : host).firstName} size={44} />
+        <ZoomAvatar person={isHost ? me : host} size={44} />
         <span className="oi-ell" title={poster}>
           {isHost ? "You" : poster}
         </span>
@@ -477,7 +478,7 @@ export function PlanView({
     case "past":
       barLead = started ? "Started" : "Finished";
       barSub = formatWhen(invite.startsAt).split(",")[0];
-      if (started && hasChat) {
+      if (hasChat) {
         barButton = (
           <Button href={chatHref} icon={<Icon name="message" size={20} />}>
             {chatLabel}
@@ -582,16 +583,14 @@ export function PlanView({
     );
   } else if (state === "past" && hasChat) {
     const preview = invite.you.chatPreview;
-    rows = started ? (
+    rows = (
       <PlanRow
         href={chatHref}
         leading={<MessageTile />}
         title="Plan chat"
-        meta={preview ? `${preview.from}: ${preview.text}` : `Open until ${formatWhen(chatClosesAt)}.`}
+        meta={preview ? `${preview.from}: ${preview.text}` : "Still open."}
         end={unread > 0 ? <CountChip n={unread} /> : null}
       />
-    ) : (
-      <PlanRow href={chatHref} leading={<MessageTile />} title="Plan chat" meta="Closed. You can still read it." />
     );
   } else if (state === "cancelled") {
     rows = (
