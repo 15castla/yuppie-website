@@ -1,0 +1,734 @@
+#!/usr/bin/env python3
+"""Club Yuppie Outlook drafter: partner emails into Albert's Outlook Drafts. It never sends.
+
+Albert's decision (9 Nov 2026): the partner-emails skill saves each email to OneDrive as
+"Partner emails/<Brand>/Email to <Brand> - ready to send.eml" (To, Subject, HTML body, the PDF overview attached).
+This turns each one that has no ".drafted" marker beside it into a draft in albert@clubyuppie.com's Outlook, through
+Microsoft Graph (POST /me/messages with the PDF as a fileAttachment), then writes the marker so it is drafted once.
+
+Safety:
+  - Delegated permissions only: Mail.ReadWrite, User.Read, offline_access. Never Mail.Send: it is not asked for, a
+    token that carries it anyway is refused, and nothing here calls a send endpoint. Albert sends every email himself.
+  - Single-tenant public-client app registration ("Club Yuppie Drafts"), device-code sign-in, no client secret.
+  - The sign-in (a refresh token) is kept in the macOS Keychain (service "club-yuppie-drafts"), never in a file, and
+    is never printed.
+  - It drafts only into the mailbox in the config (albert@clubyuppie.com): signed in as anyone else, it stops.
+  - A draft carries a hidden key (the .eml's SHA-256), so a run that is cut short before the marker is written finds
+    the draft it made instead of making a second one.
+
+Commands (installed as "draft-partner-emails" by install.sh):
+  draft-partner-emails                  draft every new "... - ready to send.eml"
+  draft-partner-emails --dry-run        show what would be drafted; no sign-in, nothing changed
+  draft-partner-emails --only FILE.eml  just this file (any folder)
+  draft-partner-emails --watch          keep looking, every 60 seconds, until Ctrl-C
+  draft-partner-emails setup --tenant ID --client ID [--mailbox ADDR] [--root DIR] [--signature FILE.html]
+  draft-partner-emails signin           sign in once (a code to enter at microsoft.com/devicelogin)
+  draft-partner-emails signout          forget the sign-in (removes it from the Keychain)
+  draft-partner-emails test             one dummy draft to the configured mailbox, to check it all works
+  draft-partner-emails status           the settings, the folder, how many are waiting, signed in or not
+
+Python 3.9 or later, standard library only (macOS's own python3 works). Documented in the project's
+Yuppie_Technical_Reference.md, "Outlook drafter".
+"""
+
+from __future__ import annotations
+
+import argparse
+import base64
+import datetime
+import hashlib
+import json
+import os
+import platform
+import subprocess
+import sys
+import tempfile
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass, field
+from email import policy
+from email.message import EmailMessage
+from email.parser import BytesParser
+from email.utils import getaddresses
+from pathlib import Path
+
+DEFAULT_MAILBOX = "albert@clubyuppie.com"
+SCOPES = ["https://graph.microsoft.com/Mail.ReadWrite", "https://graph.microsoft.com/User.Read", "offline_access"]
+# Never these: a token that carries one is refused (the app registration should not have them at all).
+FORBIDDEN_SCOPES = {"mail.send", "mail.send.shared", "mail.send.all"}
+LOGIN_BASE = os.environ.get("CYD_LOGIN_BASE", "https://login.microsoftonline.com").rstrip("/")
+GRAPH_BASE = os.environ.get("CYD_GRAPH_BASE", "https://graph.microsoft.com/v1.0").rstrip("/")
+CONFIG_PATH = Path(os.environ.get("CYD_CONFIG", str(Path.home() / ".config" / "club-yuppie-drafts" / "config.json")))
+KEYCHAIN_SERVICE = "club-yuppie-drafts"
+PENDING_SUFFIX = " - ready to send.eml"
+MARKER_SUFFIX = ".drafted"
+# A hidden property on each draft: the .eml's SHA-256, so a draft is never made twice for one file.
+DRAFT_KEY_PROPERTY = "String {566da39a-e7d3-4358-bb63-1a50b006da7f} Name ClubYuppieDraftKey"
+# Graph takes attachments up to 3 MB in the request itself; bigger ones go through an upload session.
+INLINE_LIMIT = 3 * 1024 * 1024
+UPLOAD_CHUNK = 320 * 1024 * 10  # a multiple of 320 KiB, as upload sessions need
+WATCH_SECONDS = 60
+
+
+class DraftError(Exception):
+    """Something Albert should read: printed as it is, no stack trace."""
+
+
+# ---------------------------------------------------------------------------------------------------- settings
+
+
+def load_config() -> dict:
+    if not CONFIG_PATH.exists():
+        return {}
+    try:
+        return json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as err:
+        raise DraftError(f"Couldn't read the settings in {CONFIG_PATH}: {err}") from None
+
+
+def save_config(cfg: dict) -> None:
+    CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    CONFIG_PATH.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+    os.chmod(CONFIG_PATH, 0o600)
+
+
+def mailbox_of(cfg: dict) -> str:
+    return (cfg.get("mailbox") or DEFAULT_MAILBOX).strip().lower()
+
+
+def find_root(cfg: dict) -> Path | None:
+    """OneDrive's "Partner emails" folder: the one in the settings, else found in ~/Library/CloudStorage."""
+    if cfg.get("root"):
+        return Path(cfg["root"]).expanduser()
+    cloud = Path.home() / "Library" / "CloudStorage"
+    if cloud.is_dir():
+        for drive in sorted(cloud.glob("OneDrive*")):
+            folder = drive / "Partner emails"
+            if folder.is_dir():
+                return folder
+    legacy = Path.home() / "OneDrive" / "Partner emails"
+    return legacy if legacy.is_dir() else None
+
+
+# ---------------------------------------------------------------------------------------------------- the files
+
+
+def marker_for(eml: Path) -> Path:
+    """"Email to Acme - ready to send.eml" -> "Email to Acme - ready to send.drafted", beside it."""
+    return eml.with_name(eml.name[: -len(".eml")] + MARKER_SUFFIX)
+
+
+def waiting(root: Path) -> list[Path]:
+    """Every "<Brand>/... - ready to send.eml" with no marker. Folders starting with "_" or "." are skipped."""
+    found = []
+    for brand in sorted(p for p in root.iterdir() if p.is_dir() and not p.name.startswith(("_", "."))):
+        for eml in sorted(brand.glob("*" + PENDING_SUFFIX)):
+            if eml.is_file() and not marker_for(eml).exists():
+                found.append(eml)
+    return found
+
+
+@dataclass
+class Attachment:
+    name: str
+    content_type: str
+    data: bytes
+    content_id: str | None = None
+
+
+@dataclass
+class Draft:
+    source: Path
+    subject: str
+    to: list[tuple[str, str]]
+    cc: list[tuple[str, str]]
+    body: str
+    is_html: bool
+    attachments: list[Attachment] = field(default_factory=list)
+    key: str = ""
+
+
+def _addresses(msg: EmailMessage, header: str) -> list[tuple[str, str]]:
+    values = [str(h) for h in msg.get_all(header, [])]
+    return [(name.strip(), addr.strip()) for name, addr in getaddresses(values) if addr.strip()]
+
+
+def parse_eml(path: Path, signature_html: str | None = None) -> Draft:
+    """To, Cc, Subject, the HTML body (plain text if that is all there is) and the attachments."""
+    try:
+        raw = path.read_bytes()
+    except OSError as err:
+        raise DraftError(f"Couldn't read {path.name}: {err}") from None
+    msg = BytesParser(policy=policy.default).parsebytes(raw)
+    to = _addresses(msg, "To")
+    cc = _addresses(msg, "Cc")
+    subject = str(msg.get("Subject", "")).strip()
+    if not to:
+        raise DraftError(f"{path.name} has no To address.")
+    for _, addr in to + cc:
+        if "@" not in addr or " " in addr:
+            raise DraftError(f"{path.name} has an address that doesn't look right: {addr!r}")
+    if not subject:
+        raise DraftError(f"{path.name} has no subject.")
+    part = msg.get_body(preferencelist=("html", "plain"))
+    if part is None:
+        raise DraftError(f"{path.name} has no email text.")
+    body = part.get_content()
+    is_html = part.get_content_subtype() == "html"
+    if signature_html and is_html:
+        lower = body.lower()
+        at = lower.rfind("</body>")
+        body = body[:at] + signature_html + body[at:] if at >= 0 else body + signature_html
+    attachments = []
+    for item in msg.iter_attachments():
+        data = item.get_payload(decode=True) or b""
+        cid = item.get("Content-ID")
+        attachments.append(
+            Attachment(
+                name=item.get_filename() or "attachment",
+                content_type=item.get_content_type(),
+                data=data,
+                content_id=str(cid).strip("<> ") if cid else None,
+            )
+        )
+    if not any(a.content_type == "application/pdf" or a.name.lower().endswith(".pdf") for a in attachments):
+        raise DraftError(f"{path.name} has no PDF attached.")
+    return Draft(
+        source=path,
+        subject=subject,
+        to=to,
+        cc=cc,
+        body=body,
+        is_html=is_html,
+        attachments=attachments,
+        key=hashlib.sha256(raw).hexdigest(),
+    )
+
+
+def describe(draft: Draft) -> str:
+    to = ", ".join(addr for _, addr in draft.to)
+    cc = (" (cc " + ", ".join(addr for _, addr in draft.cc) + ")") if draft.cc else ""
+    files = ", ".join(f"{a.name} ({len(a.data) // 1024} KB)" for a in draft.attachments)
+    return f"To {to}{cc}\n    Subject: {draft.subject}\n    Attached: {files}"
+
+
+# ---------------------------------------------------------------------------------------------------- the sign-in
+
+
+class KeychainStore:
+    """The refresh token in the macOS Keychain. The secret goes to `security` on its standard input, hex-encoded,
+    so it never appears in a command line; it is read back with -w into a pipe, never printed."""
+
+    def __init__(self, account: str):
+        self.account = account
+
+    def get(self) -> str | None:
+        done = subprocess.run(
+            ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", self.account, "-w"],
+            capture_output=True,
+            text=True,
+        )
+        if done.returncode != 0:
+            return None
+        return done.stdout.strip() or None
+
+    def set(self, secret: str) -> None:
+        command = f"add-generic-password -U -s {KEYCHAIN_SERVICE} -a {self.account} -X {secret.encode('utf-8').hex()}\n"
+        done = subprocess.run(["security", "-i"], input=command, capture_output=True, text=True)
+        if done.returncode != 0 or "error" in (done.stderr or "").lower():
+            raise DraftError("Couldn't save the sign-in to the Keychain.")
+
+    def delete(self) -> None:
+        subprocess.run(["security", "delete-generic-password", "-s", KEYCHAIN_SERVICE, "-a", self.account], capture_output=True)
+
+
+class FileStore:
+    """For the tests only (CYD_TOKEN_FILE): a file instead of the Keychain."""
+
+    def __init__(self, path: str):
+        self.path = Path(path)
+
+    def get(self) -> str | None:
+        return self.path.read_text().strip() if self.path.exists() else None
+
+    def set(self, secret: str) -> None:
+        self.path.write_text(secret)
+        os.chmod(self.path, 0o600)
+
+    def delete(self) -> None:
+        if self.path.exists():
+            self.path.unlink()
+
+
+def token_store(cfg: dict):
+    if os.environ.get("CYD_TOKEN_FILE"):
+        return FileStore(os.environ["CYD_TOKEN_FILE"])
+    if platform.system() != "Darwin":
+        raise DraftError("The sign-in is kept in the macOS Keychain: run this on the Mac.")
+    return KeychainStore(mailbox_of(cfg))
+
+
+def http(method: str, url: str, *, form: dict | None = None, body: dict | None = None, data: bytes | None = None,
+         headers: dict | None = None, timeout: int = 60) -> tuple[int, dict, bytes]:
+    """One request. Returns (status, headers, body); a non-2xx answer is returned, not raised."""
+    send = dict(headers or {})
+    if form is not None:
+        data = urllib.parse.urlencode(form).encode()
+        send["Content-Type"] = "application/x-www-form-urlencoded"
+    elif body is not None:
+        data = json.dumps(body).encode()
+        send["Content-Type"] = "application/json"
+    request = urllib.request.Request(url, data=data, method=method, headers=send)
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status, dict(response.headers), response.read()
+    except urllib.error.HTTPError as err:
+        with err:
+            return err.code, dict(err.headers or {}), err.read()
+    except urllib.error.URLError as err:
+        raise DraftError(f"No connection to {urllib.parse.urlsplit(url).netloc}: {err.reason}") from None
+
+
+def _json(raw: bytes) -> dict:
+    try:
+        return json.loads(raw.decode("utf-8") or "{}")
+    except ValueError:
+        return {}
+
+
+def _scopes_in(token: str) -> set[str]:
+    """The scp claim of an access token (read, not verified: only to refuse one that can send)."""
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * (-len(payload) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload))
+        return {s.lower() for s in str(claims.get("scp", "")).split()}
+    except (IndexError, ValueError):
+        return set()
+
+
+class Auth:
+    def __init__(self, cfg: dict):
+        self.tenant = cfg.get("tenant")
+        self.client = cfg.get("client")
+        if not self.tenant or not self.client:
+            raise DraftError('Not set up yet. Run: draft-partner-emails setup --tenant <Directory (tenant) ID> --client <Application (client) ID>')
+        self.store = token_store(cfg)
+        self.access: str | None = None
+
+    def _url(self, path: str) -> str:
+        return f"{LOGIN_BASE}/{urllib.parse.quote(self.tenant)}/oauth2/v2.0/{path}"
+
+    def _accept(self, answer: dict) -> str:
+        granted = {s.lower().rsplit("/", 1)[-1] for s in str(answer.get("scope", "")).split()}
+        token = answer.get("access_token")
+        if not token:
+            raise DraftError("Microsoft didn't return a sign-in.")
+        if (granted | {s.rsplit("/", 1)[-1] for s in _scopes_in(token)}) & FORBIDDEN_SCOPES:
+            raise DraftError("This sign-in can send email (Mail.Send). Remove Mail.Send from the Club Yuppie Drafts app registration, then run signout and signin again.")
+        if answer.get("refresh_token"):
+            self.store.set(answer["refresh_token"])
+        self.access = token
+        return token
+
+    def sign_in(self) -> str:
+        status, _, raw = http("POST", self._url("devicecode"), form={"client_id": self.client, "scope": " ".join(SCOPES)})
+        code = _json(raw)
+        if status != 200 or "device_code" not in code:
+            raise DraftError(f"Microsoft refused the sign-in request: {code.get('error_description') or code.get('error') or status}")
+        print(code.get("message") or f"Open {code['verification_uri']} and enter the code {code['user_code']}")
+        print("Sign in as the Club Yuppie mailbox and accept the permissions. Waiting...")
+        interval = int(code.get("interval", 5))
+        deadline = time.time() + int(code.get("expires_in", 900))
+        while time.time() < deadline:
+            time.sleep(interval)
+            status, _, raw = http(
+                "POST",
+                self._url("token"),
+                form={"grant_type": "urn:ietf:params:oauth:grant-type:device_code", "client_id": self.client, "device_code": code["device_code"]},
+            )
+            answer = _json(raw)
+            if status == 200:
+                return self._accept(answer)
+            error = answer.get("error")
+            if error == "authorization_pending":
+                continue
+            if error == "slow_down":
+                interval += 5
+                continue
+            raise DraftError(f"Sign-in didn't finish: {answer.get('error_description') or error or status}")
+        raise DraftError("The sign-in code expired. Run signin again.")
+
+    def token(self) -> str:
+        if self.access:
+            return self.access
+        refresh = self.store.get()
+        if not refresh:
+            raise DraftError("Not signed in. Run: draft-partner-emails signin")
+        status, _, raw = http(
+            "POST",
+            self._url("token"),
+            form={"grant_type": "refresh_token", "client_id": self.client, "refresh_token": refresh, "scope": " ".join(SCOPES)},
+        )
+        answer = _json(raw)
+        if status != 200:
+            raise DraftError(f"The sign-in has run out ({answer.get('error') or status}). Run: draft-partner-emails signin")
+        return self._accept(answer)
+
+    def forget(self) -> None:
+        self.access = None
+
+
+# ---------------------------------------------------------------------------------------------------- Graph
+
+
+class Graph:
+    def __init__(self, auth: Auth):
+        self.auth = auth
+
+    def call(self, method: str, path: str, body: dict | None = None) -> dict:
+        url = path if path.startswith("http") else GRAPH_BASE + path
+        for attempt in range(4):
+            status, headers, raw = http(method, url, body=body, headers={"Authorization": f"Bearer {self.auth.token()}"})
+            if status == 401 and attempt == 0:
+                self.auth.forget()
+                continue
+            if status in (429, 503, 504) and attempt < 3:
+                time.sleep(min(30, int(headers.get("Retry-After", "5") or 5)))
+                continue
+            if 200 <= status < 300:
+                return _json(raw)
+            err = _json(raw).get("error", {})
+            raise DraftError(f"Outlook said no ({status} {err.get('code', '')}): {err.get('message', '')}".strip())
+        raise DraftError("Outlook didn't answer. Try again in a minute.")
+
+    def mailbox(self) -> str:
+        me = self.call("GET", "/me?$select=mail,userPrincipalName")
+        return (me.get("mail") or me.get("userPrincipalName") or "").lower()
+
+    def existing(self, key: str) -> dict | None:
+        """A draft (or the sent email) this tool already made for this exact .eml, in any folder."""
+        rule = f"singleValueExtendedProperties/Any(ep: ep/id eq '{DRAFT_KEY_PROPERTY}' and ep/value eq '{key}')"
+        query = "$filter=" + urllib.parse.quote(rule, safe="") + "&$select=id,subject,webLink,isDraft&$top=1"
+        try:
+            found = self.call("GET", f"/me/messages?{query}").get("value", [])
+        except DraftError as err:
+            # The check is a backstop (the marker is the main guard): if Outlook won't answer it, say so and go on.
+            print(f"    (Couldn't check for an earlier draft of this file: {err})")
+            return None
+        return found[0] if found else None
+
+    @staticmethod
+    def _file(a: Attachment) -> dict:
+        item = {
+            "@odata.type": "#microsoft.graph.fileAttachment",
+            "name": a.name,
+            "contentType": a.content_type,
+            "contentBytes": base64.b64encode(a.data).decode("ascii"),
+        }
+        if a.content_id:
+            item.update({"isInline": True, "contentId": a.content_id})
+        return item
+
+    def _attach(self, message_id: str, a: Attachment) -> None:
+        if len(a.data) < INLINE_LIMIT:
+            self.call("POST", f"/me/messages/{message_id}/attachments", self._file(a))
+            return
+        item = {"attachmentType": "file", "name": a.name, "size": len(a.data), "contentType": a.content_type}
+        if a.content_id:
+            item.update({"isInline": True, "contentId": a.content_id})
+        session = self.call("POST", f"/me/messages/{message_id}/attachments/createUploadSession", {"AttachmentItem": item})
+        upload = session.get("uploadUrl")
+        if not upload:
+            raise DraftError(f"Outlook didn't take {a.name}.")
+        total = len(a.data)
+        for start in range(0, total, UPLOAD_CHUNK):
+            chunk = a.data[start : start + UPLOAD_CHUNK]
+            end = start + len(chunk) - 1
+            # The upload address carries its own permission: no Authorization header (Graph refuses one).
+            status, _, _ = http("PUT", upload, data=chunk, headers={"Content-Type": "application/octet-stream", "Content-Range": f"bytes {start}-{end}/{total}"})
+            if status not in (200, 201):
+                raise DraftError(f"Uploading {a.name} stopped ({status}).")
+
+    def create_draft(self, draft: Draft) -> dict:
+        def people(pairs):
+            return [{"emailAddress": {"address": addr, **({"name": name} if name else {})}} for name, addr in pairs]
+
+        message = {
+            "subject": draft.subject,
+            "body": {"contentType": "HTML" if draft.is_html else "Text", "content": draft.body},
+            "toRecipients": people(draft.to),
+            "singleValueExtendedProperties": [{"id": DRAFT_KEY_PROPERTY, "value": draft.key}],
+        }
+        if draft.cc:
+            message["ccRecipients"] = people(draft.cc)
+        small = sum(len(a.data) for a in draft.attachments) <= INLINE_LIMIT
+        if small:
+            message["attachments"] = [self._file(a) for a in draft.attachments]
+        made = self.call("POST", "/me/messages", message)
+        if not made.get("id"):
+            raise DraftError("Outlook didn't make the draft.")
+        if not small:
+            try:
+                for a in draft.attachments:
+                    self._attach(made["id"], a)
+            except DraftError:
+                # Never leave a draft without its PDF: take it away, so the next run makes it whole.
+                try:
+                    self.call("DELETE", f"/me/messages/{made['id']}")
+                except DraftError:
+                    pass
+                raise
+        return made
+
+
+# ---------------------------------------------------------------------------------------------------- a run
+
+
+def write_marker(draft: Draft, made: dict, mailbox: str, found: bool) -> None:
+    note = {
+        "draftedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "mailbox": mailbox,
+        "draftId": made.get("id"),
+        "openInOutlook": made.get("webLink"),
+        "subject": draft.subject,
+        "to": [addr for _, addr in draft.to],
+        "emlSha256": draft.key,
+        "alreadyThere": found,
+    }
+    marker_for(draft.source).write_text(json.dumps(note, indent=2) + "\n", encoding="utf-8")
+
+
+def signature_of(cfg: dict) -> str | None:
+    path = cfg.get("signature")
+    if not path:
+        return None
+    try:
+        return Path(path).expanduser().read_text(encoding="utf-8")
+    except OSError as err:
+        raise DraftError(f"Couldn't read the signature file {path}: {err}") from None
+
+
+def run(cfg: dict, files: list[Path], dry_run: bool) -> int:
+    """Drafts each file in turn. Returns how many failed."""
+    signature = signature_of(cfg)
+    mailbox = mailbox_of(cfg)
+    graph: Graph | None = None
+    if not dry_run:
+        # Signed in, and as the right mailbox, before anything is touched.
+        try:
+            graph = Graph(Auth(cfg))
+            signed_in = graph.mailbox()
+        except DraftError as err:
+            print(f"Nothing drafted.\n    {err}")
+            return len(files)
+        if signed_in != mailbox:
+            print(f"Nothing drafted.\n    Signed in as {signed_in or 'someone else'}, not {mailbox}. Run signout, then signin as {mailbox}.")
+            return len(files)
+    failed = 0
+    for path in files:
+        label = f"{path.parent.name} / {path.name}"
+        try:
+            draft = parse_eml(path, signature)
+        except DraftError as err:
+            print(f"Skipped {label}\n    {err}")
+            failed += 1
+            continue
+        if dry_run:
+            print(f"Would draft {label}\n    {describe(draft)}")
+            continue
+        assert graph is not None
+        try:
+            found = graph.existing(draft.key)
+            made = found or graph.create_draft(draft)
+            write_marker(draft, made, mailbox, bool(found))
+            word = "Already in Outlook" if found else "Drafted"
+            print(f"{word}: {label}\n    {describe(draft)}\n    Open it: {made.get('webLink', 'Outlook > Drafts')}")
+        except DraftError as err:
+            print(f"Not drafted: {label}\n    {err}")
+            failed += 1
+    return failed
+
+
+def minimal_pdf(text: str) -> bytes:
+    """A one-page PDF with one line of text, for the test draft."""
+    safe = text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+    stream = f"BT /F1 18 Tf 72 760 Td ({safe}) Tj ET".encode("latin-1", "replace")
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for number, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{number} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode()
+    out += b"".join(f"{offset:010d} 00000 n \n".encode() for offset in offsets)
+    out += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    return bytes(out)
+
+
+def make_test_eml(folder: Path, mailbox: str) -> Path:
+    """A dummy "ready to send" email to the mailbox itself, with a small PDF, in a folder of its own."""
+    stamp = datetime.datetime.now().strftime("%d %b %Y %H:%M")
+    msg = EmailMessage()
+    msg["To"] = mailbox
+    msg["Subject"] = f"Club Yuppie drafts test, {stamp} (delete me)"
+    msg["X-Unsent"] = "1"
+    msg.set_content("A test draft from draft-partner-emails. Nothing was sent. Delete it.")
+    msg.add_alternative(
+        "<html><body><p>A test draft from <b>draft-partner-emails</b>. Nothing was sent.</p>"
+        "<p>If the PDF is attached and this is in Drafts, it works. Delete it.</p></body></html>",
+        subtype="html",
+    )
+    msg.add_attachment(minimal_pdf(f"Club Yuppie drafts test, {stamp}"), maintype="application", subtype="pdf", filename="Club Yuppie drafts test.pdf")
+    path = folder / ("Email to Club Yuppie" + PENDING_SUFFIX)
+    path.write_bytes(bytes(msg))
+    return path
+
+
+# ---------------------------------------------------------------------------------------------------- commands
+
+
+def cmd_setup(args) -> int:
+    cfg = load_config()
+    for key in ("tenant", "client", "mailbox", "root", "signature"):
+        value = getattr(args, key)
+        if value:
+            cfg[key] = value.strip()
+    cfg.setdefault("mailbox", DEFAULT_MAILBOX)
+    if not cfg.get("tenant") or not cfg.get("client"):
+        raise DraftError("Both --tenant and --client are needed the first time.")
+    save_config(cfg)
+    root = find_root(cfg)
+    print(f"Saved the settings in {CONFIG_PATH}.")
+    where = str(root) if root else 'not found: run setup again with --root "<path to Partner emails>"'
+    print(f"    Mailbox: {mailbox_of(cfg)}\n    Folder: {where}")
+    print("Next: draft-partner-emails signin")
+    return 0
+
+
+def cmd_signin(_args) -> int:
+    cfg = load_config()
+    auth = Auth(cfg)
+    auth.sign_in()
+    signed_in = Graph(auth).mailbox()
+    if signed_in != mailbox_of(cfg):
+        auth.store.delete()
+        raise DraftError(f"That was {signed_in or 'another account'}, not {mailbox_of(cfg)}. Nothing kept. Run signin again with {mailbox_of(cfg)}.")
+    print(f"Signed in as {signed_in}. The sign-in is kept in the Keychain (club-yuppie-drafts).")
+    print("Next: draft-partner-emails test")
+    return 0
+
+
+def cmd_signout(_args) -> int:
+    cfg = load_config()
+    token_store(cfg).delete()
+    print("Signed out: the sign-in is gone from the Keychain.")
+    return 0
+
+
+def cmd_status(_args) -> int:
+    cfg = load_config()
+    root = find_root(cfg)
+    print(f"Settings: {CONFIG_PATH if CONFIG_PATH.exists() else 'none yet (run setup)'}")
+    print(f"Mailbox: {mailbox_of(cfg)}")
+    print(f"Folder: {root if root else 'not found'}")
+    if root and root.is_dir():
+        print(f"Waiting to be drafted: {len(waiting(root))}")
+    try:
+        print("Signed in: " + ("yes" if token_store(cfg).get() else "no (run signin)"))
+    except DraftError as err:
+        print(f"Signed in: {err}")
+    return 0
+
+
+def cmd_test(args) -> int:
+    cfg = load_config()
+    with tempfile.TemporaryDirectory(prefix="club-yuppie-drafts-") as folder:
+        path = make_test_eml(Path(folder), mailbox_of(cfg))
+        print(f"A test email to {mailbox_of(cfg)} (this mailbox, nobody else).")
+        failed = run(cfg, [path], dry_run=args.dry_run)
+    if not failed and not args.dry_run:
+        print("Check Outlook > Drafts: the test should be there with its PDF. Then delete it.")
+    return 1 if failed else 0
+
+
+def cmd_run(args) -> int:
+    cfg = load_config()
+    if args.root:
+        cfg = {**cfg, "root": args.root}
+    if args.only:
+        files = [Path(args.only).expanduser()]
+        if not files[0].is_file():
+            raise DraftError(f"No such file: {files[0]}")
+    else:
+        root = find_root(cfg)
+        if not root or not root.is_dir():
+            raise DraftError('Couldn\'t find OneDrive\'s "Partner emails" folder. Run setup with --root "<path>".')
+        files = waiting(root)
+    if not files:
+        print("Nothing new to draft.")
+        return 0
+    failed = run(cfg, files, dry_run=args.dry_run)
+    print(("Dry run: nothing was changed. " if args.dry_run else "") + f"{len(files) - failed} of {len(files)} " + ("ready." if args.dry_run else "done."))
+    return 1 if failed else 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    commands = {"setup", "signin", "signout", "status", "test"}
+    parser = argparse.ArgumentParser(prog="draft-partner-emails", description="Partner emails into Outlook Drafts. Never sends.")
+    if argv and argv[0] in commands:
+        sub = parser.add_subparsers(dest="command")
+        setup = sub.add_parser("setup")
+        setup.add_argument("--tenant", help="Directory (tenant) ID of the Club Yuppie Drafts app registration")
+        setup.add_argument("--client", help="Application (client) ID of the Club Yuppie Drafts app registration")
+        setup.add_argument("--mailbox", help=f"the mailbox drafts go into (default {DEFAULT_MAILBOX})")
+        setup.add_argument("--root", help='the OneDrive "Partner emails" folder, if it is not found by itself')
+        setup.add_argument("--signature", help="an HTML file added at the end of each email (Outlook's own signature is not added to drafts made this way)")
+        sub.add_parser("signin")
+        sub.add_parser("signout")
+        sub.add_parser("status")
+        test = sub.add_parser("test")
+        test.add_argument("--dry-run", action="store_true")
+        args = parser.parse_args(argv)
+        handler = {"setup": cmd_setup, "signin": cmd_signin, "signout": cmd_signout, "status": cmd_status, "test": cmd_test}[args.command]
+    else:
+        parser.add_argument("--dry-run", action="store_true", help="show what would be drafted; nothing is changed")
+        parser.add_argument("--only", metavar="FILE", help="just this .eml")
+        parser.add_argument("--root", metavar="DIR", help='the "Partner emails" folder for this run')
+        parser.add_argument("--watch", nargs="?", const=WATCH_SECONDS, type=int, metavar="SECONDS", help=f"keep looking every {WATCH_SECONDS} seconds until Ctrl-C")
+        args = parser.parse_args(argv)
+        handler = cmd_run
+        if args.watch:
+            print(f"Watching for new partner emails every {args.watch} seconds. Ctrl-C stops it.")
+            try:
+                while True:
+                    try:
+                        cmd_run(args)
+                    except DraftError as err:
+                        print(err)
+                    time.sleep(args.watch)
+            except KeyboardInterrupt:
+                print("\nStopped.")
+                return 0
+    try:
+        return handler(args)
+    except DraftError as err:
+        print(err)
+        return 1
+    except KeyboardInterrupt:
+        print("\nStopped.")
+        return 130
+
+
+if __name__ == "__main__":
+    sys.exit(main())
