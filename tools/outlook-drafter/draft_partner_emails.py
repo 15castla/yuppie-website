@@ -3,6 +3,8 @@
 
 Albert's decision (9 Nov 2026): the partner-emails skill saves each email to OneDrive as
 "Partner emails/<Brand>/Email to <Brand> - ready to send.eml" (To, Subject, HTML body, the PDF overview attached).
+Any other email Albert asks Claude to write is saved to OneDrive "Emails to draft/" the same way (Albert, 9 Nov 2026:
+"any email I request to be written can be placed in my drafts even without attachment"); a PDF is optional there.
 This turns each one that has no ".drafted" marker beside it into a draft in albert@clubyuppie.com's Outlook, through
 Microsoft Graph (POST /me/messages with the PDF as a fileAttachment), then writes the marker so it is drafted once.
 
@@ -22,16 +24,17 @@ Safety:
     the draft it made instead of making a second one.
 
 Commands (installed as "draft-partner-emails" by install.sh):
-  draft-partner-emails                  draft every new "... - ready to send.eml"
+  draft-partner-emails                  draft every new "... - ready to send.eml" in both folders
   draft-partner-emails --dry-run        show what would be drafted; no sign-in, nothing changed
   draft-partner-emails --only FILE.eml  just this file (any folder)
   draft-partner-emails --watch          keep looking, every 60 seconds, until Ctrl-C
-  draft-partner-emails setup --tenant ID --client ID [--mailbox ADDR] [--root DIR] [--signature FILE.html]
+  draft-partner-emails setup --tenant ID --client ID [--mailbox ADDR] [--root DIR] [--emails-root DIR] [--signature FILE.html]
   draft-partner-emails signin           sign in once, in the browser (--device-code: with a code instead)
   draft-partner-emails signout          forget the sign-in (removes it from the Keychain)
   draft-partner-emails signature        copy Albert's Outlook signature (from a draft titled "Club Yuppie signature"),
                                         added to every draft from then on (--remove: stop adding it)
-  draft-partner-emails skip BRAND       mark a brand's waiting email as done without drafting it (sent by hand)
+  draft-partner-emails skip NAME        mark a waiting email as done without drafting it (a brand folder, or words in
+                                        the file name; for one drafted or sent by hand)
   draft-partner-emails test             one dummy draft to the configured mailbox, to check it all works
   draft-partner-emails status           the settings, the folder, how many are waiting, signed in or not
 
@@ -75,6 +78,8 @@ GRAPH_BASE = os.environ.get("CYD_GRAPH_BASE", "https://graph.microsoft.com/v1.0"
 CONFIG_PATH = Path(os.environ.get("CYD_CONFIG", str(Path.home() / ".config" / "club-yuppie-drafts" / "config.json")))
 KEYCHAIN_SERVICE = "club-yuppie-drafts"
 PENDING_SUFFIX = " - ready to send.eml"
+# Any email Claude writes for Albert (not a partner email) goes here, beside "Partner emails"; no PDF needed.
+EMAILS_FOLDER = "Emails to draft"
 MARKER_SUFFIX = ".drafted"
 # A hidden property on each draft: the .eml's SHA-256, so a draft is never made twice for one file.
 DRAFT_KEY_PROPERTY = "String {566da39a-e7d3-4358-bb63-1a50b006da7f} Name ClubYuppieDraftKey"
@@ -136,6 +141,39 @@ def find_root(cfg: dict) -> Path | None:
     return legacy if legacy.is_dir() else None
 
 
+def find_emails_root(cfg: dict) -> Path | None:
+    """OneDrive's "Emails to draft" folder: the one in the settings, else beside "Partner emails", else found in
+    ~/Library/CloudStorage."""
+    if cfg.get("emails_root"):
+        return Path(cfg["emails_root"]).expanduser()
+    partner = find_root(cfg)
+    if partner is not None and (partner.parent / EMAILS_FOLDER).is_dir():
+        return partner.parent / EMAILS_FOLDER
+    cloud = Path.home() / "Library" / "CloudStorage"
+    if cloud.is_dir():
+        for drive in sorted(cloud.glob("OneDrive*")):
+            folder = drive / EMAILS_FOLDER
+            if folder.is_dir():
+                return folder
+    legacy = Path.home() / "OneDrive" / EMAILS_FOLDER
+    return legacy if legacy.is_dir() else None
+
+
+def _inside(path: Path, folder: Path | None) -> bool:
+    if folder is None:
+        return False
+    try:
+        path.resolve().relative_to(folder.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def needs_pdf(path: Path, cfg: dict) -> bool:
+    """A partner email must have its PDF overview attached; any other email needn't have anything attached."""
+    return _inside(path, find_root(cfg))
+
+
 # ---------------------------------------------------------------------------------------------------- the files
 
 
@@ -152,6 +190,22 @@ def waiting(root: Path) -> list[Path]:
             if eml.is_file() and not marker_for(eml).exists():
                 found.append(eml)
     return found
+
+
+def waiting_emails(root: Path) -> list[Path]:
+    """Every "... - ready to send.eml" with no marker in "Emails to draft", loose or one folder down."""
+    loose = [e for e in sorted(root.glob("*" + PENDING_SUFFIX)) if e.is_file() and not marker_for(e).exists()]
+    return loose + waiting(root)
+
+
+def all_waiting(cfg: dict) -> list[Path]:
+    """Partner emails, then any other emails. Raises if neither folder is there."""
+    partner, emails = find_root(cfg), find_emails_root(cfg)
+    have_partner = partner is not None and partner.is_dir()
+    have_emails = emails is not None and emails.is_dir()
+    if not have_partner and not have_emails:
+        raise DraftError(f'Couldn\'t find OneDrive\'s "Partner emails" or "{EMAILS_FOLDER}" folder. Run setup with --root "<path>" or --emails-root "<path>".')
+    return (waiting(partner) if have_partner else []) + (waiting_emails(emails) if have_emails else [])
 
 
 @dataclass
@@ -180,7 +234,7 @@ def _addresses(msg: EmailMessage, header: str) -> list[tuple[str, str]]:
     return [(name.strip(), addr.strip()) for name, addr in getaddresses(values) if addr.strip()]
 
 
-def parse_eml(path: Path, signature_html: str | None = None, signature_images: list[Attachment] | None = None) -> Draft:
+def parse_eml(path: Path, signature_html: str | None = None, signature_images: list[Attachment] | None = None, need_pdf: bool = True) -> Draft:
     """To, Cc, Subject, the HTML body (plain text if that is all there is) and the attachments."""
     try:
         raw = path.read_bytes()
@@ -219,8 +273,8 @@ def parse_eml(path: Path, signature_html: str | None = None, signature_images: l
                 content_id=str(cid).strip("<> ") if cid else None,
             )
         )
-    if not any(a.content_type == "application/pdf" or a.name.lower().endswith(".pdf") for a in attachments):
-        raise DraftError(f"{path.name} has no PDF attached.")
+    if need_pdf and not any(a.content_type == "application/pdf" or a.name.lower().endswith(".pdf") for a in attachments):
+        raise DraftError(f"{path.name} has no PDF attached (a partner email needs its overview).")
     if signed:
         attachments += list(signature_images or [])
     return Draft(
@@ -239,7 +293,7 @@ def parse_eml(path: Path, signature_html: str | None = None, signature_images: l
 def describe(draft: Draft) -> str:
     to = ", ".join(addr for _, addr in draft.to)
     cc = (" (cc " + ", ".join(addr for _, addr in draft.cc) + ")") if draft.cc else ""
-    files = ", ".join(f"{a.name} ({len(a.data) // 1024} KB)" for a in draft.attachments if not a.content_id)
+    files = ", ".join(f"{a.name} ({len(a.data) // 1024} KB)" for a in draft.attachments if not a.content_id) or "nothing"
     signature = "your signature added" if draft.signed else "none (add your signature in Outlook before sending)"
     return f"To {to}{cc}\n    Subject: {draft.subject}\n    Attached: {files}\n    Signature: {signature}"
 
@@ -602,7 +656,7 @@ class Graph:
         if draft.cc:
             message["ccRecipients"] = people(draft.cc)
         small = sum(len(a.data) for a in draft.attachments) <= INLINE_LIMIT
-        if small:
+        if small and draft.attachments:
             message["attachments"] = [self._file(a) for a in draft.attachments]
         made = self.call("POST", "/me/messages", message)
         if not made.get("id"):
@@ -708,7 +762,7 @@ def run(cfg: dict, files: list[Path], dry_run: bool) -> int:
     for path in files:
         label = f"{path.parent.name} / {path.name}"
         try:
-            draft = parse_eml(path, signature, signature_images)
+            draft = parse_eml(path, signature, signature_images, need_pdf=needs_pdf(path, cfg))
         except DraftError as err:
             print(f"Skipped {label}\n    {err}")
             failed += 1
@@ -776,7 +830,7 @@ def make_test_eml(folder: Path, mailbox: str) -> Path:
 
 def cmd_setup(args) -> int:
     cfg = load_config()
-    for key in ("tenant", "client", "mailbox", "root", "signature"):
+    for key in ("tenant", "client", "mailbox", "root", "emails_root", "signature"):
         value = getattr(args, key)
         if value:
             cfg[key] = value.strip()
@@ -784,10 +838,11 @@ def cmd_setup(args) -> int:
     if not cfg.get("tenant") or not cfg.get("client"):
         raise DraftError("Both --tenant and --client are needed the first time.")
     save_config(cfg)
-    root = find_root(cfg)
+    root, emails = find_root(cfg), find_emails_root(cfg)
     print(f"Saved the settings in {CONFIG_PATH}.")
     where = str(root) if root else 'not found: run setup again with --root "<path to Partner emails>"'
-    print(f"    Mailbox: {mailbox_of(cfg)}\n    Folder: {where}")
+    other = str(emails) if emails else f'not found (make a "{EMAILS_FOLDER}" folder beside "Partner emails", or use --emails-root)'
+    print(f"    Mailbox: {mailbox_of(cfg)}\n    Partner emails: {where}\n    {EMAILS_FOLDER}: {other}")
     print("Next: draft-partner-emails signin")
     return 0
 
@@ -847,12 +902,12 @@ def cmd_skip(args) -> int:
     if given.is_file():
         files = [given]
     else:
-        root = find_root(cfg)
-        if not root or not root.is_dir():
-            raise DraftError('Couldn\'t find OneDrive\'s "Partner emails" folder. Run setup with --root "<path>".')
-        files = [f for f in waiting(root) if f.parent.name.casefold() == args.what.strip().casefold()]
+        want = args.what.strip().casefold()
+        partner, everything = find_root(cfg), all_waiting(cfg)
+        # a partner brand by its folder name; any other email by its folder or words in its file name
+        files = [f for f in everything if f.parent.name.casefold() == want or (not _inside(f, partner) and want in f.name.casefold())]
         if not files:
-            names = sorted({f.parent.name for f in waiting(root)})
+            names = sorted({f.parent.name if _inside(f, partner) else f.name[: -len(PENDING_SUFFIX)] for f in everything})
             raise DraftError(f"Nothing waiting for {args.what}." + (f" Waiting: {', '.join(names)}." if names else ""))
     for path in files:
         note = {"skippedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), "skipped": True,
@@ -871,12 +926,11 @@ def cmd_signout(_args) -> int:
 
 def cmd_status(_args) -> int:
     cfg = load_config()
-    root = find_root(cfg)
+    root, emails = find_root(cfg), find_emails_root(cfg)
     print(f"Settings: {CONFIG_PATH if CONFIG_PATH.exists() else 'none yet (run setup)'}")
     print(f"Mailbox: {mailbox_of(cfg)}")
-    print(f"Folder: {root if root else 'not found'}")
-    if root and root.is_dir():
-        print(f"Waiting to be drafted: {len(waiting(root))}")
+    print(f"Partner emails: {root if root else 'not found'}" + (f" ({len(waiting(root))} waiting)" if root and root.is_dir() else ""))
+    print(f"{EMAILS_FOLDER}: {emails if emails else 'not found'}" + (f" ({len(waiting_emails(emails))} waiting)" if emails and emails.is_dir() else ""))
     if cfg.get("signature"):
         print(f"Signature: from {cfg['signature']}")
     elif signature_path().exists():
@@ -910,10 +964,7 @@ def cmd_run(args) -> int:
         if not files[0].is_file():
             raise DraftError(f"No such file: {files[0]}")
     else:
-        root = find_root(cfg)
-        if not root or not root.is_dir():
-            raise DraftError('Couldn\'t find OneDrive\'s "Partner emails" folder. Run setup with --root "<path>".')
-        files = waiting(root)
+        files = all_waiting(cfg)
     if not files:
         print("Nothing new to draft.")
         return 0
@@ -933,14 +984,15 @@ def main(argv: list[str] | None = None) -> int:
         setup.add_argument("--client", help="Application (client) ID of the Club Yuppie Drafts app registration")
         setup.add_argument("--mailbox", help=f"the mailbox drafts go into (default {DEFAULT_MAILBOX})")
         setup.add_argument("--root", help='the OneDrive "Partner emails" folder, if it is not found by itself')
+        setup.add_argument("--emails-root", dest="emails_root", help=f'the OneDrive "{EMAILS_FOLDER}" folder, if it is not beside "Partner emails"')
         setup.add_argument("--signature", help="an HTML file added at the end of each email (Outlook's own signature is not added to drafts made this way)")
         signin = sub.add_parser("signin")
         signin.add_argument("--device-code", action="store_true", help="sign in with a code at microsoft.com/devicelogin instead (blocked where security defaults are on)")
         sub.add_parser("signout")
         signature = sub.add_parser("signature", help=f'copy your Outlook signature from a draft titled "{SIGNATURE_SUBJECT}"')
         signature.add_argument("--remove", action="store_true", help="stop adding a signature")
-        skip = sub.add_parser("skip", help="mark a brand's waiting email as done without drafting it")
-        skip.add_argument("what", metavar="BRAND", help='the brand folder name (e.g. Headmasters) or the .eml file')
+        skip = sub.add_parser("skip", help="mark a waiting email as done without drafting it")
+        skip.add_argument("what", metavar="NAME", help='a partner brand folder (e.g. Headmasters), words in an email\'s file name, or the .eml file')
         sub.add_parser("status")
         test = sub.add_parser("test")
         test.add_argument("--dry-run", action="store_true")

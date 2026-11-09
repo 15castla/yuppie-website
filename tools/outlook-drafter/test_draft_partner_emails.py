@@ -5,7 +5,8 @@
 Covers: reading the skill's .eml (HTML body, PDF, a curly apostrophe in the subject), which files are waiting, a dry
 run that touches nothing, sign-in in the browser (PKCE, the state checked, a refusal) and by device code, drafting (the request Outlook gets), the marker, no second draft for
 the same file, the wrong mailbox, a sign-in that could send, a PDF over 3 MB (upload session), a failed upload (the
-half draft is taken away), the test draft, a 401 retried once, copying the Outlook signature (logo included) into every draft, skip, and that nothing ever calls a send endpoint.
+half draft is taken away), the test draft, a 401 retried once, copying the Outlook signature (logo included) into every draft, any other email from "Emails to draft" (no PDF
+needed there, still needed for a partner email), skip, and that nothing ever calls a send endpoint.
 """
 
 from __future__ import annotations
@@ -474,7 +475,57 @@ class DrafterTests(unittest.TestCase):
         code, out = self.main("--dry-run")
         self.assertIn("Signature: none (add your signature in Outlook before sending)", out)
 
+    # ---------------------------------------------------------------- any email, from "Emails to draft"
+    def test_any_email_goes_in_without_an_attachment(self):
+        emails = self.root.parent / dp.EMAILS_FOLDER
+        loose = make_eml(emails / f"Email to Sam Smith{dp.PENDING_SUFFIX}", to="Sam Smith <sam@example.com>", subject="Coffee next week", pdf=None)
+        nested = make_eml(emails / "Kira" / f"Intro to Kira{dp.PENDING_SUFFIX}", to="kira@example.com", subject="An introduction", pdf=None)
+        make_eml(emails / "_to_delete" / f"Old one{dp.PENDING_SUFFIX}", pdf=None)
+        no_pdf_partner = self.eml("Acme Barbers", pdf=None)
+        with_pdf_partner = self.eml("Bravo Gyms")
+        self.assertEqual(dp.all_waiting(dp.load_config()), [no_pdf_partner, with_pdf_partner, loose, nested])
+        code, out = self.main("--dry-run")
+        self.assertIn(f"Would draft {dp.EMAILS_FOLDER} / Email to Sam Smith{dp.PENDING_SUFFIX}", out)
+        self.assertIn("Attached: nothing", out)
+        self.sign_in()
+        code, out = self.main()
+        self.assertEqual(code, 1, out)  # the partner email without its PDF is held back
+        self.assertIn("has no PDF attached (a partner email needs its overview)", out)
+        self.assertFalse(dp.marker_for(no_pdf_partner).exists())
+        subjects = sorted(m["subject"] for m in self.fake.messages.values())
+        self.assertEqual(subjects, ["An introduction", "Club Yuppie partnership, Acme’s Corporate Club for our members", "Coffee next week"])
+        coffee = [m for m in self.fake.messages.values() if m["subject"] == "Coffee next week"][0]
+        self.assertNotIn("attachments", coffee)
+        self.assertEqual(coffee["toRecipients"], [{"emailAddress": {"address": "sam@example.com", "name": "Sam Smith"}}])
+        for path in (loose, nested, with_pdf_partner):
+            self.assertTrue(dp.marker_for(path).exists())
+        self.assertEqual(dp.all_waiting(dp.load_config()), [no_pdf_partner])
+
+    def test_emails_folder_on_its_own_and_in_status(self):
+        cfg = dp.load_config()
+        emails = self.root.parent / dp.EMAILS_FOLDER
+        dp.save_config({**cfg, "root": str(self.root.parent / "nowhere")})
+        with self.assertRaisesRegex(dp.DraftError, "Couldn't find"):
+            dp.all_waiting(dp.load_config())
+        dp.save_config({**cfg, "root": str(self.root.parent / "nowhere"), "emails_root": str(emails)})
+        emails.mkdir()
+        path = make_eml(emails / f"Email to Sam{dp.PENDING_SUFFIX}", pdf=None)
+        self.assertEqual(dp.all_waiting(dp.load_config()), [path])
+        code, out = self.main("status")
+        self.assertIn(f"{dp.EMAILS_FOLDER}: {emails} (1 waiting)", out)
+
     # ---------------------------------------------------------------- skip
+    def test_skip_any_email_by_words_in_its_name(self):
+        emails = self.root.parent / dp.EMAILS_FOLDER
+        sam = make_eml(emails / f"Email to Sam Smith{dp.PENDING_SUFFIX}", pdf=None)
+        other = make_eml(emails / f"Email to Jo{dp.PENDING_SUFFIX}", pdf=None)
+        code, out = self.main("skip", "sam smith")
+        self.assertEqual(code, 0, out)
+        self.assertTrue(dp.marker_for(sam).exists())
+        self.assertFalse(dp.marker_for(other).exists())
+        code, out = self.main("skip", "nobody")
+        self.assertIn("Waiting: Email to Jo.", out)
+
     def test_skip_marks_a_brand_done_without_drafting(self):
         a = self.eml("Headmasters")
         b = self.eml("Bravo Gyms")
