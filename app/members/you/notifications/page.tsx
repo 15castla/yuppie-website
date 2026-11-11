@@ -5,7 +5,7 @@ import { detectShellMode } from "@/lib/members/shell-mode";
 import { pushLiveFor } from "@/lib/server/config";
 import { getNotificationPreferences } from "@/lib/server/notification-prefs";
 import { requireMember } from "../../require-member";
-import { sendTestPush, setNotificationChannel, setNotificationTopic } from "./actions";
+import { setNotificationChannel, setNotificationTopic } from "./actions";
 
 // You > Notifications, real switches (lib/server/notification-prefs.ts; saving is ./actions.ts, each switch at once).
 // Push (11 Nov 2026): the Push row is drawn where push is live for the member (pushLiveFor: MEMBERS_PUSH_LIVE=on, or
@@ -25,7 +25,6 @@ export default async function NotificationSettingsPage() {
       saveTopic={setNotificationTopic}
       saveChannel={setNotificationChannel}
       numberHref={ROUTES.profileEdit}
-      sendTest={sendTestPush}
     />
   );
 }

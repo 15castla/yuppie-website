@@ -70,5 +70,9 @@
 	<false/>
 	<key>NSCameraUsageDescription</key>
 	<string>Club Yuppie uses the camera only if you choose to take a photo for your profile.</string>
+	<key>NSUserActivityTypes</key>
+	<array>
+		<string>INSendMessageIntent</string>
+	</array>
 </dict>
 </plist>

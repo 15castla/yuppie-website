@@ -32,6 +32,7 @@ import { later } from "../later";
 import { isGated, membershipState } from "../membership";
 import { sendEmail, sendPush, sendText, type MessageRefs, type PushInput, type SendResult } from "../messages";
 import { channelOn, prefsRows, textNumber, topicOn, type PrefsRow } from "../notification-prefs";
+import { currentPhotoUrl } from "../photos";
 import { preview, pushWords, type PushText } from "../push/words";
 import { reasonLabel, type ReportKind } from "../report-reasons";
 import { isQuietHours } from "./quiet";
@@ -384,10 +385,11 @@ async function planCancelled(e: Extract<NotifyEvent, { type: "plan.cancelled" }>
 const CHAT_SOUND_AGAIN_MINUTES = 2;
 
 /**
- * A new message. Where push is live, each other member of the chat gets a phone notification at once, as a group
- * chat app does (Albert, 11 Nov 2026): a plan chat is titled with the plan, "Ana: See you at 7"; a question to the
- * host, or the host's reply, is titled with the person. Grouped by chat on the phone. In a burst only the first
- * plays a sound (until the member reads the chat, or 2 minutes). None when muted, none from someone they blocked.
+ * A new message. Where push is live, each other member of the chat gets a phone notification at once, laid out as
+ * WhatsApp does (Albert, 11 Nov 2026): the person, the plan, the words ("Kira" / "Padel at Battersea" / "See you at
+ * 7"), in a plan chat and a question to the host alike, with the sender's photo and a small Club Yuppie icon in the
+ * app. Grouped by chat on the phone. In a burst only the first plays a sound (until the member reads the chat, or 2
+ * minutes). None when muted, none from someone they blocked.
  * Where push is not live, the chat email is the 15-minute nudge (./reminders.ts runChatNudges), so a member reading
  * the chat in time gets none.
  */
@@ -412,7 +414,8 @@ async function chatMessage(e: Extract<NotifyEvent, { type: "chat.message" }>, no
   const words = preview(message?.body);
   if (!words) return none();
   const sender = nameOf(everyone.get(e.senderId));
-  const blockers = await blockedBy(members.map((r) => r.member_id), e.senderId);
+  const [blockers, photo] = await Promise.all([blockedBy(members.map((r) => r.member_id), e.senderId), currentPhotoUrl(e.senderId, "thumb")]);
+  const conversation = { chatId: e.chatId, name: plan.title, senderId: e.senderId, senderName: sender, photo };
   const pushes: PushInput[] = [];
   for (const r of members) {
     const p = everyone.get(r.member_id);
@@ -425,11 +428,11 @@ async function chatMessage(e: Extract<NotifyEvent, { type: "chat.message" }>, no
     const longAgo = r.pushed_at && now.getTime() - ms(r.pushed_at) >= CHAT_SOUND_AGAIN_MINUTES * 60000;
     const silent = Boolean(r.pushed_at && !readSince && !longAgo);
     if (!silent) await db.from("chat_members").update({ pushed_at: now.toISOString() }).eq("chat_id", e.chatId).eq("member_id", p.id);
-    const text = kind === "plan" ? pushWords.groupMessage(plan.title, sender, words) : pushWords.directMessage(plan.title, sender, words, e.senderId === plan.host_id);
     pushes.push({
       template: "push-message",
       memberId: p.id,
-      ...text,
+      ...pushWords.message(plan.title, sender, words),
+      conversation,
       path: messageThreadHref(e.chatId),
       thread: `chat:${e.chatId}`,
       quiet: isQuietHours(now),

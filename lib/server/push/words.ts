@@ -2,10 +2,11 @@ import "server-only";
 
 // What each phone notification says. Albert, 11 Nov 2026: "it should say the name of the person joining or sending
 // messages etc. on the notification. And group chats" (this replaces the spec's "never a message or a sender's
-// name"). So, as a group chat app does: the plan or event is the title, the person is named, and a chat message
-// shows its words ("Ana: See you at 7"); a question to the host, a chat between two, is titled with the person.
-// A member someone blocked is never named to them. Club Yuppie style: British English, no exclamation marks, no
-// em dashes.
+// name"). The plan or event is the title and the person is named. A chat message is laid out as WhatsApp does
+// (Albert, 11 Nov, later: "Don't say question from ... just say the event / group name", "like WhatsApp with the
+// photo and then a small yuppie icon"): the person, then the plan, then the words, in a plan chat and a question
+// alike; the app adds the person's photo (mobile/ios/App/NotificationService). A member someone blocked is never
+// named to them. Club Yuppie style: British English, no exclamation marks, no em dashes.
 
 import { dayDate, time24 } from "../format";
 import { relativeDay } from "../notify/quiet";
@@ -33,14 +34,8 @@ export const pushWords = {
   joined: (plan: string, name: string, full: boolean): PushText => ({ title: plan, body: full ? `${name} is in. Your plan is now full.` : `${name} is in.` }),
   /** The host: someone can no longer make it; or, if the host blocked them, only that a place opened. */
   left: (plan: string, name: string | null): PushText => ({ title: plan, body: name ? `${name} can no longer make it.` : "A place has opened up." }),
-  /** A plan chat (a group): the plan, then who said what. */
-  groupMessage: (plan: string, name: string, text: string): PushText => ({ title: plan, body: `${name}: ${text}` }),
-  /** A question to the host, or the host's reply (a chat between two): the person, then what about. */
-  directMessage: (plan: string, name: string, text: string, isHost: boolean): PushText => ({
-    title: isHost ? `${name} (host)` : name,
-    subtitle: isHost ? `About ${plan}` : `Question about ${plan}`,
-    body: text,
-  }),
+  /** A chat message, in a plan chat or a question to the host: who, the plan, the words ("Kira" / "Padel" / "Test"). */
+  message: (plan: string, name: string, text: string): PushText => ({ title: name, subtitle: plan, body: text }),
   /** A plan you're in moved; the host is named unless you blocked them. */
   planMoved: (plan: string, host: string | null, how: "time" | "place" | "both", startsAt: string, place: string, now: Date): PushText => ({
     title: plan,
