@@ -33,6 +33,11 @@ const config: CapacitorConfig = {
     // safe-area insets, so that existing CSS (which assumes it will)
     // actually works as designed.
     contentInset: "automatic",
+    // Phone notifications are the app's own (ios/App/App/AppDelegate.swift, PushBridge, the notification centre's
+    // delegate from launch). Left on (Capacitor's default), Capacitor makes its own router the delegate when the
+    // bridge starts, and with no notifications plugin that router shows nothing while the app is open and does
+    // nothing with a tap (found 11 Nov 2026: no banner in the app, and a tap did not open the chat).
+    handleApplicationNotifications: false,
   },
   server: {
     // Defaults to the members area itself, so a plain `npx cap sync &&
