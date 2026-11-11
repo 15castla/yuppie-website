@@ -1,4 +1,5 @@
 import UIKit
+import UserNotifications
 import WebKit
 import Capacitor
 
@@ -49,6 +50,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         if let webView = bridgeVC.webView {
             // Phone notifications: the page's questions and tapped notifications (AppDelegate.swift, PushBridge).
             PushBridge.shared.attach(to: webView)
+            // And the notification centre's delegate stays PushBridge: Capacitor's bridge, just created, takes it for
+            // its own router unless capacitor.config.ts says handleApplicationNotifications: false (and a build
+            // whose capacitor.config.json predates that would still do so).
+            UNUserNotificationCenter.current().delegate = PushBridge.shared
         }
         fixSafeAreaInsetFirstFrame(on: bridgeVC)
         // Before the readiness polling below, so there is always an opening
