@@ -13,8 +13,6 @@ import type { NotificationChannel, NotificationPreferences, NotificationTopic, P
 import { requireFlag } from "@/lib/members/flags";
 import { detectShellMode } from "@/lib/members/shell-mode";
 import { pushLiveFor } from "@/lib/server/config";
-import { serviceDb } from "@/lib/server/db";
-import { sendPush } from "@/lib/server/messages";
 import { DEVICE_COOKIE, hasSomethingToHear, saveDevice, validToken } from "@/lib/server/push/devices";
 import { getNotificationPreferences, setNotificationPreference, setPushPermission, type SavePrefResult } from "@/lib/server/notification-prefs";
 import type { SessionEnded } from "@/components/members/session-ended";
@@ -103,34 +101,4 @@ export async function registerPushDevice(token: string, environment: "sandbox" |
 export async function pushAskDue(): Promise<{ ok: true; ask: boolean } | SessionEnded | Failed> {
   requireFlag("notifications");
   return asMember("pushAskDue", async (m) => ({ ok: true as const, ask: pushLiveFor(m.email) && (await hasSomethingToHear(m.id)) }), ON_ANY_PAGE);
-}
-
-/** A test notification to the member's own phones (the Push row's "Send a test"), at most one a minute. */
-export async function sendTestPush(): Promise<{ ok: true } | { ok: false; error: string } | SessionEnded> {
-  requireFlag("notifications");
-  return asMember(
-    "sendTestPush",
-    async (m) => {
-      if (!pushLiveFor(m.email)) return { ok: false as const, error: "Notifications aren’t on for your account yet." };
-      const { count } = await serviceDb()
-        .from("message_log")
-        .select("id", { count: "exact", head: true })
-        .eq("member_id", m.id)
-        .eq("template", "push-test")
-        .eq("status", "sent")
-        .gte("created_at", new Date(Date.now() - 60000).toISOString());
-      if (count) return { ok: false as const, error: "One went a moment ago. Try again in a minute." };
-      const sent = await sendPush({
-        template: "push-test",
-        memberId: m.id,
-        body: "Notifications are on. This is how they’ll look.",
-        path: "/members/you/notifications",
-        dedupeKey: `push:test:${m.id}:${Date.now()}`,
-      });
-      if (sent.status === "sent") return { ok: true as const };
-      if (sent.error === "no device") return { ok: false as const, error: "This iPhone isn’t saved yet. Close the app, open it again and try once more." };
-      return { ok: false as const, error: "That didn’t go through. Try again in a moment." };
-    },
-    ON_ANY_PAGE,
-  );
 }

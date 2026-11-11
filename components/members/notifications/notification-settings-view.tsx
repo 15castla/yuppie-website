@@ -81,8 +81,6 @@ export type NotificationSettingsViewProps = {
   numberHref?: string;
   /** The phone's own notification settings (app only, once push exists). Not designed yet. */
   onOpenSettings?: () => void;
-  /** "Send a test" under the Push row (app, notifications allowed): a test notification to this member's phones. */
-  sendTest?: () => Promise<{ ok: true } | { ok: false; error: string } | SessionEnded>;
 };
 
 function Switch({
@@ -206,7 +204,6 @@ export function NotificationSettingsView({
   failedKey = null,
   numberHref,
   onOpenSettings,
-  sendTest,
 }: NotificationSettingsViewProps) {
   const base = useId();
   const router = useRouter();
@@ -220,7 +217,6 @@ export function NotificationSettingsView({
   const number = preferences.mobileNumber;
   const [permission, setPermission] = useState(preferences.pushPermission);
   const [asking, setAsking] = useState(false);
-  const [test, setTest] = useState<{ state: "idle" | "sending" | "sent" } | { state: "failed"; error: string }>({ state: "idle" });
   // Whether this is the app with notifications: known only in the page (the server cannot tell), false while hydrating.
   const native = useSyncExternalStore(noSubscribe, nativePush, () => false);
   // In the app the phone's answer can change while this page is open (back from Settings): follow it.
@@ -231,22 +227,6 @@ export function NotificationSettingsView({
     });
   }, [pushChannel]);
   const openSettings = () => (onOpenSettings ? onOpenSettings() : openNativeSettings());
-  async function runTest() {
-    if (!sendTest || test.state === "sending") return;
-    setTest({ state: "sending" });
-    let result: Awaited<ReturnType<NonNullable<typeof sendTest>>>;
-    try {
-      result = await sendTest();
-    } catch {
-      result = { ok: false, error: SAVE_FAILED };
-    }
-    if (isSessionEnded(result)) {
-      goToSessionEnded();
-      return;
-    }
-    setTest(result.ok ? { state: "sent" } : { state: "failed", error: result.error });
-  }
-
   async function askPush() {
     if (asking) return;
     setAsking(true);
@@ -324,36 +304,12 @@ export function NotificationSettingsView({
     const pushOff = permission === "denied";
     // Not asked yet (the app can ask): off, and a tap asks.
     const pushAsk = permission === "not_asked" && native;
-    // Notifications allowed in the app: "Send a test" under the row (the row then holds a button, so it is not a label).
-    const showTest = Boolean(sendTest && native && permission === "granted" && channels.push);
     const pushRow = !pushChannel ? null : pushSwitchable ? (
       <SettingRow
         id={id("push")}
         title="Push"
-        meta={pushOff ? "Off in your iPhone’s settings." : pushAsk ? "Not turned on yet on this iPhone." : "On this iPhone."}
-        interactive={showTest}
-        labelFor={showTest ? id("push-switch") : undefined}
-        extra={
-          <>
-            {showTest ? (
-              <>
-                {test.state === "sent" ? (
-                  <p className="ntf-ok">
-                    <Icon name="check" size={15} />
-                    <span>Sent. It should arrive in a few seconds.</span>
-                  </p>
-                ) : null}
-                {test.state === "failed" ? <SaveError message={test.error} /> : null}
-                <span className="ntf-link">
-                  <Button variant="quiet" pending={test.state === "sending"} onClick={() => void runTest()}>
-                    Send a test
-                  </Button>
-                </span>
-              </>
-            ) : null}
-            {failedOn("push")}
-          </>
-        }
+        meta={pushOff ? "Off in your iPhone’s settings." : pushAsk ? "Not turned on yet on this iPhone." : channels.push ? "On this iPhone." : "Off. Nothing comes to this iPhone."}
+        extra={failedOn("push")}
         end={(describedBy) => (
           <Switch
             id={id("push-switch")}

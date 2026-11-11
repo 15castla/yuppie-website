@@ -233,7 +233,7 @@ export type PushInput = {
   memberId: string;
   /** The bold first line: the plan, event or person (lib/server/push/words.ts); "Club Yuppie" when none is given. */
   title?: string;
-  /** A second bold line (a chat between two: what it is about). */
+  /** A second bold line (a chat message: the plan). */
   subtitle?: string;
   /** What happened, or what was said. */
   body: string;
@@ -249,6 +249,13 @@ export type PushInput = {
   silent?: boolean;
   /** Apple stops trying after this (a reminder after its start). */
   expiresAt?: string | null;
+  /**
+   * A chat message: who sent it and in which chat, so the app shows it as a messaging app does, with the sender's
+   * photo and a small Club Yuppie icon (mobile/ios/App/NotificationService). `photo` is a signed URL that runs out
+   * in 10 minutes (QB2-08); without it, or in an app build from before this, the notification reads the same,
+   * with the app icon.
+   */
+  conversation?: { chatId: string; name: string; senderId: string; senderName: string; photo: string | null };
   dedupeKey: string;
   refs?: MessageRefs;
 };
@@ -279,8 +286,16 @@ export async function sendPush(input: PushInput): Promise<SendResult> {
       alert: { title: input.title || "Club Yuppie", ...(input.subtitle ? { subtitle: input.subtitle } : {}), body: input.body },
       ...(input.quiet ? { "interruption-level": "passive" } : input.silent ? {} : { sound: "default" }),
       ...(input.thread ? { "thread-id": input.thread } : {}),
+      // The app's notification service adds the sender's photo before the phone shows it.
+      ...(input.conversation ? { "mutable-content": 1 } : {}),
     },
     path: input.path,
+    ...(input.conversation
+      ? {
+          sender: { id: input.conversation.senderId, name: input.conversation.senderName, ...(input.conversation.photo ? { photo: input.conversation.photo } : {}) },
+          chat: { id: input.conversation.chatId, name: input.conversation.name },
+        }
+      : {}),
   };
   const expiration = input.expiresAt ? Math.floor(new Date(input.expiresAt).getTime() / 1000) : undefined;
   return deliver("push", input.template, `${devices.length} device${devices.length === 1 ? "" : "s"}`, input.dedupeKey, refs, async () => {

@@ -5,5 +5,8 @@
 	<!-- Phone notifications (AppDelegate.swift, PushBridge). Xcode signs App Store builds with "production". -->
 	<key>aps-environment</key>
 	<string>development</string>
+	<!-- Chat notifications shown as a messaging app's, with the sender's photo (NotificationService). -->
+	<key>com.apple.developer.usernotifications.communication</key>
+	<true/>
 </dict>
 </plist>

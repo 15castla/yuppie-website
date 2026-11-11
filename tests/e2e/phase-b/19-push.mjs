@@ -140,14 +140,17 @@ try {
   ok((await send(other, 'Hello all')).ok, 'a message');
   await waitFor(() => pushesSince(mark).length >= 1, 'a push for the message');
   const msg = got[mark];
-  eq(msg.payload.aps.alert, { title: 'Push plan', body: 'Pn: Hello all' }, 'as a group chat: the plan, then who said what');
+  eq(msg.payload.aps.alert, { title: 'Pn', subtitle: 'Push plan', body: 'Hello all' }, 'as WhatsApp: who, the plan, the words (Albert, 11 Nov)');
+  eq(msg.payload.aps['mutable-content'], 1, 'the app may change it before it shows (to add the photo)');
+  eq([msg.payload.sender.id, msg.payload.sender.name, msg.payload.chat], [other.id, 'Pn', { id: chatId, name: 'Push plan' }], 'who sent it and in which chat, for the app');
+  ok(/^https?:\/\/.+\/storage\/v1\/object\/sign\//.test(msg.payload.sender.photo ?? ''), 'the sender\'s photo: a signed URL (10 minutes)', msg.payload.sender.photo);
   eq([msg.headers['apns-collapse-id'], msg.payload.path, msg.payload.aps['thread-id']], [undefined, `/members/messages/${chatId}`, `chat:${chatId}`], 'every message stays on the phone, grouped by chat, opens the chat');
   if (!quietNow()) eq(msg.payload.aps.sound, 'default', 'the first message: a sound');
   mark = got.length;
   await send(other, 'Second one');
   await send(other, 'Third   one,\non two lines');
   await waitFor(() => pushesSince(mark).length >= 2, 'more messages: a push each');
-  eq(pushesSince(mark).map((p) => p.payload.aps.alert.body), ['Pn: Second one', 'Pn: Third one, on two lines'], 'each with its words (on one line)');
+  eq(pushesSince(mark).map((p) => p.payload.aps.alert.body), ['Second one', 'Third one, on two lines'], 'each with its words (on one line)');
   ok(pushesSince(mark).every((p) => p.payload.aps.sound === undefined), 'but quietly: no sound until the host reads the chat');
   await action('thread.markChatRead', [chatId], tester.session);
   await sleep(50);
@@ -158,7 +161,7 @@ try {
   mark = got.length;
   await send(other, 'x'.repeat(300));
   await waitFor(() => pushesSince(mark).length >= 1, 'a long message');
-  eq(got[mark].payload.aps.alert.body, `Pn: ${'x'.repeat(179)}…`, 'its words cut at 180 characters');
+  eq(got[mark].payload.aps.alert.body, `${'x'.repeat(179)}…`, 'its words cut at 180 characters');
   eq((await action('thread.setChatMuted', [chatId, true], tester.session)).result, { ok: true }, 'the host mutes the chat');
   await action('thread.markChatRead', [chatId], tester.session);
   mark = got.length;
@@ -174,13 +177,15 @@ try {
   eq(pushesSince(mark).length, 0, 'from someone they blocked: no push');
   exec(`delete from blocks where blocker_id = ${q(tester.id)} and blocked_id = ${q(other.id)}`);
 
-  // A question to the host: a chat between two, titled with the person.
+  // A question to the host: laid out the same (Albert: "Don't say question from ... just say the event / group name").
   await action('thread.markSafetyNoteSeen', [], noPhone.session);
   mark = got.length;
   const asked = await action('thread.sendMessage', [{ chatId: `ask-${P}`, text: 'Is there parking?', clientId: 'q-push' }], noPhone.session).then((r) => r.result);
   ok(asked.ok, 'a member asks the host a question');
   await waitFor(() => pushesSince(mark).length >= 1, 'a push to the host');
-  eq(got[mark].payload.aps.alert, { title: 'Pu', subtitle: 'Question about Push plan', body: 'Is there parking?' }, 'titled with the person, about the plan, the question itself');
+  eq(got[mark].payload.aps.alert, { title: 'Pu', subtitle: 'Push plan', body: 'Is there parking?' }, 'who, the plan, the question itself (no "Question about")');
+  eq([got[mark].payload.sender.id, got[mark].payload.sender.name, got[mark].payload.chat], [noPhone.id, 'Pu', { id: asked.chatId, name: 'Push plan' }], 'the sender and the chat (named after the plan) for the app');
+  ok(/\/storage\/v1\/object\/sign\//.test(got[mark].payload.sender.photo ?? ''), 'with the asker\'s photo');
   eq(got[mark].payload.aps['thread-id'], `chat:${asked.chatId}`, 'grouped as its own chat');
 
   // Chat emails: none for the tester; a member who is not a tester still gets theirs, 15 minutes on.
@@ -330,15 +335,7 @@ try {
     ok(page1.includes('Your account, bookings and payments only') && page1.includes('Always on'), 'Email: account, bookings and payments only, no switch ("Always on")');
     eq(await p1.getByRole('switch', { name: 'Email' }).count(), 0, 'no Email switch');
     await p1.screenshot({ path: `${SHOTS}/settings-on.png`, fullPage: true });
-    const testMark = got.length;
-    await p1.getByRole('button', { name: 'Send a test' }).click();
-    // (The channels are drawn twice, for a phone and for a computer: the phone's are the ones on screen.)
-    await p1.locator('.mk-show-phone').getByText('Sent. It should arrive in a few seconds.').waitFor({ timeout: 15000 });
-    await p1.screenshot({ path: `${SHOTS}/settings-test-sent.png`, fullPage: true });
-    ok(pushesSince(testMark, appToken).some((p) => p.payload.aps.alert.body === 'Notifications are on. This is how they’ll look.'), '"Send a test": a test notification to this phone');
-    await p1.getByRole('button', { name: 'Send a test' }).click();
-    await p1.locator('.mk-show-phone').getByText('One went a moment ago.').waitFor({ timeout: 15000 });
-    ok(true, 'again within the minute: not sent twice');
+    eq(await p1.getByRole('button', { name: 'Send a test' }).count(), 0, 'no "Send a test" (Albert, 11 Nov: "just remove that function")');
     // A tapped notification opens its page (the members area's router).
     await p1.evaluate((path) => window.__yuppiePushOpen(path), `/members/messages/${chatId}`);
     await p1.waitForURL(`**/members/messages/${chatId}`, { timeout: 15000 });
