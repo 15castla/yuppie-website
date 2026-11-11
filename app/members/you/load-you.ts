@@ -58,7 +58,7 @@ export async function loadYou({ billingUnavailable = false }: { billingUnavailab
     messages ? blockedCount(member.id) : Promise.resolve(null),
   ]);
   const settingsRows = buildSettingsRows({ ...flags, messages }, {
-    notifications: preferences ? notificationSummary(preferences, mode) : null,
+    notifications: preferences ? notificationSummary(preferences) : null,
     payments: null,
     blocked,
   });

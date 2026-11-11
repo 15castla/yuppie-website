@@ -1,5 +1,6 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath, unstable_cache } from "next/cache";
 import { after } from "next/server";
@@ -19,6 +20,7 @@ import { dayDate, time24 } from "@/lib/server/format";
 import { sendEmail } from "@/lib/server/messages";
 import { requestCancel } from "@/lib/server/membership-actions";
 import { uploadMemberPhoto } from "@/lib/server/photos";
+import { DEVICE_COOKIE, forgetDevice, validToken } from "@/lib/server/push/devices";
 import { requireMember } from "../require-member";
 
 export async function updateProfile(
@@ -325,6 +327,14 @@ export async function getNextBillingDate(
 
 export async function signOutMember() {
   const supabase = await createClient();
+  // This phone stops getting the member's notifications (the app saved its device token in this cookie).
+  const jar = await cookies();
+  const device = jar.get(DEVICE_COOKIE)?.value;
+  if (device) {
+    const { data } = await supabase.auth.getUser();
+    if (data.user && validToken(device)) await forgetDevice(data.user.id, device);
+    jar.delete(DEVICE_COOKIE);
+  }
   // Local scope only — see app/admin/actions.ts's signOut() for why:
   // Supabase's default (global) scope would also sign this member out
   // of any other session on another device signed into the same account.

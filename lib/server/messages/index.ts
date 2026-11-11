@@ -1,7 +1,8 @@
 import "server-only";
 
-// Sending: every email (Resend) and text (Twilio) the members backend sends
-// goes through here, and every one is written to message_log.
+// Sending: every email (Resend), text (Twilio) and phone notification (APNs,
+// lib/server/push) the members backend sends goes through here, and every one
+// is written to message_log.
 //
 // - A repeated dedupeKey whose earlier send went out is skipped (no second
 //   send, no second row). A key whose earlier send failed or was skipped is
@@ -12,6 +13,7 @@ import "server-only";
 // Rendering is lib/emails (the emails agent), reached only through ./render.
 
 import { sendSms } from "@/app/admin/sms-client";
+import { sendApns, type ApnsEnvironment } from "../push/apns";
 import { EMAIL_FROM, EMAIL_REPLY_TO, TEXT_LIMITS, adminAlertsEmail } from "../config";
 import { errorMessage, serviceDb } from "../db";
 import {
@@ -43,7 +45,7 @@ export type SendResult = {
   error?: string;
 };
 
-type Channel = "email" | "sms";
+type Channel = "email" | "sms" | "push";
 
 type LogRow = {
   channel: Channel;
@@ -222,6 +224,75 @@ export async function sendText<N extends TextName>(input: {
     const body = renderTextMessage(input.template, input.data);
     await sendSms({ to, body });
     return null;
+  });
+}
+
+export type PushInput = {
+  /** What it is about, for message_log (e.g. "push-plan-joined"). */
+  template: string;
+  memberId: string;
+  /** The bold first line: the plan, event or person (lib/server/push/words.ts); "Club Yuppie" when none is given. */
+  title?: string;
+  /** A second bold line (a chat between two: what it is about). */
+  subtitle?: string;
+  /** What happened, or what was said. */
+  body: string;
+  /** The members page a tap opens. */
+  path: string;
+  /** iOS groups notifications by this (a plan, an event). */
+  thread?: string;
+  /** A newer notification with the same id replaces this one (a chat). */
+  collapseId?: string;
+  /** Quiet hours: delivered without a sound or lighting the screen (decision 2 B). */
+  quiet?: boolean;
+  /** Shown as usual but without a sound (the next messages of a burst in a chat). */
+  silent?: boolean;
+  /** Apple stops trying after this (a reminder after its start). */
+  expiresAt?: string | null;
+  dedupeKey: string;
+  refs?: MessageRefs;
+};
+
+/**
+ * One phone notification to every iPhone a member is signed in on. Logged like an email: a dedupe key that went
+ * out is never sent again; a member with no device is a "skipped" row ("no device"). Devices Apple no longer knows
+ * are removed. Sent when at least one device took it; failed when none did.
+ */
+export async function sendPush(input: PushInput): Promise<SendResult> {
+  const db = serviceDb();
+  const refs = { ...input.refs, memberId: input.memberId };
+  let devices: { token: string; environment: ApnsEnvironment }[] = [];
+  try {
+    const { data, error } = await db.from("push_devices").select("token, environment").eq("member_id", input.memberId);
+    if (error) throw error;
+    devices = (data ?? []) as typeof devices;
+  } catch (err) {
+    console.error(`push ${input.template}: devices for ${input.memberId} failed:`, err);
+    return { status: "failed", error: errorMessage(err) };
+  }
+  if (!devices.length) {
+    await logSkipped({ channel: "push", template: input.template, to: null, dedupeKey: input.dedupeKey, reason: "no device", refs });
+    return { status: "skipped", error: "no device" };
+  }
+  const payload = {
+    aps: {
+      alert: { title: input.title || "Club Yuppie", ...(input.subtitle ? { subtitle: input.subtitle } : {}), body: input.body },
+      ...(input.quiet ? { "interruption-level": "passive" } : input.silent ? {} : { sound: "default" }),
+      ...(input.thread ? { "thread-id": input.thread } : {}),
+    },
+    path: input.path,
+  };
+  const expiration = input.expiresAt ? Math.floor(new Date(input.expiresAt).getTime() / 1000) : undefined;
+  return deliver("push", input.template, `${devices.length} device${devices.length === 1 ? "" : "s"}`, input.dedupeKey, refs, async () => {
+    const results = await sendApns(devices.map((d) => ({ token: d.token, environment: d.environment, payload, collapseId: input.collapseId, expiration })));
+    const gone = results.filter((r) => r.gone).map((r) => r.token);
+    if (gone.length) {
+      const { error } = await db.from("push_devices").delete().in("token", gone);
+      if (error) console.error("push: removing devices Apple no longer knows failed:", error);
+    }
+    const ok = results.filter((r) => r.status === 200).length;
+    if (!ok) throw new Error(`APNs: ${results.map((r) => `${r.status || "no answer"} ${r.reason ?? ""}`.trim()).join("; ")}`.slice(0, 900));
+    return `apns ${ok}/${results.length}`;
   });
 }
 

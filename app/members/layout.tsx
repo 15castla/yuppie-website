@@ -6,9 +6,12 @@ import {
   instrumentSerif,
 } from "@/components/templates/creative-studio/fonts";
 import { MembersShell } from "@/components/members/shell/members-shell";
+import { PushBridge } from "@/components/members/push/push-bridge";
 import { tabsFor } from "@/components/members/shell/tabs";
 import { flags, messagesOn } from "@/lib/members/flags";
 import { detectShellMode } from "@/lib/members/shell-mode";
+import type { ShellMode } from "@/components/members/shell/types";
+import { pushLiveFor } from "@/lib/server/config";
 import { getMemberSummary, requireMember } from "./require-member";
 import { Main } from "@/components/members/kit/main";
 import "./members.css";
@@ -23,11 +26,19 @@ import "./members.css";
 // requireAdmin(), so this isn't the only enforcement. It passes
 // allowMissingPhoto because a layout cannot see the pathname: the photo gate
 // is enforced page by page inside requireMember (see require-member.ts).
-async function AuthGate({ children }: { children: ReactNode }) {
+//
+// In the app, where push is live for the member, it also draws PushBridge: the
+// phone's notifications (permission, device token, taps, the one-time offer).
+async function AuthGate({ children, mode }: { children: ReactNode; mode: ShellMode }) {
   // allowGated for the same reason: the membership gate (A-D4) is also
   // enforced page by page, so the gate page and the help pages can open.
-  await requireMember({ allowMissingPhoto: true, allowGated: true });
-  return children;
+  const member = await requireMember({ allowMissingPhoto: true, allowGated: true });
+  return (
+    <>
+      {children}
+      {mode === "app" && pushLiveFor(member.email) ? <PushBridge /> : null}
+    </>
+  );
 }
 
 // A cold load only (the app opening, a link from outside): the shell paints at
@@ -75,7 +86,7 @@ export default async function MembersLayout({
         messagesEnabled={messagesOn(mode)}
       >
         <Suspense fallback={<ColdLoad />}>
-          <AuthGate>{children}</AuthGate>
+          <AuthGate mode={mode}>{children}</AuthGate>
         </Suspense>
       </MembersShell>
     </div>
