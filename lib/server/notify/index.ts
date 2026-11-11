@@ -12,23 +12,29 @@ import "server-only";
 //     QB1-02), as an Update without the blocked member's name and by their own email switch;
 //   - paused, ended and deleted members hear nothing;
 //   - texts are reminders only (plus the check text), and quiet hours hold them (./reminders.ts);
-//   - push is not in stage 2: decided, never sent (MEMBERS_PUSH_LIVE stays off);
+//   - phone notifications (Albert, 11 Nov 2026: "move everything to app notifications"): for a member push is
+//     live for (MEMBERS_PUSH_LIVE on, or MEMBERS_PUSH_TESTERS before it), every notification is a push instead of
+//     an email; only the "always" emails (account, booking) still go. A push names the person and shows a chat
+//     message's words, as a group chat app does (Albert, 11 Nov 2026; lib/server/push/words.ts), never naming
+//     someone the recipient blocked; in quiet hours it is delivered silently;
 //   - every Update has a dedupe key (an event never writes twice), every email and text has one too and is
 //     written to message_log by lib/server/messages (a key that went out is never sent again).
-// Updates are written before the action answers (the next page shows them); emails go after the response
-// (later()), so the member is not kept waiting.
+// Updates are written before the action answers (the next page shows them); emails and pushes go after the
+// response (later()), so the member is not kept waiting.
 
 import type { PhotoRemovedReason } from "@/lib/emails";
 import { NOTIFICATION_TRIGGERS, type NotificationTrigger } from "@/lib/members/messages/types";
-import { openInviteHref, ROUTES } from "@/lib/members/routes";
-import { adminAlertsEmail, pushLive } from "../config";
+import { messageThreadHref, openInviteHref, ROUTES } from "@/lib/members/routes";
+import { adminAlertsEmail, pushLiveFor } from "../config";
 import { serviceDb } from "../db";
 import { dayDate, firstName, time24 } from "../format";
 import { later } from "../later";
 import { isGated, membershipState } from "../membership";
-import { sendEmail, sendText, type MessageRefs, type SendResult } from "../messages";
+import { sendEmail, sendPush, sendText, type MessageRefs, type PushInput, type SendResult } from "../messages";
 import { channelOn, prefsRows, textNumber, topicOn, type PrefsRow } from "../notification-prefs";
+import { preview, pushWords, type PushText } from "../push/words";
 import { reasonLabel, type ReportKind } from "../report-reasons";
+import { isQuietHours } from "./quiet";
 
 // ---------------------------------------------------------------------------- events
 
@@ -84,15 +90,17 @@ export function channelsFor(triggerId: string, p: Person, now: Date, options: { 
   const t: NotificationTrigger | undefined = TRIGGERS.get(triggerId);
   if (!t || !canHear(p, now)) return { update: false, email: false, text: null, push: false };
   const topic = t.topic ? topicOn(p.prefs, t.topic) : true;
+  // Push live for this member: notifications are pushes, and only the "always" emails still go.
+  const live = pushLiveFor(p.email);
   const email =
     t.email === "always" ||
-    ((t.email === "yes" || (t.email === "chat_nudge" && !options.muted)) && topic && channelOn(p.prefs, "email"));
+    (!live && (t.email === "yes" || (t.email === "chat_nudge" && !options.muted)) && topic && channelOn(p.prefs, "email"));
   return {
     // The Updates list is a record in the app, not a notification: written whatever the switches say.
     update: t.updates,
     email,
     text: t.text && topic ? textNumber(p.prefs, p.phone) : null,
-    push: t.push && topic && !options.muted && channelOn(p.prefs, "push") && pushLive(),
+    push: live && t.push && topic && !options.muted && channelOn(p.prefs, "push"),
   };
 }
 
@@ -175,13 +183,22 @@ type Email = Parameters<typeof sendEmail>[0];
 type Text = Parameters<typeof sendText>[0];
 
 /** Send after the response; never throws (the message service logs every result). */
-function sendLater(label: string, emails: Email[], texts: Text[] = []): void {
-  if (!emails.length && !texts.length) return;
+function sendLater(label: string, emails: Email[], texts: Text[] = [], pushes: PushInput[] = []): void {
+  if (!emails.length && !texts.length && !pushes.length) return;
   later(label, async () => {
     for (const e of emails) await sendEmail(e);
     for (const t of texts) await sendText(t);
+    for (const p of pushes) await sendPush(p);
   });
 }
+
+/** A plan's push: grouped by the plan, opening it, silent in quiet hours. */
+function planPush(plan: { id: string }, memberId: string, template: string, text: PushText, dedupeKey: string, now: Date): PushInput {
+  return { template, memberId, ...text, path: openInviteHref(plan.id), thread: `plan:${plan.id}`, quiet: isQuietHours(now), dedupeKey, refs: { planId: plan.id } };
+}
+
+/** A member's first name for a notification ("Someone" when there is none). */
+const nameOf = (p: Person | undefined) => firstName(p?.full_name) || "Someone";
 
 async function planJoined(e: Extract<NotifyEvent, { type: "plan.joined" }>, now: Date): Promise<NotifyOutcome> {
   const facts = await planFacts(e.planId);
@@ -189,12 +206,19 @@ async function planJoined(e: Extract<NotifyEvent, { type: "plan.joined" }>, now:
   const { plan, going } = facts;
   const joinedAt = going.find((g) => g.member_id === e.memberId)?.joined_at ?? now.toISOString();
   const others = going.map((g) => g.member_id).filter((id) => id !== e.memberId && id !== plan.host_id);
-  const everyone = await people([plan.host_id, ...others]);
+  const everyone = await people([plan.host_id, e.memberId, ...others]);
   const blockers = await blockedBy([plan.host_id, ...others], e.memberId);
   const rows: UpdateInsert[] = [];
+  const pushes: PushInput[] = [];
   const host = everyone.get(plan.host_id);
   if (host && !blockers.has(host.id) && channelsFor("host.joined", host, now).update) {
     rows.push({ member_id: host.id, kind: "joined", plan_id: plan.id, actor_id: e.memberId, role: "host", dedupe_key: `upd:joined:${plan.id}:${e.memberId}:${ms(joinedAt)}` });
+  }
+  // The host hears who joined (and whether that filled it); the others going see "full" in Updates only (a push
+  // about a plan they are already in would be noise).
+  if (host && !blockers.has(host.id) && channelsFor(e.full ? "host.full" : "host.joined", host, now).push) {
+    const words = pushWords.joined(plan.title, nameOf(everyone.get(e.memberId)), e.full);
+    pushes.push(planPush(plan, host.id, e.full ? "push-plan-full" : "push-plan-joined", words, `push:joined:${plan.id}:${e.memberId}:${ms(joinedAt)}`, now));
   }
   if (e.full) {
     if (host && channelsFor("host.full", host, now).update) {
@@ -207,7 +231,9 @@ async function planJoined(e: Extract<NotifyEvent, { type: "plan.joined" }>, now:
       }
     }
   }
-  return { ...none(), updates: await writePlanUpdates(plan.id, rows) };
+  const updates = await writePlanUpdates(plan.id, rows);
+  sendLater(`plan joined ${plan.id}`, [], [], pushes);
+  return { ...none(), updates, pushes: pushes.length };
 }
 
 async function planLeft(e: Extract<NotifyEvent, { type: "plan.left" }>, now: Date): Promise<NotifyOutcome> {
@@ -217,10 +243,16 @@ async function planLeft(e: Extract<NotifyEvent, { type: "plan.left" }>, now: Dat
   const { data: left } = await serviceDb().from("plan_members").select("left_at").eq("plan_id", plan.id).eq("member_id", e.memberId).maybeSingle();
   const leftAt = ms(left?.left_at) || now.getTime();
   const others = going.map((g) => g.member_id).filter((id) => id !== plan.host_id);
-  const everyone = await people([plan.host_id, ...others]);
+  const everyone = await people([plan.host_id, e.memberId, ...others]);
   const blockers = await blockedBy([plan.host_id, ...others], e.memberId);
   const rows: UpdateInsert[] = [];
+  const pushes: PushInput[] = [];
   const host = everyone.get(plan.host_id);
+  if (host && channelsFor("host.left", host, now).push && (!blockers.has(host.id) || e.wasFull)) {
+    // A host who blocked the member hears only that the full plan has a place again, without their name (QB1-02).
+    const words = pushWords.left(plan.title, blockers.has(host.id) ? null : nameOf(everyone.get(e.memberId)));
+    pushes.push(planPush(plan, host.id, "push-plan-left", words, `push:left:${plan.id}:${e.memberId}:${leftAt}`, now));
+  }
   if (host && !blockers.has(host.id) && channelsFor("host.left", host, now).update) {
     rows.push({ member_id: host.id, kind: "left", plan_id: plan.id, actor_id: e.memberId, role: "host", dedupe_key: `upd:left:${plan.id}:${e.memberId}:${leftAt}` });
   } else if (host && blockers.has(host.id) && e.wasFull && channelsFor("host.left", host, now).update) {
@@ -236,7 +268,9 @@ async function planLeft(e: Extract<NotifyEvent, { type: "plan.left" }>, now: Dat
       }
     }
   }
-  return { ...none(), updates: await writePlanUpdates(plan.id, rows) };
+  const updates = await writePlanUpdates(plan.id, rows);
+  sendLater(`plan left ${plan.id}`, [], [], pushes);
+  return { ...none(), updates, pushes: pushes.length };
 }
 
 async function planChanged(e: Extract<NotifyEvent, { type: "plan.changed" }>, now: Date): Promise<NotifyOutcome> {
@@ -251,10 +285,15 @@ async function planChanged(e: Extract<NotifyEvent, { type: "plan.changed" }>, no
   const moved = e.timeChanged && e.placeChanged ? "both" : e.timeChanged ? "time" : "place";
   const rows: UpdateInsert[] = [];
   const emails: Email[] = [];
+  const pushes: PushInput[] = [];
   for (const id of ids) {
     const p = everyone.get(id);
     if (!p) continue;
     const c = channelsFor("in.changed", p, now);
+    if (c.push) {
+      const words = pushWords.planMoved(plan.title, blockers.has(id) ? null : hostName, moved, plan.starts_at, plan.place, now);
+      pushes.push(planPush(plan, id, "push-plan-changed", words, `push:changed:${plan.id}:${id}:${changedAt}`, now));
+    }
     // A member who blocked the host still hears that a plan they are going to moved (QB1-02); the Update leaves
     // the host out (no name, no photo), the email is the plan's own facts.
     if (c.update) {
@@ -279,8 +318,8 @@ async function planChanged(e: Extract<NotifyEvent, { type: "plan.changed" }>, no
     }
   }
   const updates = await writeUpdates(rows);
-  sendLater(`plan changed ${plan.id}`, emails);
-  return { ...none(), updates, emails: emails.length };
+  sendLater(`plan changed ${plan.id}`, emails, [], pushes);
+  return { ...none(), updates, emails: emails.length, pushes: pushes.length };
 }
 
 async function planCancelled(e: Extract<NotifyEvent, { type: "plan.cancelled" }>, now: Date): Promise<NotifyOutcome> {
@@ -293,11 +332,16 @@ async function planCancelled(e: Extract<NotifyEvent, { type: "plan.cancelled" }>
   const hostName = firstName(everyone.get(plan.host_id)?.full_name) || "The host";
   const rows: UpdateInsert[] = [];
   const emails: Email[] = [];
+  const pushes: PushInput[] = [];
   const cancelData = { hostName, plan: { title: plan.title, start: start(plan.starts_at) }, place: plan.place, openInviteUrl: ROUTES.openInvite };
   for (const id of ids) {
     const p = everyone.get(id);
     if (!p) continue;
     const c = channelsFor("in.cancelled", p, now);
+    if (c.push) {
+      const words = pushWords.planCancelled(plan.title, blockers.has(id) ? null : hostName, e.byClub);
+      pushes.push(planPush(plan, id, "push-plan-cancelled", words, `push:cancelled:${plan.id}:${id}`, now));
+    }
     if (c.update) {
       rows.push({ member_id: id, kind: "cancelled", plan_id: plan.id, actor_id: e.byClub || blockers.has(id) ? null : plan.host_id, role: "going", dedupe_key: `upd:cancelled:${plan.id}:${id}` });
     }
@@ -326,31 +370,76 @@ async function planCancelled(e: Extract<NotifyEvent, { type: "plan.cancelled" }>
       dedupeKey: `plan-cancelled:${plan.id}:${host.id}`,
       refs: { memberId: host.id, planId: plan.id },
     });
+    // And a push where push is live for them (an account notice like the email: not by their switches).
+    if (pushLiveFor(host.email)) pushes.push(planPush(plan, host.id, "push-plan-removed", pushWords.hostPlanRemoved(plan.title), `push:cancelled:${plan.id}:${host.id}`, now));
   }
   const updates = await writeUpdates(rows);
-  sendLater(`plan cancelled ${plan.id}`, emails);
-  return { ...none(), updates, emails: emails.length };
+  sendLater(`plan cancelled ${plan.id}`, emails, [], pushes);
+  return { ...none(), updates, emails: emails.length, pushes: pushes.length };
 }
 
 // ---------------------------------------------------------------------------- chats
 
+/** In a burst of messages, only the first plays a sound: the next are silent until the member reads the chat, or this long. */
+const CHAT_SOUND_AGAIN_MINUTES = 2;
+
 /**
- * A new message. Chat emails are not sent here: they are the 15-minute nudge (./reminders.ts runChatNudges), so
- * a member reading the chat in time gets none. A phone push would be decided here (the chat name only, never
- * the sender or the words: messages decision 1 A), but push is not in stage 2.
+ * A new message. Where push is live, each other member of the chat gets a phone notification at once, as a group
+ * chat app does (Albert, 11 Nov 2026): a plan chat is titled with the plan, "Ana: See you at 7"; a question to the
+ * host, or the host's reply, is titled with the person. Grouped by chat on the phone. In a burst only the first
+ * plays a sound (until the member reads the chat, or 2 minutes). None when muted, none from someone they blocked.
+ * Where push is not live, the chat email is the 15-minute nudge (./reminders.ts runChatNudges), so a member reading
+ * the chat in time gets none.
  */
 async function chatMessage(e: Extract<NotifyEvent, { type: "chat.message" }>, now: Date): Promise<NotifyOutcome> {
-  if (!pushLive()) return none();
-  const { data } = await serviceDb().from("chat_members").select("member_id, muted, role").eq("chat_id", e.chatId).is("left_at", null).neq("member_id", e.senderId);
-  const everyone = await people((data ?? []).map((r) => r.member_id));
-  const blockers = await blockedBy([...everyone.keys()], e.senderId);
-  let pushes = 0;
-  for (const r of data ?? []) {
+  const db = serviceDb();
+  const { data } = await db
+    .from("chat_members")
+    .select("member_id, muted, role, last_read_at, pushed_at")
+    .eq("chat_id", e.chatId)
+    .is("left_at", null)
+    .neq("member_id", e.senderId);
+  const members = (data ?? []) as { member_id: string; muted: boolean; role: "host" | "member"; last_read_at: string | null; pushed_at: string | null }[];
+  if (!members.length) return none();
+  const everyone = await people([e.senderId, ...members.map((r) => r.member_id)]);
+  if (!members.some((r) => pushLiveFor(everyone.get(r.member_id)?.email))) return none();
+  const [{ data: chat }, { data: message }] = await Promise.all([
+    db.from("chats").select("id, kind, plan:plans(id, title, host_id)").eq("id", e.chatId).maybeSingle(),
+    db.from("messages").select("body").eq("id", e.messageId).maybeSingle(),
+  ]);
+  const plan = chat ? ((Array.isArray(chat.plan) ? chat.plan[0] : chat.plan) as { id: string; title: string; host_id: string } | null) : null;
+  if (!chat || !plan) return none();
+  const words = preview(message?.body);
+  if (!words) return none();
+  const sender = nameOf(everyone.get(e.senderId));
+  const blockers = await blockedBy(members.map((r) => r.member_id), e.senderId);
+  const pushes: PushInput[] = [];
+  for (const r of members) {
     const p = everyone.get(r.member_id);
-    if (p && !blockers.has(p.id) && channelsFor(r.role === "host" ? "host.message" : "in.message", p, now, { muted: r.muted }).push) pushes += 1;
+    if (!p || blockers.has(p.id)) continue;
+    const kind = chat.kind === "plan" ? "plan" : r.role === "host" ? "question" : "reply";
+    const trigger = kind === "plan" ? (r.role === "host" ? "host.message" : "in.message") : kind === "question" ? "host.question" : "in.reply";
+    if (!channelsFor(trigger, p, now, { muted: r.muted }).push) continue;
+    // A sound for the first message of a burst; the next ones arrive quietly until they read the chat.
+    const readSince = r.pushed_at && r.last_read_at && ms(r.last_read_at) >= ms(r.pushed_at);
+    const longAgo = r.pushed_at && now.getTime() - ms(r.pushed_at) >= CHAT_SOUND_AGAIN_MINUTES * 60000;
+    const silent = Boolean(r.pushed_at && !readSince && !longAgo);
+    if (!silent) await db.from("chat_members").update({ pushed_at: now.toISOString() }).eq("chat_id", e.chatId).eq("member_id", p.id);
+    const text = kind === "plan" ? pushWords.groupMessage(plan.title, sender, words) : pushWords.directMessage(plan.title, sender, words, e.senderId === plan.host_id);
+    pushes.push({
+      template: "push-message",
+      memberId: p.id,
+      ...text,
+      path: messageThreadHref(e.chatId),
+      thread: `chat:${e.chatId}`,
+      quiet: isQuietHours(now),
+      silent,
+      dedupeKey: `push:message:${e.chatId}:${p.id}:${e.messageId}`,
+      refs: { chatId: e.chatId, planId: plan.id },
+    });
   }
-  // Push delivery needs the native app's keys: counted, not sent.
-  return { ...none(), pushes };
+  sendLater(`chat message ${e.messageId}`, [], [], pushes);
+  return { ...none(), pushes: pushes.length };
 }
 
 // ---------------------------------------------------------------------------- photos and reports

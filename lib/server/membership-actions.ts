@@ -364,6 +364,10 @@ export async function deleteAccount(memberId: string, options: { by?: "member" |
       return fail("db", GENERIC);
     }
 
+    // No more phone notifications to any of their phones.
+    const { error: devicesError } = await db.from("push_devices").delete().eq("member_id", memberId);
+    if (devicesError) console.error(`deleteAccount: removing phones for ${memberId} failed:`, devicesError);
+
     // Free the email for a new application: the applications unique index
     // ignores only declined rows, so the old row's email moves to a tombstone
     // of its own (and its other personal fields are cleared where allowed).

@@ -8,11 +8,13 @@ import "server-only";
 import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 import { eventHref } from "@/lib/members/routes";
-import { absoluteUrl } from "./config";
+import { absoluteUrl, pushLiveFor } from "./config";
 import { EVENT_ROW_COLUMNS, one, serviceDb, type BookingCancelReason, type BookingCancelledBy, type BookingStatus, type EventRow, type RefundStatus } from "./db";
 import { buildIcs, googleCalendarUrl, icsFilename } from "./calendar";
 import { dayDate, dayDateTime, pounds, time24 } from "./format";
-import { sendEmail } from "./messages";
+import { sendEmail, sendPush } from "./messages";
+import { isQuietHours } from "./notify/quiet";
+import { pushWords } from "./push/words";
 import { channelOn, prefsRows, topicOn } from "./notification-prefs";
 
 // ---------------------------------------------------------------------------
@@ -295,7 +297,10 @@ export async function recordEventMove(
   return { moved, bookedCount, changedAt };
 }
 
-/** Email every member with a confirmed booking that the event moved (event-changed). Once per booking per change. */
+/**
+ * Tell every member with a confirmed booking that the event moved (event-changed). Once per booking per change. By
+ * email, or (where push is live for them, 11 Nov 2026) by a phone notification instead. `emailed` counts both.
+ */
 export async function emailEventMove(
   eventId: string,
   change: { moved: EventMove; before: EventPlaceTime; changedAt: string | null },
@@ -316,8 +321,26 @@ export async function emailEventMove(
   // Stage 2: the member's switches decide (Club events > Changes, and Email; notifications spec 3.5 "club.changed").
   // No row means the defaults (both on), so stage 1's behaviour is unchanged for anyone who never touched them.
   const prefs = await prefsRows(rows.map((b) => b.member_id));
+  const now = new Date();
   for (const b of rows) {
     const p = prefs.get(b.member_id);
+    const to = one(b.member)?.email;
+    if (pushLiveFor(to)) {
+      if (p && !(topicOn(p, "clubChanges") && channelOn(p, "push"))) continue;
+      const pushed = await sendPush({
+        template: "push-event-changed",
+        memberId: b.member_id,
+        ...pushWords.eventMoved(event.title, change.moved, event.start_time, event.location?.trim() || event.title, now),
+        path: eventHref(event.slug),
+        thread: `event:${eventId}`,
+        quiet: isQuietHours(now),
+        dedupeKey: `push:event-changed:${b.id}:${stamp}`,
+        refs: { bookingId: b.id, eventId },
+      });
+      if (pushed.status === "sent") emailed += 1;
+      if (pushed.status === "failed") failed += 1;
+      continue;
+    }
     if (p && !(topicOn(p, "clubChanges") && channelOn(p, "email"))) continue;
     const result = await sendEmail({
       template: "event-changed",

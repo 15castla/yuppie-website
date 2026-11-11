@@ -16,8 +16,13 @@
 // tick line ("We sent a text to check it’s you.") shows once the server says
 // it went. Without the save props (the preview harness) the switches are local.
 //
-// Push is not in stage 2: the page passes pushChannel false and the Push row,
-// its banner and its foot line are not drawn at all (MEMBERS_PUSH_LIVE).
+// Push (11 Nov 2026): the page passes pushChannel true where push is live for
+// the member (MEMBERS_PUSH_LIVE, or a tester), else the Push row, its banner and
+// its foot line are not drawn at all. With push, email no longer carries
+// notifications: its row says what email is still for (account, bookings,
+// payments) and has no switch. In the app the Push row follows the phone: not
+// asked yet, it is off and a tap asks (iOS's own question); not allowed, the
+// banner's Open Settings opens the app's page in the iPhone's Settings.
 //
 // In the app while Open Invite is hidden there (decision 6), the page passes
 // openInvite false: no Open Invite group, and the Reminders line names Club
@@ -26,13 +31,13 @@
 // The number step is not designed: "Change number", "Add a number" and a tap
 // on the Text row with no number go to Edit details (numberHref), where the
 // phone number is edited. A changed number needs Text switched on again (a new
-// check text). The phone's settings hand-off ("Open Settings") stays inert
-// until the app has push (onOpenSettings).
+// check text). The phone's settings hand-off ("Open Settings") is the app's
+// (lib/members/native-push.ts), or onOpenSettings in the preview harness.
 //
 // Kit counterparts: pages_notif.settings_main(), topic_sections(),
 // channels_block(), srow(), sw().
 
-import { useId, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type MouseEvent, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { BackLink, BackRow, Button, Card, Icon, Main, Pill, Rows, SectionTitle, TitleBlock } from "@/components/members/kit";
@@ -43,10 +48,13 @@ import type {
 } from "@/lib/members/messages/types";
 import { ROUTES } from "@/lib/members/routes";
 import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
+import { askNative, nativePush, onNative, openNativeSettings } from "@/lib/members/native-push";
 import { cn } from "@/lib/utils";
 import "./notifications.css";
 
 type SettingKey = NotificationTopic | NotificationChannel;
+
+const noSubscribe = () => () => {};
 
 /** What a save answers (app/members/you/notifications/actions.ts): the preferences as saved, or the row's words. */
 export type NotificationSaveResult =
@@ -73,6 +81,8 @@ export type NotificationSettingsViewProps = {
   numberHref?: string;
   /** The phone's own notification settings (app only, once push exists). Not designed yet. */
   onOpenSettings?: () => void;
+  /** "Send a test" under the Push row (app, notifications allowed): a test notification to this member's phones. */
+  sendTest?: () => Promise<{ ok: true } | { ok: false; error: string } | SessionEnded>;
 };
 
 function Switch({
@@ -196,6 +206,7 @@ export function NotificationSettingsView({
   failedKey = null,
   numberHref,
   onOpenSettings,
+  sendTest,
 }: NotificationSettingsViewProps) {
   const base = useId();
   const router = useRouter();
@@ -207,7 +218,43 @@ export function NotificationSettingsView({
   const saving = useRef(new Set<SettingKey>());
 
   const number = preferences.mobileNumber;
-  const permission = preferences.pushPermission;
+  const [permission, setPermission] = useState(preferences.pushPermission);
+  const [asking, setAsking] = useState(false);
+  const [test, setTest] = useState<{ state: "idle" | "sending" | "sent" } | { state: "failed"; error: string }>({ state: "idle" });
+  // Whether this is the app with notifications: known only in the page (the server cannot tell), false while hydrating.
+  const native = useSyncExternalStore(noSubscribe, nativePush, () => false);
+  // In the app the phone's answer can change while this page is open (back from Settings): follow it.
+  useEffect(() => {
+    if (!pushChannel || !nativePush()) return;
+    return onNative((event) => {
+      if (event.type === "status") setPermission(event.status);
+    });
+  }, [pushChannel]);
+  const openSettings = () => (onOpenSettings ? onOpenSettings() : openNativeSettings());
+  async function runTest() {
+    if (!sendTest || test.state === "sending") return;
+    setTest({ state: "sending" });
+    let result: Awaited<ReturnType<NonNullable<typeof sendTest>>>;
+    try {
+      result = await sendTest();
+    } catch {
+      result = { ok: false, error: SAVE_FAILED };
+    }
+    if (isSessionEnded(result)) {
+      goToSessionEnded();
+      return;
+    }
+    setTest(result.ok ? { state: "sent" } : { state: "failed", error: result.error });
+  }
+
+  async function askPush() {
+    if (asking) return;
+    setAsking(true);
+    const answer = await askNative();
+    setPermission(answer);
+    setAsking(false);
+    if (answer === "granted" && !channels.push) void flip("push", "channel");
+  }
   const failedOn = (key: SettingKey) => (failed?.key === key ? <SaveError message={failed.error} /> : null);
   const numberStep = numberHref ? () => router.push(numberHref) : undefined;
 
@@ -275,18 +322,45 @@ export function NotificationSettingsView({
     const id = (key: string) => `${base}-${scope}-${key}`;
     const pushSwitchable = permission !== "unavailable";
     const pushOff = permission === "denied";
+    // Not asked yet (the app can ask): off, and a tap asks.
+    const pushAsk = permission === "not_asked" && native;
+    // Notifications allowed in the app: "Send a test" under the row (the row then holds a button, so it is not a label).
+    const showTest = Boolean(sendTest && native && permission === "granted" && channels.push);
     const pushRow = !pushChannel ? null : pushSwitchable ? (
       <SettingRow
         id={id("push")}
         title="Push"
-        meta={pushOff ? "Off in your iPhone’s settings." : "On this iPhone."}
-        extra={failedOn("push")}
+        meta={pushOff ? "Off in your iPhone’s settings." : pushAsk ? "Not turned on yet on this iPhone." : "On this iPhone."}
+        interactive={showTest}
+        labelFor={showTest ? id("push-switch") : undefined}
+        extra={
+          <>
+            {showTest ? (
+              <>
+                {test.state === "sent" ? (
+                  <p className="ntf-ok">
+                    <Icon name="check" size={15} />
+                    <span>Sent. It should arrive in a few seconds.</span>
+                  </p>
+                ) : null}
+                {test.state === "failed" ? <SaveError message={test.error} /> : null}
+                <span className="ntf-link">
+                  <Button variant="quiet" pending={test.state === "sending"} onClick={() => void runTest()}>
+                    Send a test
+                  </Button>
+                </span>
+              </>
+            ) : null}
+            {failedOn("push")}
+          </>
+        }
         end={(describedBy) => (
           <Switch
-            on={!pushOff && channels.push}
+            id={id("push-switch")}
+            on={!pushOff && !pushAsk && channels.push}
             label="Push"
             describedBy={describedBy}
-            onToggle={pushOff ? undefined : () => void flip("push", "channel")}
+            onToggle={pushOff ? undefined : pushAsk ? () => void askPush() : () => void flip("push", "channel")}
           />
         )}
       />
@@ -294,7 +368,7 @@ export function NotificationSettingsView({
       <SettingRow
         id={id("push")}
         title="Push"
-        meta="Needs our app, which isn’t out yet. Email and text work now."
+        meta="In the Club Yuppie app on your iPhone."
         fixed
         end={() => <Pill>App only</Pill>}
       />
@@ -302,15 +376,26 @@ export function NotificationSettingsView({
     return (
       <Rows>
         {pushRow}
-        <SettingRow
-          id={id("email")}
-          title="Email"
-          meta={`Reminders, bookings and chat nudges, to ${preferences.email}.`}
-          extra={failedOn("email")}
-          end={(describedBy) => (
-            <Switch on={channels.email} label="Email" describedBy={describedBy} onToggle={() => void flip("email", "channel")} />
-          )}
-        />
+        {pushChannel ? (
+          // With push, email is only for the account (11 Nov 2026): no switch.
+          <SettingRow
+            id={id("email")}
+            title="Email"
+            meta={`Your account, bookings and payments only, to ${preferences.email}.`}
+            fixed
+            end={() => <Pill>Always on</Pill>}
+          />
+        ) : (
+          <SettingRow
+            id={id("email")}
+            title="Email"
+            meta={`Reminders, bookings and chat nudges, to ${preferences.email}.`}
+            extra={failedOn("email")}
+            end={(describedBy) => (
+              <Switch on={channels.email} label="Email" describedBy={describedBy} onToggle={() => void flip("email", "channel")} />
+            )}
+          />
+        )}
         {number ? (
           <SettingRow
             id={id("text")}
@@ -386,7 +471,7 @@ export function NotificationSettingsView({
             <p>
               <b>Notifications are off for Club Yuppie on this iPhone.</b> Turn them on in Settings to get push.
             </p>
-            <Button variant="quiet" onClick={onOpenSettings}>
+            <Button variant="quiet" onClick={openSettings}>
               Open Settings
             </Button>
           </div>
@@ -399,7 +484,9 @@ export function NotificationSettingsView({
     const inner = (
       <>
         <SectionTitle title="How we tell you" />
-        <p className="ntf-intro">Pick as many as you like. Text is off until you turn it on.</p>
+        <p className="ntf-intro">
+          {pushChannel ? "Push for everything, text for reminders if you like. Text is off until you turn it on." : "Pick as many as you like. Text is off until you turn it on."}
+        </p>
         {banner}
         {channelRows(scope)}
         {foot}

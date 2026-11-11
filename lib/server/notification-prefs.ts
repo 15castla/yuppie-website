@@ -3,8 +3,9 @@ import "server-only";
 // Notification preferences (specs/notifications.md 3.1): five topics times three channels, saved at once, with
 // the defaults when a member has never touched them (push on, email on, both reminders on, text off).
 //
-// Push is not in stage 2: the switch is stored, nothing is sent, and pushPermission reads "unavailable" until the
-// server-only switch MEMBERS_PUSH_LIVE=on (then the page may show the Push row; see pushLive()).
+// Push (11 Nov 2026): where push is live for a member (pushLiveFor: MEMBERS_PUSH_LIVE=on, or a tester before it),
+// in the app the Push row shows the phone's own permission, and email no longer carries notifications (only the
+// account, booking and payment emails, which always go). Elsewhere pushPermission reads "unavailable".
 // Text is opt in: switching it on needs a number on file and sends one check text ("reminders by text are on")
 // through the dispatcher; texts then go to that number. If the member's number changes later, texts stop until
 // they switch Text on again (textCheck reads "none" for the new number).
@@ -13,7 +14,7 @@ import type { ShellMode } from "@/components/members/shell/types";
 import type { NotificationChannel, NotificationPreferences, NotificationTopic } from "@/lib/members/messages/types";
 import { DEFAULT_CHANNELS, DEFAULT_TOPICS } from "@/lib/members/messages/types";
 import { displayPhone } from "@/lib/members/you/format";
-import { pushLive, TEXT_LIMITS } from "./config";
+import { pushLiveFor, TEXT_LIMITS } from "./config";
 import { serviceDb } from "./db";
 import { textsSentToday } from "./messages";
 import { sendTextCheck } from "./notify";
@@ -101,7 +102,7 @@ export function toPreferences(row: PrefsRow, member: MemberForPrefs, mode: Shell
     email: member.email,
     mobileNumber: displayPhone(number),
     textCheck: number && row.text_check_number === number ? row.text_check : "none",
-    pushPermission: pushLive() && mode === "app" ? row.push_permission : "unavailable",
+    pushPermission: pushLiveFor(member.email) && mode === "app" ? row.push_permission : "unavailable",
   };
 }
 
@@ -168,12 +169,15 @@ export async function setPushPermission(memberId: string, permission: PrefsRow["
 
 /**
  * The one line on You's Notifications row (the You spec): the channels that are on, "Off. You may miss
- * reminders." when none are. Push counts only where it exists (the app, once push is live).
+ * reminders." when none are. Push counts only where it exists (the app, once push is live for the member); email
+ * counts only while it still carries notifications (push not live).
  */
-export function notificationSummary(prefs: NotificationPreferences, mode: ShellMode): { summary: string; warn?: boolean } {
+export function notificationSummary(prefs: NotificationPreferences): { summary: string; warn?: boolean } {
   const on: string[] = [];
-  if (prefs.channels.push && mode === "app" && pushLive()) on.push("push");
-  if (prefs.channels.email) on.push("email");
+  const live = pushLiveFor(prefs.email);
+  // On the web too: the member's pushes go to their phone whichever screen they read this on.
+  if (prefs.channels.push && live && prefs.pushPermission !== "denied") on.push("push");
+  if (prefs.channels.email && !live) on.push("email");
   if (prefs.channels.text) on.push("text");
   if (!on.length) return { summary: "Off. You may miss reminders.", warn: true };
   const words = on.join(", ");

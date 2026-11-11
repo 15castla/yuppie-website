@@ -46,6 +46,10 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         observeCapacitorViewDidAppear()
         disableScrollViewTouchDelay(on: bridgeVC)
         installSwipeBack(on: bridgeVC)
+        if let webView = bridgeVC.webView {
+            // Phone notifications: the page's questions and tapped notifications (AppDelegate.swift, PushBridge).
+            PushBridge.shared.attach(to: webView)
+        }
         fixSafeAreaInsetFirstFrame(on: bridgeVC)
         // Before the readiness polling below, so there is always an opening
         // screen for it to hide.
@@ -397,6 +401,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
 
         guard let screen = openingScreen else { return }
         openingScreen = nil
+        // A notification tapped to open the app opens its page now the first page is on screen.
+        PushBridge.shared.pageIsReady()
         pollGeneration += 1
         slowGeneration += 1
         // Capacitor's own splash fades underneath straight away (unseen:

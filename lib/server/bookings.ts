@@ -22,7 +22,7 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { eventHref, ROUTES } from "@/lib/members/routes";
 import type { BookingCancelReason as EmailBookingCancelReason, EmailData } from "@/lib/emails";
-import { FREE_CANCEL_HOURS, MAX_REFUND_ATTEMPTS, REFUND_RETRY_AFTER_MINUTES, adminAlertsEmail } from "./config";
+import { FREE_CANCEL_HOURS, MAX_REFUND_ATTEMPTS, REFUND_RETRY_AFTER_MINUTES, adminAlertsEmail, pushLiveFor } from "./config";
 import {
   BOOKING_ROW_COLUMNS,
   EVENT_ROW_COLUMNS,
@@ -38,7 +38,10 @@ import {
 } from "./db";
 import { dayDate, pounds, time24 } from "./format";
 import { later } from "./later";
-import { sendEmail } from "./messages";
+import { sendEmail, sendPush } from "./messages";
+import { channelOn, prefsRow } from "./notification-prefs";
+import { isQuietHours } from "./notify/quiet";
+import { pushWords } from "./push/words";
 import { cardLabelForPaymentIntent } from "./stripe/card";
 
 export { FREE_CANCEL_HOURS };
@@ -925,6 +928,21 @@ async function sendEventCancelledEmail(bookingId: string): Promise<void> {
     dedupeKey: `event-cancelled:${booking.id}`,
     refs: { memberId: booking.member_id, bookingId: booking.id, eventId: booking.event_id },
   });
+  // The email stays (it says what happens to the money); where push is live for them, a phone notification too
+  // (11 Nov 2026), by their Push switch.
+  if (pushLiveFor(booking.member.email) && channelOn(await prefsRow(booking.member_id), "push")) {
+    const now = new Date();
+    await sendPush({
+      template: "push-event-cancelled",
+      memberId: booking.member_id,
+      ...pushWords.eventCancelled(booking.event.title, refunded && (booking.refund_pence ?? 0) > 0),
+      path: ROUTES.events,
+      thread: `event:${booking.event_id}`,
+      quiet: isQuietHours(now),
+      dedupeKey: `push:event-cancelled:${booking.id}`,
+      refs: { bookingId: booking.id, eventId: booking.event_id },
+    });
+  }
 }
 
 export type EventCancelSummary = {

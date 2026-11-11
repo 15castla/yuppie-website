@@ -85,11 +85,51 @@ export function photoGateSince(): Date {
 }
 
 /**
- * Push is not in stage 2 (it needs the native release's keys): the preference is stored, nothing is sent, and the
- * Push channel stays hidden until this server-only switch is "on".
+ * Phone notifications (Albert, 11 Nov 2026: "move everything to app notifications"). While MEMBERS_PUSH_LIVE is
+ * "on", the app's notifications are sent as phone notifications and the emails that carried them stop (chat emails,
+ * plan changes and cancellations, plan and club-event reminders, club-event moves); account, booking and payment
+ * emails go on as before. Off (the default) everything is as it was: emails, and no phone notifications.
+ *
+ * It is turned on the day the App Store build with notifications is out. Before that, MEMBERS_PUSH_TESTERS (a
+ * comma-separated list of member emails, server-only) turns it on for those members alone, so Albert can try it on
+ * his own phone without stopping anyone else's emails.
  */
 export function pushLive(): boolean {
   return process.env.MEMBERS_PUSH_LIVE === "on";
+}
+
+/** Push is on for this member: everyone while MEMBERS_PUSH_LIVE is on, else the members in MEMBERS_PUSH_TESTERS. */
+export function pushLiveFor(email: string | null | undefined): boolean {
+  if (pushLive()) return true;
+  const me = email?.trim().toLowerCase();
+  if (!me) return false;
+  return (process.env.MEMBERS_PUSH_TESTERS ?? "")
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(me);
+}
+
+/**
+ * Apple's push service (APNs), token auth: the .p8 key from Albert's Apple Developer account (APNS_KEY, the whole
+ * file), its Key ID and the Team ID, all server-only (Albert adds them in Vercel himself). Topic: the app's bundle
+ * ID. A device token from a build run from Xcode goes to the sandbox host, an App Store or TestFlight one to
+ * production (each device row says which). APNS_ORIGIN replaces both hosts for the local tests only
+ * (MEMBERS_TEST_HOOKS=on), never in production.
+ */
+export const APNS_TOPIC = "com.clubyuppie.app";
+export function apnsConfig(): { key: string; keyId: string; teamId: string } | null {
+  const raw = process.env.APNS_KEY?.trim();
+  const keyId = process.env.APNS_KEY_ID?.trim();
+  const teamId = process.env.APNS_TEAM_ID?.trim();
+  if (!raw || !keyId || !teamId) return null;
+  // Pasted with its line breaks, or as one line with "\n" in it: both work.
+  return { key: raw.includes("\\n") ? raw.replace(/\\n/g, "\n") : raw, keyId, teamId };
+}
+export function apnsOrigin(environment: "sandbox" | "production"): string {
+  const test = process.env.MEMBERS_TEST_HOOKS === "on" ? process.env.APNS_ORIGIN?.trim() : "";
+  if (test) return test.replace(/\/+$/, "");
+  return environment === "sandbox" ? "https://api.sandbox.push.apple.com" : "https://api.push.apple.com";
 }
 
 /**

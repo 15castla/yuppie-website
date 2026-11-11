@@ -316,9 +316,10 @@ export const DEFAULT_CHANNELS: Record<NotificationChannel, boolean> = {
 /**
  * One row per thing that can happen (specs/notifications.md 3.5). A
  * notification goes out when its topic is on AND its channel is on AND the
- * channel is allowed for that trigger. The push payload carries the title
- * "Club Yuppie", one line, a thread id (so iOS groups by plan) and a deep link,
- * never a message or a sender name.
+ * channel is allowed for that trigger. A push names the person and shows a chat
+ * message's words, titled with the plan (or the person, in a chat between two),
+ * grouped on the phone by plan or chat, with a deep link (Albert, 11 Nov 2026,
+ * replacing "never a message or a sender name": lib/server/push/words.ts).
  */
 export type NotificationTrigger = {
   id: string;

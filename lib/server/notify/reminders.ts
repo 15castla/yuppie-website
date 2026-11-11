@@ -8,6 +8,10 @@ import "server-only";
 //   - chat emails: unread after 15 minutes, at most one per chat an hour, none for a muted chat;
 //   - Updates older than 30 days are deleted.
 //
+// Phone notifications (Albert, 11 Nov 2026): where push is live for a member (lib/server/config.ts pushLiveFor),
+// their 24-hour and 2-hour reminders are a push instead of an email (silent in quiet hours), and chat emails stop
+// (a chat pushes at once instead: ./index.ts chatMessage). Texts are as before.
+//
 // Windows (as stage 1): the 24-hour reminder when the start is 24 hours or less away but more than 2 hours, to
 // people in before the 24-hour mark; the 2-hour one when it is 2 hours or less away, to people in before the
 // 2-hour mark. Someone who joins inside a window gets no reminder for it (notifications spec 3.6). A moved plan
@@ -27,7 +31,8 @@ import { CHAT_NUDGE, QUIET_HOURS, REMINDER_HOURS, REMINDER_LATE_MINUTES, UPDATES
 import { BOOKING_ROW_COLUMNS, EVENT_ROW_COLUMNS, one, serviceDb, type BookingRow, type EventRow } from "../db";
 import { dayDate, firstName, time24 } from "../format";
 import { isGated, membershipState, type MemberStateFields } from "../membership";
-import { logSkipped, sendEmail, sendText } from "../messages";
+import { logSkipped, sendEmail, sendPush, sendText } from "../messages";
+import { pushWords } from "../push/words";
 import { topicOn } from "../notification-prefs";
 import { canHear, channelsFor, people, writeUpdates, type Person } from "./index";
 import { isQuietHours, relativeDay } from "./quiet";
@@ -127,7 +132,7 @@ async function reminderText(input: {
 
 // ---------------------------------------------------------------------------- club events
 
-export type EventRemindersSummary = { checked: number; sent24h: number; sent2h: number; failed: number; skipped: number } & TextCounts;
+export type EventRemindersSummary = { checked: number; sent24h: number; sent2h: number; pushes: number; failed: number; skipped: number } & TextCounts;
 
 type BookingWithEvent = BookingRow & {
   reminder_24h_text_at: string | null;
@@ -137,7 +142,7 @@ type BookingWithEvent = BookingRow & {
 
 export async function runEventReminders(now: Date): Promise<EventRemindersSummary> {
   const db = serviceDb();
-  const summary: EventRemindersSummary = { checked: 0, sent24h: 0, sent2h: 0, failed: 0, skipped: 0, ...textCounts() };
+  const summary: EventRemindersSummary = { checked: 0, sent24h: 0, sent2h: 0, pushes: 0, failed: 0, skipped: 0, ...textCounts() };
   const { data, error } = await db
     .from("bookings")
     .select(`${BOOKING_ROW_COLUMNS}, reminder_24h_text_at, reminder_2h_text_at, event:events!inner(${EVENT_ROW_COLUMNS}, address:event_addresses(address))`)
@@ -165,7 +170,25 @@ export async function runEventReminders(now: Date): Promise<EventRemindersSummar
       const column = window === "24h" ? "reminder_24h_sent_at" : "reminder_2h_sent_at";
       const wants = channelsFor(`reminder.${window}`, member, now);
       if (await claim("bookings", { id: row.id }, column, now)) {
-        if (!wants.email) {
+        if (wants.push) {
+          const venue = event.location?.trim() || event.title;
+          const result = await sendPush({
+            template: "push-event-reminder",
+            memberId: member.id,
+            ...pushWords.reminder(window, event.title, event.start_time, venue, now),
+            path: eventHref(event.slug),
+            thread: `event:${event.id}`,
+            quiet: isQuietHours(now),
+            expiresAt: event.start_time,
+            dedupeKey: `push:event-reminder-${window}:${row.id}:${startMs}`,
+            refs: { bookingId: row.id, eventId: event.id },
+          });
+          if (result.status === "failed") {
+            summary.failed += 1;
+            await release("bookings", { id: row.id }, column);
+          } else if (result.status === "sent") summary.pushes += 1;
+          else summary.skipped += 1;
+        } else if (!wants.email) {
           summary.skipped += 1;
         } else {
           const address = one(event.address)?.address?.trim() || null;
@@ -221,7 +244,7 @@ export async function runEventReminders(now: Date): Promise<EventRemindersSummar
 
 // ---------------------------------------------------------------------------- Open Invite plans
 
-export type PlanRemindersSummary = { checked: number; updates: number; emails24h: number; emails2h: number; failed: number; skipped: number } & TextCounts;
+export type PlanRemindersSummary = { checked: number; updates: number; emails24h: number; emails2h: number; pushes: number; failed: number; skipped: number } & TextCounts;
 
 type PlaceRow = {
   plan_id: string;
@@ -236,7 +259,7 @@ type PlaceRow = {
 
 export async function runPlanReminders(now: Date): Promise<PlanRemindersSummary> {
   const db = serviceDb();
-  const summary: PlanRemindersSummary = { checked: 0, updates: 0, emails24h: 0, emails2h: 0, failed: 0, skipped: 0, ...textCounts() };
+  const summary: PlanRemindersSummary = { checked: 0, updates: 0, emails24h: 0, emails2h: 0, pushes: 0, failed: 0, skipped: 0, ...textCounts() };
   const { data, error } = await db
     .from("plan_members")
     .select("plan_id, member_id, joined_at, reminder_24h_sent_at, reminder_2h_sent_at, reminder_24h_text_at, reminder_2h_text_at, plan:plans!inner(id, host_id, title, starts_at, place, status, removed_at)")
@@ -292,7 +315,24 @@ export async function runPlanReminders(now: Date): Promise<PlanRemindersSummary>
             { member_id: member.id, kind: "reminder", plan_id: plan.id, role, reminder_hours: window === "24h" ? 24 : 2, dedupe_key: `upd:reminder:${plan.id}:${member.id}:${window}:${startMs}`, created_at: now.toISOString() },
           ]);
         }
-        if (wants.email) {
+        if (wants.push) {
+          const result = await sendPush({
+            template: "push-plan-reminder",
+            memberId: member.id,
+            ...pushWords.reminder(window, plan.title, plan.starts_at, plan.place, now),
+            path: openInviteHref(plan.id),
+            thread: `plan:${plan.id}`,
+            quiet: isQuietHours(now),
+            expiresAt: plan.starts_at,
+            dedupeKey: `push:plan-reminder-${window}:${plan.id}:${member.id}:${startMs}`,
+            refs: { planId: plan.id },
+          });
+          if (result.status === "failed") {
+            summary.failed += 1;
+            await release("plan_members", match, column);
+          } else if (result.status === "sent") summary.pushes += 1;
+          else summary.skipped += 1;
+        } else if (wants.email) {
           const others = (goingBy.get(plan.id) ?? []).filter((g) => g.id !== member.id).map((g) => g.name);
           const result = await sendEmail({
             template: "plan-reminder",
