@@ -92,8 +92,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 /// A notification carries the members page it is about ("path"). Tapped, the app opens that page: at once when the
 /// app is running, or once the first page is on screen when the tap opened the app (SceneDelegate.hideSplash calls
 /// pageIsReady). With the app open, a notification about the page already on screen (the chat being read) is not
-/// shown. Debug builds (run from Xcode) get sandbox device tokens, App Store and TestFlight builds production ones:
-/// the server sends each to its own Apple host.
+/// shown, and any other pops up as a banner but is not kept in Notification Centre (Albert, 11 Nov 2026: "if the
+/// user is on the app but not in the chat a notification should still pop up but be immediately cleared"). When a
+/// page comes on screen (the member opens a chat, or comes back to the app on it), its notifications still on the
+/// lock screen and in Notification Centre are cleared, as WhatsApp does. Debug builds (run from Xcode) get sandbox
+/// device tokens, App Store and TestFlight builds production ones: the server sends each to its own Apple host.
 final class PushBridge: NSObject, UNUserNotificationCenterDelegate, WKScriptMessageHandler {
     static let shared = PushBridge()
     private static let messageName = "yuppiePush"
@@ -106,12 +109,39 @@ final class PushBridge: NSObject, UNUserNotificationCenterDelegate, WKScriptMess
     private weak var webView: WKWebView?
     private var pageReady = false
     private var pendingPath: String?
+    private var pageWatch: NSKeyValueObservation?
 
     func attach(to webView: WKWebView) {
         self.webView = webView
         let controller = webView.configuration.userContentController
         controller.removeScriptMessageHandler(forName: Self.messageName)
         controller.add(PushMessageProxy(self), name: Self.messageName)
+        // The page on screen changes (the members area changes its address as it goes): clear that page's notifications.
+        pageWatch = webView.observe(\.url, options: [.new]) { [weak self] view, _ in
+            let path = view.url?.path
+            DispatchQueue.main.async { self?.clearShown(for: path) }
+        }
+        NotificationCenter.default.removeObserver(self, name: UIApplication.didBecomeActiveNotification, object: nil)
+        NotificationCenter.default.addObserver(self, selector: #selector(becameActive), name: UIApplication.didBecomeActiveNotification, object: nil)
+    }
+
+    @objc private func becameActive() {
+        clearShown(for: webView?.url?.path)
+    }
+
+    /// The page is on screen: its notifications left on the lock screen and in Notification Centre go.
+    private func clearShown(for path: String?) {
+        guard let path else { return }
+        let page = Self.trimmed(path)
+        let center = UNUserNotificationCenter.current()
+        center.getDeliveredNotifications { delivered in
+            let ids = delivered
+                .filter { ($0.request.content.userInfo["path"] as? String).map(Self.trimmed) == page }
+                .map { $0.request.identifier }
+            if !ids.isEmpty {
+                center.removeDeliveredNotifications(withIdentifiers: ids)
+            }
+        }
     }
 
     /// The first page is on screen: a notification tapped to open the app opens its page now.
@@ -180,7 +210,7 @@ final class PushBridge: NSObject, UNUserNotificationCenterDelegate, WKScriptMess
 
     // MARK: notifications
 
-    /// The app is open: show it, unless it is about the page already on screen.
+    /// The app is open: a banner that is not kept in Notification Centre, unless it is about the page already on screen.
     func userNotificationCenter(_ center: UNUserNotificationCenter,
                                 willPresent notification: UNNotification,
                                 withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
@@ -189,7 +219,7 @@ final class PushBridge: NSObject, UNUserNotificationCenterDelegate, WKScriptMess
             if let path, let current = self?.webView?.url?.path, Self.trimmed(path) == Self.trimmed(current) {
                 completionHandler([])
             } else {
-                completionHandler([.banner, .list, .sound])
+                completionHandler([.banner, .sound])
             }
         }
     }
