@@ -13,7 +13,6 @@ import { EVENT_ROW_COLUMNS, one, serviceDb, type BookingCancelReason, type Booki
 import { buildIcs, googleCalendarUrl, icsFilename } from "./calendar";
 import { dayDate, dayDateTime, pounds, time24 } from "./format";
 import { sendEmail, sendPush } from "./messages";
-import { isQuietHours } from "./notify/quiet";
 import { pushWords } from "./push/words";
 import { channelOn, prefsRows, topicOn } from "./notification-prefs";
 
@@ -333,7 +332,6 @@ export async function emailEventMove(
         ...pushWords.eventMoved(event.title, change.moved, event.start_time, event.location?.trim() || event.title, now),
         path: eventHref(event.slug),
         thread: `event:${eventId}`,
-        quiet: isQuietHours(now),
         dedupeKey: `push:event-changed:${b.id}:${stamp}`,
         refs: { bookingId: b.id, eventId },
       });

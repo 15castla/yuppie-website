@@ -40,7 +40,6 @@ import { dayDate, pounds, time24 } from "./format";
 import { later } from "./later";
 import { sendEmail, sendPush } from "./messages";
 import { channelOn, prefsRow } from "./notification-prefs";
-import { isQuietHours } from "./notify/quiet";
 import { pushWords } from "./push/words";
 import { cardLabelForPaymentIntent } from "./stripe/card";
 
@@ -931,14 +930,12 @@ async function sendEventCancelledEmail(bookingId: string): Promise<void> {
   // The email stays (it says what happens to the money); where push is live for them, a phone notification too
   // (11 Nov 2026), by their Push switch.
   if (pushLiveFor(booking.member.email) && channelOn(await prefsRow(booking.member_id), "push")) {
-    const now = new Date();
     await sendPush({
       template: "push-event-cancelled",
       memberId: booking.member_id,
       ...pushWords.eventCancelled(booking.event.title, refunded && (booking.refund_pence ?? 0) > 0),
       path: ROUTES.events,
       thread: `event:${booking.event_id}`,
-      quiet: isQuietHours(now),
       dedupeKey: `push:event-cancelled:${booking.id}`,
       refs: { bookingId: booking.id, eventId: booking.event_id },
     });

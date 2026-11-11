@@ -20,10 +20,16 @@ const when = (iso: string, now: Date) => {
 };
 const capital = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** A chat message's words for a notification: one paragraph, at most 180 characters. */
+/** How much of a chat message a notification shows: about two lines on the lock screen (Albert, 11 Nov 2026: "the preview on larger messages should be shorter"). */
+export const PREVIEW_MAX = 90;
+
+/** A chat message's words for a notification: one paragraph, at most 90 characters, cut after a whole word where it can be. */
 export function preview(text: string | null | undefined): string {
   const flat = (text ?? "").replace(/\s+/g, " ").trim();
-  return flat.length > 180 ? `${flat.slice(0, 179).trimEnd()}…` : flat;
+  if (flat.length <= PREVIEW_MAX) return flat;
+  const cut = flat.slice(0, PREVIEW_MAX - 1);
+  const space = cut.lastIndexOf(" ");
+  return `${(space >= PREVIEW_MAX * 0.6 ? cut.slice(0, space) : cut).replace(/[\s.,;:!?]+$/, "")}…`;
 }
 
 const moved = (how: "time" | "place" | "both", startsAt: string, place: string, now: Date) =>

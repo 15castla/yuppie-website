@@ -16,7 +16,8 @@ import "server-only";
 //     live for (MEMBERS_PUSH_LIVE on, or MEMBERS_PUSH_TESTERS before it), every notification is a push instead of
 //     an email; only the "always" emails (account, booking) still go. A push names the person and shows a chat
 //     message's words, as a group chat app does (Albert, 11 Nov 2026; lib/server/push/words.ts), never naming
-//     someone the recipient blocked; in quiet hours it is delivered silently;
+//     someone the recipient blocked; day and night alike (Albert, 11 Nov: "get rid of" the quiet hours for pushes,
+//     "ppl can put their phones on do not disturb");
 //   - every Update has a dedupe key (an event never writes twice), every email and text has one too and is
 //     written to message_log by lib/server/messages (a key that went out is never sent again).
 // Updates are written before the action answers (the next page shows them); emails and pushes go after the
@@ -35,7 +36,6 @@ import { channelOn, prefsRows, textNumber, topicOn, type PrefsRow } from "../not
 import { currentPhotoUrl } from "../photos";
 import { preview, pushWords, type PushText } from "../push/words";
 import { reasonLabel, type ReportKind } from "../report-reasons";
-import { isQuietHours } from "./quiet";
 
 // ---------------------------------------------------------------------------- events
 
@@ -193,9 +193,9 @@ function sendLater(label: string, emails: Email[], texts: Text[] = [], pushes: P
   });
 }
 
-/** A plan's push: grouped by the plan, opening it, silent in quiet hours. */
-function planPush(plan: { id: string }, memberId: string, template: string, text: PushText, dedupeKey: string, now: Date): PushInput {
-  return { template, memberId, ...text, path: openInviteHref(plan.id), thread: `plan:${plan.id}`, quiet: isQuietHours(now), dedupeKey, refs: { planId: plan.id } };
+/** A plan's push: grouped by the plan, opening it. */
+function planPush(plan: { id: string }, memberId: string, template: string, text: PushText, dedupeKey: string): PushInput {
+  return { template, memberId, ...text, path: openInviteHref(plan.id), thread: `plan:${plan.id}`, dedupeKey, refs: { planId: plan.id } };
 }
 
 /** A member's first name for a notification ("Someone" when there is none). */
@@ -219,7 +219,7 @@ async function planJoined(e: Extract<NotifyEvent, { type: "plan.joined" }>, now:
   // about a plan they are already in would be noise).
   if (host && !blockers.has(host.id) && channelsFor(e.full ? "host.full" : "host.joined", host, now).push) {
     const words = pushWords.joined(plan.title, nameOf(everyone.get(e.memberId)), e.full);
-    pushes.push(planPush(plan, host.id, e.full ? "push-plan-full" : "push-plan-joined", words, `push:joined:${plan.id}:${e.memberId}:${ms(joinedAt)}`, now));
+    pushes.push(planPush(plan, host.id, e.full ? "push-plan-full" : "push-plan-joined", words, `push:joined:${plan.id}:${e.memberId}:${ms(joinedAt)}`));
   }
   if (e.full) {
     if (host && channelsFor("host.full", host, now).update) {
@@ -252,7 +252,7 @@ async function planLeft(e: Extract<NotifyEvent, { type: "plan.left" }>, now: Dat
   if (host && channelsFor("host.left", host, now).push && (!blockers.has(host.id) || e.wasFull)) {
     // A host who blocked the member hears only that the full plan has a place again, without their name (QB1-02).
     const words = pushWords.left(plan.title, blockers.has(host.id) ? null : nameOf(everyone.get(e.memberId)));
-    pushes.push(planPush(plan, host.id, "push-plan-left", words, `push:left:${plan.id}:${e.memberId}:${leftAt}`, now));
+    pushes.push(planPush(plan, host.id, "push-plan-left", words, `push:left:${plan.id}:${e.memberId}:${leftAt}`));
   }
   if (host && !blockers.has(host.id) && channelsFor("host.left", host, now).update) {
     rows.push({ member_id: host.id, kind: "left", plan_id: plan.id, actor_id: e.memberId, role: "host", dedupe_key: `upd:left:${plan.id}:${e.memberId}:${leftAt}` });
@@ -293,7 +293,7 @@ async function planChanged(e: Extract<NotifyEvent, { type: "plan.changed" }>, no
     const c = channelsFor("in.changed", p, now);
     if (c.push) {
       const words = pushWords.planMoved(plan.title, blockers.has(id) ? null : hostName, moved, plan.starts_at, plan.place, now);
-      pushes.push(planPush(plan, id, "push-plan-changed", words, `push:changed:${plan.id}:${id}:${changedAt}`, now));
+      pushes.push(planPush(plan, id, "push-plan-changed", words, `push:changed:${plan.id}:${id}:${changedAt}`));
     }
     // A member who blocked the host still hears that a plan they are going to moved (QB1-02); the Update leaves
     // the host out (no name, no photo), the email is the plan's own facts.
@@ -341,7 +341,7 @@ async function planCancelled(e: Extract<NotifyEvent, { type: "plan.cancelled" }>
     const c = channelsFor("in.cancelled", p, now);
     if (c.push) {
       const words = pushWords.planCancelled(plan.title, blockers.has(id) ? null : hostName, e.byClub);
-      pushes.push(planPush(plan, id, "push-plan-cancelled", words, `push:cancelled:${plan.id}:${id}`, now));
+      pushes.push(planPush(plan, id, "push-plan-cancelled", words, `push:cancelled:${plan.id}:${id}`));
     }
     if (c.update) {
       rows.push({ member_id: id, kind: "cancelled", plan_id: plan.id, actor_id: e.byClub || blockers.has(id) ? null : plan.host_id, role: "going", dedupe_key: `upd:cancelled:${plan.id}:${id}` });
@@ -372,7 +372,7 @@ async function planCancelled(e: Extract<NotifyEvent, { type: "plan.cancelled" }>
       refs: { memberId: host.id, planId: plan.id },
     });
     // And a push where push is live for them (an account notice like the email: not by their switches).
-    if (pushLiveFor(host.email)) pushes.push(planPush(plan, host.id, "push-plan-removed", pushWords.hostPlanRemoved(plan.title), `push:cancelled:${plan.id}:${host.id}`, now));
+    if (pushLiveFor(host.email)) pushes.push(planPush(plan, host.id, "push-plan-removed", pushWords.hostPlanRemoved(plan.title), `push:cancelled:${plan.id}:${host.id}`));
   }
   const updates = await writeUpdates(rows);
   sendLater(`plan cancelled ${plan.id}`, emails, [], pushes);
@@ -435,7 +435,6 @@ async function chatMessage(e: Extract<NotifyEvent, { type: "chat.message" }>, no
       conversation,
       path: messageThreadHref(e.chatId),
       thread: `chat:${e.chatId}`,
-      quiet: isQuietHours(now),
       silent,
       dedupeKey: `push:message:${e.chatId}:${p.id}:${e.messageId}`,
       refs: { chatId: e.chatId, planId: plan.id },

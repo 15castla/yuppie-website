@@ -91,10 +91,6 @@ const stop = () => {
 process.on('exit', stop);
 
 try {
-  const quietNow = () => {
-    const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/London', hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
-    return hour >= 22 || hour < 7;
-  };
   const pushesSince = (mark, token) => got.slice(mark).filter((p) => !token || p.token === token);
   const pushLog = (where) => sql(`select template, status, error, member_id, to_address from message_log where channel = 'push' and ${where} order by created_at`);
 
@@ -125,8 +121,7 @@ try {
   eq([joined.headers['apns-topic'], joined.headers['apns-push-type'], joined.headers['apns-priority']], ['com.clubyuppie.app', 'alert', '10'], 'topic (the bundle ID), type alert, priority 10');
   eq(joined.payload.aps.alert, { title: 'Push plan', body: 'Pn is in.' }, 'the plan, and who joined (Albert, 11 Nov: names on notifications)');
   eq([joined.payload.path, joined.payload.aps['thread-id']], [`/members/open-invite/${P}`, `plan:${P}`], 'it opens the plan, grouped by the plan');
-  if (quietNow()) eq([joined.payload.aps['interruption-level'], joined.payload.aps.sound], ['passive', undefined], 'quiet hours: delivered silently');
-  else eq([joined.payload.aps.sound, joined.payload.aps['interruption-level']], ['default', undefined], 'outside quiet hours: with a sound');
+  eq([joined.payload.aps.sound, joined.payload.aps['interruption-level']], ['default', undefined], 'with a sound, day and night (Albert, 11 Nov: no quiet hours for pushes)');
   await sleep(500);
   eq(pushLog(`plan_id = ${q(P)}`).map((r) => [r.template, r.status, r.member_id, r.to_address]), [['push-plan-joined', 'sent', tester.id, '1 device']], 'logged in message_log (channel push)');
   eq(pushesSince(mark + 1).length, 0, 'nobody else: the member who joined hears nothing');
@@ -145,7 +140,7 @@ try {
   eq([msg.payload.sender.id, msg.payload.sender.name, msg.payload.chat], [other.id, 'Pn', { id: chatId, name: 'Push plan' }], 'who sent it and in which chat, for the app');
   ok(/^https?:\/\/.+\/storage\/v1\/object\/sign\//.test(msg.payload.sender.photo ?? ''), 'the sender\'s photo: a signed URL (10 minutes)', msg.payload.sender.photo);
   eq([msg.headers['apns-collapse-id'], msg.payload.path, msg.payload.aps['thread-id']], [undefined, `/members/messages/${chatId}`, `chat:${chatId}`], 'every message stays on the phone, grouped by chat, opens the chat');
-  if (!quietNow()) eq(msg.payload.aps.sound, 'default', 'the first message: a sound');
+  eq(msg.payload.aps.sound, 'default', 'the first message: a sound');
   mark = got.length;
   await send(other, 'Second one');
   await send(other, 'Third   one,\non two lines');
@@ -157,11 +152,15 @@ try {
   mark = got.length;
   await send(other, 'After reading');
   await waitFor(() => pushesSince(mark).length >= 1, 'read the chat, then a new message: a push');
-  if (!quietNow()) eq(got[mark].payload.aps.sound, 'default', 'with a sound again');
+  eq(got[mark].payload.aps.sound, 'default', 'with a sound again');
   mark = got.length;
   await send(other, 'x'.repeat(300));
   await waitFor(() => pushesSince(mark).length >= 1, 'a long message');
-  eq(got[mark].payload.aps.alert.body, `${'x'.repeat(179)}…`, 'its words cut at 180 characters');
+  eq(got[mark].payload.aps.alert.body, `${'x'.repeat(89)}…`, 'one long word: cut at 90 characters (Albert, 11 Nov: shorter previews)');
+  mark = got.length;
+  await send(other, 'Oh and I would be lying if I said I did not like it, but I do. I am a couple of minutes out, see you there soon');
+  await waitFor(() => pushesSince(mark).length >= 1, 'a long sentence');
+  eq(got[mark].payload.aps.alert.body, 'Oh and I would be lying if I said I did not like it, but I do. I am a couple of minutes…', 'a sentence: cut after a whole word, within 90 characters');
   eq((await action('thread.setChatMuted', [chatId, true], tester.session)).result, { ok: true }, 'the host mutes the chat');
   await action('thread.markChatRead', [chatId], tester.session);
   mark = got.length;

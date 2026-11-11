@@ -243,8 +243,6 @@ export type PushInput = {
   thread?: string;
   /** A newer notification with the same id replaces this one (a chat). */
   collapseId?: string;
-  /** Quiet hours: delivered without a sound or lighting the screen (decision 2 B). */
-  quiet?: boolean;
   /** Shown as usual but without a sound (the next messages of a burst in a chat). */
   silent?: boolean;
   /** Apple stops trying after this (a reminder after its start). */
@@ -284,7 +282,7 @@ export async function sendPush(input: PushInput): Promise<SendResult> {
   const payload = {
     aps: {
       alert: { title: input.title || "Club Yuppie", ...(input.subtitle ? { subtitle: input.subtitle } : {}), body: input.body },
-      ...(input.quiet ? { "interruption-level": "passive" } : input.silent ? {} : { sound: "default" }),
+      ...(input.silent ? {} : { sound: "default" }),
       ...(input.thread ? { "thread-id": input.thread } : {}),
       // The app's notification service adds the sender's photo before the phone shows it.
       ...(input.conversation ? { "mutable-content": 1 } : {}),

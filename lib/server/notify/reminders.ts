@@ -9,7 +9,7 @@ import "server-only";
 //   - Updates older than 30 days are deleted.
 //
 // Phone notifications (Albert, 11 Nov 2026): where push is live for a member (lib/server/config.ts pushLiveFor),
-// their 24-hour and 2-hour reminders are a push instead of an email (silent in quiet hours), and chat emails stop
+// their 24-hour and 2-hour reminders are a push instead of an email (day and night alike), and chat emails stop
 // (a chat pushes at once instead: ./index.ts chatMessage). Texts are as before.
 //
 // Windows (as stage 1): the 24-hour reminder when the start is 24 hours or less away but more than 2 hours, to
@@ -178,7 +178,6 @@ export async function runEventReminders(now: Date): Promise<EventRemindersSummar
             ...pushWords.reminder(window, event.title, event.start_time, venue, now),
             path: eventHref(event.slug),
             thread: `event:${event.id}`,
-            quiet: isQuietHours(now),
             expiresAt: event.start_time,
             dedupeKey: `push:event-reminder-${window}:${row.id}:${startMs}`,
             refs: { bookingId: row.id, eventId: event.id },
@@ -322,7 +321,6 @@ export async function runPlanReminders(now: Date): Promise<PlanRemindersSummary>
             ...pushWords.reminder(window, plan.title, plan.starts_at, plan.place, now),
             path: openInviteHref(plan.id),
             thread: `plan:${plan.id}`,
-            quiet: isQuietHours(now),
             expiresAt: plan.starts_at,
             dedupeKey: `push:plan-reminder-${window}:${plan.id}:${member.id}:${startMs}`,
             refs: { planId: plan.id },
