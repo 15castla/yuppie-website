@@ -5,6 +5,8 @@ import { createClient } from "@supabase/supabase-js";
 import { stripe } from "@/lib/stripe";
 import { sendApplicationEmails } from "@/lib/server/applications";
 import { applicantStanding, type ApplicantStanding } from "@/lib/server/rejoin";
+import { flags } from "@/lib/members/flags";
+import { lookupNominationCode } from "@/lib/server/nominations";
 import { CONTACT_EMAIL } from "@/components/site/links";
 
 export type SubmitApplicationResult =
@@ -40,6 +42,39 @@ export async function checkApplicant(rawEmail: string): Promise<ApplicantCheckRe
     // The submit checks again; a lookup that failed here does not stop the form.
     console.error("checkApplicant failed:", err);
     return { ok: true };
+  }
+}
+
+export type NominationCheckResult = { ok: true; firstName: string } | { ok: false; error: string };
+
+/**
+ * Before the card step: does this nomination code count? (Nominate a friend, 12 Nov 2026.) It is optional, so the
+ * answer says how to go on without it. submitApplication reads it again.
+ */
+export async function checkNominationCode(raw: string): Promise<NominationCheckResult> {
+  if (!flags.nominations) return { ok: false, error: "Leave this blank to apply." };
+  try {
+    const found = await lookupNominationCode(raw);
+    if (found.ok) return { ok: true, firstName: found.firstName };
+    return {
+      ok: false,
+      error: found.reason === "used" ? "That code has no nominations left. Leave it blank to apply anyway." : "We don’t recognise that code. Check it, or leave it blank.",
+    };
+  } catch (err) {
+    console.error("checkNominationCode failed:", err);
+    return { ok: false, error: "We couldn’t check that code. Try again, or leave it blank." };
+  }
+}
+
+/** The member a nomination code belongs to, if it still counts (a problem here never stops the application). */
+async function nominatedBy(raw: FormDataEntryValue | null): Promise<string | null> {
+  if (!flags.nominations || typeof raw !== "string" || !raw.trim()) return null;
+  try {
+    const found = await lookupNominationCode(raw);
+    return found.ok ? found.memberId : null;
+  } catch (err) {
+    console.error("submitApplication: reading the nomination code failed:", err);
+    return null;
   }
 }
 
@@ -171,6 +206,9 @@ export async function submitApplication(
       superseded = Boolean(marked?.length);
     }
 
+    // Nominate a friend: the member whose code came with it (the database drops it if they have none left).
+    const nominator = await nominatedBy(formData.get("nomination_code"));
+
     const { data: inserted, error } = await supabase.from("applications").insert({
       full_name: fullName,
       email,
@@ -181,6 +219,7 @@ export async function submitApplication(
       instagram_username: formData.get("instagram_username") as string,
       stripe_customer_id: stripeCustomerId,
       stripe_payment_method_id: paymentMethodId,
+      ...(nominator ? { nominated_by: nominator } : {}),
     }).select("id").single();
 
     if (error) {

@@ -37,6 +37,8 @@ import type { PartnerPerk } from "@/components/members/mock-perks";
 import { RedeemCard } from "@/components/members/RedeemCard";
 import { ROUTES, eventHref } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
+import { NominateCard } from "@/components/members/nominate/nominate-card";
+import type { NominateCardData } from "@/lib/members/nominate/types";
 import "@/components/members/discounts/discounts.css";
 
 // featureCard is whichever single event, discount, or access perk is
@@ -109,10 +111,20 @@ function Spotlight({
 export function AccessView({
   perks,
   featureCard,
+  nominate = null,
 }: {
   perks: PartnerPerk[];
   featureCard: ResolvedFeatureCard | null;
+  /** Nominate a friend's card (12 Nov 2026): Access is where Invite only lives. Null: not shown. */
+  nominate?: NominateCardData | null;
 }) {
+  const nominateSlot = nominate ? (
+    <div className="mk-wrap">
+      <div className="nm-slot">
+        <NominateCard data={nominate} />
+      </div>
+    </div>
+  ) : null;
   const [selected, setSelected] = useState<PartnerPerk | null>(null);
   const groups = groupAccessByKind(perks);
 
@@ -121,6 +133,7 @@ export function AccessView({
     return (
       <Main fill className="dc-main">
         <TitleBlock title={ACCESS_TITLE.title} sub={ACCESS_TITLE.sub} />
+        {nominateSlot}
         <div className="dc-gap" />
         <EmptyState
           label="No access yet"
@@ -153,6 +166,8 @@ export function AccessView({
             ) : null}
           </div>
         </div>
+
+        {nominateSlot}
 
         {groups.length > 0 ? (
           <div className="mk-wrap">

@@ -41,7 +41,7 @@ import {
   TEXT_LINK_CLASS,
 } from "@/components/site/ui";
 import { STRIPE_APPEARANCE, getStripeErrorMessage } from "@/lib/stripe-ui";
-import { checkApplicant, submitApplication } from "./actions";
+import { checkApplicant, checkNominationCode, submitApplication } from "./actions";
 
 const stripePromise = loadStripe(
   process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!,
@@ -144,6 +144,11 @@ const REQUIRED_FIELDS = [
 type FieldName = (typeof REQUIRED_FIELDS)[number]["name"];
 type FieldErrors = Partial<Record<FieldName, string>>;
 
+/** A nomination link's member (app/apply/page.tsx): their code filled in, or a link with no nominations left. */
+export type ApplyNomination = { code: string | null; firstName: string | null; usable: boolean };
+
+const NOMINATION_FIELD = "nomination_code";
+
 function isFieldName(name: string): name is FieldName {
   return REQUIRED_FIELDS.some((field) => field.name === name);
 }
@@ -177,9 +182,21 @@ function clearRedirectReturnState() {
   window.history.replaceState(null, "", "/apply");
 }
 
-function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
+function ApplicationForm({
+  onSubmitted,
+  nominations = false,
+  nominationCode = null,
+}: {
+  onSubmitted: () => void;
+  /** The nomination code field (Nominate a friend, 12 Nov 2026). */
+  nominations?: boolean;
+  /** Filled in from a nomination link. */
+  nominationCode?: string | null;
+}) {
   const stripe = useStripe();
   const elements = useElements();
+  // The nomination code's own message (it is optional, so it is not one of REQUIRED_FIELDS).
+  const [codeError, setCodeError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<{
@@ -194,6 +211,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
   const [phone, setPhone] = useState<string | undefined>();
 
   function clearFieldError(name: string) {
+    if (name === NOMINATION_FIELD) setCodeError(null);
     if (!isFieldName(name)) return;
     setFieldErrors((current) => {
       if (!current[name]) return current;
@@ -289,6 +307,7 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           formData.set(name, draft[name] ?? "");
         }
         formData.set("stripe_payment_method_id", setupIntent.payment_method);
+        if (draft[NOMINATION_FIELD]) formData.set(NOMINATION_FIELD, draft[NOMINATION_FIELD]);
 
         const result = await submitApplication(formData);
 
@@ -402,9 +421,21 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
     for (const { name } of REQUIRED_FIELDS) {
       draft[name] = (formData.get(name) as string) ?? "";
     }
+    const code = nominations ? String(formData.get(NOMINATION_FIELD) ?? "").trim() : "";
+    if (code) draft[NOMINATION_FIELD] = code;
     sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
 
     try {
+      // A nomination code that won't count is said now, before the card (it is optional: leave it blank to apply).
+      if (code) {
+        const nominated = await checkNominationCode(code);
+        if (!nominated.ok) {
+          setCodeError(nominated.error);
+          form.querySelector<HTMLElement>(`#${NOMINATION_FIELD}`)?.focus();
+          return;
+        }
+      }
+
       // A member, or someone already waiting, is told before their card is taken (app/apply/actions.ts).
       const early = await checkApplicant(String(formData.get("email") ?? ""));
       if (!early.ok) {
@@ -549,9 +580,35 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
           <label htmlFor="linkedin_url" className={LABEL_CLASS}>
             LinkedIn URL
           </label>
-          <input id="linkedin_url" name="linkedin_url" type="url" autoComplete="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint="done" placeholder="https://linkedin.com/in/yourname" {...invalidProps("linkedin_url")} className={inputClass("linkedin_url")} />
+          <input id="linkedin_url" name="linkedin_url" type="url" autoComplete="url" inputMode="url" autoCapitalize="none" autoCorrect="off" spellCheck={false} enterKeyHint={nominations ? "next" : "done"} placeholder="https://linkedin.com/in/yourname" {...invalidProps("linkedin_url")} className={inputClass("linkedin_url")} />
           {fieldError("linkedin_url")}
         </div>
+        {nominations ? (
+          // Optional: a member's code (filled in from their link). Full width from md, like LinkedIn.
+          <div className={cn(FIELD_CLASS, "md:col-span-2")}>
+            <label htmlFor={NOMINATION_FIELD} className={LABEL_CLASS}>
+              Nominated by a member? <span className="font-normal text-site-muted">(optional)</span>
+            </label>
+            <input
+              id={NOMINATION_FIELD}
+              name={NOMINATION_FIELD}
+              type="text"
+              autoComplete="off"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              enterKeyHint="done"
+              placeholder="Their code, e.g. ALBERT-7K2Q"
+              defaultValue={nominationCode ?? ""}
+              aria-invalid={codeError ? true : undefined}
+              aria-describedby={codeError ? `${NOMINATION_FIELD}-error` : undefined}
+              className={cn(INPUT_CLASS, codeError && INPUT_ERROR_CLASS)}
+            />
+            <MessageSlot id={`${NOMINATION_FIELD}-error`} parentGap={8} className={FIELD_ERROR_CLASS}>
+              {codeError}
+            </MessageSlot>
+          </div>
+        ) : null}
       </div>
 
       <div role="group" aria-labelledby="apply-step-3" className={STEP_CARD_CLASS}>
@@ -629,9 +686,15 @@ function ApplicationForm({ onSubmitted }: { onSubmitted: () => void }) {
 export default function ApplyForm({
   clientSecret,
   setupError,
+  nominations = false,
+  nomination = null,
 }: {
   clientSecret: string | null;
   setupError: string | null;
+  /** Nominate a friend is on (12 Nov 2026): the code field. */
+  nominations?: boolean;
+  /** Came with a nomination link. */
+  nomination?: ApplyNomination | null;
 }) {
   const [submitted, setSubmitted] = useState(false);
   const thanksHeadingRef = useRef<HTMLHeadingElement>(null);
@@ -734,6 +797,21 @@ export default function ApplyForm({
                 before you’re approved.
               </p>
             </div>
+            {/* A nomination link: who put you forward (the code is filled in under card 2), or that the link has
+                no nominations left. */}
+            {nomination ? (
+              <p className="m-0 mr-1.5 rounded-[14px] border-[1.5px] border-foreground bg-background-muted px-4 py-3 text-base leading-[1.4] md:mr-0 md:max-w-[440px] md:text-[17px]">
+                {nomination.usable && nomination.firstName ? (
+                  <>
+                    <b>{nomination.firstName} nominated you.</b> Their code is filled in below, so the committee will know.
+                  </>
+                ) : (
+                  <>
+                    <b>This nomination link has been used.</b> You can still apply.
+                  </>
+                )}
+              </p>
+            ) : null}
             {/* From 1024: a map of the form, the cards' numerals and titles
                 on 1.5px rules; each row jumps to its card. Keyboard focus
                 underlines the title (RULE-35), never a box. Only when the
@@ -777,7 +855,11 @@ export default function ApplyForm({
                 stripe={stripePromise}
                 options={{ clientSecret, appearance: APPLY_STRIPE_APPEARANCE }}
               >
-                <ApplicationForm onSubmitted={() => setSubmitted(true)} />
+                <ApplicationForm
+                  onSubmitted={() => setSubmitted(true)}
+                  nominations={nominations}
+                  nominationCode={nomination?.usable ? nomination.code : null}
+                />
               </Elements>
             ) : (
               <p role="alert" className={cn(CARD_CLASS, "m-0 mr-1.5 text-[15px] font-bold text-[#B3261E] md:mr-2")}>

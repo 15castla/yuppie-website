@@ -5,17 +5,21 @@ import { getCachedFeatureCard, DEFAULT_FEATURE_LABEL } from "@/components/member
 import { withoutExamplePartners } from "@/components/members/discounts/example-partners";
 import { eventBadge, eventWhen, firstSentence } from "@/components/members/discounts/perk-model";
 import { AccessView, type ResolvedFeatureCard } from "@/components/members/access-view";
+import { flags } from "@/lib/members/flags";
+import { nominateCard } from "@/lib/server/nominations";
 
 export default async function MembersAccessPage() {
   // requireMember() is cached with the layout's login check (one fetch) and
   // runs alongside the data fetches. It is here so the photo gate
   // (flags.photoGate, see require-member.ts) sees this page too.
-  const [, allPerks, events, featureCard] = await Promise.all([
+  const [member, allPerks, events, featureCard] = await Promise.all([
     requireMember(),
     getCachedPerks(),
     getCachedEvents(),
     getCachedFeatureCard(),
   ]);
+  // Nominate a friend's card (12 Nov 2026). A failed read leaves the card off rather than the page.
+  const nominate = flags.nominations ? await nominateCard(member.id).catch((err) => (console.error("Access: the nominate card failed:", err), null)) : null;
 
   // The placeholder partners still in the table are not shown to members (see
   // example-partners.ts), and a feature card pointing at one shows nothing
@@ -54,5 +58,5 @@ export default async function MembersAccessPage() {
     }
   }
 
-  return <AccessView perks={access} featureCard={resolvedFeatureCard} />;
+  return <AccessView perks={access} featureCard={resolvedFeatureCard} nominate={nominate} />;
 }
