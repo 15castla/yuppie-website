@@ -168,6 +168,36 @@ const STATES: Record<string, StateSpec> = {
   "pay-processing": PAY("processing"),
   "pay-confirm-failed": PAY("confirm-failed"),
   "pay-load-error": PAY("load-error"),
+  // Club Yuppie credit (12 Nov 2026): £10 off a £25 ticket, and a ticket the credit covers.
+  "pay-credit": {
+    data: data(PADEL),
+    start: { sheet: { kind: "pay", state: "ready", clientSecret: "example_secret", attempt: 1, payPence: PADEL.pricePence - 1000, creditPence: 1000 } },
+  },
+  "credit-ready": {
+    data: data(PADEL),
+    start: { sheet: { kind: "credit", state: "ready", attempt: 1, attemptId: "example-attempt", balancePence: PADEL.pricePence + 500 } },
+  },
+  "credit-error": {
+    data: data(PADEL),
+    start: {
+      sheet: {
+        kind: "credit",
+        state: "error",
+        attempt: 1,
+        attemptId: "example-attempt",
+        balancePence: PADEL.pricePence + 500,
+        error: "We couldn’t book your spot. Nothing was taken from your credit. Please try again.",
+      },
+    },
+  },
+  "cancel-ask-credit": {
+    data: data(PADEL, { booking: bookingFor(PADEL, { creditPence: 1000 }) }),
+    start: { sheet: { kind: "cancel", state: "ask", late: false } },
+  },
+  "cancel-done-credit": {
+    data: data(PADEL),
+    start: { sheet: { kind: "cancel", state: "done", late: false, outcome: { refundPence: PADEL.pricePence - 1000, paidPence: PADEL.pricePence, creditPence: 1000 } } },
+  },
   "confirmed-paid": { data: data(PADEL, { booking: bookingFor(PADEL) }), start: { sheet: { kind: "confirmed", booking: bookingFor(PADEL) } } },
   "confirmed-included": {
     data: data(ROOFTOP, { booking: bookingFor(ROOFTOP) }),

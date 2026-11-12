@@ -17,6 +17,7 @@ import { useShell } from "@/components/members/shell/shell-context";
 import { ROUTES } from "@/lib/members/routes";
 import * as liveActions from "@/app/members/events/actions";
 import type {
+  BookWithCreditResult,
   CancelBookingResult,
   ConfirmEventPaymentResult,
   CreateEventPaymentIntentResult,
@@ -25,10 +26,11 @@ import type {
 import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import { CancelSheetBody, ConfirmedSheetBody, cancelDismissable, cancelStatus, type CancelOutcome, type CancelState } from "./booking-sheets";
 import { BookingCard, DesktopCard, EventBand, EventBar, EventHero, HeroNote, type BarState } from "./event-parts";
-import { PaySheetBody, payDismissable, payStatus, type PayState } from "./pay-sheet-body";
+import { CreditSheetBody, PaySheetBody, payDismissable, payStatus, type CreditState, type PayState } from "./pay-sheet-body";
 import { DemoPayFields, EventSheet } from "./sheet-parts";
 import { StripePaySheet, type PayOutcome } from "./stripe-pay";
 import {
+  backWords,
   eventPhase,
   freeUntilLine,
   gbp,
@@ -48,6 +50,8 @@ import "./event.css";
 export type EventActions = {
   rsvp: (formData: FormData) => Promise<{ success: boolean; error?: string; bookingId?: string } | SessionEnded>;
   createPaymentIntent: (formData: FormData) => Promise<CreateEventPaymentIntentResult | SessionEnded>;
+  /** A price the member's credit covers in full (12 Nov 2026). */
+  bookWithCredit?: (formData: FormData) => Promise<BookWithCreditResult | SessionEnded>;
   confirmPayment: (paymentIntentId: string, eventId: string) => Promise<ConfirmEventPaymentResult | SessionEnded>;
   cancel: (bookingId: string, options?: { withoutRefund?: boolean }) => Promise<CancelBookingResult | SessionEnded>;
   getBooking: (eventId: string) => Promise<MyBooking | null | SessionEnded>;
@@ -56,6 +60,7 @@ export type EventActions = {
 const LIVE_ACTIONS: EventActions = {
   rsvp: liveActions.rsvpToEvent,
   createPaymentIntent: liveActions.createEventPaymentIntent,
+  bookWithCredit: liveActions.bookWithCredit,
   confirmPayment: liveActions.confirmEventPayment,
   cancel: liveActions.cancelBooking,
   getBooking: liveActions.getMyBooking,
@@ -69,7 +74,8 @@ const PAYMENT_OPEN_FAILED = "We couldn’t open payment. Nothing was taken. Chec
 const PAYMENT_NOT_MATCHED = "We couldn’t match that payment to your booking. Nothing was booked.";
 
 export type EventSheetState =
-  | { kind: "pay"; state: PayState; clientSecret: string | null; attempt: number }
+  | { kind: "pay"; state: PayState; clientSecret: string | null; attempt: number; payPence?: number; creditPence?: number }
+  | { kind: "credit"; state: CreditState; attempt: number; attemptId: string; balancePence: number; error?: string | null }
   | { kind: "confirmed"; booking: EventPageBooking }
   | { kind: "cancel"; state: CancelState; late: boolean; outcome?: CancelOutcome | null };
 
@@ -83,6 +89,11 @@ export type EventPageStart = {
   message?: string | null;
   sheet?: EventSheetState | null;
 };
+
+/** One id per time the member opens payment (one PaymentIntent, or one credit booking, per attempt). */
+function newAttemptId(): string {
+  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`;
+}
 
 export function EventPageView({
   data,
@@ -155,7 +166,7 @@ export function EventPageView({
     const bPaid = booking.amountPence > 0;
     if (data.started) bookingFine = "It has started, so it can’t be cancelled.";
     else if (booking.moved) bookingFine = bPaid ? "We moved this event, so you can cancel for a full refund until it starts." : "We moved this event, so you can cancel any time until it starts.";
-    else if (booking.freeNow) bookingFine = bPaid ? `Free until ${until}. Your ${gbp(booking.amountPence)} goes back to your card.` : `Free until ${until}.`;
+    else if (booking.freeNow) bookingFine = bPaid ? `Free until ${until}. ${backWords(booking.amountPence, booking.creditPence)}` : `Free until ${until}.`;
     else bookingFine = bPaid ? `It’s less than ${hours} hours to go, so there’s no refund if you cancel now.` : "If you can’t come, cancel so someone else can take your spot.";
   }
   const canCancel = Boolean(booking) && !data.started && phase === "booked";
@@ -247,7 +258,8 @@ export function EventPageView({
     // The price the member was shown (the server refuses if it changed) and a new attempt id each time
     // payment opens (one PaymentIntent per attempt).
     formData.set("price_pence", String(event.pricePence));
-    formData.set("attempt_id", typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 12)}`);
+    const attemptId = newAttemptId();
+    formData.set("attempt_id", attemptId);
     let result: CreateEventPaymentIntentResult | SessionEnded;
     try {
       result = await actions.createPaymentIntent(formData);
@@ -255,8 +267,13 @@ export function EventPageView({
       result = { success: false, error: PAYMENT_OPEN_FAILED, reason: "error" };
     }
     if (isSessionEnded(result)) return goToSessionEnded();
+    if (result.success && "coveredByCredit" in result) {
+      // Their credit covers it: no card, one tap books (12 Nov 2026).
+      setSheet({ kind: "credit", state: "ready", attempt, attemptId, balancePence: result.balancePence });
+      return;
+    }
     if (result.success) {
-      setSheet({ kind: "pay", state: "ready", clientSecret: result.clientSecret, attempt });
+      setSheet({ kind: "pay", state: "ready", clientSecret: result.clientSecret, attempt, payPence: result.payPence, creditPence: result.creditPence });
       return;
     }
     if (!result.reason || result.reason === "error") {
@@ -271,6 +288,34 @@ export function EventPageView({
       return;
     }
     if (result.reason !== "no_customer") refresh();
+  }
+
+  async function bookCredit(current: Extract<EventSheetState, { kind: "credit" }>) {
+    if (!actions.bookWithCredit) return;
+    setSheet({ ...current, state: "booking", error: null });
+    const formData = new FormData();
+    formData.set("event_id", event.id);
+    formData.set("price_pence", String(event.pricePence));
+    formData.set("attempt_id", current.attemptId);
+    let result: BookWithCreditResult | SessionEnded;
+    try {
+      result = await actions.bookWithCredit(formData);
+    } catch {
+      result = { booked: false, error: "We couldn’t book your spot. Nothing was taken from your credit. Please try again.", reason: "error" };
+    }
+    if (isSessionEnded(result)) return goToSessionEnded();
+    if (result.booked) {
+      await showConfirmed();
+      return;
+    }
+    if (result.reason === "error") {
+      // Try again with the same attempt: it can never book twice or take the credit twice.
+      setSheet({ ...current, state: "error", error: result.error });
+      return;
+    }
+    setSheet(null);
+    setMessage(result.error);
+    refresh();
   }
 
   async function book() {
@@ -354,6 +399,7 @@ export function EventPageView({
           refundPence: result.refund === "succeeded" || result.refund === "pending" ? result.refundPence : 0,
           refundFailed: result.refund === "failed",
           paidPence: booking.amountPence,
+          creditPence: result.creditPence ?? 0,
         },
       });
       refresh();
@@ -445,7 +491,15 @@ export function EventPageView({
     bar === "open" || bar === "booking" || bar === "processing"
       ? paid
         ? [
-            { icon: "banknote" as const, text: `${gbp(event.pricePence)} is taken from your card when you book.` },
+            // Club Yuppie credit comes off first (12 Nov 2026).
+            ...((data.creditPence ?? 0) >= event.pricePence
+              ? [{ icon: "gift" as const, text: `Your credit covers it, so there’s nothing to pay by card.` }]
+              : (data.creditPence ?? 0) > 0
+                ? [
+                    { icon: "gift" as const, text: `${gbp(data.creditPence ?? 0)} of your credit comes off.` },
+                    { icon: "banknote" as const, text: `${gbp(event.pricePence - (data.creditPence ?? 0))} is taken from your card when you book.` },
+                  ]
+                : [{ icon: "banknote" as const, text: `${gbp(event.pricePence)} is taken from your card when you book.` }]),
             { icon: "undo" as const, text: bookableCancelLine },
           ]
         : [{ icon: "undo" as const, text: bookableCancelLine }]
@@ -459,11 +513,13 @@ export function EventPageView({
     if (demo) {
       const fieldsMode = sheet.state === "paying" ? "off" : sheet.state === "declined" ? "error" : "empty";
       sheetEl = (
-        <EventSheet labelledBy={sheetId} onClose={close} dismissable={payDismissable(sheet.state)} status={payStatus(sheet.state, gbp(event.pricePence))}>
+        <EventSheet labelledBy={sheetId} onClose={close} dismissable={payDismissable(sheet.state)} status={payStatus(sheet.state, gbp(sheet.payPence ?? event.pricePence))}>
           <PaySheetBody
             id={sheetId}
             state={sheet.state}
             event={event}
+            payPence={sheet.payPence}
+            creditPence={sheet.creditPence}
             memberEmail={data.memberEmail}
             cancelLine={payLine}
             fields={<DemoPayFields mode={fieldsMode} />}
@@ -479,6 +535,8 @@ export function EventPageView({
         <StripePaySheet
           key={`${sheet.attempt}-${sheet.clientSecret ?? "none"}-${sheet.state === "returning" ? "r" : ""}`}
           clientSecret={sheet.clientSecret}
+          payPence={sheet.payPence}
+          creditPence={sheet.creditPence}
           initialState={sheet.state}
           event={event}
           memberEmail={data.memberEmail}
@@ -494,6 +552,22 @@ export function EventPageView({
         />
       );
     }
+  } else if (sheet?.kind === "credit") {
+    const current = sheet;
+    sheetEl = (
+      <EventSheet labelledBy={sheetId} onClose={() => setSheet(null)} dismissable={current.state !== "booking"} status={current.state === "booking" ? "Booking with your credit." : ""}>
+        <CreditSheetBody
+          id={sheetId}
+          state={current.state}
+          event={event}
+          balancePence={current.balancePence}
+          cancelLine={bookableCancelLine}
+          error={current.error}
+          onBook={() => void bookCredit(current)}
+          onClose={() => setSheet(null)}
+        />
+      </EventSheet>
+    );
   } else if (sheet?.kind === "confirmed") {
     sheetEl = (
       <EventSheet labelledBy={sheetId} onClose={() => setSheet(null)} dismissable status="You’re booked.">

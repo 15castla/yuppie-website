@@ -61,15 +61,27 @@ export function CreditControl({ memberId, first, allowed }: { memberId: string; 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, marginTop: 20 }}>
       <div className="ad-field">
-        <span className="lb">Add or take off credit</span>
-        <div className="ad-acts" role="radiogroup" aria-label="Add or take off">
-          <label className="ad-opt">
-            <input type="radio" name={`credit-dir-${memberId}`} checked={direction === "add"} onChange={() => setDirection("add")} /> Add
-          </label>
-          <label className="ad-opt">
-            <input type="radio" name={`credit-dir-${memberId}`} checked={direction === "remove"} onChange={() => setDirection("remove")} /> Take off
-          </label>
-        </div>
+        <fieldset className="ad-opts" style={{ marginTop: 0 }}>
+          <legend>Add or take off credit</legend>
+          <span className="lb" aria-hidden="true" style={{ display: "block", padding: "0 0 10px", font: "700 14px/1.2 var(--font-body)" }}>
+            Add or take off credit
+          </span>
+          {(
+            [
+              ["add", "Add credit", "Goes on their credit now."],
+              ["remove", "Take off credit", "Only what they have. They see it in their history."],
+            ] as const
+          ).map(([key, label, line]) => (
+            <label className="ad-opt" key={key}>
+              <input type="radio" name={`credit-dir-${memberId}`} checked={direction === key} onChange={() => setDirection(key)} />
+              <span className="rd" aria-hidden="true" />
+              <span className="tx">
+                <b>{label}</b>
+                <span>{line}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
         <label htmlFor={`credit-amount-${memberId}`}>Amount (£)</label>
         <input
           id={`credit-amount-${memberId}`}

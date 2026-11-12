@@ -25,6 +25,8 @@ type BookingRow = {
   status: "confirmed" | "cancelled";
   booked_at: string;
   amount_pence: number;
+  /** Paid with Club Yuppie credit (12 Nov 2026). */
+  credit_pence?: number | null;
   cancel_reason: string | null;
   refund_status: "none" | "pending" | "succeeded" | "failed";
   refund_pence: number | null;
@@ -51,12 +53,16 @@ async function renewsAt(subscriptionId: string | null): Promise<Date | null> {
 }
 
 function bookingAmount(b: BookingRow): string {
+  const credit = b.credit_pence ?? 0;
+  const withCredit = credit > 0 ? ` (${pounds(credit)} credit)` : "";
   if (b.status === "cancelled") {
-    if (b.refund_status === "succeeded") return `${pounds(b.refund_pence ?? b.amount_pence)} refunded`;
+    if (b.refund_status === "succeeded") return `${pounds(b.refund_pence ?? b.amount_pence)} refunded${withCredit}`;
     if (b.refund_status === "pending") return "Refund on its way";
     if (b.refund_status === "failed") return "Refund failed";
+    if (credit > 0 && b.amount_pence === 0) return `Credit (${pounds(credit)})`;
     return b.amount_pence > 0 ? "Not refunded" : "Included";
   }
+  if (credit > 0) return b.amount_pence > 0 ? `${pounds(b.amount_pence)} paid${withCredit}` : `${pounds(credit)} paid with credit`;
   return b.amount_pence > 0 ? `${pounds(b.amount_pence)} paid` : "Included";
 }
 
@@ -96,7 +102,7 @@ export async function MemberCard({ memberId }: { memberId: string }) {
   const [bookingsRes, appRes, pauseAudit, deleteAudit, photoUrl, nominations] = await Promise.all([
     db
       .from("bookings")
-      .select("id, status, booked_at, amount_pence, cancel_reason, refund_status, refund_pence, event:events(id, title, start_time, location)")
+      .select("id, status, booked_at, amount_pence, credit_pence, cancel_reason, refund_status, refund_pence, event:events(id, title, start_time, location)")
       .eq("member_id", member.id)
       .order("booked_at", { ascending: false }),
     db

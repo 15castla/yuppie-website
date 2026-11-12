@@ -94,3 +94,62 @@ revoke all on public.credit_ledger from anon, authenticated;
 
 comment on table public.credit_ledger is
   'Club Yuppie credit: one row per change (+ added, - spent). A balance is the sum of a member''s rows. Not money: spent on Club events, never paid out. Server only.';
+
+-- 4 -----------------------------------------------------------------------------------------------------
+-- Spending credit on Club events (12 Nov 2026). A booking records how much of its price was credit
+-- (bookings.credit_pence; amount_pence stays what the card paid). spend_credit takes credit off a member once per
+-- key, one spend at a time per member (a lock on their row), never more than they have: strict asks for all of it
+-- or nothing (a booking credit covers in full); otherwise it takes what there is (a card payment that already went
+-- through). It answers the pence taken, or -1 when strict and there is not enough.
+
+alter table public.bookings add column if not exists credit_pence integer not null default 0;
+alter table public.bookings drop constraint if exists bookings_credit_pence_check;
+alter table public.bookings add constraint bookings_credit_pence_check check (credit_pence >= 0);
+
+comment on column public.bookings.credit_pence is 'How much of the price was paid with Club Yuppie credit (amount_pence is what the card paid).';
+
+create or replace function public.spend_credit(
+  p_member uuid,
+  p_pence integer,
+  p_key text,
+  p_booking uuid default null,
+  p_strict boolean default true
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_done integer;
+  v_balance integer;
+  v_spend integer;
+begin
+  if p_pence is null or p_pence <= 0 or p_key is null then
+    return 0;
+  end if;
+  perform 1 from public.members where id = p_member for update;
+  if not found then
+    return -1;
+  end if;
+  -- Taken already under this key: the same answer again.
+  select -amount_pence into v_done from public.credit_ledger where dedupe_key = p_key;
+  if found then
+    return v_done;
+  end if;
+  select coalesce(sum(amount_pence), 0) into v_balance from public.credit_ledger where member_id = p_member;
+  if p_strict and v_balance < p_pence then
+    return -1;
+  end if;
+  v_spend := least(greatest(v_balance, 0), p_pence);
+  if v_spend <= 0 then
+    return 0;
+  end if;
+  insert into public.credit_ledger (member_id, amount_pence, kind, booking_id, dedupe_key)
+  values (p_member, -v_spend, 'booking', p_booking, p_key);
+  return v_spend;
+end;
+$$;
+
+revoke all on function public.spend_credit(uuid, integer, text, uuid, boolean) from public, anon, authenticated;
+grant execute on function public.spend_credit(uuid, integer, text, uuid, boolean) to service_role;

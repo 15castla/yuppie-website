@@ -7,6 +7,10 @@
 
 begin;
 
+drop function if exists public.spend_credit(uuid, integer, text, uuid, boolean);
+alter table public.bookings drop constraint if exists bookings_credit_pence_check;
+alter table public.bookings drop column if exists credit_pence;
+
 drop table if exists public.credit_ledger;
 
 drop trigger if exists applications_nomination_guard on public.applications;

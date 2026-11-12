@@ -34,7 +34,10 @@ export type EventPageEvent = {
 /** The member's confirmed booking, as the booking card and the confirmed sheet show it. */
 export type EventPageBooking = {
   bookingId: string;
+  /** What was paid in all: the card and any Club Yuppie credit. */
   amountPence: number;
+  /** The part of it paid with credit (12 Nov 2026), which goes back on their credit, not to a card. */
+  creditPence?: number;
   bookedAt: string;
   /** The exact address (A-D3). Null until the club saves one. */
   address: string | null;
@@ -78,6 +81,8 @@ export type EventPageData = {
    * (app/members/events/paid-not-booked.ts): the page opens in "Paid, but not booked yet." with no Book button.
    */
   paidNotBooked?: { amountPence: number } | null;
+  /** The member's Club Yuppie credit now (12 Nov 2026): the money lines say what comes off. 0 or absent: none. */
+  creditPence?: number;
 };
 
 /** What the page is, before anything the member does on it. */
@@ -193,7 +198,8 @@ export function mapsUrl(place: string | null, address: string): string {
 export function toPageBooking(b: MyBooking): EventPageBooking {
   return {
     bookingId: b.bookingId,
-    amountPence: b.amountPence,
+    amountPence: b.amountPence + (b.creditPence ?? 0),
+    creditPence: b.creditPence ?? 0,
     bookedAt: b.bookedAt,
     address: b.address,
     freeUntil: b.freeUntil,
@@ -202,4 +208,15 @@ export function toPageBooking(b: MyBooking): EventPageBooking {
     icsUrl: b.calendarUrl,
     googleUrl: b.googleUrl,
   };
+}
+
+/**
+ * Where a refund goes, in words (12 Nov 2026): "Your £25 goes back to your card.", "Your £10 goes back on your
+ * credit.", or "£15 goes back to your card and £10 on your credit." `total` is card and credit together.
+ */
+export function backWords(total: number, credit = 0): string {
+  const card = Math.max(0, total - credit);
+  if (credit <= 0) return `Your ${gbp(total)} goes back to your card.`;
+  if (card <= 0) return `Your ${gbp(credit)} goes back on your credit.`;
+  return `${gbp(card)} goes back to your card and ${gbp(credit)} on your credit.`;
 }

@@ -5,7 +5,9 @@ import { revalidatePath, revalidateTag } from "next/cache";
 import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { stripe } from "@/lib/stripe";
 import { eventCalendarHref } from "@/lib/members/routes";
-import { bookIncludedEvent, cancelBookingByMember } from "@/lib/server/bookings";
+import { bookEventWithCredit, bookIncludedEvent, cancelBookingByMember } from "@/lib/server/bookings";
+import { flags } from "@/lib/members/flags";
+import { creditBalance } from "@/lib/server/credit";
 import { calendarForMember, getEventAddressForMember } from "@/lib/server/events";
 import { pounds } from "@/lib/server/format";
 import { memberForAction, requireMember } from "../require-member";
@@ -74,8 +76,20 @@ export async function rsvpToEvent(
   }
 }
 
+/** Stripe takes at least 30p by card: credit leaves at least this much for the card when it does not cover it all. */
+const CARD_MINIMUM_PENCE = 30;
+
 export type CreateEventPaymentIntentResult =
-  | { success: true; clientSecret: string }
+  | {
+      success: true;
+      clientSecret: string;
+      /** What the card pays (the price, less any credit). */
+      payPence?: number;
+      /** Club Yuppie credit taken off the price (12 Nov 2026); 0 or absent: none. */
+      creditPence?: number;
+    }
+  /** The member's credit covers the price: no card (bookWithCredit books it). */
+  | { success: true; coveredByCredit: true; creditPence: number; balancePence: number }
   | {
       success: false;
       error: string;
@@ -205,18 +219,33 @@ export async function createEventPaymentIntent(
     };
   }
 
+  // Club Yuppie credit (12 Nov 2026) comes off automatically: all of it when it covers the price (then no card at
+  // all), else what there is, leaving the card at least Stripe's minimum.
+  let creditPence = 0;
+  if (flags.nominations) {
+    let balance = 0;
+    try {
+      balance = await creditBalance(member.id);
+    } catch (err) {
+      console.error(`createEventPaymentIntent: reading credit for ${member.id} failed (paying by card in full):`, err);
+    }
+    if (balance >= event.price_pence) return { success: true, coveredByCredit: true, creditPence: event.price_pence, balancePence: balance };
+    creditPence = Math.max(0, Math.min(balance, event.price_pence - CARD_MINIMUM_PENCE));
+  }
+  const payPence = event.price_pence - creditPence;
+
   try {
     const paymentIntent = await stripe.paymentIntents.create(
       {
-        amount: event.price_pence,
+        amount: payPence,
         currency: "gbp",
         customer: member.stripe_customer_id,
-        description: event.title,
+        description: creditPence ? `${event.title} (${pounds(creditPence)} paid with credit)` : event.title,
         automatic_payment_methods: { enabled: true },
-        metadata: { member_id: member.id, event_id: eventId },
+        metadata: { member_id: member.id, event_id: eventId, ...(creditPence ? { credit_pence: String(creditPence) } : {}) },
       },
       // One PaymentIntent per attempt (a double tap is one attempt; opening payment again is a new one).
-      { idempotencyKey: `event-pi-${member.id}-${eventId}-${event.price_pence}-${attemptIdFrom(formData.get("attempt_id"))}` },
+      { idempotencyKey: `event-pi-${member.id}-${eventId}-${event.price_pence}-${creditPence}-${attemptIdFrom(formData.get("attempt_id"))}` },
     );
 
     if (!paymentIntent.client_secret) {
@@ -228,7 +257,7 @@ export async function createEventPaymentIntent(
       };
     }
 
-    return { success: true, clientSecret: paymentIntent.client_secret };
+    return { success: true, clientSecret: paymentIntent.client_secret, payPence, creditPence };
   } catch (err) {
     console.error(`createEventPaymentIntent failed for member ${member.id}, event ${eventId}:`, err);
     return {
@@ -236,6 +265,54 @@ export async function createEventPaymentIntent(
       error: PAYMENT_OPEN_ERROR,
       reason: "error",
     };
+  }
+}
+
+export type BookWithCreditResult =
+  | { booked: true }
+  | { booked: false; error: string; reason: "not_found" | "started" | "cancelled" | "full" | "inactive" | "not_enough_credit" | "price_changed" | "free" | "already_booked" | "error" };
+
+// A paid Club event the member's credit covers in full (12 Nov 2026): one tap in the credit sheet books it, no
+// card. The page sends the price the member saw and an attempt id (a double tap is one booking).
+export async function bookWithCredit(formData: FormData): Promise<BookWithCreditResult | SessionEnded> {
+  const member = await memberForAction();
+  if (!member) return SESSION_ENDED;
+  if (!flags.nominations) return { booked: false, error: BOOKING_FAILED_ERROR, reason: "error" };
+  const eventId = formData.get("event_id");
+  if (typeof eventId !== "string" || !eventId) return { booked: false, error: "Missing event.", reason: "not_found" };
+  const seen = formData.get("price_pence");
+  const seenPence = typeof seen === "string" && seen.trim() !== "" ? Number(seen) : null;
+
+  const outcome = await bookEventWithCredit(member.id, eventId, attemptIdFrom(formData.get("attempt_id")), Number.isFinite(seenPence) ? seenPence : null);
+  if (outcome.ok && outcome.status === "booked") {
+    revalidatePath("/members", "layout");
+    return { booked: true };
+  }
+  if (outcome.ok) {
+    // Booked already (another tab): their credit went back.
+    revalidatePath("/members", "layout");
+    return { booked: false, error: ALREADY_BOOKED_ERROR, reason: "already_booked" };
+  }
+  switch (outcome.status) {
+    case "not_enough_credit":
+      return { booked: false, error: "You don’t have enough credit for this any more. Nothing was taken. Try again to pay by card.", reason: "not_enough_credit" };
+    case "price_changed":
+      revalidateTag("events", { expire: 0 });
+      return { booked: false, error: `The price has changed to ${pounds(outcome.pricePence ?? 0)}. Check it and try again.`, reason: "price_changed" };
+    case "free":
+      return { booked: false, error: "This event doesn’t require payment.", reason: "free" };
+    case "full":
+      return { booked: false, error: `${EVENT_FULL_ERROR} Your credit is still yours.`, reason: "full" };
+    case "started":
+      return { booked: false, error: EVENT_STARTED_ERROR, reason: "started" };
+    case "cancelled":
+      return { booked: false, error: EVENT_CANCELLED_ERROR, reason: "cancelled" };
+    case "inactive":
+      return { booked: false, error: INACTIVE_ERROR, reason: "inactive" };
+    case "not_found":
+      return { booked: false, error: "That event couldn’t be found.", reason: "not_found" };
+    default:
+      return { booked: false, error: "We couldn’t book your spot. Nothing was taken from your credit. Please try again.", reason: "error" };
   }
 }
 
@@ -342,6 +419,8 @@ export type CancelBookingResult =
       /** none: an included event, or cancelled without a refund. failed: the club has been alerted. */
       refund: "none" | "succeeded" | "pending" | "failed" | "skipped";
       refundPence: number;
+      /** The part paid with credit, back on their credit (12 Nov 2026). */
+      creditPence: number;
       /** Cancelled inside 48 hours without a refund. */
       late: boolean;
     }
@@ -369,6 +448,7 @@ export async function cancelBooking(
       ok: true,
       refund: result.refund.status,
       refundPence: result.refund.refundPence,
+      creditPence: result.refund.creditPence ?? 0,
       late: result.reason === "member_late",
     };
   }

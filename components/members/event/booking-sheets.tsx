@@ -84,6 +84,8 @@ export type CancelOutcome = {
   refundFailed?: boolean;
   /** What was paid for the booking (the page's booking is gone by the time this shows). */
   paidPence?: number;
+  /** What went back on their credit (12 Nov 2026). */
+  creditPence?: number;
 };
 
 export const cancelDismissable = (state: CancelState) => state !== "cancelling";
@@ -107,7 +109,7 @@ export function CancelSheetBody({
   id: string;
   state: CancelState;
   event: SheetEvent;
-  booking: Pick<EventPageBooking, "amountPence" | "moved">;
+  booking: Pick<EventPageBooking, "amountPence" | "moved" | "creditPence">;
   memberEmail: string;
   hours: number;
   outcome?: CancelOutcome | null;
@@ -120,6 +122,13 @@ export function CancelSheetBody({
 }) {
   const paid = booking.amountPence > 0;
   const price = gbp(booking.amountPence);
+  // Paid partly or wholly with credit (12 Nov 2026): that part goes back on their credit, at once.
+  const creditPart = Math.min(booking.creditPence ?? 0, booking.amountPence);
+  const cardPart = booking.amountPence - creditPart;
+  const backLines: { icon: "undo" | "gift"; text: string }[] = [
+    ...(cardPart > 0 ? [{ icon: "undo" as const, text: `${gbp(cardPart)} goes back to your card. It usually lands in ${BACK_5_10}.` }] : []),
+    ...(creditPart > 0 ? [{ icon: "gift" as const, text: `${gbp(creditPart)} goes back on your credit straight away.` }] : []),
+  ];
   const summary = <EventSummary event={event} line={paid ? { label: "You paid", pence: booking.amountPence } : null} />;
   const automatic = booking.moved
     ? "We moved this event, so this is automatic, whatever the date."
@@ -136,10 +145,7 @@ export function CancelSheetBody({
         <MoneyList
           items={
             paid
-              ? [
-                  { icon: "undo", text: `${price} goes back to your card. It usually lands in ${BACK_5_10}.` },
-                  { icon: "clock", text: automatic },
-                ]
+              ? [...backLines, { icon: "clock", text: automatic }]
               : [
                   { icon: "users", text: "Your spot goes back to the club, so someone else can take it." },
                   { icon: "clock", text: automatic },
@@ -222,9 +228,10 @@ export function CancelSheetBody({
   }
 
   if (state === "done") {
-    const refunded = (outcome?.refundPence ?? 0) > 0;
+    const creditBack = outcome?.creditPence ?? 0;
+    const refunded = (outcome?.refundPence ?? 0) > 0 || creditBack > 0;
     const failed = Boolean(outcome?.refundFailed);
-    const back = gbp(outcome?.refundPence ?? 0);
+    const back = gbp((outcome?.refundPence ?? 0) + creditBack);
     // What was paid, from the outcome (the booking itself is gone from the page once it refreshes).
     const paidPence = outcome?.paidPence ?? booking.amountPence;
     return (
@@ -236,7 +243,10 @@ export function CancelSheetBody({
           items={
             refunded
               ? [
-                  { icon: "undo", text: `Your ${back} is on its way back to your card. It usually lands in ${BACK_5_10}.` },
+                  ...((outcome?.refundPence ?? 0) > 0
+                    ? [{ icon: "undo" as const, text: `${creditBack > 0 ? gbp(outcome?.refundPence ?? 0) : `Your ${back}`} is on its way back to your card. It usually lands in ${BACK_5_10}.` }]
+                    : []),
+                  ...(creditBack > 0 ? [{ icon: "gift" as const, text: `${gbp(creditBack)} is back on your credit now.` }] : []),
                   { icon: "mail", text: `A receipt is on its way to ${memberEmail}.` },
                 ]
               : failed

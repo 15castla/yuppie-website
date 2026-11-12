@@ -6,6 +6,8 @@ import { loadMyBooking } from "@/app/members/events/my-booking";
 import { paidNotBookedFor } from "@/app/members/events/paid-not-booked";
 import { getCachedEventBySlug, hasEventStarted } from "@/components/members/events-data";
 import { EventPageView } from "@/components/members/event/event-page-view";
+import { flags } from "@/lib/members/flags";
+import { creditBalance } from "@/lib/server/credit";
 import { toPageBooking, type ClubCancelledBooking, type EventPageData, type PaymentReturn } from "@/components/members/event/model";
 import { FREE_CANCEL_HOURS, freeCancelUntil } from "@/lib/server/bookings";
 
@@ -99,6 +101,7 @@ export default async function EventDetailPage({
     clubCancelled,
     paymentReturn,
     paidNotBooked,
+    creditPence: flags.nominations && event.price_pence > 0 && !myBooking ? await creditBalance(member.id).catch(() => 0) : 0,
   };
 
   return <EventPageView data={data} />;

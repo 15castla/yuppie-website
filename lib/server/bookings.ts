@@ -38,10 +38,11 @@ import {
 } from "./db";
 import { dayDate, pounds, time24 } from "./format";
 import { later } from "./later";
-import { sendEmail, sendPush } from "./messages";
+import { sendAdminAlert, sendEmail, sendPush } from "./messages";
 import { channelOn, prefsRow } from "./notification-prefs";
 import { pushWords } from "./push/words";
 import { cardLabelForPaymentIntent } from "./stripe/card";
+import { creditReturnedFor, giveBackCredit, returnBookingCredit, spendCredit } from "./credit";
 
 export { FREE_CANCEL_HOURS };
 
@@ -120,6 +121,67 @@ async function bookEvent(
   return { ok: false, status: "error", error: `unexpected book_event result ${result.status}` };
 }
 
+export type CreditBookingOutcome =
+  | BookingOutcome
+  | { ok: false; status: "not_enough_credit" | "free" | "price_changed"; pricePence?: number };
+
+/**
+ * Book a paid Club event that the member's credit covers in full (12 Nov 2026): no card. The credit is taken first
+ * (all of it or nothing, once per attempt), then the place booked; a place that cannot be booked (full, started,
+ * cancelled, the membership not active) puts the credit back. Sends the confirmation after the response.
+ */
+export async function bookEventWithCredit(memberId: string, eventId: string, attempt: string, seenPricePence: number | null): Promise<CreditBookingOutcome> {
+  const db = serviceDb();
+  const { data: event, error: eventError } = await db.from("events").select("price_pence").eq("id", eventId).maybeSingle();
+  if (eventError) return { ok: false, status: "error", error: eventError.message };
+  if (!event) return { ok: false, status: "not_found" };
+  const price = event.price_pence as number;
+  if (!price) return { ok: false, status: "free" };
+  if (seenPricePence !== null && seenPricePence !== price) return { ok: false, status: "price_changed", pricePence: price };
+  const key = `credit-book:${memberId}:${eventId}:${attempt}`;
+
+  let taken: number;
+  try {
+    taken = await spendCredit({ memberId, pence: price, key, strict: true });
+  } catch (err) {
+    return { ok: false, status: "error", error: errorMessage(err) };
+  }
+  if (taken < price) return { ok: false, status: "not_enough_credit" };
+
+  const outcome = await bookEvent(memberId, eventId, 0, null, false);
+  if (outcome.ok && outcome.status === "booked") {
+    const bookingId = outcome.bookingId;
+    const [{ error: bookingError }, { error: ledgerError }] = await Promise.all([
+      db.from("bookings").update({ credit_pence: price }).eq("id", bookingId),
+      db.from("credit_ledger").update({ booking_id: bookingId }).eq("dedupe_key", key),
+    ]);
+    if (bookingError) console.error(`bookEventWithCredit: recording credit on booking ${bookingId} failed:`, bookingError);
+    if (ledgerError) console.error(`bookEventWithCredit: linking credit to booking ${bookingId} failed:`, ledgerError);
+    later(`booking-confirmed email for ${bookingId}`, () => sendBookingConfirmedEmail(bookingId));
+    return outcome;
+  }
+  // The same attempt again (a double tap after it booked): the booking is this credit's.
+  if (outcome.ok && outcome.status === "already_booked") {
+    const { data: spent } = await db.from("credit_ledger").select("booking_id").eq("dedupe_key", key).maybeSingle();
+    if (spent?.booking_id === outcome.bookingId) return outcome;
+  }
+  try {
+    await giveBackCredit(memberId, price, `credit-unbook:${memberId}:${eventId}:${attempt}`);
+  } catch (err) {
+    console.error(`bookEventWithCredit: putting back ${price}p of credit for ${memberId} failed:`, err);
+    later(`credit-not-returned alert ${key}`, () =>
+      sendAdminAlert({
+        subject: "Credit not put back",
+        heading: "A member’s credit was not put back",
+        lines: [`${pounds(price)} of credit was taken for a booking that could not be made, and putting it back failed. Add it back in Admin. Member ${memberId}, event ${eventId}.`],
+        dedupeKey: `credit-not-returned:${key}`,
+        refs: { memberId, eventId },
+      }),
+    );
+  }
+  return outcome;
+}
+
 /** Book an event that is included in the membership (price 0). Sends the confirmation after the response. */
 export async function bookIncludedEvent(memberId: string, eventId: string): Promise<BookingOutcome> {
   const { data: event } = await serviceDb().from("events").select("price_pence").eq("id", eventId).maybeSingle();
@@ -142,6 +204,45 @@ export type PaidBookingResult =
       /** The payment could never be booked (the event was cancelled, started or deleted, or the membership ended), so it was refunded automatically (QA3-09). */
       refunded?: boolean;
     };
+
+/** The credit a PaymentIntent was made with (its metadata credit_pence, set by createEventPaymentIntent): 0 when none. */
+export function creditOfPayment(paymentIntent: Pick<Stripe.PaymentIntent, "metadata">): number {
+  const raw = paymentIntent.metadata?.credit_pence;
+  const pence = typeof raw === "string" && /^\d{1,6}$/.test(raw) ? Number(raw) : 0;
+  return pence > 0 ? pence : 0;
+}
+
+/**
+ * A paid booking made with credit and a card (12 Nov 2026): take the credit now that the card part went through,
+ * once (its key is the payment), and record it on the booking. Should the member have spent that credit meanwhile
+ * (two bookings at the same moment), what is there is taken and the club is told the rest is short.
+ */
+async function takeCreditForPayment(paymentIntent: Stripe.PaymentIntent, memberId: string, bookingId: string, creditPence: number, event: EventRow): Promise<void> {
+  if (creditPence <= 0) return;
+  let taken: number;
+  try {
+    taken = await spendCredit({ memberId, pence: creditPence, key: `pi:${paymentIntent.id}`, bookingId, strict: false });
+  } catch (err) {
+    throw new TransientBookingError(`taking credit for payment ${paymentIntent.id}: ${errorMessage(err)}`);
+  }
+  const { error } = await serviceDb().from("bookings").update({ credit_pence: Math.max(0, taken) }).eq("id", bookingId).eq("credit_pence", 0);
+  if (error) throw new TransientBookingError(`recording credit on booking ${bookingId}: ${error.message}`);
+  if (taken < creditPence) {
+    const short = creditPence - Math.max(0, taken);
+    later(`credit-short alert for ${paymentIntent.id}`, () =>
+      sendAdminAlert({
+        subject: `Credit short on a booking: ${event.title}`,
+        heading: "A booking’s credit was short",
+        lines: [
+          `The member paid ${pounds(paymentIntent.amount)} by card for ${event.title} and was to use ${pounds(creditPence)} of credit, but only ${pounds(Math.max(0, taken))} was left (spent on something else at the same moment).`,
+          `The booking stands. ${pounds(short)} of the price was not paid. Booking ${bookingId}, payment ${paymentIntent.id}.`,
+        ],
+        dedupeKey: `credit-short:${paymentIntent.id}`,
+        refs: { memberId, bookingId, eventId: event.id },
+      }),
+    );
+  }
+}
 
 /** A database error on the paid path: the webhook answers 500 so Stripe sends the event again, and the page treats it as still processing. */
 export class TransientBookingError extends Error {
@@ -177,8 +278,10 @@ export async function confirmPaidBooking(paymentIntent: Stripe.PaymentIntent): P
     return { booked: false, reason: "not_found", refunded: refund.ok };
   }
 
-  // Today's check, kept: the payment must be for this event's price, in pounds.
-  if (paymentIntent.currency !== "gbp" || paymentIntent.amount !== event.price_pence || event.price_pence <= 0) {
+  // Today's check, kept: the payment must be for this event's price, in pounds. With credit (12 Nov 2026) the card
+  // paid the price less the credit the PaymentIntent says it used.
+  const creditPence = creditOfPayment(paymentIntent);
+  if (paymentIntent.currency !== "gbp" || paymentIntent.amount + creditPence !== event.price_pence || event.price_pence <= 0) {
     await alertPaidNotBooked(
       paymentIntent,
       memberId,
@@ -193,6 +296,7 @@ export async function confirmPaidBooking(paymentIntent: Stripe.PaymentIntent): P
 
   if (outcome.ok && outcome.status === "booked") {
     const bookingId = outcome.bookingId;
+    await takeCreditForPayment(paymentIntent, memberId, bookingId, creditPence, event);
     if (outcome.overCapacity) {
       later(`over-capacity alert for ${paymentIntent.id}`, () => flagBookingForReview("over_capacity", paymentIntent, memberId, event));
     }
@@ -201,6 +305,8 @@ export async function confirmPaidBooking(paymentIntent: Stripe.PaymentIntent): P
   }
 
   if (outcome.ok && outcome.status === "already_booked") {
+    // The page and the webhook both record one payment: the credit is taken once (its key is the payment).
+    if (outcome.samePayment) await takeCreditForPayment(paymentIntent, memberId, outcome.bookingId, creditPence, event);
     if (!outcome.samePayment) {
       // Booked already under another payment: paid twice (two tabs, say). The
       // booking stands; the second charge needs a look.
@@ -409,7 +515,7 @@ export async function sendBookingConfirmedEmail(bookingId: string): Promise<void
   const until = freeCancelUntil(event.start_time);
   const cancelUntil = until.getTime() > Date.now() ? { date: dayDate(until), time: time24(until) } : null;
 
-  if (booking.amount_pence > 0) {
+  if (booking.amount_pence > 0 || booking.credit_pence > 0) {
     await sendEmail({
       template: "booking-confirmed",
       to: booking.member.email,
@@ -417,7 +523,8 @@ export async function sendBookingConfirmedEmail(bookingId: string): Promise<void
         event: emailEvent(event),
         place,
         paid: pounds(booking.amount_pence),
-        card: await cardLabelForPaymentIntent(booking.stripe_payment_intent_id),
+        credit: booking.credit_pence > 0 ? pounds(booking.credit_pence) : null,
+        card: booking.stripe_payment_intent_id ? await cardLabelForPaymentIntent(booking.stripe_payment_intent_id) : null,
         cancelUntil,
         bookingUrl,
         calendarUrl,
@@ -439,6 +546,18 @@ export async function sendBookingConfirmedEmail(bookingId: string): Promise<void
       dedupeKey,
       refs,
     });
+  }
+}
+
+/** The credit put back for a cancelled booking ("£10"), or null (12 Nov 2026). */
+async function creditBackFor(booking: Pick<BookingRow, "id" | "credit_pence">): Promise<string | null> {
+  if (booking.credit_pence <= 0) return null;
+  try {
+    const pence = await creditReturnedFor(booking.id);
+    return pence > 0 ? pounds(pence) : null;
+  } catch (err) {
+    console.error(`creditBackFor ${booking.id} failed:`, err);
+    return null;
   }
 }
 
@@ -469,8 +588,10 @@ async function sendBookingCancelledEmail(
             }
           : null,
       membershipEndedOn: extra.membershipEndedOn,
-      // A paid booking cancelled late keeps its money: the email says so (QA1-06).
-      notRefunded: reason === "member_late" && !refunded && booking.amount_pence > 0 ? pounds(booking.amount_pence) : undefined,
+      // A paid booking cancelled late keeps its money: the email says so (QA1-06). Credit counts as paid.
+      notRefunded:
+        reason === "member_late" && !refunded && booking.amount_pence + booking.credit_pence > 0 ? pounds(booking.amount_pence + booking.credit_pence) : undefined,
+      creditBack: await creditBackFor(booking),
       eventsUrl: ROUTES.events,
     },
     dedupeKey: `booking-cancelled:${booking.id}`,
@@ -494,6 +615,8 @@ export type RefundOutcome = {
   error?: string;
   /** Stripe did not answer this time: the refunds job tries again with the same idempotency key. */
   retrying?: boolean;
+  /** The part paid with credit, put back on the member's credit (12 Nov 2026). */
+  creditPence?: number;
 };
 
 type RefundRow = Pick<BookingRow, "id" | "amount_pence" | "stripe_payment_intent_id" | "member_id" | "event_id" | "refund_status" | "refund_pence" | "stripe_refund_id"> & {
@@ -545,6 +668,22 @@ function refundStatusOf(refund: Pick<Stripe.Refund, "status">): RefundStatus {
  * claim leaves the row as it was ("none"), which the refunds job also picks up.
  */
 export async function refundBooking(
+  booking: Pick<BookingRow, "id" | "amount_pence" | "stripe_payment_intent_id" | "member_id" | "event_id">,
+  options: { retry?: boolean } = {},
+): Promise<RefundOutcome> {
+  // The part paid with credit goes back on the member's credit at once, once (12 Nov 2026); the card part as before.
+  let creditPence = 0;
+  try {
+    creditPence = await returnBookingCredit(booking.id);
+  } catch (err) {
+    console.error(`refundBooking: putting back the credit for booking ${booking.id} failed:`, err);
+  }
+  const outcome = await refundCardPayment(booking, options);
+  return creditPence > 0 ? { ...outcome, creditPence } : outcome;
+}
+
+/** The card part of a booking's refund (refundBooking). */
+async function refundCardPayment(
   booking: Pick<BookingRow, "id" | "amount_pence" | "stripe_payment_intent_id" | "member_id" | "event_id">,
   options: { retry?: boolean } = {},
 ): Promise<RefundOutcome> {
@@ -922,6 +1061,7 @@ async function sendEventCancelledEmail(bookingId: string): Promise<void> {
         refunded && (booking.refund_pence ?? 0) > 0
           ? { amount: pounds(booking.refund_pence ?? booking.amount_pence), card: await cardLabelForPaymentIntent(booking.stripe_payment_intent_id) }
           : null,
+      creditBack: await creditBackFor(booking),
       eventsUrl: ROUTES.events,
     },
     dedupeKey: `event-cancelled:${booking.id}`,
@@ -933,7 +1073,7 @@ async function sendEventCancelledEmail(bookingId: string): Promise<void> {
     await sendPush({
       template: "push-event-cancelled",
       memberId: booking.member_id,
-      ...pushWords.eventCancelled(booking.event.title, refunded && (booking.refund_pence ?? 0) > 0),
+      ...pushWords.eventCancelled(booking.event.title, (refunded && (booking.refund_pence ?? 0) > 0) || booking.credit_pence > 0),
       path: ROUTES.events,
       thread: `event:${booking.event_id}`,
       dedupeKey: `push:event-cancelled:${booking.id}`,

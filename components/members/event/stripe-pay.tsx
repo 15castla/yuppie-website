@@ -68,7 +68,13 @@ export function StripePaySheet({
   onOutcome,
   onRetry,
   onClose,
+  payPence,
+  creditPence = 0,
 }: {
+  /** What the card pays: the price less any credit (12 Nov 2026). Default: the price. */
+  payPence?: number;
+  /** Club Yuppie credit taken off the price. */
+  creditPence?: number;
   /** Null when the PaymentIntent could not be made (then the sheet opens on "We couldn't open payment"). */
   clientSecret: string | null;
   initialState?: PayState;
@@ -116,11 +122,13 @@ export function StripePaySheet({
   }, [needsStripe, stripe]);
 
   const body = (fields: ReactNode, ready: boolean, onPay?: () => void, onCancelBank?: () => void) => (
-    <EventSheet labelledBy={id} onClose={onClose} dismissable={payDismissable(state)} status={payStatus(state, gbp(event.pricePence))}>
+    <EventSheet labelledBy={id} onClose={onClose} dismissable={payDismissable(state)} status={payStatus(state, gbp(payPence ?? event.pricePence))}>
       <PaySheetBody
         id={id}
         state={state}
         event={event}
+        payPence={payPence}
+        creditPence={creditPence}
         memberEmail={memberEmail}
         cancelLine={cancelLine}
         fields={fields}
