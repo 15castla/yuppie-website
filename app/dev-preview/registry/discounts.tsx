@@ -281,7 +281,6 @@ export const discountsScreens: PreviewScreen[] = [
       "empty",
       "loading",
       "long",
-      "nominate",
     ],
     tab: "access",
     defaultFlags: ["openInvite", "concierge"],
@@ -308,9 +307,6 @@ export const discountsScreens: PreviewScreen[] = [
           return <AccessLoading />;
         case "long":
           return <AccessView perks={ACCESS_LONG} featureCard={SPOT_CUSTOM} />;
-        // Nominate a friend's card under the title (12 Nov 2026).
-        case "nominate":
-          return <AccessView perks={ACCESS} featureCard={SPOT_ACCESS} nominate={{ allowed: 5, used: 2, creditPence: 1000 }} />;
         default:
           return <AccessView perks={ACCESS} featureCard={SPOT_ACCESS} />;
       }

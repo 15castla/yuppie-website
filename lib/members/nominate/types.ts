@@ -29,7 +29,7 @@ export type CreditRow = {
   at: string;
 };
 
-/** The You and Access card. */
+/** The card on You. */
 export type NominateCardData = {
   allowed: number;
   used: number;

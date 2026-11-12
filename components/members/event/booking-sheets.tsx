@@ -129,7 +129,22 @@ export function CancelSheetBody({
     ...(cardPart > 0 ? [{ icon: "undo" as const, text: `${gbp(cardPart)} goes back to your card. It usually lands in ${BACK_5_10}.` }] : []),
     ...(creditPart > 0 ? [{ icon: "gift" as const, text: `${gbp(creditPart)} goes back on your credit straight away.` }] : []),
   ];
-  const summary = <EventSummary event={event} line={paid ? { label: "You paid", pence: booking.amountPence } : null} />;
+  const summary = (
+    <EventSummary
+      event={event}
+      breakdown={
+        creditPart > 0 && cardPart > 0
+          ? [
+              { label: "Card", value: gbp(cardPart) },
+              { label: "Credit", value: gbp(creditPart) },
+            ]
+          : creditPart > 0
+            ? [{ label: "Credit", value: gbp(creditPart) }]
+            : null
+      }
+      line={paid ? { label: "You paid", pence: booking.amountPence } : null}
+    />
+  );
   const automatic = booking.moved
     ? "We moved this event, so this is automatic, whatever the date."
     : `It’s more than ${hours} hours until the event, so this is automatic.`;

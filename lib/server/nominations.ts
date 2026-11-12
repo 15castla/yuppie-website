@@ -93,7 +93,7 @@ async function allowedAndUsed(memberId: string): Promise<{ allowed: number; used
   return { allowed: (member?.nominations_allowed as number | undefined) ?? NOMINATIONS_DEFAULT, used: count ?? 0 };
 }
 
-/** The You and Access card: nominations left and credit. */
+/** The card on You: nominations left and credit. */
 export async function nominateCard(memberId: string): Promise<NominateCardData> {
   const [counts, creditPence] = await Promise.all([allowedAndUsed(memberId), creditBalance(memberId)]);
   return { ...counts, creditPence };

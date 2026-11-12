@@ -1,5 +1,6 @@
-// Nominate a friend's card (12 Nov 2026): at the top of You and Access, so it is found without looking for it, and
-// says the deal every time it is seen: "£10 credit for you each time one is approved." Opens the Nominate page.
+// Nominate a friend's card (12 Nov 2026): on You only (Albert, 12 Nov: "only be able to nominate through the
+// profile"), and says the deal every time it is seen: "£10 credit for you each time one is approved." Opens the
+// Nominate page.
 // A view of plain props (the preview harness draws it).
 
 import "./nominate.css";

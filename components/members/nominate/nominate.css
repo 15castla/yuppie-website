@@ -1,8 +1,8 @@
-/* Nominate a friend (/members/you/nominate) and its card on You and Access (12 Nov 2026). Built on the members kit
+/* Nominate a friend (/members/you/nominate) and its card on You (12 Nov 2026). Built on the members kit
    (app/members/members.css) in the house look: ink rules, a pale card with the hard shadow, the serif accent. Every class
    added here starts with nm-. */
 
-/* the card on You and Access ---------------------------------------------------------- */
+/* the card on You ---------------------------------------------------------------------- */
 .nm-card{display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--ink);padding:16px 18px}
 @media (min-width:768px){ .nm-card{padding:20px 24px} }
 .nm-card:focus-visible{outline:2px solid var(--ink);outline-offset:3px}

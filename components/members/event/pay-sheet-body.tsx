@@ -23,6 +23,14 @@ import { ROUTES } from "@/lib/members/routes";
 import { EventSummary } from "./sheet-parts";
 import { gbp, mailtoClub, type EventPageEvent } from "./model";
 
+/** "Ticket £25", "Your credit −£10": the lines above "You’ll pay" when credit comes off (12 Nov 2026). */
+export function creditBreakdown(pricePence: number, creditPence: number): { label: string; value: string }[] {
+  return [
+    { label: "Ticket", value: gbp(pricePence) },
+    { label: "Your credit", value: `−${gbp(creditPence)}` },
+  ];
+}
+
 export const PAY_STATES = ["ready", "paying", "declined", "bank", "returning", "processing", "confirm-failed", "refunded", "load-error"] as const;
 export type PayState = (typeof PAY_STATES)[number];
 
@@ -82,10 +90,14 @@ export function PaySheetBody({
           onClose={onClose}
           closeOff={busy}
         />
-        <EventSummary event={event} line={{ label: "You’ll pay", pence: cardPence }} />
+        <EventSummary
+          event={event}
+          // With credit (Albert, 12 Nov 2026): the ticket, then the credit off it, then what the card pays.
+          breakdown={creditPence > 0 ? creditBreakdown(event.pricePence, creditPence) : null}
+          line={{ label: "You’ll pay", pence: cardPence }}
+        />
         <MoneyList
           items={[
-            ...(creditPence > 0 ? [{ icon: "gift" as const, text: `${gbp(creditPence)} of your credit comes off the ${gbp(event.pricePence)}.` }] : []),
             { icon: "banknote", text: `${price} is taken from your card when you tap Pay.` },
             ...(bad ? [] : [{ icon: "undo" as const, text: cancelLine }]),
           ]}
@@ -308,7 +320,7 @@ export function CreditSheetBody({
   return (
     <>
       <PayHead id={id} title="Book with your credit." sub="Your credit covers it, so there’s nothing to pay." onClose={onClose} closeOff={busy} />
-      <EventSummary event={event} line={{ label: "From your credit", pence: event.pricePence }} />
+      <EventSummary event={event} breakdown={creditBreakdown(event.pricePence, event.pricePence)} line={{ label: "You’ll pay", pence: 0 }} />
       <MoneyList
         items={[
           { icon: "gift", text: `${gbp(event.pricePence)} comes off your credit. You’ll have ${gbp(left)} left.` },

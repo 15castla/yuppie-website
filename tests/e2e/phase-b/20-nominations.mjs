@@ -27,7 +27,8 @@ await page('/members/you/nominate', nominator.session);
 eq(sql1(`select nomination_code from members where id = ${q(nominator.id)}`).nomination_code, code, 'the code stays the same on the next visit');
 ok(html((await page('/members/you', nominator.session)).text).includes('Nominate a friend'), 'You: the card');
 ok(html((await page('/members/you', nominator.session)).text).includes('5 left'), 'You: 5 left');
-ok(html((await page('/members/access', nominator.session)).text).includes('£10 credit for you each time one is approved.'), 'Access: the card, with the deal');
+ok(html((await page('/members/you', nominator.session)).text).includes('£10 credit for you each time one is approved.'), 'You: the card says the deal');
+ok(!html((await page('/members/access', nominator.session)).text).includes('Nominate a friend'), 'Access: no card (nominating is on You only, Albert 12 Nov)');
 
 // ---------------------------------------------------------------- checking a code
 eq((await action('apply.checkNominationCode', [code.toLowerCase().replace('-', ' ')])).result, { ok: true, firstName: 'Nm' }, 'a code typed in small letters with a space: found');
