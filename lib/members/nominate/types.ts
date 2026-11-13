@@ -40,7 +40,7 @@ export type NominateCardData = {
 export type NominatePageData = NominateCardData & {
   /** "ALBERT-7K2Q". */
   code: string;
-  /** "https://clubyuppie.com/apply?n=ALBERT-7K2Q". */
+  /** "https://clubyuppie.com/apply/albert-7k2q". */
   link: string;
   /** What Share sends with the link. */
   shareText: string;

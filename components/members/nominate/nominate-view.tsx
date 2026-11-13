@@ -22,7 +22,8 @@ import { gbp, signedGbp } from "./money";
 type Copied = "link" | "code" | null;
 
 /** The link without https://, in pieces a line may break between ("clubyuppie.com/apply?" "n=SAM-7K2Q"). */
-const linkParts = (link: string) => link.replace(/^https?:\/\//, "").split(/(?<=\?)/);
+/** "clubyuppie.com/apply/" and "albert-7k2q": a narrow phone breaks the line between them, never inside either. */
+const linkParts = (link: string) => link.replace(/^https?:\/\//, "").split(/(?<=\/apply\/)/);
 
 const STATUS_META: Record<NominationRow["status"], (at: string) => string> = {
   applied: (at) => `Applied ${at} · With the committee`,
@@ -149,7 +150,7 @@ export function NominateView({
                   <span className="mk-term">Your link</span>
                   <span className="nm-link" id="nm-link">
                     {linkParts(data.link).map((part, i) => (
-                      <span key={i} className="nm-nowrap">
+                      <span key={i} className={i === 0 ? "nm-nowrap nm-link-base" : "nm-nowrap"}>
                         {i > 0 ? <wbr /> : null}
                         {part}
                       </span>

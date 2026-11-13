@@ -10,7 +10,8 @@ import {
 
 const admin = await adminSession('bf.');
 const nominator = await makeMemberWithPhoto('nm');
-const CODE_RE = /\b(NM)-[2-9A-HJ-NP-Z]{4}\b/;
+// digit, letter, digit, letter after the name (13 Nov 2026: never two letters together, so no "STD")
+const CODE_RE = /\b(NM)-[2-9][A-HJ-NP-Z][2-9][A-HJ-NP-Z]\b/;
 const html = (text) => text.replace(/<!-- -->/g, '').replace(/&#x27;|&#39;/g, '’').replace(/&amp;/g, '&');
 
 // ---------------------------------------------------------------- the code and the page
@@ -20,7 +21,7 @@ eq(first.status, 200, 'the Nominate page opens');
 const code = sql1(`select nomination_code from members where id = ${q(nominator.id)}`).nomination_code;
 ok(CODE_RE.test(code ?? ''), 'its code is made on the first visit: their first name and four characters', code);
 const text1 = html(first.text);
-ok(text1.includes('Nominate a friend.') && text1.includes('/apply?') && text1.includes(`n=${code}`), 'the page shows the link (the site address, then /apply?n=<code>)', code);
+ok(text1.includes('Nominate a friend.') && text1.replace(/<[^>]+>/g, '').includes(`/apply/${code.toLowerCase()}`), 'the page shows the link (the site address, then /apply/<code in small letters>)', code);
 ok(text1.includes(code) && text1.includes('5 of 5 nominations left.'), 'and the code, and 5 of 5 left');
 ok(text1.includes('No one yet.') && text1.includes('£0'), 'no nominations yet, £0 credit');
 await page('/members/you/nominate', nominator.session);
@@ -39,6 +40,15 @@ const apply = await page(`/apply?n=${code}`);
 const applyText = html(apply.text);
 ok(applyText.includes('Nm nominated you.') && applyText.includes(`value="${code}"`), '/apply?n=: "Nm nominated you." and the code filled in');
 ok(!html((await page('/apply?n=NOBODY-2345')).text).includes('nominated you'), '/apply with a code nobody has: nothing said');
+const pretty = await page(`/apply/${code.toLowerCase()}`);
+eq(pretty.status, 200, 'the new link, /apply/<code>, opens the form (13 Nov 2026)');
+ok(html(pretty.text).includes('Nm nominated you.') && pretty.text.includes(`value="${code}"`), '/apply/<code>: "Nm nominated you." and the code filled in, in capitals');
+ok(pretty.text.includes('noindex'), '/apply/<code>: kept out of search results');
+ok(!html((await page('/apply/nobody-2345')).text).includes('nominated you'), '/apply/<a code nobody has>: the form, nothing said');
+const fromApp = await page(`/apply/${code.toLowerCase()}`, null, { 'user-agent': 'Mozilla/5.0 (iPhone) Mobile/15E148 YuppieNativeApp' });
+ok(fromApp.status >= 300 && fromApp.status < 400 && /\/member-login/.test(fromApp.location ?? ''), 'in the app, /apply/<code> goes to sign-in as /apply does', fromApp.status);
+const og = await fetch(`${process.env.PHASE_B_BASE || 'http://localhost:3241'}/apply/opengraph-image.png`);
+eq([og.status, (og.headers.get('content-type') ?? '').startsWith('image/')], [200, true], 'the share image at /apply/opengraph-image.png is still the image, not a code');
 
 // ---------------------------------------------------------------- applying with it
 const form = (email, name, extra = {}) =>
@@ -88,6 +98,7 @@ await applyAs('Dan', { nomination_code: code });
 await applyAs('Eve', { nomination_code: code });
 eq((await action('apply.checkNominationCode', [code])).result, { ok: false, error: 'That code has no nominations left. Leave it blank to apply anyway.' }, 'five used: the code says so');
 ok(html((await page(`/apply?n=${code}`)).text).includes('This nomination link has been used.'), '/apply?n=: "This nomination link has been used."');
+ok(html((await page(`/apply/${code.toLowerCase()}`)).text).includes('This nomination link has been used.'), '/apply/<code>: the same');
 const late = await applyAs('Late', { nomination_code: code });
 eq(late.nominated_by, null, 'applying with a used-up code anyway: the application goes in, nominated by nobody');
 const { data: forced, error: forcedError } = await svc.from('applications').insert({ full_name: 'Forced Nominee', email: `bf.t-forced-${rand()}@example.com`, phone: '+447700900123', employer: 'X', role_title: 'Y', linkedin_url: 'https://linkedin.com/in/x', instagram_username: 'x', nominated_by: nominator.id }).select('nominated_by').single();

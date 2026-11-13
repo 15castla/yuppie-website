@@ -4,7 +4,8 @@ import "server-only";
 // approved their account will be credited with £10"; "it's 5 nominations (doesn't matter if they get approved or
 // not)"), server only.
 //
-//   - Each member has a code (ALBERT-7K2Q), made the first time they need it, and a link: /apply?n=<code>.
+//   - Each member has a code (ALBERT-7K2Q), made the first time they need it, and a link: /apply/albert-7k2q
+//     (13 Nov 2026; the first links, /apply?n=<code>, still work).
 //   - An application made with the link or the code is "Nominated by" that member (applications.nominated_by) and
 //     uses one of their nominations, whatever the committee decides. With none left, the code no longer works (the
 //     person can still apply without it). Only a member whose membership is active can nominate.
@@ -24,11 +25,18 @@ import { sendPush } from "./messages";
 import { channelOn, prefsRow } from "./notification-prefs";
 import { pushWords } from "./push/words";
 
-/** The code's four characters: no 0, O, 1, I or L, so a code read out or typed is not mistaken. */
-const CODE_CHARS = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
+/** The code's characters: no 0, O, 1, I or L, so a code read out or typed is not mistaken. */
+const CODE_DIGITS = "23456789";
+const CODE_LETTERS = "ABCDEFGHJKMNPQRSTUVWXYZ";
 const CODE_PATTERN = /^[A-Z]{1,12}-[2-9A-HJ-NP-Z]{4}$/;
+/** A code made since 13 Nov 2026: digit, letter, digit, letter after the name. */
+export const TIDY_CODE_PATTERN = /^[A-Z]{1,12}-[2-9][A-HJ-NP-Z][2-9][A-HJ-NP-Z]$/;
 
-/** "Albert Castle" -> "ALBERT-7K2Q": the first name in plain capitals (accents dropped), then four random characters. */
+/**
+ * "Albert Castle" -> "ALBERT-7K2Q": the first name in plain capitals (accents dropped), then four random characters,
+ * a digit, a letter, a digit, a letter. Never two letters together, so the four can't spell a word or a set of
+ * initials (Albert, 13 Nov 2026, about "ALBERT-STD6": "STD is a sexual disease?").
+ */
 export function makeNominationCode(fullName: string | null | undefined, random: () => number = Math.random): string {
   const name =
     firstName(fullName)
@@ -36,8 +44,8 @@ export function makeNominationCode(fullName: string | null | undefined, random: 
       .replace(/[^A-Za-z]/g, "")
       .toUpperCase()
       .slice(0, 12) || "MEMBER";
-  let tail = "";
-  for (let i = 0; i < 4; i += 1) tail += CODE_CHARS[Math.floor(random() * CODE_CHARS.length) % CODE_CHARS.length];
+  const pick = (chars: string) => chars[Math.floor(random() * chars.length) % chars.length];
+  const tail = pick(CODE_DIGITS) + pick(CODE_LETTERS) + pick(CODE_DIGITS) + pick(CODE_LETTERS);
   return `${name}-${tail}`;
 }
 
@@ -49,7 +57,8 @@ export function cleanNominationCode(raw: unknown): string | null {
   return CODE_PATTERN.test(dashed) ? dashed : null;
 }
 
-export const nominationLink = (code: string) => `${siteUrl()}/apply?n=${encodeURIComponent(code)}`;
+/** "https://clubyuppie.com/apply/albert-7k2q": the code in small letters (codes are read in any case). */
+export const nominationLink = (code: string) => `${siteUrl()}/apply/${encodeURIComponent(code.toLowerCase())}`;
 
 /** What Share sends with the link (the member's own words would be better; this is the default the sheet fills in). */
 export const nominationShareText = (code: string) =>

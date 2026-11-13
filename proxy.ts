@@ -69,7 +69,7 @@ export async function proxy(request: NextRequest) {
   const response =
     isMaintenancePath(pathname) && maintenanceOn(process.env, request.headers.get(MAINTENANCE_TEST_HEADER))
       ? maintenanceResponse(request)
-      : isNative && NATIVE_APP_REDIRECT_PATHS.has(pathname)
+      : isNative && (NATIVE_APP_REDIRECT_PATHS.has(pathname) || pathname.startsWith("/apply/"))
         ? NextResponse.redirect(new URL("/member-login", request.url))
         : withSessionEnded(request, hadAuthCookie(request), await updateSession(request));
 

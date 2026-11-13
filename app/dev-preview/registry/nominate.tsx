@@ -6,7 +6,7 @@ import { NominateView } from "@/components/members/nominate/nominate-view";
 import type { NominatePageData } from "@/lib/members/nominate/types";
 import type { PreviewScreen } from "./types";
 
-const LINK = "https://clubyuppie.com/apply?n=SAM-7K2Q";
+const LINK = "https://clubyuppie.com/apply/sam-7k2q";
 
 const BASE: NominatePageData = {
   allowed: 5,
