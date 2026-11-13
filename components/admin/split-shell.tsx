@@ -7,7 +7,7 @@
 
 import Link from "next/link";
 import { useSearchParams, useSelectedLayoutSegment } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 import { Icon } from "./icons";
 
@@ -36,6 +36,14 @@ export function SplitShell({
   const segment = useSelectedLayoutSegment();
   const params = useSearchParams();
   const open = segment !== null;
+  const cardRef = useRef<HTMLDivElement>(null);
+  // Reports and Photos on a phone: the card is under the whole list, so opening one (or arriving at one from a
+  // link) brings its card into view (13 Nov 2026: a report opened from a link showed the list, the card far below).
+  useEffect(() => {
+    if (!stack || !segment || !cardRef.current) return;
+    if (!window.matchMedia("(max-width: 767px)").matches) return;
+    cardRef.current.scrollIntoView({ block: "start" });
+  }, [stack, segment]);
   const kept = new URLSearchParams();
   for (const key of keepParams) {
     const v = params.get(key);
@@ -55,7 +63,7 @@ export function SplitShell({
       <div className="ad-pagehead">{head}</div>
       <div className="ad-grid" data-open={open ? "true" : "false"}>
         <div className="ad-list-col">{list}</div>
-        <div className="ad-card-col">
+        <div className="ad-card-col" ref={cardRef}>
           <Link className="ad-back" href={backHref} scroll={false}>
             <Icon name="chevron-left" size={22} />
             <span>{backLabel}</span>

@@ -10,8 +10,12 @@ import { listApplications, type AppTab } from "./applications-data";
 async function TabsData() {
   const rows = await listApplications();
   const counts: Record<AppTab, number> = { waiting: 0, approved: 0, declined: 0 };
-  for (const r of rows) counts[r.tab] += 1;
-  return <ApplicationsTabs counts={counts} />;
+  const notWaiting: Record<string, AppTab> = {};
+  for (const r of rows) {
+    counts[r.tab] += 1;
+    if (r.tab !== "waiting") notWaiting[r.id] = r.tab;
+  }
+  return <ApplicationsTabs counts={counts} notWaiting={notWaiting} />;
 }
 
 async function ListData() {

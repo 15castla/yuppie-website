@@ -108,8 +108,6 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 .ad-band{background:var(--ink);color:var(--yellow);height:32px}
 .ad-band .ad-wrap{height:32px;display:flex;align-items:center;justify-content:space-between;gap:16px}
 .ad-band .l{font:700 13px/1 var(--font-body);letter-spacing:.14em;text-transform:uppercase}
-.ad-band .r{display:none;font:400 13px/1 var(--font-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-@media (min-width:768px){ .ad-band .r{display:block} }
 .ad-bar{position:relative;border-bottom:1.5px solid var(--ink);background:var(--yellow);z-index:30}
 .ad-bar > .ad-wrap{display:flex;align-items:center;gap:24px;min-height:64px}
 @media (min-width:768px){ .ad-bar > .ad-wrap{min-height:72px} }
@@ -118,8 +116,11 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 .ad-nav{display:none}
 @media (min-width:1100px){ .ad-nav{display:flex;align-items:center;gap:22px;margin-left:8px} }
 .ad-nav a{display:inline-flex;align-items:center;gap:6px;min-height:44px;color:var(--ink);text-decoration:none;font:700 15px/1.2 var(--font-body);white-space:nowrap}
-.ad-nav a[aria-current]{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:6px}
-.ad-nav .n,.ad-mrow .n{font-weight:800}
+/* the page you are on: its name underlined; a count is a small ink badge beside it, never underlined with it
+   (13 Nov 2026: "Applications 81" had two underlines with a gap) */
+.ad-nav a[aria-current] .lb{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:6px}
+.ad-nav .n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:20px;padding:0 6px;border-radius:999px;background:var(--ink);color:var(--yellow);font:800 12px/1 var(--font-body);font-variant-numeric:tabular-nums}
+.ad-mrow .n{font-weight:800}
 .ad-acct{margin-left:auto;position:relative;display:flex;align-items:center}
 .ad-bare{display:inline-flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0;background:none;border:0;color:var(--ink);font:700 15px/1.2 var(--font-body);cursor:pointer}
 .ad-bare[aria-expanded=true] .flip{transform:rotate(180deg)}
@@ -165,8 +166,9 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
   .ad-grid[data-open=true] > .ad-list-col{display:none}
   .ad-grid[data-open=false] > .ad-card-col{display:none}
   .ad-page[data-open=true] .ad-pagehead{display:none}
+  .ad-page[data-open=true]:not([data-stack]) .ad-grid{margin-top:4px}
 }
-.ad-card-col{min-width:0}
+.ad-card-col{min-width:0;scroll-margin-top:16px}
 .ad-card-col > .ad-back{display:none}
 @media (max-width:767px){ .ad-card-col > .ad-back{display:inline-flex} }
 .ad-tools{display:flex;flex-direction:column;gap:12px;margin-bottom:14px}
@@ -179,9 +181,10 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 .ad-search .x{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:0;background:none;color:var(--ink);cursor:pointer;border-radius:50%}
 .ad-chips{display:flex;flex-wrap:wrap;gap:8px}
 .ad-q{border-top:1.5px solid var(--ink)}
-.ad-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:12px;row-gap:2px;align-items:center;min-height:72px;padding:14px 0;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none}
-.ad-item[aria-current]{background:var(--pale);margin:0 -14px;padding:14px;box-shadow:inset 4px 0 0 var(--ink)}
-@media (min-width:768px){ .ad-item[data-default=true]{background:var(--pale);margin:0 -14px;padding:14px;box-shadow:inset 4px 0 0 var(--ink)} }
+.ad-item{display:grid;grid-template-columns:auto minmax(0,1fr) auto;column-gap:12px;row-gap:2px;align-items:center;min-height:72px;padding:14px;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none}
+/* the open row: a pale box with an ink bar, exactly between the list's rules (13 Nov 2026: it stuck out past them) */
+.ad-item[aria-current]{background:var(--pale);box-shadow:inset 4px 0 0 var(--ink)}
+@media (min-width:768px){ .ad-item[data-default=true]{background:var(--pale);box-shadow:inset 4px 0 0 var(--ink)} }
 .ad-item .lead{display:flex;align-items:center;justify-content:center;min-width:44px}
 .ad-item .t{display:block;font:800 15px/1.25 var(--font-body);overflow-wrap:anywhere}
 .ad-item .m{display:block;margin-top:2px;font:400 14px/1.35 var(--font-body);color:var(--muted);overflow-wrap:anywhere}
@@ -317,9 +320,9 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 .ad-erow .title{display:block;font:700 16px/1.25 var(--font-body);overflow-wrap:anywhere}
 .ad-erow .meta{display:block;margin-top:3px;font:400 14px/1.3 var(--font-body);color:var(--muted)}
 .ad-erow .end{flex:none;font:700 14px/1.3 var(--font-body)}
-.ad-prow{display:grid;grid-template-columns:44px 48px minmax(0,1fr) auto;column-gap:12px;row-gap:2px;align-items:center;min-height:76px;padding:12px 0;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none;background:var(--yellow)}
-.ad-prow[data-current=true]{background:var(--pale);margin:0 -14px;padding:12px 14px;box-shadow:inset 4px 0 0 var(--ink)}
-@media (min-width:768px){ .ad-prow[data-default=true]{background:var(--pale);margin:0 -14px;padding:12px 14px;box-shadow:inset 4px 0 0 var(--ink)} }
+.ad-prow{display:grid;grid-template-columns:44px 48px minmax(0,1fr) auto;column-gap:12px;row-gap:2px;align-items:center;min-height:76px;padding:12px 14px 12px 4px;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none;background:var(--yellow)}
+.ad-prow[data-current=true]{background:var(--pale);box-shadow:inset 4px 0 0 var(--ink)}
+@media (min-width:768px){ .ad-prow[data-default=true]{background:var(--pale);box-shadow:inset 4px 0 0 var(--ink)} }
 .ad-prow.no-grip{grid-template-columns:48px minmax(0,1fr) auto}
 .ad-prow .grip{display:flex;align-items:center;justify-content:center;width:44px;height:44px;margin-left:-10px;color:var(--ink);background:none;border:0;padding:0;cursor:grab;touch-action:none}
 .ad-prow .grip:active{cursor:grabbing}
@@ -374,14 +377,14 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 .ad-h2lg{font:800 28px/1.1 var(--font-body);letter-spacing:-.025em}
 .ad-h2lg .ad-serif{letter-spacing:-.01em}
 @media (min-width:768px){ .ad-h2lg{font-size:32px} }
-.ad-need{display:grid;grid-template-columns:44px minmax(0,1fr);gap:4px 16px;align-items:center;padding:16px 0;border-top:1.5px solid var(--ink)}
+.ad-need{display:grid;grid-template-columns:minmax(44px,max-content) minmax(0,1fr);gap:4px 16px;align-items:center;padding:16px 0;border-top:1.5px solid var(--ink)}
 .ad-need .num{font:800 44px/1 var(--font-body);letter-spacing:-.04em}
 .ad-need .tx b{display:block;font:700 17px/1.3 var(--font-body)}
 .ad-need .tx span{display:block;margin-top:2px;font:400 14px/1.4 var(--font-body);color:var(--muted);overflow-wrap:anywhere}
 .ad-need .act{grid-column:1/-1;margin-top:10px}
 .ad-need .act .ad-btn{width:100%}
 @media (min-width:768px){
-  .ad-need{grid-template-columns:64px minmax(0,1fr) auto;gap:0 24px}
+  .ad-need{grid-template-columns:minmax(64px,max-content) minmax(0,1fr) auto;gap:0 24px}
   .ad-need .act{grid-column:auto;margin-top:0}
   .ad-need .act .ad-btn{width:auto;min-width:190px}
 }
@@ -495,8 +498,10 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 }
 .ad-page[data-stack=true] .ad-grid{margin-top:32px}
 /* a queue row: who and where, when, then the words reported, then the status, the reason and who reported it */
-.ad-qi{display:flex;gap:12px;align-items:flex-start;padding:16px 14px 16px 0;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none}
-.ad-qi[aria-current],.ad-qi[data-default=true]{background:var(--pale);margin:0 -14px;padding:16px 14px;box-shadow:inset 4px 0 0 var(--ink)}
+.ad-qi{display:flex;gap:12px;align-items:flex-start;padding:16px 14px;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none}
+.ad-qi[aria-current]{background:var(--pale);box-shadow:inset 4px 0 0 var(--ink)}
+/* the first one marked as the card beside it: only where the card is beside it */
+@media (min-width:768px){ .ad-qi[data-default=true]{background:var(--pale);box-shadow:inset 4px 0 0 var(--ink)} }
 :is(.ad,.ad-layer) .ad-qi:focus-visible{outline-offset:-2px}
 .ad-qi > .ad-avatar{margin-top:1px}
 .ad-qi .bd{flex:1 1 auto;min-width:0}

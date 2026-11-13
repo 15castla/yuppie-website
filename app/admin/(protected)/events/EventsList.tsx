@@ -11,10 +11,18 @@ import { dateParts, time24 } from "@/components/admin/format";
 import { MoreLine, PAGE_SIZE, rowsToShow, useListParams } from "@/components/admin/list-controls";
 import { useOpenId } from "@/components/admin/split-shell";
 import { DateCol, Pill, Tabs } from "@/components/admin/ui";
-import { currentListTab, eventsIn, type EventListRow } from "./event-list-types";
+import { currentListTab, eventsIn, type EventListRow, type EventListTab } from "./event-list-types";
 
-export function EventsTabs({ counts }: { counts: { coming: number; past: number } }) {
-  const tab = currentListTab(useSearchParams().get("list"));
+/** The tab: the one in the address, else Past when the open event is past (13 Nov 2026). */
+function useListTab(isPast: (id: string) => boolean): EventListTab {
+  const raw = useSearchParams().get("list");
+  const openId = useOpenId();
+  if (raw) return currentListTab(raw);
+  return openId && isPast(openId) ? "past" : "coming";
+}
+
+export function EventsTabs({ counts, pastIds }: { counts: { coming: number; past: number }; pastIds: string[] }) {
+  const tab = useListTab((id) => pastIds.includes(id));
   return (
     <Tabs
       label="Events"
@@ -35,7 +43,7 @@ function EndOf({ e }: { e: EventListRow }) {
 
 export function EventsList({ rows }: { rows: EventListRow[] }) {
   const { params, update } = useListParams();
-  const tab = currentListTab(params.get("list"));
+  const tab = useListTab((id) => rows.some((r) => r.id === id && r.past));
   const openId = useOpenId();
   const asked = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
   const inTab = eventsIn(rows, tab);

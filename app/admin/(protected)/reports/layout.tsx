@@ -22,7 +22,7 @@ async function HeadData() {
       <PageHead
         title="Reports"
         lead={LEAD}
-        right={<ReportsTabs counts={q.counts} />}
+        right={<ReportsTabs counts={q.counts} waitingIds={q.open.map((r) => r.id)} />}
       />
       <QueueStats label="Reports in numbers" items={q.stats} />
     </>
