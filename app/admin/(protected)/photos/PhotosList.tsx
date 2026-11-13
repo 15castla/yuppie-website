@@ -12,12 +12,21 @@ import { useOpenId } from "@/components/admin/split-shell";
 import { Avatar, Pill, Tabs } from "@/components/admin/ui";
 import { photoTabHref, type PhotoListRow, type PhotoTab } from "./photo-tabs";
 
-function useTab(): PhotoTab {
-  return useSearchParams().get("tab") === "done" ? "done" : "check";
+/** The tab: the one in the address, else Done when the open one is done (13 Nov 2026: a done one opened from a link
+ *  showed under To check, beside the wrong list). */
+function useTab(isDone: (id: string) => boolean): PhotoTab {
+  const params = useSearchParams();
+  const raw = params.get("tab");
+  const openId = useOpenId();
+  if (raw) return raw === "done" ? "done" : "check";
+  // Just acted on here (?done=, ?stale=): stay on the list the admin is working through.
+  if (params.get("done") || params.get("stale")) return "check";
+  return openId && isDone(openId) ? "done" : "check";
 }
 
-export function PhotosTabs({ counts }: { counts: Record<PhotoTab, number> }) {
-  const tab = useTab();
+export function PhotosTabs({ counts, waitingIds }: { counts: Record<PhotoTab, number>; waitingIds: string[] }) {
+  // Done is everything not waiting: the Done list only holds the latest 100.
+  const tab = useTab((id) => !waitingIds.includes(id));
   return (
     <Tabs
       className="seg"
@@ -31,7 +40,7 @@ export function PhotosTabs({ counts }: { counts: Record<PhotoTab, number> }) {
 }
 
 export function PhotosList({ check, done }: { check: PhotoListRow[]; done: PhotoListRow[] }) {
-  const tab = useTab();
+  const tab = useTab((id) => !check.some((r) => r.photoId === id));
   const openId = useOpenId();
   const rows = tab === "done" ? done : check;
   const keep = tab === "done" ? "?tab=done" : "";

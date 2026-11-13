@@ -100,7 +100,6 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
       <div className="ad-band">
         <div className="ad-wrap">
           <span className="l">Admin</span>
-          <span className="r">Logged in as {email}</span>
         </div>
       </div>
       <div className="ad-bar">
@@ -113,7 +112,7 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
               const n = countOf(item.count);
               return (
                 <Link key={item.href} href={item.href} aria-current={isCurrent(pathname, item.href) ? "page" : undefined}>
-                  {item.label}
+                  <span className="lb">{item.label}</span>
                   {n !== null && (
                     <span className="n">
                       <span className="ad-sr"> (</span>

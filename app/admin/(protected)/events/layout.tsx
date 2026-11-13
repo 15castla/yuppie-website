@@ -10,7 +10,7 @@ import { listEvents } from "./events-data";
 // Events (r2b 17): the list (Coming up, Past) stays while the card (Details, Attendees, or a new event) changes.
 async function TabsData() {
   const rows = await listEvents();
-  return <EventsTabs counts={{ coming: rows.filter((r) => !r.past).length, past: rows.filter((r) => r.past).length }} />;
+  return <EventsTabs counts={{ coming: rows.filter((r) => !r.past).length, past: rows.filter((r) => r.past).length }} pastIds={rows.filter((r) => r.past).map((r) => r.id)} />;
 }
 
 async function ListData() {

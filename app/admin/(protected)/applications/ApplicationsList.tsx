@@ -11,7 +11,7 @@ import { agoWords, dayMonth, dayMonthYear } from "@/components/admin/format";
 import { MoreLine, PAGE_SIZE, rowsToShow, useListParams } from "@/components/admin/list-controls";
 import { useOpenId } from "@/components/admin/split-shell";
 import { Avatar, Pill, Tabs } from "@/components/admin/ui";
-import { currentTab, tabHref, type AppTab } from "./app-tabs";
+import { currentTab, tabHref, type AppTab, type AppView } from "./app-tabs";
 import type { AppListRow, PaymentProblem } from "./applications-data";
 
 const FLAG: Record<PaymentProblem, string> = {
@@ -21,8 +21,22 @@ const FLAG: Record<PaymentProblem, string> = {
   unsaved: "Charged, not saved",
 };
 
-export function ApplicationsTabs({ counts }: { counts: Record<AppTab, number> }) {
-  const tab = currentTab(useSearchParams().get("tab"));
+/**
+ * The tab: the one in the address, else the open application's own (13 Nov 2026: an approved or declined one opened
+ * from a link, the dashboard or a member's card showed under Waiting, with the Waiting list beside it).
+ */
+function useView(tabOf: (id: string) => AppTab | undefined): AppView {
+  const params = useSearchParams();
+  const raw = params.get("tab");
+  const openId = useOpenId();
+  if (raw) return currentTab(raw);
+  // Just approved or declined here (?done=): stay on Waiting, the list the admin is working through.
+  if (params.get("done") || params.get("stale")) return "waiting";
+  return (openId && tabOf(openId)) || "waiting";
+}
+
+export function ApplicationsTabs({ counts, notWaiting }: { counts: Record<AppTab, number>; notWaiting: Record<string, AppTab> }) {
+  const tab = useView((id) => notWaiting[id]);
   return (
     <Tabs
       label="Applications"
@@ -37,7 +51,7 @@ export function ApplicationsTabs({ counts }: { counts: Record<AppTab, number> })
 
 export function ApplicationsList({ rows }: { rows: AppListRow[] }) {
   const { params, update } = useListParams();
-  const tab = currentTab(params.get("tab"));
+  const tab = useView((id) => rows.find((r) => r.id === id)?.tab);
   const openId = useOpenId();
   const asked = Math.max(PAGE_SIZE, Number(params.get("show")) || PAGE_SIZE);
   const inTab = tab === "all" ? rows : rows.filter((r) => r.tab === tab);
