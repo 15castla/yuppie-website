@@ -33,6 +33,8 @@ export const ROUTES = {
   youNotifications: "/members/you/notifications",
   youPayments: "/members/you/payments",
   youBlocked: "/members/you/blocked",
+  /** Nominate a friend: your link and code, your nominations and your credit (12 Nov 2026). */
+  youNominate: "/members/you/nominate",
   /** In-app Help (the native app redirects the public /faq, /contact and /privacy out of the app). */
   youHelp: "/members/you/help",
   youHelpFaq: "/members/you/help/faq",
@@ -110,6 +112,7 @@ export const ROUTE_TABLE: readonly RouteDef[] = [
   { id: "youPayments", pattern: ROUTES.youPayments, flag: "paidPlans", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youPaymentsPlan", pattern: `${ROUTES.youPayments}/[id]`, flag: "paidPlans", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youBlocked", pattern: ROUTES.youBlocked, flag: "messages", tab: null, messages: "none", dock: "tabs", you: true },
+  { id: "youNominate", pattern: ROUTES.youNominate, flag: "nominations", tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youHelp", pattern: ROUTES.youHelp, tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youHelpFaq", pattern: ROUTES.youHelpFaq, tab: null, messages: "none", dock: "tabs", you: true },
   { id: "youHelpContact", pattern: ROUTES.youHelpContact, tab: null, messages: "none", dock: "tabs", you: true },

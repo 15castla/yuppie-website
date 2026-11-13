@@ -8,7 +8,7 @@ import "server-only";
 // alike; the app adds the person's photo (mobile/ios/App/NotificationService). A member someone blocked is never
 // named to them. Club Yuppie style: British English, no exclamation marks, no em dashes.
 
-import { dayDate, time24 } from "../format";
+import { dayDate, pounds, time24 } from "../format";
 import { relativeDay } from "../notify/quiet";
 
 export type PushText = { title: string; subtitle?: string; body: string };
@@ -62,6 +62,11 @@ export const pushWords = {
   eventMoved: (event: string, how: "time" | "place" | "both", startsAt: string, venue: string, now: Date): PushText => ({
     title: event,
     body: `Moved ${moved(how, startsAt, venue, now)}.`,
+  }),
+  /** The member who nominated someone the committee approved (Albert, 12 Nov 2026). */
+  nominationCredit: (name: string, pence: number): PushText => ({
+    title: `${name} is in`,
+    body: `We’ve approved ${name}’s application and added ${pounds(pence)} to your credit. Spend it on any Club event.`,
   }),
   eventCancelled: (event: string, refunded: boolean): PushText => ({
     title: event,

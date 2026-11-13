@@ -41,11 +41,11 @@ export function EventPagePreview({
       await wait(1200);
       return fail === "cancel"
         ? { ok: false, reason: "error", error: "" }
-        : { ok: true, refund: event.pricePence ? "succeeded" : "none", refundPence: event.pricePence, late: false };
+        : { ok: true, refund: event.pricePence ? "succeeded" : "none", refundPence: event.pricePence, creditPence: 0, late: false };
     },
     getBooking: async () => {
       await wait(200);
-      return { ...bookAs, calendarUrl: bookAs.icsUrl };
+      return { ...bookAs, creditPence: bookAs.creditPence ?? 0, calendarUrl: bookAs.icsUrl };
     },
   };
   return <EventPageView data={data} start={start} demo actions={actions} />;

@@ -19,7 +19,7 @@ const paid = await makeEvent('cxpaid', { price: 2500, startInHours: 24 * 10 });
 const b1 = await makeBooking(m, paid);
 let mark = fakesMark();
 const c1 = await action('events.cancelBooking', [b1.id], s);
-eq(c1.result, { ok: true, refund: 'succeeded', refundPence: 2500, late: false }, 'more than 48 hours before: cancelled and refunded £25');
+eq(c1.result, { ok: true, refund: 'succeeded', refundPence: 2500, creditPence: 0, late: false }, 'more than 48 hours before: cancelled and refunded £25');
 const r1 = row(b1.id);
 eq([r1.status, r1.cancelled_by, r1.cancel_reason, r1.refund_status, r1.refund_pence], ['cancelled', 'member', 'member', 'succeeded', 2500], 'the booking row records it');
 ok(r1.stripe_refund_id?.startsWith('re_'), 'with the Stripe refund id');
@@ -35,7 +35,7 @@ eq(((await fakeState()).refunds ? Object.values((await fakeState()).refunds).fil
 // ---- book again after cancelling (one confirmed booking per member and event, not one row)
 const inc = await makeEvent('cxinc', { price: 0 });
 const r2 = await action('events.rsvpToEvent', [fd({ event_id: inc.id })], s);
-eq((await action('events.cancelBooking', [r2.result.bookingId], s)).result, { ok: true, refund: 'none', refundPence: 0, late: false }, 'an included booking cancels with nothing to refund');
+eq((await action('events.cancelBooking', [r2.result.bookingId], s)).result, { ok: true, refund: 'none', refundPence: 0, creditPence: 0, late: false }, 'an included booking cancels with nothing to refund');
 await waitFor(() => messages(`booking_id = ${q(r2.result.bookingId)} and template = 'booking-cancelled'`).length === 1, 'and its booking-cancelled email');
 const r3 = await action('events.rsvpToEvent', [fd({ event_id: inc.id })], s);
 ok(r3.result.success, 'the member can book the same event again after cancelling', r3);
@@ -50,7 +50,7 @@ eq([late.result.ok, late.result.reason], [false, 'late'], 'inside 48 hours: refu
 ok(new Date(late.result.freeUntil).getTime() < Date.now(), 'with the free-cancel deadline (already passed)');
 eq(row(b2.id).status, 'confirmed', 'the booking still stands');
 const late2 = await action('events.cancelBooking', [b2.id, { withoutRefund: true }], s);
-eq(late2.result, { ok: true, refund: 'none', refundPence: 0, late: true }, 'Cancel without a refund: cancelled, nothing refunded');
+eq(late2.result, { ok: true, refund: 'none', refundPence: 0, creditPence: 0, late: true }, 'Cancel without a refund: cancelled, nothing refunded');
 eq([row(b2.id).cancel_reason, row(b2.id).refund_status], ['member_late', 'none'], 'recorded as a late cancel, refund none');
 eq(refundsFor(mark, b2.pi).length, 0, 'no refund call');
 await waitFor(() => messages(`booking_id = ${q(b2.id)} and template = 'booking-cancelled' and status = 'sent'`).length === 1, 'the member is emailed (no refund)');
@@ -70,7 +70,7 @@ exec(`update events set changed_at = now() where id = ${q(moved.id)}`);
 const mine = await action('events.getMyBooking', [moved.id], s);
 eq([mine.result.freeNow, mine.result.moved], [true, true], 'getMyBooking says the move makes it free to cancel');
 const c3 = await action('events.cancelBooking', [b3.id], s);
-eq(c3.result, { ok: true, refund: 'succeeded', refundPence: 2200, late: false }, 'moved event, 20 hours before: full refund');
+eq(c3.result, { ok: true, refund: 'succeeded', refundPence: 2200, creditPence: 0, late: false }, 'moved event, 20 hours before: full refund');
 eq(row(b3.id).cancel_reason, 'event_changed', 'recorded as event_changed');
 const after = await makeEvent('cxmoved2', { price: 2200, startInHours: 20 });
 exec(`update events set changed_at = now() - interval '2 hours' where id = ${q(after.id)}`);

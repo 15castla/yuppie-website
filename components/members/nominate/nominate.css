@@ -1,0 +1,60 @@
+/* Nominate a friend (/members/you/nominate) and its card on You (12 Nov 2026). Built on the members kit
+   (app/members/members.css) in the house look: ink rules, a pale card with the hard shadow, the serif accent. Every class
+   added here starts with nm-. */
+
+/* the card on You ---------------------------------------------------------------------- */
+.nm-card{display:flex;align-items:center;gap:14px;text-decoration:none;color:var(--ink);padding:16px 18px}
+@media (min-width:768px){ .nm-card{padding:20px 24px} }
+.nm-card:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+.nm-card-ico{display:inline-flex;align-items:center;justify-content:center;flex:none;width:48px;height:48px;border-radius:999px;background:var(--ink);color:var(--yellow)}
+.nm-card-body{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1 1 auto}
+.nm-card-title{font:800 19px/1.2 var(--font-body);letter-spacing:-.01em}
+.nm-card-line{font:400 15px/1.35 var(--font-body)}
+.nm-card-meta{font:700 13px/1.3 var(--font-body);color:var(--muted);margin-top:2px}
+.nm-card > .mk-ico:last-child{flex:none}
+.nm-slot{margin-top:24px}
+@media (min-width:768px){ .nm-slot{margin-top:32px} }
+
+/* the page --------------------------------------------------------------------------- */
+.nm-sub .mk-cols{margin-top:0}
+.nm-sub .mk-rail{margin-top:24px}
+
+.nm-intro{margin:20px 0 0;font:400 16px/1.45 var(--font-body);max-width:52ch}
+@media (min-width:768px){ .nm-intro{font-size:17px} }
+
+.nm-link-card{margin-top:22px}
+.nm-link{display:block;margin-top:8px;font:800 18px/1.3 var(--font-body);overflow-wrap:anywhere;letter-spacing:-.01em}
+.nm-nowrap{white-space:nowrap}
+.nm-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.nm-actions .mk-btn{flex:1 1 160px}
+.nm-code-line{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-top:18px;padding-top:16px;border-top:1.5px solid var(--ink);font:400 15px/1.4 var(--font-body)}
+.nm-code{display:inline-flex;align-items:center;min-height:36px;padding:0 14px;border:1.5px dashed var(--ink);border-radius:10px;background:var(--cream);font:800 17px/1 var(--font-body);letter-spacing:.06em}
+.nm-copied{display:inline-flex;align-items:center;gap:6px;font:700 14px/1.2 var(--font-body)}
+
+.nm-count{display:flex;align-items:center;gap:12px;margin-top:22px;font:700 16px/1.3 var(--font-body)}
+.nm-dots{display:inline-flex;gap:6px}
+.nm-dot{width:14px;height:14px;border-radius:999px;border:1.5px solid var(--ink);background:transparent}
+.nm-dot.is-used{background:var(--ink)}
+
+.nm-done{margin-top:22px}
+.nm-done h2{margin:0;font:800 21px/1.2 var(--font-body);letter-spacing:-.01em}
+.nm-done p{margin:6px 0 0;font:400 15px/1.45 var(--font-body)}
+
+.nm-section{margin-top:var(--gap-section)}
+.nm-row{min-height:72px;gap:14px;align-items:center}
+.nm-row .mk-meta{margin-top:3px}
+.nm-amount{font:800 17px/1 var(--font-body);white-space:nowrap}
+.nm-amount.is-spent{color:var(--muted)}
+.nm-empty{margin:14px 0 0;font:400 15px/1.45 var(--font-body);color:var(--muted);max-width:48ch}
+
+.nm-balance{display:flex;align-items:baseline;gap:12px;margin-top:6px}
+.nm-balance-num{font:800 46px/1 var(--font-body);letter-spacing:-.03em}
+.nm-balance-line{margin:8px 0 0;font:400 15px/1.45 var(--font-body);max-width:46ch}
+.nm-history{margin-top:16px}
+.nm-small{margin:16px 0 0;font:400 13px/1.45 var(--font-body);color:var(--muted);max-width:52ch}
+
+.nm-steps{list-style:none;margin:12px 0 0;padding:0;display:flex;flex-direction:column;gap:14px}
+.nm-step{display:flex;gap:14px;align-items:baseline;font:400 15px/1.45 var(--font-body)}
+.nm-step .mk-serif{flex:none;min-width:18px;font-size:26px;line-height:1}
+.nm-how{margin-top:var(--gap-section)}
+@media (min-width:768px){ .nm-how{margin-top:0} }

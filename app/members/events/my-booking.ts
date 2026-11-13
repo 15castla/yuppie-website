@@ -11,7 +11,10 @@ import { calendarForMember, getEventAddressForMember } from "@/lib/server/events
 
 export type MyBooking = {
   bookingId: string;
+  /** What the card paid. */
   amountPence: number;
+  /** What Club Yuppie credit paid (12 Nov 2026). */
+  creditPence: number;
   bookedAt: string;
   /** The exact address (null until the club has saved one). Only ever sent to a member with this confirmed booking. */
   address: string | null;
@@ -32,7 +35,7 @@ export async function loadMyBooking(memberId: string, eventId: string): Promise<
   const db = createAdminSupabaseClient();
   const { data } = await db
     .from("bookings")
-    .select("id, amount_pence, booked_at, event:events(slug, start_time, changed_at)")
+    .select("id, amount_pence, credit_pence, booked_at, event:events(slug, start_time, changed_at)")
     .eq("member_id", memberId)
     .eq("event_id", eventId)
     .eq("status", "confirmed")
@@ -46,6 +49,7 @@ export async function loadMyBooking(memberId: string, eventId: string): Promise<
   return {
     bookingId: data.id,
     amountPence: data.amount_pence,
+    creditPence: (data.credit_pence as number | null) ?? 0,
     bookedAt: data.booked_at,
     address: await getEventAddressForMember(memberId, eventId),
     freeUntil: terms.freeUntil.toISOString(),

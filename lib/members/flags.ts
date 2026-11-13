@@ -20,7 +20,8 @@ export type FlagName =
   | "messages"
   | "notifications"
   | "photoGate"
-  | "paidPlans";
+  | "paidPlans"
+  | "nominations";
 
 export type Flags = Record<FlagName, boolean>;
 
@@ -32,6 +33,7 @@ export const FLAG_NAMES: readonly FlagName[] = [
   "notifications",
   "photoGate",
   "paidPlans",
+  "nominations",
 ];
 
 export const flags: Flags = {
@@ -44,6 +46,9 @@ export const flags: Flags = {
   notifications: process.env.NEXT_PUBLIC_MEMBERS_NOTIFICATIONS === "on",
   photoGate: process.env.NEXT_PUBLIC_MEMBERS_PHOTO_GATE === "on",
   paidPlans: process.env.NEXT_PUBLIC_MEMBERS_PAID_PLANS === "on",
+  // Nominate a friend and Club Yuppie credit (12 Nov 2026): the Nominate page, the You and Access cards, the apply
+  // page's code, credit at payment. Off until Albert has seen it.
+  nominations: process.env.NEXT_PUBLIC_MEMBERS_NOMINATIONS === "on",
 };
 
 // A hidden route's first line: `requireFlag("openInvite")`. 404s when the
@@ -63,6 +68,7 @@ export function noFlags(): Flags {
     notifications: false,
     photoGate: false,
     paidPlans: false,
+    nominations: false,
   };
 }
 

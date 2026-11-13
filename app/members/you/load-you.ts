@@ -15,6 +15,7 @@ import { blockedCount } from "@/lib/server/blocks";
 import { bookingsAfter } from "@/lib/server/bookings";
 import { dayDate } from "@/lib/server/format";
 import { membershipCardFor } from "@/lib/server/membership-actions";
+import { nominateCard } from "@/lib/server/nominations";
 import { getNotificationPreferences, notificationSummary } from "@/lib/server/notification-prefs";
 import { currentPhotoUrl } from "@/lib/server/photos";
 import type { YouViewProps } from "@/components/members/you/you-view";
@@ -52,10 +53,12 @@ export async function loadYou({ billingUnavailable = false }: { billingUnavailab
   // paid-plans row: none until paid plans are live (stage 3). Blocked members goes with Messages: not in the app
   // while Open Invite is hidden there (messagesOn; QR-04).
   const messages = messagesOn(mode);
-  const [photoUrl, preferences, blocked] = await Promise.all([
+  const [photoUrl, preferences, blocked, nominate] = await Promise.all([
     member.photo_id ? currentPhotoUrl(member.id, "full") : Promise.resolve(null),
     flags.notifications ? getNotificationPreferences(member, mode) : Promise.resolve(null),
     messages ? blockedCount(member.id) : Promise.resolve(null),
+    // Nominate a friend's card (12 Nov 2026). A failed read leaves the card off rather than the page.
+    flags.nominations ? nominateCard(member.id).catch((err) => (console.error("You: the nominate card failed:", err), null)) : Promise.resolve(null),
   ]);
   const settingsRows = buildSettingsRows({ ...flags, messages }, {
     notifications: preferences ? notificationSummary(preferences) : null,
@@ -69,6 +72,7 @@ export async function loadYou({ billingUnavailable = false }: { billingUnavailab
     details: { fullName: member.full_name, email: member.email, phone: displayPhone(member.phone) },
     memberSince: memberSince(member.created_at),
     membership,
+    nominate,
     settingsRows,
     changePhotoHref: flags.photoGate ? ROUTES.youPhoto : null,
     legal: legalLines(new Date().getFullYear()),

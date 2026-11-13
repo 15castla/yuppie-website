@@ -184,8 +184,10 @@ export type EmailEvent = {
 export type BookingConfirmedData = {
   event: EmailEvent;
   place: EmailPlace;
-  /** What was paid (bookings.amount_pence, formatted): "£25". */
+  /** What was paid (bookings.amount_pence, formatted): "£25". With credit, what the card paid ("£15", or "£0"). */
   paid: EmailMoney;
+  /** What Club Yuppie credit paid ("£10", 12 Nov 2026), or null/absent (no credit). */
+  credit?: EmailMoney | null;
   /** "Visa ending 4242", or null (row left out). */
   card: EmailCard;
   /**
@@ -256,6 +258,8 @@ export type BookingCancelledData = {
   notBookedWhy?: NotBookedWhy;
   /** "See what’s on". Default "/members/events". */
   eventsUrl?: EmailLink;
+  /** The part paid with credit, back on their credit now ("£10", 12 Nov 2026), or null/absent. */
+  creditBack?: EmailMoney | null;
 };
 
 /** 15. The club cancelled an event: one email per confirmed booking (B-D8). */
@@ -271,6 +275,8 @@ export type EventCancelledData = {
   refund: EmailRefund | null;
   /** "See what’s on". Default "/members/events". */
   eventsUrl?: EmailLink;
+  /** The part paid with credit, back on their credit now ("£10", 12 Nov 2026), or null/absent. */
+  creditBack?: EmailMoney | null;
 };
 
 /**

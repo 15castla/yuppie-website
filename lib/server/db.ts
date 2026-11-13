@@ -54,7 +54,7 @@ export type BookingCancelReason =
 export type RefundStatus = "none" | "pending" | "succeeded" | "failed";
 
 export const BOOKING_ROW_COLUMNS =
-  "id, member_id, event_id, status, stripe_payment_intent_id, booked_at, amount_pence, cancelled_at, cancelled_by, cancel_reason, refund_status, refund_pence, stripe_refund_id, refund_error, reminder_24h_sent_at, reminder_2h_sent_at";
+  "id, member_id, event_id, status, stripe_payment_intent_id, booked_at, amount_pence, credit_pence, cancelled_at, cancelled_by, cancel_reason, refund_status, refund_pence, stripe_refund_id, refund_error, reminder_24h_sent_at, reminder_2h_sent_at";
 
 export type BookingRow = {
   id: string;
@@ -63,7 +63,10 @@ export type BookingRow = {
   status: BookingStatus;
   stripe_payment_intent_id: string | null;
   booked_at: string;
+  /** What the card paid. */
   amount_pence: number;
+  /** What Club Yuppie credit paid (12 Nov 2026). */
+  credit_pence: number;
   cancelled_at: string | null;
   cancelled_by: BookingCancelledBy | null;
   cancel_reason: BookingCancelReason | null;

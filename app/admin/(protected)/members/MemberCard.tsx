@@ -11,6 +11,9 @@ import { MEMBER_ROW_COLUMNS, type MemberRow } from "@/lib/server/db";
 import { membershipState } from "@/lib/server/membership";
 import { currentPhotoUrl } from "@/lib/server/photos";
 import { periodEndSeconds } from "@/lib/server/stripe/period";
+import { flags } from "@/lib/members/flags";
+import { creditHistory } from "@/lib/server/credit";
+import { CreditControl } from "./CreditControl";
 import { DeleteMember } from "./DeleteMember";
 import { MembershipControl, type MembershipView } from "./MembershipControl";
 
@@ -22,6 +25,8 @@ type BookingRow = {
   status: "confirmed" | "cancelled";
   booked_at: string;
   amount_pence: number;
+  /** Paid with Club Yuppie credit (12 Nov 2026). */
+  credit_pence?: number | null;
   cancel_reason: string | null;
   refund_status: "none" | "pending" | "succeeded" | "failed";
   refund_pence: number | null;
@@ -48,13 +53,36 @@ async function renewsAt(subscriptionId: string | null): Promise<Date | null> {
 }
 
 function bookingAmount(b: BookingRow): string {
+  const credit = b.credit_pence ?? 0;
+  const withCredit = credit > 0 ? ` (${pounds(credit)} credit)` : "";
   if (b.status === "cancelled") {
-    if (b.refund_status === "succeeded") return `${pounds(b.refund_pence ?? b.amount_pence)} refunded`;
+    if (b.refund_status === "succeeded") return `${pounds(b.refund_pence ?? b.amount_pence)} refunded${withCredit}`;
     if (b.refund_status === "pending") return "Refund on its way";
     if (b.refund_status === "failed") return "Refund failed";
+    if (credit > 0 && b.amount_pence === 0) return `Credit (${pounds(credit)})`;
     return b.amount_pence > 0 ? "Not refunded" : "Included";
   }
+  if (credit > 0) return b.amount_pence > 0 ? `${pounds(b.amount_pence)} paid${withCredit}` : `${pounds(credit)} paid with credit`;
   return b.amount_pence > 0 ? `${pounds(b.amount_pence)} paid` : "Included";
+}
+
+/** A member's nominations and credit, for the section of that name (12 Nov 2026). */
+async function nominationsAndCredit(memberId: string) {
+  const db = createAdminSupabaseClient();
+  const [{ data: row }, { data: nominees }, history] = await Promise.all([
+    db.from("members").select("nomination_code, nominations_allowed").eq("id", memberId).maybeSingle(),
+    db.from("applications").select("id, full_name, email, status, created_at").eq("nominated_by", memberId).order("created_at", { ascending: false }),
+    creditHistory(memberId, 100),
+  ]);
+  const { data: ledger } = await db.from("credit_ledger").select("amount_pence").eq("member_id", memberId);
+  return {
+    code: (row?.nomination_code as string | null) ?? null,
+    allowed: (row?.nominations_allowed as number | null) ?? 5,
+    used: nominees?.length ?? 0,
+    balance: (ledger ?? []).reduce((sum, r) => sum + (r.amount_pence as number), 0),
+    nominees: (nominees ?? []).map((n) => ({ id: n.id as string, name: (n.full_name as string | null)?.trim() || (n.email as string), status: n.status as string, created_at: n.created_at as string })),
+    history,
+  };
 }
 
 export async function MemberCard({ memberId }: { memberId: string }) {
@@ -71,10 +99,10 @@ export async function MemberCard({ memberId }: { memberId: string }) {
   const renews = base.state === "active" ? await renewsAt(member.stripe_subscription_id) : null;
   const info = renews ? membershipState(member, now, { renewsAt: renews }) : base;
 
-  const [bookingsRes, appRes, pauseAudit, deleteAudit, photoUrl] = await Promise.all([
+  const [bookingsRes, appRes, pauseAudit, deleteAudit, photoUrl, nominations] = await Promise.all([
     db
       .from("bookings")
-      .select("id, status, booked_at, amount_pence, cancel_reason, refund_status, refund_pence, event:events(id, title, start_time, location)")
+      .select("id, status, booked_at, amount_pence, credit_pence, cancel_reason, refund_status, refund_pence, event:events(id, title, start_time, location)")
       .eq("member_id", member.id)
       .order("booked_at", { ascending: false }),
     db
@@ -92,6 +120,8 @@ export async function MemberCard({ memberId }: { memberId: string }) {
       : Promise.resolve({ data: null }),
     // The member's current photo from the private bucket (a signed link), not the old public avatar_url (stage 2).
     member.deleted_at ? Promise.resolve(null) : currentPhotoUrl(member.id, "thumb"),
+    // Nominations and credit (12 Nov 2026).
+    flags.nominations ? nominationsAndCredit(member.id) : Promise.resolve(null),
   ]);
   const bookings = (bookingsRes.data ?? []) as BookingRow[];
   const future = bookings.filter((b) => {
@@ -198,6 +228,47 @@ export async function MemberCard({ memberId }: { memberId: string }) {
           </div>
         )}
       </Section>
+
+      {nominations && (
+        <Section title="Nominations and credit" hint="Who applied with their link or code, and their Club Yuppie credit (for Club events only, never paid out).">
+          <DL
+            rows={[
+              ["Code", nominations.code ? <CopyButton key="code" value={nominations.code} label="code" /> : "Not made yet (made when they open Nominate a friend)"],
+              ["Nominations", `${nominations.used} of ${nominations.allowed} used`],
+              ["Credit", pounds(nominations.balance)],
+            ]}
+          />
+          {nominations.nominees.length > 0 && (
+            <div style={{ marginTop: 12, borderTop: "1.5px solid var(--ink)" }}>
+              {nominations.nominees.map((n) => (
+                <div className="ad-booking" key={n.id}>
+                  <span className="t">
+                    <a href={`/admin/applications/${n.id}`}>{n.name}</a>
+                  </span>
+                  <span className="m">Applied {dayDateTime(n.created_at)}</span>
+                  <span className="pl">
+                    {n.status === "approved" ? <Pill kind="ink">Approved</Pill> : n.status === "pending" ? <Pill>Waiting</Pill> : <Pill kind="muted">Declined</Pill>}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {nominations.history.length > 0 && (
+            <div style={{ marginTop: 16, borderTop: "1.5px solid var(--ink)" }}>
+              {nominations.history.map((h) => (
+                <div className="ad-booking" key={h.id}>
+                  <span className="t">{h.label}</span>
+                  <span className="m">{h.at}</span>
+                  <span className="pl">
+                    <span>{h.amountPence > 0 ? "+" : "−"}{pounds(Math.abs(h.amountPence))}</span>
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          {!member.deleted_at && <CreditControl memberId={member.id} first={first} allowed={nominations.allowed} />}
+        </Section>
+      )}
 
       <Section title="Billing">
         <DL

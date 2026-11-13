@@ -6,6 +6,7 @@ import { requireAdmin } from "./require-admin";
 import { createAdminSupabaseClient } from "./admin-client";
 import { stripe } from "@/lib/stripe";
 import { declineApplicationById, sendApprovalMessages } from "@/lib/server/applications";
+import { grantNominationCredit } from "@/lib/server/nominations";
 import { audit } from "@/lib/server/audit";
 import { absoluteUrl } from "@/lib/server/config";
 import { sendAdminAlert } from "@/lib/server/messages";
@@ -311,6 +312,8 @@ async function approve(id: string, adminEmail: string, adminId: string) {
       subscriptionId: approvedSubscriptionId,
     }),
   );
+  // A nominee: £10 of credit to the member who nominated them (12 Nov 2026), once, after the response.
+  after(() => grantNominationCredit(id));
   await audit(adminId, "application.approve", { type: "application", id }, { email, member_id: authUserId, subscription: subscriptionId });
 
   revalidatePath("/admin/applications");

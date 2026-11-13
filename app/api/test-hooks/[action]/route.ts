@@ -4,6 +4,7 @@ import * as adminApplications from "@/app/admin/applications-actions";
 import * as adminEvents from "@/app/admin/events-actions";
 import * as adminEventBookings from "@/app/admin/event-booking-actions";
 import * as adminMembers from "@/app/admin/members-actions";
+import * as adminCredit from "@/app/admin/credit-actions";
 import * as adminMemberStatus from "@/app/admin/member-status-actions";
 import * as apply from "@/app/apply/actions";
 import * as events from "@/app/members/events/actions";
@@ -42,6 +43,7 @@ const MODULES: Record<string, Record<string, unknown>> = {
   "admin.events": adminEvents,
   "admin.eventBookings": adminEventBookings,
   "admin.members": adminMembers,
+  "admin.credit": adminCredit,
   "admin.memberStatus": adminMemberStatus,
   apply,
   events,

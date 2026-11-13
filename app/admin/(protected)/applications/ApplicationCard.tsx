@@ -37,6 +37,7 @@ type AppRow = {
   stripe_payment_method_id: string | null;
   stripe_subscription_id: string | null;
   card_released_at: string | null;
+  nominated_by?: string | null;
 };
 
 /**
@@ -83,12 +84,21 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
   const { data } = await db
     .from("applications")
     .select(
-      "id, full_name, email, phone, employer, role_title, linkedin_url, instagram_username, status, created_at, reviewed_at, reviewed_by, payment_error, stripe_customer_id, stripe_payment_method_id, stripe_subscription_id, card_released_at",
+      "id, full_name, email, phone, employer, role_title, linkedin_url, instagram_username, status, created_at, reviewed_at, reviewed_by, payment_error, stripe_customer_id, stripe_payment_method_id, stripe_subscription_id, card_released_at, nominated_by",
     )
     .eq("id", applicationId)
     .maybeSingle();
   const app = data as AppRow | null;
   if (!app) notFound();
+  // Nominate a friend (12 Nov 2026): the member whose link or code this came with.
+  const nominator = app.nominated_by
+    ? ((await db.from("members").select("id, full_name, email, deleted_at").eq("id", app.nominated_by).maybeSingle()).data as {
+        id: string;
+        full_name: string | null;
+        email: string;
+        deleted_at: string | null;
+      } | null)
+    : null;
 
   const tab = tabOf(app.status);
   const name = app.full_name?.trim() || app.email;
@@ -125,6 +135,20 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
   const details = (
     <DL
       rows={[
+        ...(nominator
+          ? ([
+              [
+                "Nominated by",
+                nominator.deleted_at ? (
+                  "A member who has since deleted their account"
+                ) : (
+                  <Link key="nominator" href={`/admin/members/${nominator.id}`}>
+                    {nominator.full_name?.trim() || nominator.email}
+                  </Link>
+                ),
+              ],
+            ] as [string, React.ReactNode][])
+          : []),
         ["Email", app.email],
         ["Phone", phoneWords(app.phone)],
         ["Employer", app.employer],

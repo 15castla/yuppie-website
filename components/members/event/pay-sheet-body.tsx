@@ -23,6 +23,14 @@ import { ROUTES } from "@/lib/members/routes";
 import { EventSummary } from "./sheet-parts";
 import { gbp, mailtoClub, type EventPageEvent } from "./model";
 
+/** "Ticket £25", "Your credit −£10": the lines above "You’ll pay" when credit comes off (12 Nov 2026). */
+export function creditBreakdown(pricePence: number, creditPence: number): { label: string; value: string }[] {
+  return [
+    { label: "Ticket", value: gbp(pricePence) },
+    { label: "Your credit", value: `−${gbp(creditPence)}` },
+  ];
+}
+
 export const PAY_STATES = ["ready", "paying", "declined", "bank", "returning", "processing", "confirm-failed", "refunded", "load-error"] as const;
 export type PayState = (typeof PAY_STATES)[number];
 
@@ -42,10 +50,16 @@ export function PaySheetBody({
   onClose,
   onCancelBank,
   onRetry,
+  payPence,
+  creditPence = 0,
 }: {
   id: string;
   state: PayState;
   event: Pick<EventPageEvent, "title" | "startTime" | "location" | "pricePence">;
+  /** What the card pays: the price less any credit (12 Nov 2026). Default: the price. */
+  payPence?: number;
+  /** Club Yuppie credit taken off the price: a line says so. */
+  creditPence?: number;
   memberEmail: string;
   /** "Cancel until Tue 27 Oct, 18:30 and you get it all back." (or the inside-48-hours line). */
   cancelLine: string;
@@ -60,7 +74,8 @@ export function PaySheetBody({
   onCancelBank?: () => void;
   onRetry?: () => void;
 }) {
-  const price = gbp(event.pricePence);
+  const cardPence = payPence ?? event.pricePence;
+  const price = gbp(cardPence);
   const subject = `Booking: ${event.title}`;
 
   if (state === "ready" || state === "paying" || state === "declined") {
@@ -75,7 +90,12 @@ export function PaySheetBody({
           onClose={onClose}
           closeOff={busy}
         />
-        <EventSummary event={event} line={{ label: "You’ll pay", pence: event.pricePence }} />
+        <EventSummary
+          event={event}
+          // With credit (Albert, 12 Nov 2026): the ticket, then the credit off it, then what the card pays.
+          breakdown={creditPence > 0 ? creditBreakdown(event.pricePence, creditPence) : null}
+          line={{ label: "You’ll pay", pence: cardPence }}
+        />
         <MoneyList
           items={[
             { icon: "banknote", text: `${price} is taken from your card when you tap Pay.` },
@@ -189,7 +209,7 @@ export function PaySheetBody({
           We took your {price} but couldn’t confirm your booking. <b>Please don’t pay again.</b> Email us and we’ll sort it out. If we can’t book you
           in, we’ll refund you.
         </p>
-        <EventSummary event={event} line={{ label: "Taken", pence: event.pricePence }} />
+        <EventSummary event={event} line={{ label: "Taken", pence: cardPence }} />
         <PayActions>
           <Button block href={mailtoClub(subject)} icon={<Icon name="mail" size={20} />}>
             Email us
@@ -210,7 +230,7 @@ export function PaySheetBody({
         <p className="pay-p">
           Your payment went through, but this event can’t be booked any more. <b>We’ve refunded your {price} in full.</b>
         </p>
-        <EventSummary event={event} line={{ label: "Refunded", pence: event.pricePence }} />
+        <EventSummary event={event} line={{ label: "Refunded", pence: cardPence }} />
         <MoneyList items={[{ icon: "undo", text: `Your ${price} is on its way back to your card. It usually lands in ${BACK_5_10}.` }]} />
         <PayActions>
           <Button block href={ROUTES.events}>
@@ -267,3 +287,57 @@ export function payStatus(state: PayState, price: string): string {
 }
 
 export { BACK_5_10 };
+
+// Booking with credit (12 Nov 2026): the member's credit covers the price, so no card. One tap books.
+//   ready    "Book with your credit.", what comes off and what is left, the cancel line, Book with credit
+//   booking  the button working, close off
+//   error    the server's own words above the button (full, price changed, not enough credit any more)
+export const CREDIT_STATES = ["ready", "booking", "error"] as const;
+export type CreditState = (typeof CREDIT_STATES)[number];
+
+export function CreditSheetBody({
+  id,
+  state,
+  event,
+  balancePence,
+  cancelLine,
+  error,
+  onBook,
+  onClose,
+}: {
+  id: string;
+  state: CreditState;
+  event: Pick<EventPageEvent, "title" | "startTime" | "location" | "pricePence">;
+  /** The member's credit before booking. */
+  balancePence: number;
+  cancelLine: string;
+  error?: string | null;
+  onBook?: () => void;
+  onClose: () => void;
+}) {
+  const busy = state === "booking";
+  const left = Math.max(0, balancePence - event.pricePence);
+  return (
+    <>
+      <PayHead id={id} title="Book with your credit." sub="Your credit covers it, so there’s nothing to pay." onClose={onClose} closeOff={busy} />
+      <EventSummary event={event} breakdown={creditBreakdown(event.pricePence, event.pricePence)} line={{ label: "You’ll pay", pence: 0 }} />
+      <MoneyList
+        items={[
+          { icon: "gift", text: `${gbp(event.pricePence)} comes off your credit. You’ll have ${gbp(left)} left.` },
+          { icon: "undo", text: cancelLine },
+        ]}
+      />
+      {state === "error" && error ? (
+        <div className="pay-alert" role="alert">
+          <Icon name="circle-alert" size={18} />
+          <span>{error}</span>
+        </div>
+      ) : null}
+      <PayActions tight={state === "error"}>
+        <Button block pending={busy} onClick={busy ? undefined : onBook}>
+          {busy ? "Booking…" : "Book with credit"}
+        </Button>
+      </PayActions>
+    </>
+  );
+}

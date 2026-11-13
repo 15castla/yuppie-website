@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 
-import ApplyForm from "./apply-form";
+import { flags } from "@/lib/members/flags";
+import { lookupNominationCode } from "@/lib/server/nominations";
+import ApplyForm, { type ApplyNomination } from "./apply-form";
 import { createCardSetupIntent } from "./actions";
 
 const TITLE = "Apply to Club Yuppie";
@@ -29,13 +31,30 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default async function ApplyPage() {
-  const result = await createCardSetupIntent();
+// A nomination link (/apply?n=ALBERT-7K2Q, 12 Nov 2026): "Albert nominated you." and the code filled in. A code
+// with no nominations left says so (they can still apply); one we don't know is ignored.
+async function nominationFrom(raw: string | string[] | undefined): Promise<ApplyNomination | null> {
+  if (!flags.nominations || typeof raw !== "string" || !raw.trim()) return null;
+  try {
+    const found = await lookupNominationCode(raw);
+    if (found.ok) return { code: raw.trim().toUpperCase(), firstName: found.firstName, usable: true };
+    return found.reason === "used" ? { code: null, firstName: null, usable: false } : null;
+  } catch (err) {
+    console.error("apply: reading the nomination code failed:", err);
+    return null;
+  }
+}
+
+export default async function ApplyPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  const [result, query] = await Promise.all([createCardSetupIntent(), searchParams]);
+  const nomination = await nominationFrom(query.n);
 
   return (
     <ApplyForm
       clientSecret={result.success ? result.clientSecret : null}
       setupError={result.success ? null : result.error}
+      nominations={flags.nominations}
+      nomination={nomination}
     />
   );
 }

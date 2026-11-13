@@ -238,6 +238,7 @@ function confirmedIntro(title: string, place: EmailPlace) {
 
 const bookingConfirmed: Build<"booking-confirmed"> = (d: BookingConfirmedData, o) => {
   const t = confirmedIntro(d.event.title, d.place);
+  const allCredit = Boolean(d.credit) && !d.card && /^£0(\.00)?$/.test(String(d.paid));
   return {
     subject: `Booked: ${d.event.title}, ${at(d.event.start)}`,
     pre: t.pre,
@@ -247,8 +248,9 @@ const bookingConfirmed: Build<"booking-confirmed"> = (d: BookingConfirmedData, o
     blocks: [
       {
         kind: "card",
-        rows: [row("Event", d.event.title), row("When", at(d.event.start)), where(d.place), ...rowIf("Card", d.card)],
-        total: { label: "Total paid", value: d.paid },
+        rows: [row("Event", d.event.title), row("When", at(d.event.start)), where(d.place), ...rowIf("Card", d.card), ...rowIf("Club Yuppie credit", allCredit ? null : (d.credit ?? null))],
+        // With credit (12 Nov 2026) the total is what the card paid, or the credit when it paid it all.
+        total: allCredit ? { label: "Paid with credit", value: d.credit as string } : { label: d.credit ? "Paid by card" : "Total paid", value: d.paid },
       },
     ],
     button: { label: "See your booking", url: absoluteUrl(d.bookingUrl, o.site) },
@@ -256,7 +258,7 @@ const bookingConfirmed: Build<"booking-confirmed"> = (d: BookingConfirmedData, o
     // A booking made inside the free-cancel window has no deadline to promise: that sentence is left out.
     below:
       "We’ll remind you 24 hours and 2 hours before." +
-      (d.cancelUntil ? ` You can cancel until ${at(d.cancelUntil)} and get your ${d.paid} back.` : ""),
+      (d.cancelUntil ? (d.credit ? ` You can cancel until ${at(d.cancelUntil)} and get it all back.` : ` You can cancel until ${at(d.cancelUntil)} and get your ${d.paid} back.`) : ""),
     art: "coupes",
     foot: "member",
     why: WHY_BOOKED,
@@ -350,6 +352,7 @@ const bookingCancelled: Build<"booking-cancelled"> = (d: BookingCancelledData, o
       why: "You’re getting this because you paid for a Club Yuppie event.",
     };
   }
+  const credit = d.creditBack ?? null;
   if (r) {
     return {
       ...common,
@@ -358,13 +361,33 @@ const bookingCancelled: Build<"booking-cancelled"> = (d: BookingCancelledData, o
       intro: ended
         ? [endedLine, "Events you’ve booked after that date are cancelled and refunded."]
         : [
-            `You cancelled ${title}, so you get it all back. It goes to the card you paid with and usually lands in 5 to 10 working days, by ${r.arrivesBy}.`,
+            `You cancelled ${title}, so you get it all back. It goes to the card you paid with and usually lands in 5 to 10 working days, by ${r.arrivesBy}.` +
+              (credit ? ` The ${credit} you paid with credit is back on your credit now.` : ""),
           ],
       blocks: [
         {
           kind: "card",
-          rows: [row("Event", title), row("When", at(start)), ...inTime, ...rowIf("To", r.card), row("Date", at(d.cancelled))],
+          rows: [row("Event", title), row("When", at(start)), ...inTime, ...rowIf("To", r.card), ...rowIf("Credit back", credit), row("Date", at(d.cancelled))],
           total: { label: "Refunded", value: r.amount },
+        },
+      ],
+      below: "Nothing more to pay. Your place has gone back to the other members.",
+    };
+  }
+  // Paid with credit only (12 Nov 2026): the credit is back, nothing goes to a card.
+  if (credit) {
+    return {
+      ...common,
+      pre: `Your ${credit} of credit is back. Spend it on any Club event.`,
+      h1: { a: `Your ${credit} credit`, b: "is back.", br: true },
+      intro: ended
+        ? [endedLine, "Events you’ve booked after that date are cancelled, and the credit you paid with is back on your account."]
+        : [`You cancelled ${title}, so the ${credit} of credit you paid with is back. Spend it on any Club event.`],
+      blocks: [
+        {
+          kind: "card",
+          rows: [row("Event", title), row("When", at(start)), ...inTime, row("Date", at(d.cancelled))],
+          total: { label: "Credit back", value: credit },
         },
       ],
       below: "Nothing more to pay. Your place has gone back to the other members.",
@@ -418,24 +441,30 @@ const eventCancelled: Build<"event-cancelled"> = (d: EventCancelledData, o) => {
   // States: with no reason the first sentence ends after the date.
   const first = because ? `We’re cancelling ${title} on ${start.date} because ${because}.` : `We’re cancelling ${title} on ${start.date}.`;
   const r = d.refund;
+  const credit = d.creditBack ?? null;
+  const creditLine = credit ? ` The ${credit} you paid with credit is back on your credit now.` : "";
   return {
     subject: `${title} on ${start.date} is cancelled`,
-    pre: r ? `Your ${r.amount} is on its way back to your card.` : "Nothing to pay and nothing to do.",
+    pre: r ? `Your ${r.amount} is on its way back to your card.` : credit ? `Your ${credit} of credit is back.` : "Nothing to pay and nothing to do.",
     label: "Event cancelled",
     h1: { a: title, b: "is off.", br: true },
     intro: [
       r
-        ? `${first} Your ${r.amount} is on its way back to the card you paid with. It usually lands in 5 to 10 working days.`
-        : `${first} It was part of your membership, so there’s nothing to pay or to get back.`,
+        ? `${first} Your ${r.amount} is on its way back to the card you paid with. It usually lands in 5 to 10 working days.${creditLine}`
+        : credit
+          ? `${first} The ${credit} of credit you paid with is back on your credit now. Spend it on any Club event.`
+          : `${first} It was part of your membership, so there’s nothing to pay or to get back.`,
     ],
     blocks: [
       r
         ? {
             kind: "card",
-            rows: [row("Event", title), row("Was", at(start)), ...rowIf("To", r.card)],
+            rows: [row("Event", title), row("Was", at(start)), ...rowIf("To", r.card), ...rowIf("Credit back", credit)],
             total: { label: "Refunded", value: r.amount },
           }
-        : { kind: "card", rows: [row("Event", title), row("Was", at(start))] },
+        : credit
+          ? { kind: "card", rows: [row("Event", title), row("Was", at(start))], total: { label: "Credit back", value: credit } }
+          : { kind: "card", rows: [row("Event", title), row("Was", at(start))] },
     ],
     button: { label: "See what’s on", url: absoluteUrl(d.eventsUrl ?? "/members/events", o.site) },
     below: "Nothing to do. You didn’t have to ask.",

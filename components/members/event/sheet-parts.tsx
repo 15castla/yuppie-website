@@ -15,10 +15,13 @@ import "./event.css";
 export function EventSummary({
   event,
   line,
+  breakdown,
 }: {
   event: Pick<EventPageEvent, "title" | "startTime" | "location">;
   /** The one money line under the event: "You’ll pay £25", "Paid £25", "You paid £25", "Included in your membership £0". */
   line?: { label: string; pence: number } | null;
+  /** Lines above it that add up to it (12 Nov 2026, credit): "Ticket £25", "Your credit −£10". */
+  breakdown?: { label: string; value: string }[] | null;
 }) {
   const date = rowDate(event.startTime);
   return (
@@ -32,6 +35,12 @@ export function EventSummary({
       </div>
       {line ? (
         <div className="pay-lines">
+          {(breakdown ?? []).map((b) => (
+            <div className="pay-line" key={b.label}>
+              <span>{b.label}</span>
+              <span>{b.value}</span>
+            </div>
+          ))}
           <div className="pay-line is-total">
             <span>{line.label}</span>
             <b>{gbp(line.pence)}</b>

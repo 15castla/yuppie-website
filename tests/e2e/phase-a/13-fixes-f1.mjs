@@ -52,7 +52,7 @@ const runRelease = (script, ...args) => spawnSync(process.execPath, [path.join(R
   const b = await legacyPaidBooking(m, ev);
   eq(b.amount, 0, 'QA3-01 setup: the legacy booking has amount_pence 0');
   let mark = fakesMark();
-  eq((await action('events.cancelBooking', [b.id], s)).result, { ok: true, refund: 'succeeded', refundPence: 1500, late: false }, 'QA3-01 member cancels a legacy paid booking: refunded what Stripe received');
+  eq((await action('events.cancelBooking', [b.id], s)).result, { ok: true, refund: 'succeeded', refundPence: 1500, creditPence: 0, late: false }, 'QA3-01 member cancels a legacy paid booking: refunded what Stripe received');
   eq(refundPosts(mark, b.pi).map((c) => [c.idem, c.body.amount]), [[`refund-booking-${b.id}`, '1500']], 'QA3-01 one refund of £15, refund-booking-<id>');
   eq((({ amount_pence, refund_status, refund_pence }) => ({ amount_pence, refund_status, refund_pence }))(bookingRow(b.id)), { amount_pence: 1500, refund_status: 'succeeded', refund_pence: 1500 }, 'QA3-01 the amount is stored on the booking');
 
@@ -516,7 +516,7 @@ for (const delay of [0, 20]) {
   ok(bf.status === 0 && bf.stdout.includes('part refund already made in Stripe: £5 of £15') && bf.stdout.includes('stays refundable'), 'N2 backfill: a £5 refund of £15 is a part refund', bf.stdout + bf.stderr);
   eq((({ amount_pence, refund_status, refund_pence }) => ({ amount_pence, refund_status, refund_pence }))(bookingRow(legacy.id)), { amount_pence: 1500, refund_status: 'none', refund_pence: 500 }, 'N2 the booking stays refundable, £5 recorded');
   let mark = fakesMark();
-  eq((await action('events.cancelBooking', [legacy.id], s)).result, { ok: true, refund: 'succeeded', refundPence: 1500, late: false }, 'N2 the member cancels: refunded');
+  eq((await action('events.cancelBooking', [legacy.id], s)).result, { ok: true, refund: 'succeeded', refundPence: 1500, creditPence: 0, late: false }, 'N2 the member cancels: refunded');
   eq(refundPosts(mark, legacy.pi).map((c) => c.body.amount), ['1000'], 'N2 only the other £10 is refunded');
   eq([bookingRow(legacy.id).refund_status, bookingRow(legacy.id).refund_pence], ['succeeded', 1500], 'N2 £15 back in all');
 

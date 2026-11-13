@@ -21,6 +21,8 @@ import { takePhotoChanged } from "@/lib/members/photo/notice";
 import { ROUTES } from "@/lib/members/routes";
 import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import type { MembershipCardData, SettingsRow, YouDetails } from "@/lib/members/you/types";
+import type { NominateCardData } from "@/lib/members/nominate/types";
+import { NominateCard } from "@/components/members/nominate/nominate-card";
 import { CancelDialog, DeleteDialog, LogoutDialog, type CancelOutcome, type CancelPreview, type CancelStep } from "./you-dialogs";
 import { MembershipCard } from "./membership-card";
 import { DetailRow, HelpGroup, PhotoBlock, SettingsGroup, YouFoot } from "./you-parts";
@@ -49,6 +51,8 @@ export type YouViewProps = {
   /** "Sep 2026". */
   memberSince: string | null;
   membership: MembershipCardData;
+  /** Nominate a friend's card (12 Nov 2026): nominations left and credit. Null: not shown. */
+  nominate?: NominateCardData | null;
   /** Only the rows whose area is switched on. */
   settingsRows: SettingsRow[];
   /** Where Change photo goes; null while the photo gate flag is off (the flag that brings the photo flow). */
@@ -115,6 +119,7 @@ export function YouView({
   details,
   memberSince,
   membership,
+  nominate = null,
   settingsRows,
   changePhotoHref,
   legal,
@@ -199,6 +204,11 @@ export function YouView({
             <MembershipCard data={membership} onAction={handleKeep} pending={isKeeping || Boolean(demo?.keeping)} error={cardError} />
           </div>
           <div className="yu-main-col">
+            {nominate ? (
+              <div className="nm-slot">
+                <NominateCard data={nominate} />
+              </div>
+            ) : null}
             <section className="mk-section yu-first">
               <SectionTitle title="Your details" linkLabel="Edit" linkHref={ROUTES.profileEdit} />
               <Rows>

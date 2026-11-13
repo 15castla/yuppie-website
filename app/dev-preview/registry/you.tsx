@@ -77,7 +77,8 @@ type YouState =
   | "billing-error"
   | "dialog-delete"
   | "dialog-delete-ready"
-  | "photo-changed";
+  | "photo-changed"
+  | "nominate";
 
 const YOU_STATES: YouState[] = [
   "default",
@@ -104,6 +105,7 @@ const YOU_STATES: YouState[] = [
   "dialog-delete",
   "dialog-delete-ready",
   "photo-changed",
+  "nominate",
 ];
 
 function summariesFor(state: YouState, app: boolean): SettingsSummaries {
@@ -191,6 +193,8 @@ function youProps(params: PreviewParams, state: YouState): YouViewProps {
     deleteAccount: previewDeleteAccount,
     billingError: state === "billing-error" ? "We couldn’t open billing. Try again." : null,
     hostedPlans,
+    // Nominate a friend's card (12 Nov 2026), with the nominations flag.
+    nominate: state === "nominate" || params.flags.nominations ? { allowed: 5, used: 2, creditPence: 1000 } : null,
     demo,
   };
 }
