@@ -435,7 +435,7 @@ export function PlanView({
             Coming soon
           </Button>
         ) : (
-          <Button pending={pending} onClick={pending ? undefined : () => moments.join(invite)}>
+          <Button data-needs-net="" pending={pending} onClick={pending ? undefined : () => moments.join(invite)}>
             {pending ? "Joining…" : joinLabel}
           </Button>
         );

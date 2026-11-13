@@ -74,5 +74,17 @@
 	<array>
 		<string>INSendMessageIntent</string>
 	</array>
+	<key>WKAppBoundDomains</key>
+	<array>
+		<string>localhost</string>
+		<string>clubyuppie.com</string>
+		<string>www.clubyuppie.com</string>
+		<string>js.stripe.com</string>
+		<string>hooks.stripe.com</string>
+		<string>checkout.stripe.com</string>
+		<string>connect.stripe.com</string>
+		<string>pm-redirects.stripe.com</string>
+		<string>tbcpzmzfxtbaumlcnmdf.supabase.co</string>
+	</array>
 </dict>
 </plist>

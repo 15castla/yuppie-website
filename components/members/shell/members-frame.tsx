@@ -17,12 +17,13 @@
 // Who may show the messages icon: only Open Invite pages (showMessages).
 // Nothing else. See FOUNDATION_NOTES.
 
-import type { CSSProperties, ReactNode } from "react";
+import { Suspense, type CSSProperties, type ReactNode } from "react";
 
 import type { TabKey } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import { DesktopHeader } from "./desktop-header";
 import { DockBar } from "./dock-bar";
+import { OfflineBar } from "./offline";
 import { ShellProvider } from "./shell-context";
 import type { TabSpec } from "./tabs";
 import { TopBar } from "./top-bar";
@@ -79,6 +80,10 @@ export function MembersFrame({
       value={{ mode, member, showMessages, messagesCurrent, unread, unreadAtStart, youCurrent }}
     >
       <div className={cn("mk-screen", mode === "app" ? "mk-app" : "mk-web")} data-mode={mode} style={style}>
+        {/* Offline: the bar, saving pages on the phone (13 Nov 2026). */}
+        <Suspense fallback={null}>
+          <OfflineBar />
+        </Suspense>
         <div className="mk-page">
           {!bare && mode === "web" ? <TopBar landingHref={landingHref} /> : null}
           {!bare ? (

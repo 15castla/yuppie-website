@@ -252,6 +252,7 @@ export function Composer({
           onKeyDown={onKeyDown}
         />
         <button
+          data-needs-net=""
           type="button"
           className={cn("msg-send", off && "is-off")}
           aria-label={label}

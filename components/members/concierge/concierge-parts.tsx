@@ -314,6 +314,7 @@ export function Composer({
         autoFocus={autoFocus}
       />
       <button
+        data-needs-net=""
         type="submit"
         className={cn("mk-send", !canSend && "mk-off")}
         aria-label="Send"

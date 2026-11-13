@@ -196,7 +196,7 @@ export function DesktopCard({
         <div className="ea-sub">{paid ? "Charged on booking" : "In your membership"}</div>
         {msg}
         <div className="ea-act">
-          <Button pending={state === "booking"} onClick={state === "booking" ? undefined : onBook}>
+          <Button data-needs-net="" pending={state === "booking"} onClick={state === "booking" ? undefined : onBook}>
             {state === "booking" ? "Booking…" : "Book my spot"}
           </Button>
         </div>
@@ -428,7 +428,7 @@ export function EventBar({
         state === "booking" ? (
           <Button pending>Booking…</Button>
         ) : (
-          <Button onClick={onBook}>Book my spot</Button>
+          <Button data-needs-net="" onClick={onBook}>Book my spot</Button>
         );
       break;
     case "processing":

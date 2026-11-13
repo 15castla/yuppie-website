@@ -224,7 +224,7 @@ export function InviteCard({
             <span className="mk-lb">Coming soon</span>
           </Button>
         ) : (
-          <Button size="sm" pending={pending} onClick={pending ? undefined : () => onJoin?.(invite)}>
+          <Button data-needs-net="" size="sm" pending={pending} onClick={pending ? undefined : () => onJoin?.(invite)}>
             <span className="mk-lb">{pending ? "Joining…" : join}</span>
           </Button>
         )}

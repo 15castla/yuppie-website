@@ -171,7 +171,7 @@ export function CancelSheetBody({
           <Button block onClick={onKeep}>
             Keep my booking
           </Button>
-          <Button block variant="outline" className="pay-danger" onClick={onCancel}>
+          <Button data-needs-net="" block variant="outline" className="pay-danger" onClick={onCancel}>
             {paid ? `Cancel and get ${price} back` : "Cancel my booking"}
           </Button>
         </PayActions>

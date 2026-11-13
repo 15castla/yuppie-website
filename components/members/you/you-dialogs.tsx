@@ -44,7 +44,7 @@ function ListItem({ icon, children }: { icon: "calendar" | "users" | "credit-car
 function LogoutButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" pending={pending}>
+    <Button data-needs-net="" type="submit" pending={pending}>
       {pending ? "Logging out…" : "Log out"}
     </Button>
   );
@@ -324,7 +324,7 @@ function DeleteBody({
         />
         <ErrorLine error={error} />
         <div className="yu-acts">
-          <Button type="submit" className="yu-danger" aria-disabled={!ready || undefined} pending={isDeleting}>
+          <Button data-needs-net="" type="submit" className="yu-danger" aria-disabled={!ready || undefined} pending={isDeleting}>
             {isDeleting ? "Deleting…" : "Delete my account"}
           </Button>
           <Button variant="outline" onClick={onClose}>

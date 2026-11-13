@@ -401,7 +401,7 @@ export function InboxView({
             <div className={cn("msg-group-label", index === 0 && "is-first")}>
               <span className="mk-term">{group.label}</span>
               {index === 0 && updatesUnread > 0 ? (
-                <Button variant="quiet" onClick={markAll}>
+                <Button data-needs-net="" variant="quiet" onClick={markAll}>
                   Mark all as read
                 </Button>
               ) : null}

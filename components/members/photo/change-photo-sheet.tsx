@@ -147,7 +147,7 @@ export function ChangePhotoSheet({
               </>
             ) : (
               <>
-                <Button pending={flow.busy} onClick={() => void flow.confirmCrop()}>
+                <Button data-needs-net="" pending={flow.busy} onClick={() => void flow.confirmCrop()}>
                   {flow.step === "failed" ? "Try again" : "Use this photo"}
                 </Button>
                 {cancel}
