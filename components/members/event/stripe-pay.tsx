@@ -300,6 +300,7 @@ function PayFlow({
           setState("load-error");
         }}
         options={{
+          business: { name: "Club Yuppie" },
           layout: { type: "accordion", defaultCollapsed: false },
           wallets: { applePay: "auto", googlePay: "auto" },
           fields: { billingDetails: { address: { country: "never", postalCode: "auto" } } },

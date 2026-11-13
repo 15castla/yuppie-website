@@ -426,7 +426,16 @@ function ApplicationForm({
     sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft));
 
     try {
-      // A nomination code that won't count is said now, before the card (it is optional: leave it blank to apply).
+      // The card, or Apple Pay, first: straight from the tap, before anything that waits on the server. Safari only
+      // opens the Apple Pay sheet from the tap itself; the checks below used to come first, so Apple Pay failed with
+      // "Unable to show Apple Pay" (Albert, 13 Nov 2026). Nothing is charged or saved here: confirmSetup does that.
+      const { error: walletError } = await elements.submit();
+      if (walletError) {
+        setError({ message: getStripeErrorMessage(walletError, FALLBACK_ERROR), isDuplicate: false });
+        return;
+      }
+
+      // A nomination code that won't count is said now, before the card is saved (it is optional: leave it blank to apply).
       if (code) {
         const nominated = await checkNominationCode(code);
         if (!nominated.ok) {
@@ -625,6 +634,8 @@ function ApplicationForm({
         <div className="col-span-full">
           <PaymentElement
             options={{
+              // The name in the Apple Pay and card wording ("you allow Club Yuppie to charge ..."), not the Stripe account's.
+              business: { name: "Club Yuppie" },
               layout: { type: "accordion", defaultCollapsed: true },
               wallets: { applePay: "auto", googlePay: "auto" },
               fields: {
