@@ -143,7 +143,9 @@
 .pay-subpage .mk-head,.mk-screen.mk-app .pay-subpage .mk-head{padding-top:20px}
 .pay-crumbwrap{display:none}
 @media (min-width:768px){ .pay-crumbwrap{display:block} .pay-subpage .mk-head,.mk-screen.mk-app .pay-subpage .mk-head{padding-top:12px} }
-.mk-screen .mk-main-pad.pay-subpage{padding-bottom:0}
+/* only the empty Payments page, which ends on a band down to the tab bar, drops Main's --end-space (13 Nov 2026: the
+   plan's Who paid list ended with its rule on the tab bar's) */
+.mk-screen .mk-main-pad.pay-subpage.is-fill{padding-bottom:0}
 .pay-cols{display:flex;flex-direction:column}
 .pay-slot{order:-1;margin-top:28px}
 .pay-main-col{min-width:0}
@@ -175,7 +177,7 @@
 .pay-how ol{list-style:none;padding:0;border-top:1.5px solid var(--ink)}
 .pay-how li{display:flex;align-items:center;gap:16px;min-height:60px;padding:10px 0;border-bottom:1.5px solid var(--ink);font:700 15px/1.3 var(--font-body)}
 .pay-how li .mk-serif{flex:none;width:20px;font-size:28px;line-height:1;text-align:center}
-.pay-how-phone{margin-top:var(--gap-section);padding-bottom:40px}
+.pay-how-phone{margin-top:var(--gap-section)}
 .pay-eact{margin-top:24px}
 
 
@@ -255,9 +257,9 @@
 .pay-ract{margin-top:24px}
 .pay-ract .mk-btn{width:100%}
 .pay-rfine{margin-top:16px}
-.pay-rgrid{display:flex;flex-direction:column;margin-top:28px;padding-bottom:40px}
+.pay-rgrid{display:flex;flex-direction:column;margin-top:28px}
 @media (min-width:768px){
-  .pay-rgrid{display:grid;grid-template-columns:minmax(0,520px) minmax(0,400px);column-gap:var(--col-gap);align-items:start;margin-top:48px;padding-bottom:96px}
+  .pay-rgrid{display:grid;grid-template-columns:minmax(0,520px) minmax(0,400px);column-gap:var(--col-gap);align-items:start;margin-top:48px;padding-bottom:56px}
   .pay-rmoney{margin-top:0}
   .pay-rfine{text-align:left}
   .pay-ract .mk-btn{width:auto}

@@ -543,7 +543,7 @@
 .oi-check{position:relative;cursor:pointer}
 .oi-check:has(input:focus-visible) .bx{outline:2px solid var(--ink);outline-offset:2px}
 .oi-person b.oi-light{font-weight:400}
-.oi-form-grid{padding-bottom:24px}
+.oi-form-grid{padding-bottom:40px}
 @media (min-width:768px){ .oi-form-grid{padding-bottom:0} }
 
 /* The post form on a computer keeps the kit's 40px under the form (the page has no docked bar there). */

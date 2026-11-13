@@ -18,6 +18,9 @@
 .dc-sec{margin-top:28px}
 @media (min-width:768px){ .dc-sec{margin-top:40px} }
 .dc-list{border-top:1.5px solid var(--ink)}
+/* Discounts and Access fill the height (Main fill, so an empty state reaches the tab bar), which drops Main's bottom
+   padding: a page that ends on its list keeps --end-space under the last rule (13 Nov 2026: it sat on the tab bar's) */
+.dc-main > .mk-wrap:last-child{padding-bottom:var(--end-space)}
 .dc-list>li{border-bottom:1.5px solid var(--ink)}
 .dc-row{
   display:grid;grid-template-columns:62px minmax(0,1fr) auto;grid-template-areas:"tile name pill" "tile offer offer" "tile meta meta";

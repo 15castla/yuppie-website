@@ -83,9 +83,11 @@ export function HelpGroup() {
   );
 }
 
-// The giant wordmark standing on a 3px rule, and the legal line under it:
-// the public footer's own drawing and the same ink crop (components/site/
-// home.tsx), so the lettering runs edge to edge of the container.
+// The sign-off at the foot of You: the wordmark, small and centred, with the
+// legal line and the app version under it. No rules (Albert, 13 Nov 2026: "The
+// two lines and yuppie sitting on a line looks awful"): the tab bar's own top
+// line is the only line down there. The same ink crop as the public footer
+// (components/site/home.tsx), so the lettering sits true in its box.
 const WORDMARK_INK = { left: 16, top: 16, width: 1911, height: 610 };
 const WORDMARK_FILE = { width: 1942, height: 641 };
 
@@ -114,7 +116,6 @@ export function YouFoot({ legal, appVersion }: { legal: string[]; appVersion?: s
           />
         </span>
       </div>
-      <hr className="yu-rule" />
       <div className="mk-wrap">
         <p className="yu-legal">
           <span>{legal.join(" ")}</span>

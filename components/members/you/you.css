@@ -22,7 +22,8 @@
 /* the greeting can be long (a long first name): it wraps, and never pushes the photo out of the app's title row */
 .yu-title .mk-row1 > div:first-child{min-width:0}
 .yu-title .mk-h1{overflow-wrap:anywhere}
-.yu-main{padding-bottom:0}
+/* (13 Nov 2026) no longer zeroed: the sub-pages (Help, FAQs, Privacy, Edit details, Nominate) ended hard on the tab bar.
+   They keep Main's --end-space; You itself and the gates pass pad={false}. */
 
 /* the photo block: 96px photo, who can see it, Change photo */
 .yu-photo{display:flex;align-items:center;gap:20px}
@@ -83,15 +84,13 @@
   .yu-quiet-row{margin-top:0;gap:0 28px}
 }
 
-/* the giant wordmark standing on a 3px rule, the legal line below (the public footer's drawing) */
-.yu-foot{margin-top:56px}
+/* the sign-off: a small centred wordmark and the legal line under it, no rules (13 Nov 2026) */
+.yu-foot{margin-top:64px;padding-bottom:40px;text-align:center}
 @media (min-width:768px){ .yu-foot{margin-top:96px} }
-.yu-wm{position:relative;display:block;width:100%;overflow:hidden}
+.yu-wm{position:relative;display:block;width:132px;margin:0 auto;overflow:hidden}
 .yu-wm img{position:absolute;display:block;max-width:none;height:auto}
-.yu-rule{border:0;border-top:3px solid var(--ink);margin:0}
-.yu-legal{padding:16px 0 4px;font:400 13px/1.45 var(--font-body);color:var(--muted)}
+.yu-legal{margin:14px auto 0;max-width:44ch;font:400 13px/1.5 var(--font-body);color:var(--muted)}
 .yu-legal span{display:block}
-@media (min-width:768px){ .yu-legal{padding:20px 0 8px;display:flex;justify-content:space-between;gap:24px} .yu-legal span{display:inline} }
 
 /* the "Photo changed" confirmation */
 .yu-toast{position:fixed;left:50%;bottom:calc(var(--dock-h) + 14px);transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:8px;min-height:44px;padding:0 20px;border-radius:999px;background:var(--ink);color:var(--yellow);font:700 15px/1.2 var(--font-body);white-space:nowrap}
