@@ -46,6 +46,13 @@ const getCachedAllEvents = unstable_cache(
   { tags: ["events"], revalidate: 60 },
 );
 
+/** Over: past its end time, or 3 hours after the start when it has none (or an end before its start). */
+export function hasEventFinished(event: Pick<Event, "start_time" | "end_time">, now = Date.now()) {
+  const start = new Date(event.start_time).getTime();
+  const end = event.end_time ? new Date(event.end_time).getTime() : NaN;
+  return (end > start ? end : start + 3 * 60 * 60 * 1000) <= now;
+}
+
 export function hasEventStarted(event: Pick<Event, "start_time">, now = Date.now()) {
   // start_time is a timestamptz, returned as an ISO string with an offset,
   // so this is a real instant-to-instant comparison, not a display-time

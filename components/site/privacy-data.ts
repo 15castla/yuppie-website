@@ -48,7 +48,7 @@ export const POLICY_SECTIONS: PolicySection[] = [
     heading: "How long we keep it",
     paragraphs: [
       "We keep application data for as long as needed to consider it and for a reasonable period after in case you reapply. We keep member data for as long as you’re a member, and for a limited period after you leave in case of billing or legal queries, after which it’s deleted.",
-      "You can delete your account at any time from You in the app or on the website. That deletes your photos and your Concierge conversation, cancels the plans you host and your future bookings, removes your blocks, and hides your messages from other members. We keep the text of your messages, and a record of the emails and texts we sent you, in case they’re needed for a safety report or a billing or legal query.",
+      "You can delete your account at any time from your Profile in the app or on the website. That deletes your photos and your Concierge conversation, cancels the plans you host and your future bookings, removes your blocks, and hides your messages from other members. We keep the text of your messages, and a record of the emails and texts we sent you, in case they’re needed for a safety report or a billing or legal query.",
     ],
   },
   {

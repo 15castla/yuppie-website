@@ -3,6 +3,7 @@
 // "Delete my account" as a quiet red link that opens the Delete dialog (type "delete"). You draws its own;
 // this one is for the membership-ended gate, where an ended member can still delete the account.
 
+import "./you.css";
 import { useState } from "react";
 
 import { Button } from "@/components/members/kit";

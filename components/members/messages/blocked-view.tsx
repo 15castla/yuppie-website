@@ -140,11 +140,11 @@ export function BlockedView({
 
   return (
     <>
-      <BackRow href={ROUTES.you} label="You" />
+      <BackRow href={ROUTES.you} label="Profile" />
       <Main className="msg-blk-main" pad={false}>
         <div className="mk-wrap msg-blk-crumb">
           <div style={{ paddingTop: 32 }}>
-            <BackLink href={ROUTES.you} label="You" />
+            <BackLink href={ROUTES.you} label="Profile" />
           </div>
         </div>
         <TitleBlock

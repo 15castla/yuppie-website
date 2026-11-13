@@ -164,7 +164,8 @@ export function EventPageView({
   let bookingFine = "";
   if (booking) {
     const bPaid = booking.amountPence > 0;
-    if (data.started) bookingFine = "It has started, so it can’t be cancelled.";
+    if (data.finished) bookingFine = "It has finished.";
+    else if (data.started) bookingFine = "It has started, so it can’t be cancelled.";
     else if (booking.moved) bookingFine = bPaid ? "We moved this event, so you can cancel for a full refund until it starts." : "We moved this event, so you can cancel any time until it starts.";
     else if (booking.freeNow) bookingFine = bPaid ? `Free until ${until}. ${backWords(booking.amountPence, booking.creditPence)}` : `Free until ${until}.`;
     else bookingFine = bPaid ? `It’s less than ${hours} hours to go, so there’s no refund if you cancel now.` : "If you can’t come, cancel so someone else can take your spot.";
@@ -617,7 +618,7 @@ export function EventPageView({
       booking={booking}
       message={message}
       cancelFine={phase === "booked" ? bookingFine : cardFine}
-      startedLine={`It started ${whenLine(event.startTime)}`}
+      startedLine={data.finished ? `It was on ${whenLine(event.startTime)}` : `It started ${whenLine(event.startTime)}`}
       showGoogle={showGoogle}
       onBook={() => void book()}
       onCancel={openCancel}
@@ -648,6 +649,7 @@ export function EventPageView({
                 booking={booking}
                 memberEmail={data.memberEmail}
                 started={data.started}
+                finished={data.finished}
                 cancelFine={bookingFine}
                 canCancel={canCancel}
                 showGoogle={showGoogle}
@@ -658,7 +660,7 @@ export function EventPageView({
           }
         />
       </Main>
-      <EventBar state={bar} event={event} booking={booking} message={message} onBook={() => void book()} onSeeBooking={seeBooking} />
+      <EventBar state={bar} event={event} booking={booking} message={message} finished={data.finished} onBook={() => void book()} onSeeBooking={seeBooking} />
       {sheetEl}
     </>
   );

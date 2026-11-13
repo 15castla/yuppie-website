@@ -9,6 +9,7 @@
 // credit with its history. On a computer, "How it works" sits in the right-hand rail. A view of plain props: the page
 // (app/members/you/nominate/page.tsx) passes the member's data; the preview harness passes example data.
 
+import "@/components/members/you/you.css";
 import "./nominate.css";
 
 import { useEffect, useState } from "react";

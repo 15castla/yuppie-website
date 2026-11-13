@@ -248,6 +248,11 @@ html:has(dialog.yu-dialog[open]){overflow:hidden}
   .yu-gate-art{margin-top:0;padding-right:clamp(0px,6vw,80px)}
 }
 .yu-gate-band .mk-inner{padding-top:40px;padding-bottom:48px}
+/* Come back for (the ended gate): the drawings stand on the band's own bottom rule, so the list's last rule and the
+   band's are not two lines one under the other (13 Nov 2026) */
+.yu-reasons-band .mk-inner{padding-bottom:0}
+.yu-reasons-band .yu-reasons .pk-row:last-child{border-bottom:0}
+@media (min-width:768px){ .yu-reasons-band .yu-reasons .pk-row{border-bottom:0} }
 .pk-list{border-top:1.5px solid var(--ink);--slot:96px}
 @media (min-width:768px){ .pk-list{--slot:clamp(96px,9.5vw,137px)} }
 .pk-row{display:grid;grid-template-columns:minmax(0,1fr) var(--slot);column-gap:16px;padding:24px 0;border-bottom:1.5px solid var(--ink);color:var(--ink);text-decoration:none}

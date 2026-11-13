@@ -320,6 +320,7 @@ export function BookingCard({
   booking,
   memberEmail,
   started,
+  finished = false,
   cancelFine,
   canCancel,
   showGoogle,
@@ -330,6 +331,8 @@ export function BookingCard({
   booking: EventPageBooking;
   memberEmail: string;
   started: boolean;
+  /** Over: "You were booked." */
+  finished?: boolean;
   cancelFine: string;
   canCancel: boolean;
   showGoogle: boolean;
@@ -355,7 +358,7 @@ export function BookingCard({
         <Pill kind="ink">Booked</Pill>
       </div>
       <h2 className="ea-book-h" id="ea-book-h">
-        You’re booked.
+        {finished ? "You were booked." : "You’re booked."}
       </h2>
       <p className="ea-book-p">
         {whenLine(event.startTime)}.{started ? "" : " We’ll remind you 24 hours and 2 hours before."}
@@ -401,6 +404,7 @@ export function EventBar({
   event,
   booking,
   message,
+  finished = false,
   onBook,
   onSeeBooking,
 }: {
@@ -408,6 +412,8 @@ export function EventBar({
   event: EventPageEvent;
   booking: EventPageBooking | null;
   message: string | null;
+  /** Over: "It has finished" (else "It has started"). */
+  finished?: boolean;
   onBook: () => void;
   onSeeBooking: () => void;
 }) {
@@ -442,7 +448,7 @@ export function EventBar({
       );
       break;
     case "past":
-      left = ["Past event", "It has started"];
+      left = ["Past event", finished ? "It has finished" : "It has started"];
       button = (
         <Button variant="outline" href={ROUTES.events}>
           See other events

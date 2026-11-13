@@ -151,8 +151,8 @@ export function PaymentsView({
   const handOff = <GetPaidHandOff mode={mode} onMode={setMode} onDone={() => setGetPaid(demoReady)} />;
   const head = (
     <>
-      <BackRow href={ROUTES.you} label="You" />
-      <Crumb label="You" />
+      <BackRow href={ROUTES.you} label="Profile" />
+      <Crumb label="Profile" />
       <TitleBlock title="Payments." sub="Money from your paid plans." actions={null} />
     </>
   );
