@@ -10,6 +10,7 @@
 // fresh every time. needs_device_check: the sheet and the scrim on a real
 // iPhone (position fixed in the top layer, the home indicator inset).
 
+import "./you.css";
 import { useEffect, useRef, type ReactNode } from "react";
 
 import { cn } from "@/lib/utils";

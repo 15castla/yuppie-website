@@ -66,6 +66,8 @@ export type EventPageData = {
   booking: EventPageBooking | null;
   /** Decided on the server for this request. */
   started: boolean;
+  /** Over (its end time, or 3 hours after the start): "You were booked.", "It has finished". Decided on the server. */
+  finished?: boolean;
   /** The free-cancel deadline for this event (start minus FREE_CANCEL_HOURS, lib/server/config.ts), ISO. */
   freeUntil: string;
   /** The rule's hours, for the words ("It’s more than 48 hours until the event"). */

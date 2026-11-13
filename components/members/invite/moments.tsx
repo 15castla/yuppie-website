@@ -163,17 +163,18 @@ export function ReportSheet({
   invite,
   onClose,
   onSend,
-  initialReason = 0,
+  initialReason = null,
   busy = false,
 }: {
   invite: OpenInvite;
   onClose: () => void;
   onSend: (reason: string) => void;
-  initialReason?: number;
+  /** Nothing is chosen for the member (13 Nov 2026: a tap on Send filed "Payment outside Club Yuppie"); as the chat's report. */
+  initialReason?: number | null;
   busy?: boolean;
 }) {
   const id = useId();
-  const [reason, setReason] = useState(initialReason);
+  const [reason, setReason] = useState<number | null>(initialReason);
   // The six reasons as drawn, on every plan (Open Invite decisions: "report reasons as drawn"). A free plan can
   // still ask for money in its note, so the price reason stays even while plans have no price.
   const reasons = REPORT_REASONS;
@@ -199,7 +200,7 @@ export function ReportSheet({
         ))}
       </div>
       <Actions>
-        <Button block pending={busy} onClick={busy ? undefined : () => onSend(reasons[reason])}>
+        <Button block disabled={reason === null} pending={busy} onClick={busy || reason === null ? undefined : () => onSend(reasons[reason])}>
           Send report
         </Button>
         <Button block variant="outline" onClick={onClose}>

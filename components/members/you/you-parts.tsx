@@ -2,6 +2,7 @@
 // out (no fetching, no cookies, no actions), so the preview harness draws them
 // with example data.
 
+import "./you.css";
 import Image from "next/image";
 
 import { Avatar, BackLink, BackRow, Button, Icon, Row, Rows, SectionTitle, TitleBlock } from "@/components/members/kit";
@@ -134,7 +135,7 @@ export function SubPageHead({
   sub,
   lead,
   backHref = ROUTES.you,
-  backLabel = "You",
+  backLabel = "Profile",
 }: {
   title: React.ReactNode;
   sub?: React.ReactNode;

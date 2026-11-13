@@ -453,11 +453,11 @@ export function NotificationSettingsView({
 
   return (
     <>
-      <BackRow href={ROUTES.you} label="You" />
+      <BackRow href={ROUTES.you} label="Profile" />
       <Main className="ntf-sub">
         <div className="mk-wrap ntf-crumb">
           <div style={{ paddingTop: 32 }}>
-            <BackLink href={ROUTES.you} label="You" />
+            <BackLink href={ROUTES.you} label="Profile" />
           </div>
         </div>
         <TitleBlock title="Notifications." sub="Only what you need." actions={null} />

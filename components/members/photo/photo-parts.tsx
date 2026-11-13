@@ -3,6 +3,7 @@
 // looks" card, the progress bar and the gate's frame. Pure: props in, markup
 // out (no fetching, no actions), so the preview harness draws every state.
 
+import "@/components/members/you/you.css";
 import "./photo.css";
 
 import type { ReactNode } from "react";

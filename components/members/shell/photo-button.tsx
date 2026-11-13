@@ -29,7 +29,7 @@ export function PhotoButton({
       href={ROUTES.you}
       prefetch
       className="mk-me-btn"
-      aria-label="You, your profile"
+      aria-label="Your profile"
       aria-current={current ? "page" : undefined}
     >
       {member ? (

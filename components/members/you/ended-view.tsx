@@ -100,7 +100,7 @@ export function MembershipEndedView({
           </div>
         </section>
 
-        <section className="mk-band yu-gate-band" aria-label="What you get as a member">
+        <section className="mk-band yu-gate-band yu-reasons-band" aria-label="What you get as a member">
           <div className="mk-wrap">
             <div className="mk-inner">
               <SectionTitle title="Come back for" />

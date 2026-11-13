@@ -17,7 +17,7 @@ import { SubPageHead } from "./you-parts";
 export function HelpIndexView() {
   return (
     <Main className="yu-main yu-subpage">
-      <SubPageHead title="Help." />
+      <SubPageHead title="Help." sub="Ask us anything." />
       <div className="mk-wrap">
         <section className="mk-section mk-first">
           <Rows>

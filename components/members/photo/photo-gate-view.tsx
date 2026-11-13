@@ -408,7 +408,7 @@ export function PhotoGateView({
               </span>
             </div>
           }
-          wordsExtra={<p className="ph-after">You can change it any time from You.</p>}
+          wordsExtra={<p className="ph-after">You can change it any time from your Profile.</p>}
           req={false}
           acts={
             <Button block href={continueHref}>

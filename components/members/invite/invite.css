@@ -161,7 +161,8 @@
 .oi-links .mk-link{gap:8px}
 .oi-links .mk-link .mk-ico{flex:none}
 .oi-links .mk-link.quiet{color:var(--muted)}
-.oi-end{height:16px}
+/* room between the last link or row and the plan bar (13 Nov 2026: a past plan's chat row sat on the bar's line) */
+.oi-end{height:40px}
 
 @media (min-width:768px){
   .oi-crumb{display:inline-flex;align-items:center;gap:4px;min-height:44px;margin-left:-8px;padding-right:8px;font:700 15px/1.2 var(--font-body);color:var(--ink);text-decoration:none}

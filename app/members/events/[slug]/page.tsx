@@ -4,7 +4,7 @@ import { createAdminSupabaseClient } from "@/app/admin/admin-client";
 import { requireMember } from "@/app/members/require-member";
 import { loadMyBooking } from "@/app/members/events/my-booking";
 import { paidNotBookedFor } from "@/app/members/events/paid-not-booked";
-import { getCachedEventBySlug, hasEventStarted } from "@/components/members/events-data";
+import { getCachedEventBySlug, hasEventFinished, hasEventStarted } from "@/components/members/events-data";
 import { EventPageView } from "@/components/members/event/event-page-view";
 import { flags } from "@/lib/members/flags";
 import { creditBalance } from "@/lib/server/credit";
@@ -37,6 +37,7 @@ export default async function EventDetailPage({
 
   const db = createAdminSupabaseClient();
   const started = hasEventStarted(event);
+  const finished = started && hasEventFinished(event);
   // The booked count is an aggregate across every member (the service-role client, never cached: spots change).
   const [{ count: bookedCount }, myBooking, cancelledMine, paidAlready] = await Promise.all([
     db.from("bookings").select("*", { count: "exact", head: true }).eq("event_id", event.id).eq("status", "confirmed"),
@@ -94,6 +95,7 @@ export default async function EventDetailPage({
     bookedCount: bookedCount ?? 0,
     booking: myBooking && !event.cancelled_at ? toPageBooking(myBooking) : null,
     started,
+    finished,
     freeUntil: freeUntil.toISOString(),
     freeCancelHours: FREE_CANCEL_HOURS,
     freeWindowOpen: isStillBefore(freeUntil),

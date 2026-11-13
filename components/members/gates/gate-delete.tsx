@@ -5,6 +5,7 @@
 // deleteMyAccount, which works from the gate: requireMember({ allowGated: true })). One dialog for the whole
 // members area, so the gate never says anything different from You.
 
+import "@/components/members/you/you.css";
 import { useState } from "react";
 
 import { Button } from "@/components/members/kit";

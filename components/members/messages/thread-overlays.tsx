@@ -591,7 +591,7 @@ function BlockDialog({
         </li>
         <li>
           <Icon name="check" size={18} />
-          <span>{name} isn’t told. You can unblock anyone on your You page.</span>
+          <span>{name} isn’t told. You can unblock anyone from your Profile.</span>
         </li>
       </ul>
       <ErrorLine text={step.error} />

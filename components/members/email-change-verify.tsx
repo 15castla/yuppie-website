@@ -1,5 +1,6 @@
 "use client";
 
+import "@/components/members/you/you.css";
 import { useEffect, useRef, useState, useTransition, type FormEvent } from "react";
 
 import { Button, Icon } from "@/components/members/kit";

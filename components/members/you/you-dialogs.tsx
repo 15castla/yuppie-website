@@ -11,6 +11,7 @@
 // The hosted-plans lines ("Plans you host ... refunded") are drawn only when Open Invite is real (paid plans
 // are Phase B), so the live dialogs leave them out; the preview passes `hostedPlans` to draw them.
 
+import "./you.css";
 import { useState, useTransition, type ReactNode } from "react";
 import { useFormStatus } from "react-dom";
 

@@ -10,6 +10,7 @@
 // Pure: no fetching. The button is a link when the data carries an href (the billing portal; a plain <a>,
 // never next/link, so nothing prefetches a portal session), else a button that calls onAction.
 
+import "./you.css";
 import type { ReactNode } from "react";
 
 import { buttonClass, Button, Card, Icon } from "@/components/members/kit";
