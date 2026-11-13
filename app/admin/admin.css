@@ -344,6 +344,16 @@ textarea.ad-input{min-height:96px;padding:12px 14px;line-height:1.4;resize:verti
 .ad-modal .x{position:absolute;right:16px;top:16px;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border:2px solid var(--ink);border-radius:50%;background:transparent;color:var(--ink);cursor:pointer}
 .ad-modal .x:disabled{opacity:.4;cursor:default}
 .ad-modal .ad-p{margin-top:12px;font:400 16px/1.45 var(--font-body)}
+/* Nominated by: the member's name opens their profile in the dialog (NominatorPeek, 13 Nov 2026) */
+.ad-peek-link{appearance:none;background:none;border:0;padding:0;margin:0;font:inherit;font-weight:700;color:inherit;text-align:left;text-decoration:underline;text-underline-offset:2px;cursor:pointer}
+.ad-peek-link:focus-visible{outline:2px solid var(--ink);outline-offset:3px;border-radius:4px}
+.ad-peek-head{display:flex;align-items:center;gap:14px;margin-top:14px}
+.ad-peek-head .tt{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+.ad-peek-head .sub{font:400 15px/1.35 var(--font-body);color:var(--muted)}
+.ad-peek .ad-dl{margin-top:16px}
+@media (min-width:768px){ .ad-peek .ad-dl{grid-template-columns:170px minmax(0,1fr)} }
+.ad-peek-list{margin-top:14px;border-top:1.5px solid var(--ink)}
+.ad-peek-this{font-weight:400;color:var(--muted)}
 .ad-modal .stack{display:flex;flex-direction:column;gap:10px;margin-top:22px}
 .ad-modal .stack .ad-btn{min-height:52px;width:100%;font-size:16px}
 .ad-modal .prev{margin-top:14px;padding:12px 14px;border:1.5px solid var(--ink);border-radius:12px;background:var(--yellow);font:400 14px/1.4 var(--font-body)}

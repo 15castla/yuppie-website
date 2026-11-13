@@ -14,6 +14,8 @@ import { periodEndSeconds } from "@/lib/server/stripe/period";
 import { stripe } from "@/lib/stripe";
 import { ApplicationActions, ReleaseCardAgain, type ApplicationPreviews } from "./ApplicationActions";
 import { paymentProblem, tabOf } from "./applications-data";
+import { NominatorPeek } from "./NominatorPeek";
+import { NominatorSummary } from "./NominatorSummary";
 import { endedMemberByEmail } from "@/lib/server/rejoin";
 
 // The application card (r2b 16). Waiting: Approve and Decline, each behind a confirm dialog (B-D17) that
@@ -142,9 +144,10 @@ export async function ApplicationCard({ applicationId, done }: { applicationId: 
                 nominator.deleted_at ? (
                   "A member who has since deleted their account"
                 ) : (
-                  <Link key="nominator" href={`/admin/members/${nominator.id}`}>
-                    {nominator.full_name?.trim() || nominator.email}
-                  </Link>
+                  // Their profile in a small window, so the application stays open (13 Nov 2026).
+                  <NominatorPeek key="nominator" name={nominator.full_name?.trim() || nominator.email} memberId={nominator.id}>
+                    <NominatorSummary memberId={nominator.id} applicationId={app.id} />
+                  </NominatorPeek>
                 ),
               ],
             ] as [string, React.ReactNode][])
