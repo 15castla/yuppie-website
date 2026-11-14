@@ -53,7 +53,9 @@ function savedPaths(): Promise<string[]> {
 
 /** The main pages, as this member's shell links to them: the tabs, Profile and Messages. */
 function mainPages(): string[] {
-  const hrefs = new Set<string>(["/members/you"]);
+  // Profile and Messages always (Messages answers "not found" when it is off for this member, and isn't saved), and
+  // whatever the tab bar shows.
+  const hrefs = new Set<string>(["/members/you", "/members/messages"]);
   document.querySelectorAll<HTMLAnchorElement>(".mk-tabbar a[href], .mk-hdr nav a[href], a[href='/members/messages']").forEach((a) => {
     const url = new URL(a.href, window.location.href);
     if (url.origin === window.location.origin && url.pathname.startsWith("/members/")) hrefs.add(url.pathname);

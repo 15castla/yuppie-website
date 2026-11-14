@@ -24,7 +24,7 @@ export function useUnread(active: boolean, pathname: string): number {
     if (!active) return;
     let alive = true;
     const load = () => {
-      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      if (typeof document !== "undefined" && (document.visibilityState === "hidden" || !navigator.onLine)) return;
       getMessagesBadge()
         .then((n) => {
           if (alive && typeof n === "number") setCount(n);

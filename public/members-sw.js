@@ -29,7 +29,7 @@ const OFFLINE_PAGE = "/members-offline.html";
 const PRECACHE = [OFFLINE_PAGE, "/yuppie_logo_forte_forward.png"];
 const MAX_PAGES = 80;
 const MAX_IMAGES = 300;
-const MAX_ASSETS = 600;
+const MAX_ASSETS = 1200;
 /** A page saved in the background is saved again at most this often. */
 const RESAVE_MS = 2 * 60 * 1000;
 /** The main pages (the tabs, Profile, Messages), saved ahead so each opens offline even if not visited: at most this often. */
@@ -104,18 +104,52 @@ function withTimeout(promise, ms) {
   });
 }
 
+/** Saves a page, then the site files it needs, so it draws offline; returns its HTML ("" when not saved). */
 async function savePage(request, response) {
   const url = new URL(response.url || request.url);
-  if (NEVER_SAVE.some((re) => re.test(url.pathname))) return;
+  if (NEVER_SAVE.some((re) => re.test(url.pathname))) return "";
   const member = response.headers.get("x-cy-member");
-  if (!member) return;
+  if (!member) return "";
   const known = await meta("member");
   if (known && known !== member) await wipeMemberData();
   if (known !== member) await meta("member", member);
+  const html = await response.clone().text();
   const cache = await caches.open(PAGES);
   await cache.put(pageKey(url.toString()), response);
   await meta(`saved:${url.pathname}${url.search}`, Date.now());
   await trim(PAGES, MAX_PAGES);
+  await saveAssets(html);
+  return html;
+}
+
+/**
+ * The site's own files a page names: its scripts, styles and fonts, and the chunks its components load later (listed
+ * in the page's data as "static/chunks/..."). A page saved in the background was never drawn, so without these it
+ * would fail offline (14 Nov 2026: Messages, saved ahead, showed "That didn't load", ChunkLoadError).
+ */
+async function saveAssets(html) {
+  const paths = new Set();
+  // (route groups put brackets in the names: "static/chunks/app/members/messages/(inbox)/page-1a2b.js")
+  for (const m of html.matchAll(/(?:\/_next\/)?static\/(?:chunks|css|media)\/[^"'\s\\]+/g)) {
+    const path = m[0].startsWith("/_next/") ? m[0] : `/_next/${m[0]}`;
+    paths.add(path.replace(/[,;]+$/, ""));
+  }
+  const cache = await caches.open(ASSETS);
+  const missing = [];
+  for (const path of paths) if (!(await cache.match(path, { ignoreSearch: true }))) missing.push(path);
+  for (let i = 0; i < missing.length; i += 4) {
+    await Promise.all(
+      missing.slice(i, i + 4).map(async (path) => {
+        try {
+          const response = await fetch(path, { credentials: "same-origin" });
+          if (response.ok) await cache.put(path, response);
+        } catch {
+          // offline again, or gone with a new build: the next save tries again
+        }
+      }),
+    );
+  }
+  if (missing.length) await trim(ASSETS, MAX_ASSETS);
 }
 
 async function savedPage(request) {
@@ -175,7 +209,8 @@ async function handlePage(event) {
 
 async function cacheFirst(request, cacheName) {
   const cache = await caches.open(cacheName);
-  const hit = await cache.match(request, { ignoreVary: true });
+  // The site's files have their contents' hash in the name, so a query on them (a deployment marker) doesn't matter.
+  const hit = await cache.match(request, { ignoreVary: true, ignoreSearch: true });
   if (hit) return hit;
   const response = await fetch(request);
   if (response.ok) {
@@ -195,8 +230,29 @@ async function saveInBackground(href, minAge = RESAVE_MS) {
   if (NEVER_SAVE.some((re) => re.test(url.pathname))) return;
   const last = Number(await meta(`saved:${url.pathname}${url.search}`)) || 0;
   if (Date.now() - last < minAge) return;
-  const response = await fetch(url.toString(), { credentials: "same-origin", headers: { accept: "text/html" }, redirect: "manual" });
-  if (response.ok && response.type === "basic") await savePage(new Request(url.toString()), response);
+  // x-cy-save: saved in the background, not opened by the member (a chat saved this way is not marked read).
+  const response = await fetch(url.toString(), { credentials: "same-origin", headers: { accept: "text/html", "x-cy-save": "1" }, redirect: "manual" });
+  if (!response.ok || response.type !== "basic") return;
+  const html = await savePage(new Request(url.toString()), response);
+  if (html) await savePictures(html);
+  // The inbox: its chats are saved ahead too, the newest first (14 Nov 2026: "can't seem to open messages offline").
+  if (url.pathname === "/members/messages") {
+    for (const chat of chatLinks(html)) await saveInBackground(chat, MAIN_RESAVE_MS).catch(() => {});
+  }
+}
+
+/** The chats the inbox links to, newest first (the inbox's own order), at most MAX_CHATS. Not "ask-" ones (a
+ *  question not asked yet). */
+const MAX_CHATS = 8;
+function chatLinks(html) {
+  const out = [];
+  for (const m of html.matchAll(/href="(\/members\/messages\/[^"?#]+)"/g)) {
+    const path = m[1];
+    if (path.includes("/ask-") || out.includes(path)) continue;
+    out.push(path);
+    if (out.length >= MAX_CHATS) break;
+  }
+  return out;
 }
 
 /** A picture's key. A member photo's signed link carries a token that changes on every page, so it is kept by the
@@ -205,6 +261,36 @@ function pictureKey(url) {
   const u = new URL(url);
   if (u.pathname.startsWith("/storage/v1/object/sign/")) return `${u.origin}${u.pathname}`;
   return u.toString();
+}
+
+/**
+ * The member photos and storage pictures a page saved in the background shows (it was never drawn, so they were never
+ * fetched): without them its faces are broken offline. At most MAX_PAGE_PICTURES a page, any already kept skipped.
+ */
+const MAX_PAGE_PICTURES = 16;
+async function savePictures(html) {
+  const urls = new Set();
+  for (const m of html.matchAll(/src="(https?:\/\/[^"]+?\/storage\/v1\/object\/[^"]+)"/g)) {
+    urls.add(m[1].replace(/&amp;/g, "&"));
+    if (urls.size >= MAX_PAGE_PICTURES) break;
+  }
+  if (!urls.size) return;
+  const cache = await caches.open(IMAGES);
+  let added = false;
+  for (const url of urls) {
+    const key = pictureKey(url);
+    if (await cache.match(key, { ignoreVary: true })) continue;
+    try {
+      const response = await fetch(url, { mode: "cors", credentials: "omit" });
+      if (response.ok) {
+        await cache.put(key, response);
+        added = true;
+      }
+    } catch {
+      // offline again, or a host that won't answer with CORS: the page draws it when opened online
+    }
+  }
+  if (added) await trim(IMAGES, MAX_IMAGES);
 }
 
 /** Pictures: the saved one at once when there is one, refreshed in the background; otherwise the network. */
