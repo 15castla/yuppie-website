@@ -5,12 +5,22 @@
 //
 //   PHASE_B_BASE=http://localhost:3241 node tests/e2e/phase-b/22-offline.mjs
 import { chromium } from '/home/claude/stack/node_modules/playwright/index.mjs';
-import { cookieFor, done, eq, makeEvent, makeMemberWithPhoto, ok, page as getPage, svc } from './lib.mjs';
+import { action, cookieFor, done, eq, makeEvent, makeMemberWithPhoto, ok, page as getPage, postPlan, q, sql1, svc } from './lib.mjs';
 
 const BASE = process.env.PHASE_B_BASE || 'http://localhost:3241';
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 YuppieNativeApp';
 const member = await makeMemberWithPhoto('off');
 const event = await makeEvent('offline', { price: 1500 });
+// A plan chat with a message the member hasn't read (14 Nov 2026: "can't seem to open messages offline").
+const host = await makeMemberWithPhoto('offhost');
+const planId = await postPlan(host, { title: 'Offline padel' });
+const chatId = (await action('invite.joinOpenInvite', [planId], member.session)).result.chatId;
+await action('thread.sendMessage', [{ chatId, text: 'See you at the gate', clientId: `c-${Date.now()}` }], host.session);
+const readAt = () => sql1(`select last_read_at from chat_members where chat_id = ${q(chatId)} and member_id = ${q(member.id)}`).last_read_at;
+const unreadBefore = readAt();
+// Messages in the app needs Open Invite in the app (NEXT_PUBLIC_MEMBERS_OPEN_INVITE_APP=on in the build).
+const messagesInApp = (await getPage('/members/messages', member.session, { 'user-agent': UA })).status === 200;
+if (!messagesInApp) console.log('note: this build has no Messages in the app; the Messages checks are skipped');
 // A real-looking discount for the members card (the seed's partners are examples, hidden from members). The list is
 // cached for a minute, so wait until it shows.
 const PERK = `Offline Test Barbers ${Date.now().toString(36)}`;
@@ -48,6 +58,14 @@ for (let i = 0; i < 30 && !(saved.includes('/members/discounts') && saved.includ
   saved = await savedPages();
 }
 ok(saved.includes('/members/discounts') && saved.includes('/members/access'), 'the tabs never opened (Discounts, Access) are saved ahead', saved);
+if (messagesInApp) {
+  for (let i = 0; i < 30 && !saved.includes(`/members/messages/${chatId}`); i += 1) {
+    await page.waitForTimeout(500);
+    saved = await savedPages();
+  }
+  ok(saved.includes('/members/messages') && saved.includes(`/members/messages/${chatId}`), 'Messages and its chats are saved ahead', saved);
+  eq(readAt(), unreadBefore, 'a chat saved ahead is not marked read (the member hasn’t opened it)');
+}
 ok(await page.evaluate(async () => (await (await caches.open('cy-images-v1')).keys()).some((r) => r.url.includes('/storage/v1/object/sign/member-photos/'))), 'the member’s photo is kept too');
 
 // ---------------------------------------------------------------- offline: the saved pages open, clearly offline
@@ -67,6 +85,17 @@ ok(true, 'tapping a tab offline opens its saved page');
 await page.getByRole('link', { name: 'Discounts', exact: true }).first().click();
 await page.waitForURL(/\/members\/discounts$/, { timeout: 15000 });
 ok(true, 'and a tab never opened, saved ahead, opens too');
+if (messagesInApp) {
+  await page.goto(`${BASE}/members/messages`, { waitUntil: 'load' });
+  await page.locator(`a[href="/members/messages/${chatId}"]:visible`).first().click();
+  await page.waitForURL(new RegExp(`/members/messages/${chatId}$`), { timeout: 15000 });
+  await page.locator(':text("See you at the gate"):visible').first().waitFor({ timeout: 8000 });
+  await page.waitForTimeout(1500);
+  eq(await page.locator(':text("That didn’t"):visible').count(), 0, 'and it stays (no "That didn’t load": the page’s own files were saved with it)');
+  ok(true, 'offline: Messages opens, and its chat, with the messages');
+  ok(await page.locator('img[src*="/storage/v1/object/sign/member-photos/"]:visible').first().evaluate((img) => img.complete && img.naturalWidth > 0), 'with the other member’s photo (saved with the chat, though it was never drawn)');
+  await page.goto(`${BASE}/members/discounts`, { waitUntil: 'load' });
+}
 // the members card offline (14 Nov 2026): the last check on the phone, saying when it was
 await page.locator('button.dc-row', { hasText: PERK }).first().click();
 await page.locator('.dc-checked').waitFor({ timeout: 8000 });

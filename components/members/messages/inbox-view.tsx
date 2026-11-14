@@ -178,7 +178,8 @@ export function InboxView({
     let alive = true;
     let busy = false;
     const tick = async () => {
-      if (busy || !alive || document.visibilityState === "hidden") return;
+      // offline (14 Nov 2026): no call that can't go anywhere; the next tick after the signal returns asks
+      if (busy || !alive || document.visibilityState === "hidden" || !navigator.onLine) return;
       busy = true;
       try {
         await refresh();

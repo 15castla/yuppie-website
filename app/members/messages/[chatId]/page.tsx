@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { InboxView } from "@/components/members/messages/inbox-view";
@@ -21,7 +22,10 @@ export default async function MessageThreadPage({ params }: { params: Promise<{ 
   const now = new Date();
   const thread = await getThread({ id: member.id, email: member.email }, decodeURIComponent(chatId), now);
   if (!thread) notFound();
-  if (!thread.chat.id.startsWith("ask-")) await markChatRead(member.id, thread.chat.id);
+  // Saved on the phone in the background for offline (public/members-sw.js sends x-cy-save, 14 Nov 2026): not
+  // opened by the member, so not marked read.
+  const savingAhead = (await headers()).get("x-cy-save") === "1";
+  if (!thread.chat.id.startsWith("ask-") && !savingAhead) await markChatRead(member.id, thread.chat.id);
   const [chats, updates] = await Promise.all([listChats(member.id, now), listUpdates(member.id, now)]);
   const asking = thread.chat.kind === "question" && thread.chat.plan.host.id !== member.id;
 

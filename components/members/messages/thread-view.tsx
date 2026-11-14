@@ -328,7 +328,7 @@ export function ThreadView({
     let alive = true;
     let busy = false;
     const tick = async () => {
-      if (busy || !alive || leftRef.current || document.visibilityState === "hidden") return;
+      if (busy || !alive || leftRef.current || document.visibilityState === "hidden" || !navigator.onLine) return;
       busy = true;
       const run = poll().catch(() => {
         // offline or the server did not answer: the next tick tries again
