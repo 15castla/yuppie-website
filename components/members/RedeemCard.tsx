@@ -28,21 +28,26 @@ import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Image from "next/image";
 
 import { getRedemptionStatus, type RedemptionStatus } from "@/app/members/redemption-actions";
+import { lastCard, rememberCard, type CardMemory } from "@/components/members/discounts/card-memory";
 import { Avatar, Button, Icon, Pill, Status } from "@/components/members/kit";
 import { CARD_HELP_HREF, REJOIN_HREF, type RedeemPerk } from "@/components/members/discounts/perk-model";
 import "@/components/members/discounts/discounts.css";
 
 export type RedeemPhase =
   | { kind: "loading" }
-  | { kind: "active"; name: string; photoUrl: string | null; checked: string }
+  // offline: from the last check on this phone ("Offline · last checked Fri 13 Nov, 21:42"), 14 Nov 2026
+  | { kind: "active"; name: string; photoUrl: string | null; checked: string; offline?: boolean }
   // The membership has ended (cancelled): "Your membership has ended."
   | { kind: "ended" }
   // Paused, or no member row: "We can’t show your card right now."
   | { kind: "other" }
-  // The check itself failed (a lost connection): the same words, and a way to try again.
-  | { kind: "error" };
+  // The check itself failed (a lost connection): the same words, and a way to try again. offline: no signal and no
+  // earlier check on this phone to show.
+  | { kind: "error"; offline?: boolean };
 
 const CHECKED_ZONE = "Europe/London";
+/** A check that hasn't answered by now shows the last one on this phone (a weak signal). */
+const WEAK_SIGNAL_MS = 6000;
 
 // "09:41": 24-hour, leading zero, the club's own time zone (events and the
 // card agree), from the server's clock.
@@ -58,6 +63,25 @@ export function formatChecked(iso: string): string {
   const hour = parts.find((part) => part.type === "hour")?.value ?? "00";
   const minute = parts.find((part) => part.type === "minute")?.value ?? "00";
   return `${hour}:${minute}`;
+}
+
+/** "21:42" today, else "Fri 13 Nov, 21:42" (London time). */
+export function formatCheckedWhen(iso: string, now = new Date()): string {
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const day = (d: Date) => new Intl.DateTimeFormat("en-GB", { timeZone: CHECKED_ZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(d);
+  if (day(date) === day(now)) return formatChecked(iso);
+  const words = new Intl.DateTimeFormat("en-GB", { timeZone: CHECKED_ZONE, weekday: "short", day: "numeric", month: "short" }).format(date).replace(/,/g, "");
+  return `${words}, ${formatChecked(iso)}`;
+}
+
+/** The card from the last check on this phone, with no signal. */
+export function phaseFromMemory(memory: CardMemory): RedeemPhase {
+  if (memory.status === "active") {
+    return { kind: "active", name: memory.name?.trim() || "Member", photoUrl: memory.photoUrl, checked: formatCheckedWhen(memory.checkedAt), offline: true };
+  }
+  if (memory.status === "cancelled") return { kind: "ended" };
+  return { kind: "other" };
 }
 
 export function phaseFor(status: RedemptionStatus | null): RedeemPhase {
@@ -110,7 +134,9 @@ function RedeemBody({
               {phase.name}
             </h2>
             <Status>Active member</Status>
-            {phase.checked ? <p className="dc-checked">Checked {phase.checked}</p> : null}
+            {phase.checked ? (
+              <p className="dc-checked">{phase.offline ? `Offline · last checked ${phase.checked}` : `Checked ${phase.checked}`}</p>
+            ) : null}
           </div>
           <div className="dc-perk">
             <h3 className="dc-perk-name">{perk.name}</h3>
@@ -138,8 +164,24 @@ function RedeemBody({
           </div>
         </div>
       );
-    case "other":
     case "error":
+      if (phase.offline) {
+        return (
+          <div className="dc-gone">
+            <h2 className="dc-gone-h" id={titleId}>
+              Your card needs a signal the first time.
+            </h2>
+            <p className="mk-lead">Open it once while you’re online, and it shows offline after that.</p>
+            <div className="dc-gone-act">
+              <Button variant="quiet" onClick={onRetry}>
+                Try again
+              </Button>
+            </div>
+          </div>
+        );
+      }
+    // falls through: the check failed with a signal
+    case "other":
       return (
         <div className="dc-gone">
           <h2 className="dc-gone-h" id={titleId}>
@@ -348,18 +390,38 @@ export function RedeemCard({ perk, onClose }: { perk: RedeemPerk; onClose: () =>
   const [phase, setPhase] = useState<RedeemPhase>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
 
-  // A fresh read every time the card opens (and on "Try again").
+  // A fresh read every time the card opens (and on "Try again"). With no signal, or none within a few seconds, the
+  // last check on this phone (14 Nov 2026); the fresh one replaces it if it comes.
   useEffect(() => {
     let cancelled = false;
+    const fromPhone = () => {
+      if (cancelled) return;
+      const memory = lastCard();
+      setPhase(memory ? phaseFromMemory(memory) : navigator.onLine ? { kind: "error" } : { kind: "error", offline: true });
+    };
+    if (!navigator.onLine) {
+      fromPhone();
+      return () => {
+        cancelled = true;
+      };
+    }
+    const slow = setTimeout(() => {
+      if (lastCard()) fromPhone();
+    }, WEAK_SIGNAL_MS);
     getRedemptionStatus()
       .then((status) => {
-        if (!cancelled) setPhase(phaseFor(status));
+        clearTimeout(slow);
+        if (cancelled) return;
+        if (status) rememberCard(status);
+        setPhase(phaseFor(status));
       })
       .catch(() => {
-        if (!cancelled) setPhase({ kind: "error" });
+        clearTimeout(slow);
+        fromPhone();
       });
     return () => {
       cancelled = true;
+      clearTimeout(slow);
     };
   }, [attempt]);
 
