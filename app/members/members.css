@@ -506,11 +506,15 @@ textarea.mk-input{display:block;min-height:120px;padding:12px 14px;line-height:1
 .cy-offbar[data-show=true]{display:flex}
 .cy-offdot{flex:none;width:8px;height:8px;border-radius:50%;background:#F26B5B}
 .cy-offbar[data-state=on] .cy-offdot{background:#5BC57A}
+/* the strip behind the status bar, solid yellow, so the bar is fixed at the very top and nothing scrolls between
+   the two (Albert, 14 Nov 2026: "The banner looks good at the top of the page but not when you scroll") */
+.cy-offbar::before{content:"";position:absolute;left:0;right:0;bottom:100%;height:var(--native-safe-area-inset-top,env(safe-area-inset-top,0px));background:var(--background,#FFD904)}
 .cy-offtry{appearance:none;border:0;background:none;padding:0 0 0 2px;margin:0;color:inherit;font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer;min-height:24px}
 @media (max-width:767px){
   :root.cy-netbar{--safe-top:calc(var(--native-safe-area-inset-top,env(safe-area-inset-top,0px)) + 36px)}
 }
 @media (min-width:768px){
   .cy-offbar{top:auto;left:50%;right:auto;bottom:24px;transform:translateX(-50%);min-height:40px;padding:8px 18px;border-radius:999px;box-shadow:0 2px 0 rgba(0,0,0,.15);white-space:nowrap}
+  .cy-offbar::before{display:none}
 }
 html.cy-offline [data-needs-net]{opacity:.4;pointer-events:none;filter:grayscale(1)}
