@@ -68,11 +68,25 @@ public class ExternalLinkPlugin: CAPPlugin, CAPBridgedPlugin, SFSafariViewContro
         return true
     }
 
+    // App-Bound Domains (13 Nov 2026, for pages that open offline): with them on, the WebView can only go to the
+    // hosts listed under WKAppBoundDomains in Info.plist at the top level; anywhere else fails outright. So a host
+    // that would have stayed in the app by the suffixes below but isn't in that list (an unusual stripe.com page)
+    // opens in the in-app browser sheet instead of failing.
+    private lazy var appBoundHosts: Set<String>? = {
+        guard let list = Bundle.main.object(forInfoDictionaryKey: "WKAppBoundDomains") as? [String], !list.isEmpty else {
+            return nil
+        }
+        return Set(list.map { $0.lowercased() })
+    }()
+
     private func isInAppHost(_ host: String?) -> Bool {
         guard let host = host?.lowercased() else { return false }
 
         if let serverHost = bridge?.config.serverURL.host?.lowercased(), host == serverHost {
             return true
+        }
+        if let bound = appBoundHosts {
+            return bound.contains(host)
         }
         // Mirrors capacitor.config.ts's server.allowNavigation list.
         let allowedSuffixes = ["clubyuppie.com", "stripe.com", "supabase.co"]

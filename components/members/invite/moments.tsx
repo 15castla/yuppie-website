@@ -74,7 +74,7 @@ export function ConfirmJoinSheet({
       </p>
       <PlanSummary invite={invite} />
       <Actions>
-        <Button block pending={busy} onClick={busy ? undefined : onConfirm}>
+        <Button data-needs-net="" block pending={busy} onClick={busy ? undefined : onConfirm}>
           {busy ? "Joining…" : "I’m in"}
         </Button>
         <Button block variant="outline" disabled={busy} onClick={onClose}>
@@ -142,7 +142,7 @@ export function WithdrawSheet({
         <Button block onClick={onClose}>
           Stay in
         </Button>
-        <Button block variant="outline" className="oi-danger" pending={busy} onClick={busy ? undefined : onConfirm}>
+        <Button data-needs-net="" block variant="outline" className="oi-danger" pending={busy} onClick={busy ? undefined : onConfirm}>
           Withdraw
         </Button>
       </Actions>
@@ -200,7 +200,7 @@ export function ReportSheet({
         ))}
       </div>
       <Actions>
-        <Button block disabled={reason === null} pending={busy} onClick={busy || reason === null ? undefined : () => onSend(reasons[reason])}>
+        <Button data-needs-net="" block disabled={reason === null} pending={busy} onClick={busy || reason === null ? undefined : () => onSend(reasons[reason])}>
           Send report
         </Button>
         <Button block variant="outline" onClick={onClose}>

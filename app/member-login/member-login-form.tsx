@@ -12,6 +12,8 @@
 // two notices of B-D1 (?state=logged-out, ?state=session-ended).
 
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+
+import { clearMemberPages } from "@/lib/members/offline-pages";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Link from "next/link";
@@ -85,6 +87,8 @@ function messageFor(key: ErrorKey, step: "email" | "code"): string {
 export function MemberLoginForm({ notice = null }: { notice?: LoginNotice | null }) {
   const router = useRouter();
   const reduce = useReducedMotion();
+  // Signed out (or the session ended): nothing of the last member stays saved on this device (13 Nov 2026).
+  useEffect(() => clearMemberPages(), []);
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"email" | "code">("email");

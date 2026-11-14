@@ -581,7 +581,7 @@ export function PostView({
               {editing ? <ChangeNote /> : null}
             </div>
             <div className="oi-formact">
-              <Button type="submit" form={`${uid}-form`} pending={posting}>
+              <Button data-needs-net="" type="submit" form={`${uid}-form`} pending={posting}>
                 {buttonText}
               </Button>
             </div>
@@ -608,7 +608,7 @@ export function PostView({
       <div className="mk-dock-spacer" aria-hidden="true" />
       <div className="mk-dock" data-needs-device-check="true">
         <div className="mk-tabbar oi-bar oi-bar-one">
-          <Button type="submit" form={`${uid}-form`} pending={posting}>
+          <Button data-needs-net="" type="submit" form={`${uid}-form`} pending={posting}>
             {buttonText}
           </Button>
         </div>

@@ -495,3 +495,22 @@ textarea.mk-input{display:block;min-height:120px;padding:12px 14px;line-height:1
   .mk-empty-words .mk-lead{max-width:36ch}
 }
 
+
+/* 9. offline (13 Nov 2026, components/members/shell/offline.tsx, public/members-sw.js) ----------------------------
+   A slim ink bar under the status bar while there is no connection ("You’re offline. Showing what you saw at
+   21:42.") or the page came from the phone ("Weak signal ... Try again"), and "Back online" for a moment after. On
+   a phone it pushes the page down by its height (everything that clears the status bar uses --safe-top); on a
+   computer it is a pill at the foot instead. While offline, whatever needs a connection (data-needs-net) is greyed
+   out and can't be tapped. */
+.cy-offbar{position:fixed;left:0;right:0;top:var(--native-safe-area-inset-top,env(safe-area-inset-top,0px));z-index:90;display:none;align-items:center;justify-content:center;gap:8px;min-height:36px;padding:6px max(16px,env(safe-area-inset-right,0px)) 6px max(16px,env(safe-area-inset-left,0px));background:var(--foreground,#1B1512);color:var(--background,#FFD904);font:700 13px/1.25 var(--font-almarai),'Helvetica Neue',ui-sans-serif,system-ui,sans-serif;text-align:center}
+.cy-offbar[data-show=true]{display:flex}
+.cy-offdot{flex:none;width:8px;height:8px;border-radius:50%;background:#F26B5B}
+.cy-offbar[data-state=on] .cy-offdot{background:#5BC57A}
+.cy-offtry{appearance:none;border:0;background:none;padding:0 0 0 2px;margin:0;color:inherit;font:inherit;text-decoration:underline;text-underline-offset:2px;cursor:pointer;min-height:24px}
+@media (max-width:767px){
+  :root.cy-netbar{--safe-top:calc(var(--native-safe-area-inset-top,env(safe-area-inset-top,0px)) + 36px)}
+}
+@media (min-width:768px){
+  .cy-offbar{top:auto;left:50%;right:auto;bottom:24px;transform:translateX(-50%);min-height:40px;padding:8px 18px;border-radius:999px;box-shadow:0 2px 0 rgba(0,0,0,.15);white-space:nowrap}
+}
+html.cy-offline [data-needs-net]{opacity:.4;pointer-events:none;filter:grayscale(1)}

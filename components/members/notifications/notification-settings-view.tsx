@@ -99,6 +99,7 @@ function Switch({
 }) {
   return (
     <button
+      data-needs-net=""
       id={id}
       type="button"
       className="ntf-sw"

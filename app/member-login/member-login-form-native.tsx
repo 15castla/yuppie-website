@@ -13,6 +13,8 @@
 // clock, the safe areas).
 
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+
+import { clearMemberPages } from "@/lib/members/offline-pages";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import Image from "next/image";
@@ -80,6 +82,8 @@ type ErrorKey = SendErrorKey | VerifyErrorKey;
 export function MemberLoginFormNative({ notice = null }: { notice?: LoginNotice | null }) {
   const router = useRouter();
   const reduce = useReducedMotion();
+  // Signed out (or the session ended): nothing of the last member stays saved on the phone (13 Nov 2026).
+  useEffect(() => clearMemberPages(), []);
 
   const fade = (delay: number) => ({
     initial: reduce ? false : { y: 20, opacity: 0 },

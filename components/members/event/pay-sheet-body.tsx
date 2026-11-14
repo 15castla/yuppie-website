@@ -334,7 +334,7 @@ export function CreditSheetBody({
         </div>
       ) : null}
       <PayActions tight={state === "error"}>
-        <Button block pending={busy} onClick={busy ? undefined : onBook}>
+        <Button data-needs-net="" block pending={busy} onClick={busy ? undefined : onBook}>
           {busy ? "Booking…" : "Book with credit"}
         </Button>
       </PayActions>

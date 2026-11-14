@@ -65,7 +65,7 @@ function Confirm({
           </p>
         ) : null}
         <div className="msg-blk-acts">
-          <Button onClick={onUnblock} pending={pending}>
+          <Button data-needs-net="" onClick={onUnblock} pending={pending}>
             Unblock {name}
           </Button>
           <Button variant="outline" onClick={onCancel} data-autofocus>
@@ -165,7 +165,7 @@ export function BlockedView({
                       <span className="mk-meta">Blocked {dayMonth(item.blockedAt)}</span>
                     </span>
                     <span className="mk-end">
-                      <Button
+                      <Button data-needs-net=""
                         variant="outline"
                         size="sm"
                         aria-label={`Unblock ${item.member.firstName}`}

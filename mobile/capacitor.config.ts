@@ -38,6 +38,14 @@ const config: CapacitorConfig = {
     // bridge starts, and with no notifications plugin that router shows nothing while the app is open and does
     // nothing with a tap (found 11 Nov 2026: no banner in the app, and a tap did not open the chat).
     handleApplicationNotifications: false,
+    // Pages that open with no signal (13 Nov 2026, public/members-sw.js): WKWebView runs a site's service worker
+    // only for App-Bound Domains, the hosts listed under WKAppBoundDomains in ios/App/App/Info.plist: clubyuppie.com,
+    // localhost (Capacitor's own files: the offline screen), and the Stripe and Supabase hosts a payment or sign-in
+    // may open at the top level. Iframes and pictures from anywhere still load; any other top-level page opens in
+    // the in-app browser sheet (ExternalLinkPlugin.swift). Capacitor's docs: with WKAppBoundDomains in Info.plist
+    // this should be true, "otherwise some features won't work". A build pointed at another server
+    // (CAPACITOR_SERVER_URL) needs that server's host added to the list (10 at most; 9 used).
+    limitsNavigationsToAppBoundDomains: true,
   },
   server: {
     // Defaults to the members area itself, so a plain `npx cap sync &&

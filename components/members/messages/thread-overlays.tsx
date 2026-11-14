@@ -507,7 +507,7 @@ function ReportSheet({
       </div>
       <ErrorLine text={step.error} />
       <div style={{ marginTop: 16 }}>
-        <Button disabled={!reason} pending={step.busy} onClick={send}>
+        <Button data-needs-net="" disabled={!reason} pending={step.busy} onClick={send}>
           Send report
         </Button>
       </div>
@@ -596,7 +596,7 @@ function BlockDialog({
       </ul>
       <ErrorLine text={step.error} />
       <div className="acts">
-        <Button pending={step.busy} onClick={() => void step.run(() => onBlock(memberId))}>
+        <Button data-needs-net="" pending={step.busy} onClick={() => void step.run(() => onBlock(memberId))}>
           Block {name}
         </Button>
         <Button variant="outline" onClick={cancel} data-autofocus>
@@ -628,7 +628,7 @@ function LeaveDialog({
       </p>
       <ErrorLine text={step.error} />
       <div className="acts">
-        <Button pending={step.busy} onClick={() => void step.run(onLeave)}>
+        <Button data-needs-net="" pending={step.busy} onClick={() => void step.run(onLeave)}>
           Leave chat
         </Button>
         <Button variant="outline" onClick={stay} data-autofocus>

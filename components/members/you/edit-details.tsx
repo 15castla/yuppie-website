@@ -350,7 +350,7 @@ export function EditDetailsView({
                 </p>
               ) : null}
 
-              <Button type="submit" block className="yu-save" pending={busy && !saved} icon={saved || demo?.status === "saved" ? <Icon name="check" size={20} /> : undefined}>
+              <Button data-needs-net="" type="submit" block className="yu-save" pending={busy && !saved} icon={saved || demo?.status === "saved" ? <Icon name="check" size={20} /> : undefined}>
                 {saved || demo?.status === "saved" ? "Saved" : busy ? "Saving…" : "Save changes"}
               </Button>
             </form>

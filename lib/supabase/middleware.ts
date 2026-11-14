@@ -193,5 +193,20 @@ export async function updateSession(request: NextRequest) {
     return notFoundResponse;
   }
 
+  // Pages saved on the phone for offline (public/members-sw.js, 13 Nov 2026): a signed-in member's page loads say
+  // so with a short hash of who it is. The worker saves only these, and wipes what it saved when the hash changes
+  // (another member on the same phone). Not on the router's own requests or prefetches, which it never saves.
+  if (isMembersPath && isNavigation(request) && !request.headers.has("rsc") && !request.headers.has("next-router-prefetch")) {
+    const sub = typeof data?.claims?.sub === "string" ? data.claims.sub : null;
+    if (sub) supabaseResponse.headers.set(MEMBER_HASH_HEADER, await memberHash(sub));
+  }
+
   return supabaseResponse;
+}
+
+const MEMBER_HASH_HEADER = "x-cy-member";
+
+async function memberHash(id: string): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`cy-offline:${id}`));
+  return Array.from(new Uint8Array(digest).slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
 }
