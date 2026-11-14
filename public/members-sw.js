@@ -32,6 +32,8 @@ const MAX_IMAGES = 300;
 const MAX_ASSETS = 600;
 /** A page saved in the background is saved again at most this often. */
 const RESAVE_MS = 2 * 60 * 1000;
+/** The main pages (the tabs, Profile, Messages), saved ahead so each opens offline even if not visited: at most this often. */
+const MAIN_RESAVE_MS = 30 * 60 * 1000;
 /** How long a page load waits for the network before showing the saved copy (when there is one). */
 const PAGE_TIMEOUT_MS = 6000;
 const NEVER_SAVE = [/^\/members\/billing/, /\/calendar\.ics$/, /^\/members\/test-error/];
@@ -187,12 +189,12 @@ async function cacheFirst(request, cacheName) {
  * A page reached inside the app (the client router fetches only its data, not the page) is saved in the background
  * when the page asks (components/members/shell/offline.tsx), at most every couple of minutes.
  */
-async function saveInBackground(href) {
-  const url = new URL(href);
+async function saveInBackground(href, minAge = RESAVE_MS) {
+  const url = new URL(href, self.location.origin);
   if (url.origin !== self.location.origin || !(url.pathname === "/members" || url.pathname.startsWith("/members/"))) return;
   if (NEVER_SAVE.some((re) => re.test(url.pathname))) return;
   const last = Number(await meta(`saved:${url.pathname}${url.search}`)) || 0;
-  if (Date.now() - last < RESAVE_MS) return;
+  if (Date.now() - last < minAge) return;
   const response = await fetch(url.toString(), { credentials: "same-origin", headers: { accept: "text/html" }, redirect: "manual" });
   if (response.ok && response.type === "basic") await savePage(new Request(url.toString()), response);
 }
@@ -273,5 +275,29 @@ self.addEventListener("message", (event) => {
   }
   if (data.type === "cy-save" && typeof data.href === "string") {
     event.waitUntil(saveInBackground(data.href).catch(() => {}));
+    return;
+  }
+  // The main pages (14 Nov 2026: Concierge, never opened since the app was installed, led to the offline screen):
+  // saved ahead, one after another, so every tab opens offline.
+  if (data.type === "cy-save-main" && Array.isArray(data.hrefs)) {
+    event.waitUntil(
+      (async () => {
+        for (const href of data.hrefs.slice(0, 10)) {
+          if (typeof href === "string") await saveInBackground(href, MAIN_RESAVE_MS).catch(() => {});
+        }
+      })(),
+    );
+    return;
+  }
+  // Which pages are saved (path and query), so the page can tell, offline, which links will open.
+  if (data.type === "cy-list" && event.ports && event.ports[0]) {
+    const port = event.ports[0];
+    event.waitUntil(
+      caches
+        .open(PAGES)
+        .then((cache) => cache.keys())
+        .then((keys) => port.postMessage(keys.map((r) => { const u = new URL(r.url); return u.pathname + u.search; })))
+        .catch(() => port.postMessage([])),
+    );
   }
 });
