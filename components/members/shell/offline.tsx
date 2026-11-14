@@ -13,6 +13,9 @@
 //   connection (marked data-needs-net: Book, I’m in, Send, Save ...) is greyed out and can't be tapped.
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
+import { getRedemptionStatus } from "@/app/members/redemption-actions";
+import { CARD_REFRESH_MS, lastCardAt, rememberCard } from "@/components/members/discounts/card-memory";
 import { useEffect, useRef, useState } from "react";
 
 const OFF = process.env.NEXT_PUBLIC_MEMBERS_OFFLINE === "off";
@@ -142,7 +145,16 @@ export function OfflineBar() {
   useEffect(() => {
     if (OFF) return;
     const timer = setTimeout(() => {
-      if (navigator.onLine) toWorker({ type: "cy-save-main", hrefs: mainPages() });
+      if (!navigator.onLine) return;
+      toWorker({ type: "cy-save-main", hrefs: mainPages() });
+      // The members card, checked ahead so it shows offline (with when it was checked), 14 Nov 2026.
+      if (Date.now() - lastCardAt() > CARD_REFRESH_MS) {
+        getRedemptionStatus()
+          .then((status) => {
+            if (status) rememberCard(status);
+          })
+          .catch(() => {});
+      }
     }, MAIN_DELAY_MS);
     return () => clearTimeout(timer);
   }, []);

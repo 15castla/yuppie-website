@@ -2,6 +2,12 @@
 // page: whoever signs in next starts with nothing of the last member's. The site's own files (cy-assets-*) stay.
 export function clearMemberPages(): void {
   try {
+    // the members card's last check (components/members/discounts/card-memory.ts)
+    localStorage.removeItem("cy-card");
+  } catch {
+    // no storage here
+  }
+  try {
     if (typeof caches === "undefined") return;
     void caches
       .keys()

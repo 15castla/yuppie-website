@@ -5,12 +5,21 @@
 //
 //   PHASE_B_BASE=http://localhost:3241 node tests/e2e/phase-b/22-offline.mjs
 import { chromium } from '/home/claude/stack/node_modules/playwright/index.mjs';
-import { cookieFor, done, eq, makeEvent, makeMemberWithPhoto, ok } from './lib.mjs';
+import { cookieFor, done, eq, makeEvent, makeMemberWithPhoto, ok, page as getPage, svc } from './lib.mjs';
 
 const BASE = process.env.PHASE_B_BASE || 'http://localhost:3241';
 const UA = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 YuppieNativeApp';
 const member = await makeMemberWithPhoto('off');
 const event = await makeEvent('offline', { price: 1500 });
+// A real-looking discount for the members card (the seed's partners are examples, hidden from members). The list is
+// cached for a minute, so wait until it shows.
+const PERK = `Offline Test Barbers ${Date.now().toString(36)}`;
+const { data: perkRow, error: perkError } = await svc.from('partner_perks').insert({ name: PERK, category: 'Grooming', area: 'Testtown', type: 'discount', headline: '10% off', badge: '10%', display_order: 0 }).select('id').single();
+if (perkError) throw perkError;
+for (let i = 0; i < 50; i += 1) {
+  if ((await getPage('/members/discounts', member.session)).text.includes(PERK)) break;
+  await new Promise((r) => setTimeout(r, 2000));
+}
 
 const browser = await chromium.launch();
 const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, userAgent: UA, isMobile: true, hasTouch: true });
@@ -58,6 +67,12 @@ ok(true, 'tapping a tab offline opens its saved page');
 await page.getByRole('link', { name: 'Discounts', exact: true }).first().click();
 await page.waitForURL(/\/members\/discounts$/, { timeout: 15000 });
 ok(true, 'and a tab never opened, saved ahead, opens too');
+// the members card offline (14 Nov 2026): the last check on the phone, saying when it was
+await page.locator('button.dc-row', { hasText: PERK }).first().click();
+await page.locator('.dc-checked').waitFor({ timeout: 8000 });
+ok(/^Offline · last checked \d\d:\d\d$/.test((await page.locator('.dc-checked').innerText()).trim()), 'the members card opens offline: "Offline · last checked 21:42"', await page.locator('.dc-checked').innerText());
+ok((await page.locator('.dc-who-name').innerText()).includes('Off'), 'with the member’s name');
+await page.keyboard.press('Escape');
 await page.goto(`${BASE}/members/you`, { waitUntil: 'load' });
 await bar().waitFor({ state: 'visible' });
 await page.waitForTimeout(800);
@@ -85,6 +100,7 @@ await page.goto(`${BASE}/member-login`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(800);
 const left = await page.evaluate(async () => caches.keys());
 ok(!left.some((k) => /^cy-(pages|images|meta)-/.test(k)), 'signed out: Log in wipes the saved pages and photos', left);
+eq(await page.evaluate(() => localStorage.getItem('cy-card')), null, 'and the members card’s last check');
 
 // ---------------------------------------------------------------- never the public site or Admin
 const scopes = await page.evaluate(async () => (await navigator.serviceWorker.getRegistrations()).map((r) => new URL(r.scope).pathname));
@@ -93,4 +109,5 @@ const r = await fetch(`${BASE}/members-sw.js`);
 eq(r.status, 200, '/members-sw.js is served');
 
 await browser.close();
+await svc.from('partner_perks').delete().eq('id', perkRow.id);
 done();
