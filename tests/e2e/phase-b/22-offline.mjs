@@ -30,9 +30,15 @@ await page.waitForURL(/\/members\/events$/);
 await page.waitForTimeout(2500);
 await page.goto(`${BASE}/members/events/${event.slug}`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(500);
-const saved = await savedPages();
+let saved = await savedPages();
 ok(saved.includes('/members/you') && saved.includes(`/members/events/${event.slug}`), 'a page loaded is saved on the phone', saved);
 ok(saved.includes('/members/events'), 'and one reached inside the app (saved in the background)', saved);
+// every tab is saved ahead, visited or not (14 Nov 2026: Concierge, never opened, went to the offline screen)
+for (let i = 0; i < 30 && !(saved.includes('/members/discounts') && saved.includes('/members/access')); i += 1) {
+  await page.waitForTimeout(500);
+  saved = await savedPages();
+}
+ok(saved.includes('/members/discounts') && saved.includes('/members/access'), 'the tabs never opened (Discounts, Access) are saved ahead', saved);
 ok(await page.evaluate(async () => (await (await caches.open('cy-images-v1')).keys()).some((r) => r.url.includes('/storage/v1/object/sign/member-photos/'))), 'the member’s photo is kept too');
 
 // ---------------------------------------------------------------- offline: the saved pages open, clearly offline
@@ -49,6 +55,15 @@ await page.getByRole('link', { name: 'Events', exact: true }).first().click();
 await page.waitForURL(/\/members\/events$/, { timeout: 15000 });
 await bar().waitFor({ state: 'visible' });
 ok(true, 'tapping a tab offline opens its saved page');
+await page.getByRole('link', { name: 'Discounts', exact: true }).first().click();
+await page.waitForURL(/\/members\/discounts$/, { timeout: 15000 });
+ok(true, 'and a tab never opened, saved ahead, opens too');
+await page.goto(`${BASE}/members/you`, { waitUntil: 'load' });
+await bar().waitFor({ state: 'visible' });
+await page.waitForTimeout(800);
+await page.locator('a[href^="/members/you/help/"]').first().click();
+await page.locator('.cy-offbar', { hasText: 'Not saved yet.' }).waitFor({ timeout: 5000 });
+eq(new URL(page.url()).pathname, '/members/you', 'a link to a page not on the phone: the app stays where it is, with "Not saved yet. It opens when you’re back online."');
 await page.goto(`${BASE}/members/you/help/privacy`, { waitUntil: 'load' });
 eq((await page.locator('h1').innerText()).trim(), 'You’re offline', 'a page never opened: "You’re offline", with Go back');
 await page.goto(`${BASE}/members`, { waitUntil: 'commit' });
