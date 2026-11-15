@@ -70,7 +70,9 @@ export const pushWords = {
   /** The member: the host kept the money they asked to have back. */
   refundKept: (plan: string, host: string, amount: string): PushText => ({ title: plan, body: `${host} kept your ${amount}. You’re still in.` }),
   /** The host: the money from a plan is on its way to their bank. */
-  payout: (plan: string, amount: string, day: string): PushText => ({ title: plan, body: `${amount} is on its way to your bank. It should land by ${day}.` }),
+  // The plan is over and the money is the host's (16 Nov 2026): credit or their bank, their choice.
+  payout: (plan: string, amount: string): PushText => ({ title: plan, body: `${amount} is yours. Add it to your credit or withdraw it to your bank.` }),
+  moneyReminder: (amount: string): PushText => ({ title: "Club Yuppie", body: `${amount} is waiting for you. Add it to your credit or withdraw it to your bank.` }),
   /** The host's own plan, removed by the club. */
   hostPlanRemoved: (plan: string): PushText => ({ title: plan, body: "Club Yuppie cancelled your plan." }),
   /** 24 hours or 2 hours before a plan or a club event. */

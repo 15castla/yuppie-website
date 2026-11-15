@@ -76,7 +76,7 @@ function HowItWorks({ allowed }: { allowed: number }) {
         </li>
         <li className="nm-step">
           <span className="mk-serif">3</span>
-          <span>If they’re approved, {gbp(NOMINATION_CREDIT_PENCE)} goes on your credit for Club events.</span>
+          <span>If they’re approved, {gbp(NOMINATION_CREDIT_PENCE)} goes on your credit for Club events and Open Invites.</span>
         </li>
       </ol>
       <p className="nm-small">
@@ -141,7 +141,7 @@ export function NominateView({
           <div>
             <p className="nm-intro">
               Send your link to someone you’d like to see in the club. If the committee approves them, we add{" "}
-              <b>{gbp(NOMINATION_CREDIT_PENCE)} to your credit</b> to spend on Club events.
+              <b>{gbp(NOMINATION_CREDIT_PENCE)} to your credit</b> to spend on Club events and Open Invites.
             </p>
 
             {left > 0 ? (
@@ -224,7 +224,7 @@ export function NominateView({
                   ))}
                 </Rows>
               ) : null}
-              <p className="nm-small">Credit is for Club events. It isn’t money, so it can’t be paid out or used for your membership.</p>
+              <p className="nm-small">Credit is for Club events and Open Invite places. It can’t be paid out or used for your membership.</p>
             </section>
           </div>
           <div className="mk-rail">

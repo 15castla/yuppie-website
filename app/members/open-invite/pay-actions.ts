@@ -8,11 +8,11 @@ import { revalidatePath } from "next/cache";
 import { notFound } from "next/navigation";
 
 import type { HostPlanPayments, OpenInvite } from "@/lib/members/invite/types";
-import { personRef } from "@/lib/server/people";
 import {
   answerPlanRefund,
   hostPlanPayments,
   leavePaidPlan,
+  payPlanWithCredit,
   releasePlanHold,
   settlePlanPayment,
   startPlanPayment,
@@ -32,7 +32,10 @@ async function door(): Promise<void> {
 }
 
 export type StartPayAnswer =
-  | { ok: true; clientSecret: string; amountPence: number; heldUntil: string }
+  /** The card pays amountPence; creditPence of the member's credit pays the rest (16 Nov 2026). */
+  | { ok: true; clientSecret: string; amountPence: number; creditPence: number; heldUntil: string }
+  /** The member's credit covers it all: no card (payPlanWithCreditAction). */
+  | { ok: true; credit: true; creditPence: number; creditLeftPence: number; heldUntil: string }
   | { ok: false; kind: "full" | "already-in" | "refused"; error: string; invite: OpenInvite | null };
 
 /** Pay and join, step 1: hold a place (10 minutes) and open payment for it. Nothing is taken yet. */
@@ -41,13 +44,12 @@ export async function startPlanPaymentAction(planId: string): Promise<StartPayAn
   return asMember("startPlanPayment", async (member, viewer) => {
     const row = await planById(planId);
     if (!row || !(await canSeePlan(viewer.id, row))) return { ok: false, kind: "refused", error: NOT_FOUND, invite: null };
-    const host = await personRef(row.host_id);
     const r = await startPlanPayment(
       { id: member.id, email: member.email, stripe_customer_id: member.stripe_customer_id },
       { id: row.id, host_id: row.host_id, title: row.title, price_pence: row.price_pence },
-      host.firstName,
     );
-    if (r.kind === "ready") return { ok: true, clientSecret: r.clientSecret, amountPence: r.amountPence, heldUntil: r.heldUntil };
+    if (r.kind === "ready") return { ok: true, clientSecret: r.clientSecret, amountPence: r.amountPence, creditPence: r.creditPence, heldUntil: r.heldUntil };
+    if (r.kind === "credit") return { ok: true, credit: true, creditPence: r.creditPence, creditLeftPence: r.creditLeftPence, heldUntil: r.heldUntil };
     const invite = await inviteFor(viewer, planId);
     if (r.kind === "full") return { ok: false, kind: "full", error: "The last place has gone.", invite };
     if (r.kind === "already-in") return { ok: false, kind: "already-in", error: "You’re in already.", invite };
@@ -57,10 +59,11 @@ export async function startPlanPaymentAction(planId: string): Promise<StartPayAn
 
 export type ConfirmPayAnswer =
   | { ok: true; kind: "paid"; invite: OpenInvite; pence: number }
-  | { ok: false; kind: "full" | "price-changed" | "declined" | "pending" | "refused"; newPricePence?: number | null; invite: OpenInvite | null; error: string };
+  | { ok: false; kind: "full" | "price-changed" | "credit-changed" | "declined" | "pending" | "refused"; newPricePence?: number | null; invite: OpenInvite | null; error: string };
 
 const CONFIRM_WORDS = {
   full: "That was the last place. Nothing was taken.",
+  "credit-changed": "Your credit changed while you were paying. Nothing was taken. Try again.",
   "price-changed": "The price changed. Nothing was taken.",
   declined: "Your card was declined. Nothing was taken.",
   pending: "Your payment is still being checked.",
@@ -81,6 +84,35 @@ export async function confirmPlanPaymentAction(paymentIntentId: string, planId: 
       return { ok: true as const, kind: "paid" as const, invite: invite!, pence };
     }
     if (r.kind === "not-ours") return { ok: false as const, kind: "refused" as const, invite, error: CONFIRM_WORDS.refused };
+    return {
+      ok: false as const,
+      kind: r.kind,
+      newPricePence: r.kind === "price-changed" ? r.newPricePence : undefined,
+      invite,
+      error: CONFIRM_WORDS[r.kind],
+    };
+  });
+  if ("ok" in result && result.ok) fresh();
+  return result;
+}
+
+/** Pay and join with credit alone (16 Nov 2026): the member's credit covers the place and the fee. */
+export async function payPlanWithCreditAction(planId: string): Promise<ConfirmPayAnswer | SessionEnded | Failed> {
+  await door();
+  const result = await asMember("payPlanWithCredit", async (_member, viewer) => {
+    const row = await planById(planId);
+    if (!row || !(await canSeePlan(viewer.id, row))) return { ok: false as const, kind: "refused" as const, invite: null, error: NOT_FOUND };
+    const r = await payPlanWithCredit({ id: viewer.id }, { id: row.id, host_id: row.host_id, title: row.title, price_pence: row.price_pence });
+    const invite = await inviteFor(viewer, planId);
+    if (r.kind === "paid") {
+      const pay = invite?.you.payment;
+      const pence = pay ? pay.amountPence + (pay.feePence ?? 0) : 0;
+      return { ok: true as const, kind: "paid" as const, invite: invite!, pence };
+    }
+    if (r.kind === "already-in") return { ok: true as const, kind: "paid" as const, invite: invite!, pence: 0 };
+    if (r.kind === "refused" || r.kind === "not-ours") {
+      return { ok: false as const, kind: "refused" as const, invite, error: ("error" in r && r.error) || CONFIRM_WORDS.refused };
+    }
     return {
       ok: false as const,
       kind: r.kind,

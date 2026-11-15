@@ -19,6 +19,7 @@ import * as thread from "@/app/members/messages/[chatId]/actions";
 import * as invite from "@/app/members/open-invite/actions";
 import * as plan from "@/app/members/open-invite/[id]/actions";
 import * as pay from "@/app/members/open-invite/pay-actions";
+import * as money from "@/app/members/you/payments/actions";
 import * as adminPayments from "@/app/admin/payments-actions";
 import * as photo from "@/app/members/photo/actions";
 import * as shell from "@/app/members/shell-actions";
@@ -59,6 +60,7 @@ const MODULES: Record<string, Record<string, unknown>> = {
   invite,
   plan,
   pay,
+  money,
   "admin.payments": adminPayments,
   photo,
   shell,

@@ -186,7 +186,7 @@ export type PaymentStatus =
   | "held" // taken, held by Club Yuppie until the plan is over
   | "refund-asked" // the member left inside 24 hours and asked the host for a refund
   | "refunded"
-  | "paid-out"; // the plan happened and the host was paid
+  | "paid-out"; // the plan happened and the money is the host's (credit or their bank, their choice)
 
 export type PaymentRefund = {
   amountPence: number;
@@ -198,6 +198,11 @@ export type PaymentRefund = {
   refundedAt: string;
   /** Card refunds usually land in 5 to 10 working days: the date by which they should have. */
   expectedBy: string;
+  /**
+   * The part of amountPence that went back on the member's Club Yuppie credit (16 Nov 2026: a place paid partly or
+   * wholly with credit; the card gets back no more than it paid). Left out or 0: all of it went to the card.
+   */
+  creditPence?: number;
 };
 
 /** One member's payment for one place. */
@@ -212,8 +217,10 @@ export type InvitePayment = {
   /** Club Yuppie's booking fee paid with it (15 Nov 2026); left out: none. The card was charged amountPence + this. */
   feePence?: number;
   paidAt: string;
-  /** How it was paid, in words: "Visa ending 4242". Never a full card number. */
+  /** How it was paid, in words: "Visa ending 4242", "Club Yuppie credit". Never a full card number. */
   method: string;
+  /** How much of it was paid with Club Yuppie credit (16 Nov 2026); left out or 0: none. The card paid the rest. */
+  creditPence?: number;
   status: PaymentStatus;
   /** Set when status is "refund-asked": when the member asked. */
   refundAskedAt: string | null;
@@ -223,7 +230,7 @@ export type InvitePayment = {
 /** The host's money on one paid plan. */
 export type HostPlanMoney = {
   payments: InvitePayment[];
-  /** When the host is paid: about 2 working days after the plan. Null once paid out or if nothing is held. */
+  /** When the money becomes the host's (24 hours after the start). Null once it is, or if nothing is held. */
   payoutOn: string | null;
   getPaid: GetPaidStatus;
 };
@@ -235,7 +242,7 @@ export type GetPaid = {
   status: GetPaidStatus;
   /** Ready: the last four digits of the bank account the money goes to. */
   accountEnding: string | null;
-  /** Needs more info: a payout that is paused (money safe, nothing lost). */
+  /** Always null since 16 Nov 2026 (money waits as the host's until they withdraw it); kept for the preview harness. */
   paused: { amountPence: number; dueOn: string } | null;
 };
 
@@ -248,8 +255,12 @@ export type HostPaidPlan = {
   payers: string[];
   /** What the payers paid in all (or the refunded amount on a refunded plan). */
   amountPence: number;
-  status: "held" | "on-its-way" | "paid-out" | "refunded" | "paused" | "asked";
-  /** Held and on-its-way: when the host is paid. */
+  /**
+   * held: until the plan is over. asked: a refund request to answer. ready: the host's, to add to credit or withdraw
+   * (16 Nov 2026). credited: added to their credit. on-its-way / paid-out: withdrawn to their bank.
+   */
+  status: "held" | "asked" | "ready" | "credited" | "on-its-way" | "paid-out" | "refunded";
+  /** Held and asked: when the money becomes the host's. On its way: when it should reach their bank. */
   payoutOn: string | null;
   /** Paid out: when it went to the bank. */
   paidOutOn: string | null;
@@ -260,9 +271,16 @@ export type HostPaidPlan = {
 /** The host's Payments page (You > Payments). */
 export type HostPayments = {
   getPaid: GetPaid;
+  /** Held by Club Yuppie until the plans are over. */
   heldPence: number;
+  /** The host's now, waiting for them to choose: Add to my credit, or Withdraw to my bank (16 Nov 2026). */
+  readyPence: number;
+  /** Added to their Club Yuppie credit so far. */
+  creditedPence: number;
   onItsWayPence: number;
   paidOutPence: number;
+  /** Their Club Yuppie credit now (what they can spend on events and Open Invites). */
+  creditBalancePence: number;
   plans: HostPaidPlan[];
 };
 
@@ -270,7 +288,10 @@ export type HostPayments = {
 export type HostPlanPayments = {
   invite: Pick<OpenInvite, "id" | "title" | "startsAt" | "where" | "places" | "cost">;
   payments: InvitePayment[];
+  /** Held: when the money becomes the host's. Withdrawn: when it should reach their bank. */
   payoutOn: string | null;
+  /** Where the plan's money is once it is the host's (16 Nov 2026). Left out: the preview harness. */
+  money?: { readyPence: number; creditedPence: number; paidOutPence: number };
   /** The server's clock (ISO): the page tells a plan still to come from one that is over, and stamps an answer, from it. */
   now: string;
 };

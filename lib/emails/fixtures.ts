@@ -602,8 +602,13 @@ export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
     },
     {
       id: "payout",
-      label: "On its way",
-      data: { kind: "payout", plan: { title: "Padel, then pizza", start: { date: "Tue 24 Nov", time: "19:00" } }, amount: "£44", payoutDay: "Thu 26 Nov", url: "/members/you/payments" },
+      label: "The money is yours",
+      data: { kind: "payout", plan: { title: "Padel, then pizza", start: { date: "Tue 24 Nov", time: "19:00" } }, amount: "£44", url: "/members/you/payments" },
+    },
+    {
+      id: "reminder",
+      label: "Still waiting (7 and 30 days)",
+      data: { kind: "reminder", amount: "£66", url: "/members/you/payments" },
     },
   ],
 };

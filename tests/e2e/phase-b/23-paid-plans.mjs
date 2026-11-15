@@ -1,6 +1,8 @@
 // Paid Open Invite (Albert, 15 Nov 2026: "Ok shall we build the ability to add costs to open invite"), on the money
-// rules approved on 25 Oct: lib/server/plan-payments.ts, supabase/migrations/20261115090000_paid_plans.sql. Against
-// the local stack's fake Stripe (accounts, account links, manual capture, refunds, transfers) on the Phase B server.
+// rules approved on 25 Oct: lib/server/plan-payments.ts, supabase/migrations/20261115090000_paid_plans.sql. Since 16
+// Nov 2026 the Vinted way (20261116090000_host_money_credit.sql): no Get paid to add a price; once the plan is over the
+// money is the host's, to add to Club Yuppie credit or withdraw (Get paid then); credit pays for places. Against the
+// local stack's fake Stripe (accounts, account links, manual capture, refunds, transfers) on the Phase B server.
 //
 //   PHASE_B_BASE=http://localhost:3241 node tests/e2e/phase-b/23-paid-plans.mjs
 import { execFileSync } from 'node:child_process';
@@ -31,8 +33,12 @@ import {
 
 // The migration again first: it is re-runnable, and 00-migration.mjs applies the stage 2 file again (which puts the
 // Updates kinds back to stage 2's list), so the suite's order would otherwise matter.
-execFileSync('psql', ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-q', '-v', 'ON_ERROR_STOP=1', '-f', new URL('../../../supabase/migrations/20261115090000_paid_plans.sql', import.meta.url).pathname], { encoding: 'utf8', stdio: ['ignore', 'ignore', 'ignore'] });
-ok(true, 'the paid plans migration applies again on top of itself');
+// (Rows from an earlier run in the 16 Nov statuses and credit kinds would trip the older files' checks: test rows only.)
+exec(`delete from credit_ledger where kind in ('earnings', 'plan'); update plan_payments set status = 'paid_out' where status in ('ready', 'credited', 'withdrawing')`);
+for (const file of ['20261115090000_paid_plans.sql', '20261115120000_booking_fee.sql', '20261116090000_host_money_credit.sql']) {
+  execFileSync('psql', ['-h', '127.0.0.1', '-p', '54322', '-U', 'postgres', '-q', '-v', 'ON_ERROR_STOP=1', '-f', new URL(`../../../supabase/migrations/${file}`, import.meta.url).pathname], { encoding: 'utf8', stdio: ['ignore', 'ignore', 'ignore'] });
+}
+ok(true, 'the paid plans migrations apply again on top of themselves');
 
 const PREFIX = process.env.PHASE_A_TAG || 'bf.';
 const NOWHERE = `${BASE}/api/nowhere`;
@@ -45,6 +51,9 @@ const payment = (planId, memberId) => sql1(`select * from plan_payments where pl
 const going = (planId, memberId) => sql1(`select status from plan_members where plan_id = ${q(planId)} and member_id = ${q(memberId)}`)?.status ?? null;
 const update = (memberId, kind, planId) => sql1(`select * from updates where member_id = ${q(memberId)} and kind = ${q(kind)} and plan_id = ${q(planId)} order by created_at desc limit 1`);
 const paid = (pence = 2200) => ({ cost: { pricePence: pence, faceValueConfirmed: true } });
+const money = (name, who) => action(`money.${name}`, [], who.session).then((r) => r.result);
+const credit = (memberId) => Number(sql1(`select coalesce(sum(amount_pence), 0)::int n from credit_ledger where member_id = ${q(memberId)}`).n);
+const giveCredit = (memberId, pence) => exec(`insert into credit_ledger (member_id, amount_pence, kind, note) values (${q(memberId)}, ${pence}, 'admin', 'test')`);
 
 const host = await makeMemberWithPhoto('payhost');
 const ann = await makeMemberWithPhoto('payann');
@@ -52,39 +61,11 @@ const ben = await makeMemberWithPhoto('payben');
 const cal = await makeMemberWithPhoto('paycal');
 const admin = await adminSession(PREFIX);
 
-// ---------------------------------------------------------------- Get paid (Stripe Connect)
-let r = await action('invite.postOpenInvite', [planInput({ title: 'Paid too soon', ...paid() })], host.session);
-eq(r.result.ok, false, 'a cost before Get paid is refused');
-eq(r.result.errors.getPaid, 'Finish Get paid first, then post.', 'with the form’s own words');
-
-let p = await page('/members/you/payments/stripe', host.session);
-eq(p.status, 303, 'Continue to Stripe: a redirect');
-ok(p.location?.startsWith('https://connect.stripe.com/setup/'), 'to Stripe’s hosted onboarding', p.location);
-const acct = sql1(`select * from host_accounts where member_id = ${q(host.id)}`);
-ok(acct?.stripe_account_id?.startsWith('acct_'), 'the host’s connected account is made', acct);
-eq(acct.status, 'not-set-up', 'not set up until Stripe has the details');
-const made = (await fakeState()).accounts[acct.stripe_account_id];
-eq([made.type, made.country, made.capabilities_requested?.transfers?.requested], ['express', 'GB', 'true'], 'Express, UK, transfers (the host only receives)');
-eq(made.metadata?.member_id, host.id, 'with the member on it');
-p = await page('/members/you/payments/stripe', host.session);
-eq(sql1(`select count(*)::int n from host_accounts where member_id = ${q(host.id)}`).n, 1, 'a second visit reuses the account');
-
-await fake(`account/${acct.stripe_account_id}`, { details_submitted: true, payouts_enabled: false, capabilities: { transfers: 'pending' }, requirements: { currently_due: [], past_due: [], pending_verification: ['individual.verification.document'] } });
-exec(`update host_accounts set checked_at = now() - interval '5 minutes' where member_id = ${q(host.id)}`);
-p = await page('/members/you/payments?getpaid=back', host.session);
-eq(p.status, 200, 'back from Stripe: You > Payments opens (and asks Stripe at once)');
-ok(p.text.includes('checking your details'), 'details in, Stripe checking: "We’re checking your details."');
-eq(sql1(`select status from host_accounts where member_id = ${q(host.id)}`).status, 'in-review', 'in review');
-
-await fake(`account/${acct.stripe_account_id}`, { payouts_enabled: true, capabilities: { transfers: 'active' }, requirements: { currently_due: [], past_due: [] }, bank_last4: '6789' });
-exec(`update host_accounts set checked_at = now() - interval '5 minutes' where member_id = ${q(host.id)}`);
-p = await page('/members/you/payments', host.session);
-ok(p.text.includes('Get paid is ready'), 'ready: "Get paid is ready"');
-eq(sql1(`select status, account_ending from host_accounts where member_id = ${q(host.id)}`), { status: 'ready', account_ending: '6789' }, 'ready, paid into the account ending 6789');
-p = await page('/members/you/payments/stripe?manage=1', host.session);
-ok(p.location?.startsWith('https://connect.stripe.com/express/'), 'Manage on Stripe: the host’s Stripe dashboard', p.location);
-p = await page('/members/you', host.session);
-ok(p.text.includes('Get paid: ready'), 'You: the Payments row says Get paid is ready');
+// ---------------------------------------------------------------- a cost needs nothing set up (16 Nov 2026)
+let r;
+let p = await page('/members/open-invite/new', host.session);
+ok(p.status === 200 && !p.text.includes('Set up Get paid'), 'the post form has no Get paid step', p.status);
+eq(sql1(`select count(*)::int n from host_accounts where member_id = ${q(host.id)}`).n, 0, 'the host has no Stripe account');
 
 // ---------------------------------------------------------------- posting with a cost
 r = await action('invite.postOpenInvite', [planInput({ title: 'Paid no tick', cost: { pricePence: 2200, faceValueConfirmed: false } })], host.session);
@@ -105,10 +86,10 @@ eq([r.result.ok, r.result.reason], [false, 'paid'], 'I’m in is refused on a pa
 // ---------------------------------------------------------------- Pay and join (the page settles it)
 let start = await pay('startPlanPaymentAction', [planA], ann);
 ok(start.ok && start.clientSecret, 'Pay and join opens payment', start);
-eq(start.amountPence, 2300, 'for the place and the booking fee: £23');
+eq([start.amountPence, start.creditPence], [2300, 0], 'for the place and the booking fee: £23 (no credit)');
 const piA = piOf(start.clientSecret);
 let pi = (await fakeState()).payment_intents[piA];
-eq([pi.capture_method, pi.metadata.kind, pi.metadata.plan_id, pi.metadata.member_id, Number(pi.amount), pi.metadata.fee_pence], ['manual', 'plan', planA, ann.id, 2300, '100'], 'the card is only held (manual capture), for this place and the fee');
+eq([pi.capture_method, pi.metadata.kind, pi.metadata.plan_id, pi.metadata.member_id, Number(pi.amount), pi.metadata.fee_pence, pi.metadata.credit_pence], ['manual', 'plan', planA, ann.id, 2300, '100', '0'], 'the card is only held (manual capture), for this place and the fee: the host has nothing set up');
 eq(sql1(`select status from plan_holds where payment_intent_id = ${q(piA)}`).status, 'open', 'the place is held while paying');
 let confirm = await pay('confirmPlanPaymentAction', [piA, planA], ann);
 eq([confirm.ok, confirm.kind], [false, 'declined'], 'nothing held yet: declined, nothing taken');
@@ -118,7 +99,7 @@ confirm = await pay('confirmPlanPaymentAction', [piA, planA], ann);
 eq([confirm.ok, confirm.kind], [true, 'paid'], 'card held: the place is taken, then the money');
 eq(going(planA, ann.id), 'going', 'Ann is in');
 let row = payment(planA, ann.id);
-eq([row.status, row.amount_pence, row.fee_pence, row.method, Boolean(row.charge_id)], ['held', 2200, 100, 'Visa ending 4242', true], 'the payment: £22 for the host held by Club Yuppie, the £1 fee, Visa ending 4242, its charge kept');
+eq([row.status, row.amount_pence, row.fee_pence, row.credit_pence, row.method, Boolean(row.charge_id)], ['held', 2200, 100, 0, 'Visa ending 4242', true], 'the payment: £22 for the host held by Club Yuppie, the £1 fee, Visa ending 4242, its charge kept');
 eq((await fakeState()).payment_intents[piA].status, 'succeeded', 'captured at Stripe');
 eq(confirm.invite.you.payment.status, 'held', 'the plan page: "You’re in, paid £22"');
 ok(sql1(`select 1 as x from messages m join chats c on c.id = m.chat_id where c.plan_id = ${q(planA)} and m.system_event = 'paid' and m.about_member_id = ${q(ann.id)}`), 'the plan chat says Ann paid and is in');
@@ -246,7 +227,7 @@ const cancelMail = emailsTo(mark, cal.email).find((e) => e.subject === 'Cancelle
 ok(cancelMail, 'the cancel email (paid wording)');
 eq(emailsTo(mark, cal.email).filter((e) => e.subject.startsWith('Refunded:')).length, 0, 'and no second refund email');
 
-// ---------------------------------------------------------------- the payout, 24 hours after the plan
+// ---------------------------------------------------------------- 24 hours after the plan: the money is the host's
 setPlanStart(planC, -25 * 60); // Cal left planC; nothing held there
 const planE = await postPlan(host, { title: 'Tennis doubles', places: 3, ...paid(2000) });
 for (const who of [ann, ben]) {
@@ -260,37 +241,174 @@ eq(sql(`select status from plan_payments where plan_id = ${q(planE)}`).map((x) =
 setPlanStart(planE, -25 * 60);
 mark = fakesMark();
 job = await cronAt('plan-money', new Date());
-ok(job.json.result?.paidOut >= 2, 'the sweep pays out', job.json);
-const outs = sql(`select status, transfer_id, payout_on, charge_id from plan_payments where plan_id = ${q(planE)}`);
-ok(outs.every((o) => o.status === 'paid_out' && o.transfer_id && o.payout_on), 'both payments sent to the host', outs);
-const transfers = Object.values((await fakeState()).transfers).filter((t) => t.metadata?.plan_id === planE);
-eq(transfers.map((t) => [Number(t.amount), t.destination]), [[2000, acct.stripe_account_id], [2000, acct.stripe_account_id]], 'to the host’s Stripe account, £20 each');
-eq(update(host.id, 'payout', planE)?.refund_pence, 4000, 'the host’s Update: £40 on its way');
+ok(job.json.result?.madeReady >= 2, 'the sweep makes it the host’s', job.json);
+const readyRows = sql(`select status, ready_at, transfer_id from plan_payments where plan_id = ${q(planE)}`);
+ok(readyRows.every((o) => o.status === 'ready' && o.ready_at && !o.transfer_id), 'both payments ready: the host’s, nothing sent anywhere', readyRows);
+eq(Object.values((await fakeState()).transfers).filter((t) => t.metadata?.plan_id === planE).length, 0, 'no transfer by itself');
+eq(update(host.id, 'payout', planE)?.refund_pence, 4000, 'the host’s Update: £40 is yours');
 await new Promise((res) => setTimeout(res, 1000));
-ok(emailsTo(mark, host.email).some((e) => e.subject === '£40 is on its way'), 'and the email');
-job = await cronAt('plan-money', new Date());
-eq(Object.values((await fakeState()).transfers).filter((t) => t.metadata?.plan_id === planE).length, 2, 'never paid out twice');
-// Ben left planA without a refund: the host is paid for it once planA is over
+ok(emailsTo(mark, host.email).some((e) => e.subject === '£40 is yours'), 'and the email: "£40 is yours"', emailsTo(mark, host.email).map((e) => e.subject));
+await cronAt('plan-money', new Date());
+eq(sql(`select status from plan_payments where plan_id = ${q(planE)}`).map((x) => x.status), ['ready', 'ready'], 'the sweep again changes nothing');
+// Ben left planA without a refund: the host keeps it, and it is theirs once planA is over
 setPlanStart(planA, -25 * 60);
 await cronAt('plan-money', new Date());
-eq(payment(planA, ben.id).status, 'paid_out', 'a place kept by the host is paid out too');
+eq(payment(planA, ben.id).status, 'ready', 'a place kept by the host is theirs too');
+p = await page('/members/you/payments', host.session);
+ok(p.status === 200 && p.text.includes('Your money') && p.text.includes('Add to my credit') && p.text.includes('Withdraw to my bank'), 'You > Payments: "Your money", Add to my credit, Withdraw to my bank', p.status);
+ok(/£62(<!-- -->)? is yours/.test(p.text), 'with all of it: £62 (£40 and £22)');
+p = await page('/members/you', host.session);
+ok(p.text.includes('£62 ready for you'), 'You: the Payments row says £62 is ready');
 
-// a host whose Get paid stopped working waits, the money safe
+// ---------------------------------------------------------------- withdraw: Get paid first (Stripe Connect)
+r = await money('withdrawMoneyAction', host);
+eq([r.ok, r.kind, r.status], [false, 'get-paid', 'not-set-up'], 'Withdraw without Get paid: set it up first');
+eq(sql(`select status from plan_payments where plan_id = ${q(planE)}`).map((x) => x.status), ['ready', 'ready'], 'nothing moves');
+p = await page('/members/you/payments/stripe', host.session);
+eq(p.status, 303, 'Continue to Stripe: a redirect');
+ok(p.location?.startsWith('https://connect.stripe.com/setup/'), 'to Stripe’s hosted onboarding', p.location);
+const acct = sql1(`select * from host_accounts where member_id = ${q(host.id)}`);
+ok(acct?.stripe_account_id?.startsWith('acct_'), 'the host’s connected account is made', acct);
+eq(acct.status, 'not-set-up', 'not set up until Stripe has the details');
+const made = (await fakeState()).accounts[acct.stripe_account_id];
+eq([made.type, made.country, made.capabilities_requested?.transfers?.requested], ['express', 'GB', 'true'], 'Express, UK, transfers (the host only receives)');
+eq(made.metadata?.member_id, host.id, 'with the member on it');
+p = await page('/members/you/payments/stripe', host.session);
+eq(sql1(`select count(*)::int n from host_accounts where member_id = ${q(host.id)}`).n, 1, 'a second visit reuses the account');
+
+await fake(`account/${acct.stripe_account_id}`, { details_submitted: true, payouts_enabled: false, capabilities: { transfers: 'pending' }, requirements: { currently_due: [], past_due: [], pending_verification: ['individual.verification.document'] } });
+exec(`update host_accounts set checked_at = now() - interval '5 minutes' where member_id = ${q(host.id)}`);
+p = await page('/members/you/payments?getpaid=back', host.session);
+eq(p.status, 200, 'back from Stripe: You > Payments opens (and asks Stripe at once)');
+ok(p.text.includes('checking your details'), 'details in, Stripe checking: "We’re checking your details."');
+eq(sql1(`select status from host_accounts where member_id = ${q(host.id)}`).status, 'in-review', 'in review');
+
+await fake(`account/${acct.stripe_account_id}`, { payouts_enabled: true, capabilities: { transfers: 'active' }, requirements: { currently_due: [], past_due: [] }, bank_last4: '6789' });
+exec(`update host_accounts set checked_at = now() - interval '5 minutes' where member_id = ${q(host.id)}`);
+p = await page('/members/you/payments', host.session);
+ok(p.text.includes('Get paid is ready'), 'ready: "Get paid is ready"');
+eq(sql1(`select status, account_ending from host_accounts where member_id = ${q(host.id)}`), { status: 'ready', account_ending: '6789' }, 'ready, paid into the account ending 6789');
+p = await page('/members/you/payments/stripe?manage=1', host.session);
+ok(p.location?.startsWith('https://connect.stripe.com/express/'), 'Manage on Stripe: the host’s Stripe dashboard', p.location);
+p = await page('/members/you', host.session);
+ok(p.text.includes('Get paid: ready'), 'You: the Payments row says Get paid is ready');
+
+
+mark = fakesMark();
+r = await money('withdrawMoneyAction', host);
+eq([r.ok, r.pence, r.failedPence], [true, 6200, 0], 'Withdraw: £62 to the host’s bank');
+const outs = sql(`select status, transfer_id, payout_on from plan_payments where host_id = ${q(host.id)} and transfer_id is not null`);
+ok(outs.length === 3 && outs.every((o) => o.status === 'paid_out' && o.transfer_id && o.payout_on), 'each payment sent to the host’s Stripe account', outs);
+const transfers = Object.values((await fakeState()).transfers).filter((t) => t.metadata?.plan_id === planE);
+eq(transfers.map((t) => [Number(t.amount), t.destination, Boolean(t.source_transaction)]), [[2000, acct.stripe_account_id, true], [2000, acct.stripe_account_id, true]], 'from each card payment (source_transaction), £20 each');
+r = await money('withdrawMoneyAction', host);
+eq([r.ok, r.kind], [false, 'nothing'], 'a second tap: nothing waiting');
+eq(Object.values((await fakeState()).transfers).filter((t) => t.metadata?.plan_id === planE).length, 2, 'never sent twice');
+p = await page('/members/you/payments', host.session);
+ok(p.text.includes('Withdrawn') || p.text.includes('On its way'), 'Payments: the plans show as withdrawn');
+
+// ---------------------------------------------------------------- or add it to Club Yuppie credit
 const planF = await postPlan(host, { title: 'Jazz night', places: 3, ...paid(1800) });
 const sF = await pay('startPlanPaymentAction', [planF], ann);
 await holdCard(piOf(sF.clientSecret));
 await pay('confirmPlanPaymentAction', [piOf(sF.clientSecret), planF], ann);
+setPlanStart(planF, -25 * 60);
+await cronAt('plan-money', new Date());
+eq(payment(planF, ann.id).status, 'ready', 'Jazz night’s £18 is the host’s');
+const before = credit(host.id);
+r = await money('addMoneyToCreditAction', host);
+eq([r.ok, r.pence, r.payments.creditBalancePence], [true, 1800, before + 1800], 'Add to my credit: £18 on the host’s credit at once');
+const earned = sql1(`select amount_pence, kind, note from credit_ledger where dedupe_key = ${q(`earnings:${payment(planF, ann.id).id}`)}`);
+eq(earned, { amount_pence: 1800, kind: 'earnings', note: 'Jazz night' }, 'one credit row, from Jazz night');
+eq(payment(planF, ann.id).status, 'credited', 'the payment: credited');
+r = await money('addMoneyToCreditAction', host);
+eq([r.ok, r.kind], [false, 'nothing'], 'a second tap adds nothing');
+r = await money('withdrawMoneyAction', host);
+eq([r.ok, r.kind], [false, 'nothing'], 'credit can’t be withdrawn');
+eq(credit(host.id), before + 1800, 'the credit stays');
+
+// ---------------------------------------------------------------- credit pays for a place (all of it)
+const bensPlan = await postPlan(ben, { title: 'Board games', places: 4, ...paid(1000) });
+const hostBefore = credit(host.id);
+start = await pay('startPlanPaymentAction', [bensPlan], host);
+eq([start.ok, start.credit, start.creditPence, start.creditLeftPence], [true, true, 1100, hostBefore - 1100], 'the host’s credit covers Ben’s £11 place: no card');
+confirm = await pay('payPlanWithCreditAction', [bensPlan], host);
+eq([confirm.ok, confirm.kind], [true, 'paid'], 'Pay with credit: in');
+row = payment(bensPlan, host.id);
+eq([row.status, row.amount_pence, row.fee_pence, row.credit_pence, row.method, row.payment_intent_id.startsWith('credit:')], ['held', 1000, 100, 1100, 'Club Yuppie credit', true], 'the payment: £10 place, £1 fee, all credit, no card');
+eq(credit(host.id), hostBefore - 1100, '£11 off the credit');
+eq(sql1(`select kind, note from credit_ledger where member_id = ${q(host.id)} and amount_pence = -1100 order by created_at desc limit 1`), { kind: 'plan', note: 'Board games' }, 'its credit row: Board games');
+eq(going(bensPlan, host.id), 'going', 'in the plan');
+leave = await pay('leavePaidPlanAction', [bensPlan, 'refund'], host);
+row = payment(bensPlan, host.id);
+eq([leave.ok, row.status, row.refunded_pence], [true, 'refunded', 1000], 'leaving in time: £10 back (the fee kept)');
+eq(credit(host.id), hostBefore - 100, 'back on the credit, not a card');
+eq(sql1(`select note from credit_ledger where dedupe_key = ${q(`plan-refund:${row.id}`)}`)?.note, 'Board games, refunded', 'its credit row: Board games, refunded');
+
+// ---------------------------------------------------------------- credit pays part, the card the rest
+const calCredit = credit(cal.id);
+giveCredit(cal.id, 500);
+start = await pay('startPlanPaymentAction', [bensPlan], cal);
+eq([start.ok, start.amountPence, start.creditPence], [true, calCredit + 500 >= 1100 ? 0 : 1100 - (calCredit + 500), calCredit + 500], 'Cal’s credit comes off first: the card pays the rest');
+const piPart = piOf(start.clientSecret);
+eq([Number((await fakeState()).payment_intents[piPart].amount), (await fakeState()).payment_intents[piPart].metadata.credit_pence], [1100 - (calCredit + 500), String(calCredit + 500)], 'the PaymentIntent is only the card’s part');
+await holdCard(piPart);
+confirm = await pay('confirmPlanPaymentAction', [piPart, bensPlan], cal);
+eq([confirm.ok, confirm.kind], [true, 'paid'], 'in');
+row = payment(bensPlan, cal.id);
+eq([row.credit_pence, credit(cal.id)], [calCredit + 500, 0], 'the credit is spent');
+leave = await pay('leavePaidPlanAction', [bensPlan, 'refund'], cal);
+row = payment(bensPlan, cal.id);
+const cardPart = 1100 - (calCredit + 500);
+eq([leave.ok, row.refunded_pence], [true, 1000], 'leaving in time: £10 back');
+eq(Object.values((await fakeState()).refunds).filter((x) => x.payment_intent === piPart).map((x) => Number(x.amount)), [Math.min(1000, cardPart)], 'the card gets back what it paid');
+eq(credit(cal.id), 1000 - Math.min(1000, cardPart), 'and the rest goes back on the credit');
+
+// credit spent elsewhere while paying: nothing taken
+giveCredit(cal.id, 500);
+start = await pay('startPlanPaymentAction', [bensPlan], cal);
+const piGone = piOf(start.clientSecret);
+giveCredit(cal.id, -credit(cal.id));
+await holdCard(piGone);
+confirm = await pay('confirmPlanPaymentAction', [piGone, bensPlan], cal);
+eq([confirm.ok, confirm.kind], [false, 'credit-changed'], 'the credit went meanwhile: "Your credit changed"');
+eq([(await fakeState()).payment_intents[piGone].status, going(bensPlan, cal.id)], ['canceled', 'left'], 'the card is let go, not in');
+
+// ---------------------------------------------------------------- reminders and a withdrawal left half done
+const planR = await postPlan(host, { title: 'Quiz night', places: 3, ...paid(1200) });
+const sR = await pay('startPlanPaymentAction', [planR], ben);
+await holdCard(piOf(sR.clientSecret));
+await pay('confirmPlanPaymentAction', [piOf(sR.clientSecret), planR], ben);
+setPlanStart(planR, -25 * 60);
+await cronAt('plan-money', new Date());
+exec(`update plan_payments set ready_at = now() - interval '8 days' where plan_id = ${q(planR)}`);
+mark = fakesMark();
+job = await cronAt('plan-money', new Date());
+eq([job.json.result?.reminded, payment(planR, ben.id).ready_reminders], [1, 1], 'a week on: the host is reminded once');
+await new Promise((res) => setTimeout(res, 1000));
+ok(emailsTo(mark, host.email).some((e) => e.subject === '£12 is waiting for you'), 'the reminder email: "£12 is waiting for you"');
+job = await cronAt('plan-money', new Date());
+eq(job.json.result?.reminded, 0, 'not twice');
+// (the updated_at trigger would stamp it now: off for this one statement)
+exec(`set session_replication_role = replica; update plan_payments set status = 'withdrawing', updated_at = now() - interval '20 minutes' where plan_id = ${q(planR)}; set session_replication_role = origin;`);
+job = await cronAt('plan-money', new Date());
+eq([job.json.result?.withdrawalsFinished, payment(planR, ben.id).status], [1, 'paid_out'], 'a withdrawal the server left half done is finished');
+
+// Get paid that stopped working: Withdraw says so
+const planW = await postPlan(host, { title: 'Wild swim', places: 3, ...paid(900) });
+const sW = await pay('startPlanPaymentAction', [planW], ann);
+await holdCard(piOf(sW.clientSecret));
+await pay('confirmPlanPaymentAction', [piOf(sW.clientSecret), planW], ann);
+setPlanStart(planW, -25 * 60);
+await cronAt('plan-money', new Date());
 await fake(`account/${acct.stripe_account_id}`, { payouts_enabled: false, requirements: { currently_due: ['individual.id_number'], past_due: [] } });
 exec(`update host_accounts set status = 'needs-info' where member_id = ${q(host.id)}`);
-setPlanStart(planF, -25 * 60);
-job = await cronAt('plan-money', new Date());
-eq(payment(planF, ann.id).status, 'held', 'Get paid needs more info: the payout waits');
+r = await money('withdrawMoneyAction', host);
+eq([r.ok, r.kind, r.status, payment(planW, ann.id).status], [false, 'get-paid', 'needs-info', 'ready'], 'Get paid needs more info: Withdraw sends them to Stripe, the money stays theirs');
 exec(`update host_accounts set checked_at = now() - interval '5 minutes' where member_id = ${q(host.id)}`);
 p = await page('/members/you/payments', host.session);
-ok(p.text.includes('One more thing') && p.text.includes('£18'), 'Payments: "One more thing." with the paused £18', p.status);
+ok(p.text.includes('One more thing') && p.text.includes('Your money'), 'Payments: "One more thing." beside the money', p.status);
 await fake(`account/${acct.stripe_account_id}`, { payouts_enabled: true, requirements: { currently_due: [], past_due: [] } });
-await cronAt('plan-money', new Date());
-eq(payment(planF, ann.id).status, 'paid_out', 'Stripe has what it needs: paid out');
 
 // ---------------------------------------------------------------- the sweep settles a held card nobody came back for
 const planG = await postPlan(host, { title: 'Pilates and juice', places: 4, ...paid(900) });
@@ -307,7 +425,11 @@ r = await action('admin.payments.adminRefundPlanPayment', [payment(planG, cal.id
 eq(r.result.ok, true, 'Admin refunds one');
 eq([payment(planG, cal.id).status, payment(planG, cal.id).refund_reason, payment(planG, cal.id).refunded_pence, going(planG, cal.id)], ['refunded', 'club', 1000, 'left'], 'refunded by the club, the fee too (£10), Cal off the plan');
 r = await action('admin.payments.adminRefundPlanPayment', [payment(planE, ann.id).id], admin);
-eq(r.result.ok, false, 'paid out already: refunded in Stripe instead');
+eq(r.result.ok, false, 'withdrawn by the host already: refunded in Stripe instead');
+r = await action('admin.payments.adminRefundPlanPayment', [payment(planF, ann.id).id], admin);
+eq(r.result.ok, false, 'added to the host’s credit: sorted out by hand');
+r = await action('admin.payments.adminRefundPlanPayment', [payment(planW, ann.id).id], admin);
+eq([r.result.ok, payment(planW, ann.id).status], [true, 'refunded'], 'the host’s but not yet chosen: Admin can still refund it');
 
 // a refund made by hand in Stripe's dashboard is recorded
 const planH = await postPlan(host, { title: 'Wine tasting', places: 4, ...paid(2500) });

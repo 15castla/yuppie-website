@@ -162,6 +162,16 @@ function AskedRow({
   );
 }
 
+/** Where the plan's money is once it is the host's (16 Nov 2026). */
+function whereNow(plan: HostPlanPayments): string {
+  const m = plan.money;
+  if (!m) return "Added to your credit or withdrawn";
+  if (m.readyPence > 0) return "Add it to your credit or withdraw it, on Payments";
+  if (m.creditedPence > 0 && m.paidOutPence > 0) return "Added to your credit and withdrawn to your bank";
+  if (m.creditedPence > 0) return "Added to your credit";
+  return "Withdrawn to your bank";
+}
+
 export function PlanPaymentsView({
   plan,
   initialRefund = false,
@@ -255,15 +265,15 @@ export function PlanPaymentsView({
     ["Paid so far", `${gbp(sum(live))} of ${gbp(invite.places * price)}`],
     ["Held for you", gbp(sum(held))],
     [
-      "You’re paid",
+      "Yours",
       asked.length > 0
         ? "Depends on your answer"
         : held.length > 0
           ? payout
-            ? `About ${payout}`
-            : "About 2 working days after the plan"
+            ? `From ${payout}`
+            : "Once the plan is over"
           : paidOut.length > 0
-            ? "Paid out"
+            ? whereNow(plan)
             : "Nothing to pay out",
     ],
   ];
@@ -273,15 +283,15 @@ export function PlanPaymentsView({
     const first = asked[0].payer.firstName;
     money.push({
       icon: "banknote",
-      text: `${gbp(sum(held))} is held by Club Yuppie until you answer. If you refund it, it goes back to ${first}’s card. If you keep it, it comes to you about ${payout ?? "2 working days after the plan"}.`,
+      text: `${gbp(sum(held))} is held by Club Yuppie until you answer. If you refund it, it goes back to ${first}. If you keep it, it’s yours once the plan is over.`,
     });
   } else if (held.length > 0) {
     money.push({
       icon: "banknote",
-      text: `${gbp(sum(held))} is held by Club Yuppie. It goes to your bank about 2 working days after the plan${payout ? `, on ${payout}` : ""}.`,
+      text: `${gbp(sum(held))} is held by Club Yuppie until the plan is over${payout ? ` (${payout})` : ""}. Then it’s yours: add it to your credit or withdraw it to your bank.`,
     });
   } else if (paidOut.length > 0) {
-    money.push({ icon: "check", text: `${gbp(sum(paidOut))} has gone to your bank.` });
+    money.push({ icon: "check", text: `${gbp(sum(paidOut))} is yours. ${whereNow(plan)}.` });
   }
   const refunded = payments.filter((payment) => payment.status === "refunded");
   if (refunded.length > 0) {
@@ -290,7 +300,7 @@ export function PlanPaymentsView({
       icon: "undo",
       text:
         held.length + paidOut.length > 0
-          ? `${names} ${refunded.length > 1 ? "were" : "was"} refunded ${gbp(sum(refunded))}, so that is not part of your payout.`
+          ? `${names} ${refunded.length > 1 ? "were" : "was"} refunded ${gbp(sum(refunded))}, so that is not part of your money.`
           : `${names} ${refunded.length > 1 ? "were" : "was"} refunded in full, so there is no payout.`,
     });
   }

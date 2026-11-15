@@ -7,83 +7,25 @@
 //
 //   switch off   the default: "Add a cost" and one line, nothing else
 //   switch on    "Price per person" (£ in front, "a person" after), the tick
-//                box "I'm not charging more than it cost me", the money note
-//                and the Get paid step
-//   Get paid     not set up, needs more info, in review: a tile with the
-//                status and the next step; ready: one line
+//                box "I'm not charging more than it cost me" and the money note
+//
+// No Get paid step since 16 Nov 2026 (Albert: "the vinted way"): a host adds a
+// price with nothing set up, and once the plan is over chooses Club Yuppie
+// credit or their bank (Get paid then, on You > Payments).
 //
 // Errors are written in the form, and the first one takes focus on Post
-// (price, then the tick box, then the Get paid step). Posting stays one
-// full-ink button in every state (RULE-38).
-//
-// Get paid copy: A draws the tile for "not set up" and "ready". The other two
-// statuses use the payments design's words (payments.md section 3.5).
-//
-// LOCAL DEMO STATE: nothing is saved. "Done" on the Stripe outline screen only
-// marks Get paid ready in this tab (components/members/payments/get-paid.tsx).
+// (price, then the tick box). Posting stays one full-ink button in every state
+// (RULE-38).
 
-import { Button, Icon, KitLink, Pill, Status } from "@/components/members/kit";
+import { Icon } from "@/components/members/kit";
 import { cleanPrice, usablePence, type CostErrors, type CostValues } from "@/lib/members/invite/cost";
 import { gbp } from "@/lib/members/invite/format";
 import { BOOKING_FEE_PENCE, type GetPaidStatus } from "@/lib/members/invite/types";
-import { ROUTES } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import { CheckRow, FieldError, Lab } from "./form-parts";
 import type { GetPaidMode } from "@/components/members/payments/get-paid";
 
 export type CostIds = { switch: string; price: string; tick: string; getPaid: string };
-
-function GetPaidTile({
-  id,
-  status,
-  error,
-  onMode,
-}: {
-  id: string;
-  status: GetPaidStatus;
-  error?: string;
-  onMode: (mode: Exclude<GetPaidMode, null>) => void;
-}) {
-  if (status === "ready") {
-    return (
-      <div className="oi-gp-ready" id={id} tabIndex={-1}>
-        <Status>Get paid is ready</Status>
-        <KitLink className="mk-link" href={ROUTES.youPayments}>
-          Money details
-        </KitLink>
-      </div>
-    );
-  }
-  const label = status === "not-set-up" ? "Not set up" : status === "needs-info" ? "Needs more info" : "In review";
-  const words =
-    status === "not-set-up"
-      ? "Add your bank details so Club Yuppie can pay you. You only do this once."
-      : status === "needs-info"
-        ? "Stripe needs a little more before it can pay you. Your money is safe and nothing is lost."
-        : "Stripe is checking your details. You can add a cost as soon as that’s done. We’ll tell you.";
-  return (
-    <div className={cn("oi-gp", error && "is-error")} id={id} tabIndex={-1} aria-describedby={error ? `${id}-e` : undefined}>
-      <div className="oi-gp-top">
-        <span className="mk-icon-tile" aria-hidden="true">
-          <Icon name="banknote" size={22} />
-        </span>
-        <div className="bd">
-          <div className="mk-t">
-            <b>Get paid</b>
-            <Pill className={status === "needs-info" ? "mk-warn" : undefined}>{label}</Pill>
-          </div>
-          <span>{words}</span>
-        </div>
-      </div>
-      {status !== "in-review" ? (
-        <Button size="sm" onClick={() => onMode(status === "not-set-up" ? "intro" : "stripe")}>
-          {status === "not-set-up" ? "Set up Get paid" : "Add the missing info"}
-        </Button>
-      ) : null}
-      <FieldError id={`${id}-e`} message={error} />
-    </div>
-  );
-}
 
 export function CostBlock({
   ids,
@@ -92,7 +34,6 @@ export function CostBlock({
   getPaid,
   disabled = false,
   onChange,
-  onMode,
 }: {
   ids: CostIds;
   cost: CostValues;
@@ -100,8 +41,10 @@ export function CostBlock({
   getPaid: GetPaidStatus;
   disabled?: boolean;
   onChange: (patch: Partial<CostValues>) => void;
-  onMode: (mode: Exclude<GetPaidMode, null>) => void;
+  /** Unused since 16 Nov 2026 (no Get paid step); kept for the callers. */
+  onMode?: (mode: Exclude<GetPaidMode, null>) => void;
 }) {
+  void getPaid;
   const pence = usablePence(cost);
   const amount = pence === null ? "the full price" : gbp(pence);
   return (
@@ -173,10 +116,9 @@ export function CostBlock({
               {pence === null
                 ? `You get the full price. Members pay it plus Club Yuppie’s ${gbp(BOOKING_FEE_PENCE)} booking fee, which covers the card fees.`
                 : `You get ${amount}. Members pay ${gbp(pence + BOOKING_FEE_PENCE)}: your price and Club Yuppie’s ${gbp(BOOKING_FEE_PENCE)} booking fee, which covers the card fees.`}{" "}
-              Paid out about 2 working days after the plan.
+              Once the plan is over it’s yours: add it to your Club Yuppie credit, or withdraw it to your bank.
             </span>
           </p>
-          <GetPaidTile id={ids.getPaid} status={getPaid} error={errors.getPaid} onMode={onMode} />
         </div>
       ) : null}
     </div>

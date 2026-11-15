@@ -7,7 +7,9 @@
 // what. Stripe's own pages are drawn as a neutral outline of someone else's
 // screen with "Done" and the address, never redrawn.
 //
-//   not-set-up   "Add a cost to your plans."   Set up Get paid
+//   not-set-up   "Withdraw to your bank."      Set up Get paid
+//
+// Since 16 Nov 2026 Get paid is only needed to withdraw money to a bank (a host adds a price with nothing set up).
 //   needs-info   "One more thing."             Add the missing info
 //   in-review    "We're checking your details." See progress on Stripe
 //   ready        "You're set up to get paid."  Manage on Stripe
@@ -67,14 +69,14 @@ export function GetPaidCard({
   let action: ReactNode;
   let fine: string | null = null;
   if (status === "not-set-up") {
-    heading = "Add a cost to your plans.";
+    heading = "Withdraw to your bank.";
     words = "Add your bank details so Club Yuppie can pay you.";
     action = (
       <Button block onClick={() => onMode("intro")}>
         Set up Get paid
       </Button>
     );
-    fine = "About 5 minutes. Free plans never need this.";
+    fine = "About 5 minutes. Only needed to withdraw money to your bank.";
   } else if (status === "needs-info") {
     const paused = getPaid.paused;
     const before = paused ? ` before it can pay you ${gbp(paused.amountPence)} on ${formatDay(paused.dueOn)}` : " before it can pay you";
@@ -96,7 +98,7 @@ export function GetPaidCard({
     );
   } else {
     heading = "You’re set up to get paid.";
-    words = "Money from your paid plans goes to your bank about 2 working days after each plan.";
+    words = "Money you withdraw goes to your bank, usually in 2 working days.";
     action = (
       <Button block variant="outline" onClick={() => onMode("stripe")}>
         Manage on Stripe

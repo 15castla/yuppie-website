@@ -7,9 +7,16 @@ import "server-only";
 //   - Pay and join: a place is held for 10 minutes (hold_plan_place), a PaymentIntent on Club Yuppie's own account
 //     holds the card (capture_method manual), and only once the place is taken under the plan's lock
 //     (join_paid_plan) is the card captured. A plan that filled first is never charged: the hold is cancelled.
-//   - The money stays with Club Yuppie until the plan is over: 24 hours after it starts the sweep sends each payment
-//     to the host's account (a transfer from that very charge, source_transaction), and Stripe pays it into their
-//     bank, about 2 working days after the plan. Club Yuppie covers the card fees and takes no cut.
+//   - The money stays with Club Yuppie until the plan is over. Since 16 Nov 2026 (Albert: "the vinted way"), a host
+//     needs nothing set up to add a price: 24 hours after the plan starts the sweep makes each payment the host's
+//     (ready), and the host chooses: Club Yuppie credit (creditHostMoney: at once, no checks, spent on events and
+//     Open Invite places, never turned back into cash) or their bank (withdrawHostMoney: Get paid first, Stripe's
+//     check of who they are, then a transfer to their Stripe account from that very charge, source_transaction, and
+//     Stripe pays it into their bank in about 2 working days). The app reminds them after 7 and 30 days. A cash
+//     wallet they could withdraw from later needs an FCA licence: Albert is looking into it. Club Yuppie covers the
+//     card fees; its £1 booking fee is its own.
+//   - Credit: a member's Club Yuppie credit pays for a place first (all of it, or part with the card paying the
+//     rest). A refund goes back to the card first, never more than the card paid, and the rest back to credit.
 //   - Refunds: leaving more than 24 hours before is refunded automatically; later, the member asks the host (kept
 //     if there is no answer by the start); the host or the club cancelling refunds everyone; the club can refund
 //     one payment from Admin. A refund Stripe did not confirm is tried again by the sweep (refund_due).
@@ -32,6 +39,7 @@ import type {
 } from "@/lib/members/invite/types";
 import { BOOKING_FEE_PENCE } from "@/lib/members/invite/types";
 import { cardLabel } from "./stripe/card";
+import { creditBalance, giveBackCredit, spendCredit } from "./credit";
 import { serviceDb } from "./db";
 import { londonWall, londonWallToDate } from "./format";
 import { notify } from "./notify";
@@ -54,7 +62,13 @@ export type PaymentRow = {
   payment_intent_id: string;
   charge_id: string | null;
   method: string | null;
-  status: "held" | "refund_asked" | "refund_due" | "refunded" | "paid_out";
+  status: "held" | "refund_asked" | "refund_due" | "refunded" | "ready" | "credited" | "withdrawing" | "paid_out";
+  /** How much of the place and fee was paid with Club Yuppie credit (16 Nov 2026); the card paid the rest. */
+  credit_pence: number;
+  /** When the plan was over and the money became the host's. */
+  ready_at: string | null;
+  ready_reminders: number;
+  credited_at: string | null;
   paid_at: string;
   refund_asked_at: string | null;
   refund_reason: "left-in-time" | "host-cancelled" | "host-agreed" | "club" | null;
@@ -69,12 +83,22 @@ export type PaymentRow = {
 };
 
 const PAYMENT_COLUMNS =
-  "id, receipt_no, plan_id, payer_id, host_id, hold_id, amount_pence, fee_pence, refunded_pence, payment_intent_id, charge_id, method, status, paid_at, refund_asked_at, refund_reason, refund_due_at, refund_id, refund_tries, refunded_at, transfer_id, transfer_tries, transferred_at, payout_on";
+  "id, receipt_no, plan_id, payer_id, host_id, hold_id, amount_pence, fee_pence, credit_pence, ready_at, ready_reminders, credited_at, refunded_pence, payment_intent_id, charge_id, method, status, paid_at, refund_asked_at, refund_reason, refund_due_at, refund_id, refund_tries, refunded_at, transfer_id, transfer_tries, transferred_at, payout_on";
 
 /** How long a place is held while the member pays. */
 export const HOLD_MINUTES = 10;
-/** The money goes to the host this long after the plan starts (a no-show can be reported and refunded first). */
+/** The money becomes the host's this long after the plan starts (a no-show can be reported and refunded first). */
 export const PAYOUT_AFTER_HOURS = 24;
+/** A place paid wholly with credit has no PaymentIntent: its payment_intent_id is this and the hold's id. */
+const CREDIT_PREFIX = "credit:";
+/** Stripe's smallest card payment in pounds: credit leaves at least this for the card, or pays it all. */
+const MIN_CARD_PENCE = 30;
+/** The host is reminded of money waiting for them this many days after it became theirs. */
+const REMIND_AFTER_DAYS = [7, 30];
+/** What the payer's card paid: the place and fee, less any credit. */
+export const cardPenceOf = (row: Pick<PaymentRow, "amount_pence" | "fee_pence" | "credit_pence">) =>
+  Math.max(0, row.amount_pence + (row.fee_pence ?? 0) - (row.credit_pence ?? 0));
+const isCreditOnly = (row: Pick<PaymentRow, "payment_intent_id">) => row.payment_intent_id.startsWith(CREDIT_PREFIX);
 /** Refused refunds and transfers are tried this many times by the sweep, then the club is told in the logs. */
 const MAX_TRIES = 5;
 
@@ -104,7 +128,8 @@ const refundExpectedBy = (at: string) => workingDaysAfter(at, 10).toISOString();
 export function paymentStatus(row: Pick<PaymentRow, "status">): PaymentStatus {
   if (row.status === "refund_asked") return "refund-asked";
   if (row.status === "refund_due" || row.status === "refunded") return "refunded";
-  if (row.status === "paid_out") return "paid-out";
+  // Over, and the host's (whatever they chose to do with it).
+  if (row.status === "paid_out" || row.status === "ready" || row.status === "credited" || row.status === "withdrawing") return "paid-out";
   return "held";
 }
 
@@ -120,9 +145,12 @@ export function refundPenceFor(row: Pick<PaymentRow, "amount_pence" | "fee_pence
 export function toInvitePayment(row: PaymentRow, payer: InviteMember): InvitePayment {
   const refunded = row.status === "refund_due" || row.status === "refunded";
   const refundedAt = row.refunded_at ?? row.refund_due_at ?? row.paid_at;
+  const back = row.refunded_pence ?? refundPenceFor(row);
   const refund: PaymentRefund | null = refunded
     ? {
-        amountPence: row.refunded_pence ?? refundPenceFor(row),
+        amountPence: back,
+        // Card first, never more than it paid; the rest went back on their credit.
+        creditPence: Math.max(0, back - cardPenceOf(row)),
         reason: row.refund_reason ?? "club",
         refundedAt: new Date(refundedAt).toISOString(),
         expectedBy: refundExpectedBy(refundedAt),
@@ -137,6 +165,7 @@ export function toInvitePayment(row: PaymentRow, payer: InviteMember): InvitePay
     feePence: row.fee_pence ?? 0,
     paidAt: new Date(row.paid_at).toISOString(),
     method: row.method ?? "Card",
+    creditPence: row.credit_pence ?? 0,
     status: paymentStatus(row),
     refundAskedAt: row.status === "refund_asked" && row.refund_asked_at ? new Date(row.refund_asked_at).toISOString() : null,
     refund,
@@ -212,7 +241,7 @@ const RECHECK_MS = 60_000;
 
 /**
  * The host's Get paid, for the Payments page and the post form. `fresh`: ask Stripe again unless it is ready (or
- * was just checked). A payout waiting on Stripe ("needs more info") shows as paused.
+ * was just checked). Nothing is paused any more (16 Nov 2026): money waits as the host's until they withdraw it.
  */
 export async function getPaidFor(memberId: string, { fresh = false }: { fresh?: boolean | "now" } = {}): Promise<GetPaid> {
   let row = await hostAccount(memberId);
@@ -221,24 +250,7 @@ export async function getPaidFor(memberId: string, { fresh = false }: { fresh?: 
     row = await refreshHostAccount(memberId);
   }
   if (!row) return { status: "not-set-up", accountEnding: null, paused: null };
-  let paused: GetPaid["paused"] = null;
-  if (row.status !== "ready") {
-    const { data } = await serviceDb()
-      .from("plan_payments")
-      .select("amount_pence, plans!inner(starts_at)")
-      .eq("host_id", memberId)
-      .in("status", ["held", "refund_asked"]);
-    const due = ((data ?? []) as unknown as { amount_pence: number; plans: { starts_at: string } }[]).filter(
-      (p) => new Date(p.plans.starts_at).getTime() + PAYOUT_AFTER_HOURS * 3_600_000 <= Date.now(),
-    );
-    if (due.length) {
-      paused = {
-        amountPence: due.reduce((sum, p) => sum + p.amount_pence, 0),
-        dueOn: payoutDayFor(due.map((p) => p.plans.starts_at).sort()[0]),
-      };
-    }
-  }
-  return { status: row.status, accountEnding: row.status === "ready" ? row.account_ending : null, paused };
+  return { status: row.status, accountEnding: row.status === "ready" ? row.account_ending : null, paused: null };
 }
 
 /** The cached status only (no Stripe call): for drawing plans. */
@@ -321,7 +333,9 @@ export async function getPaidLink(member: { id: string; email: string }, manage:
 // ---------------------------------------------------------------------------- Pay and join
 
 export type StartPayResult =
-  | { kind: "ready"; clientSecret: string; amountPence: number; heldUntil: string; paymentIntentId: string }
+  | { kind: "ready"; clientSecret: string; amountPence: number; creditPence: number; heldUntil: string; paymentIntentId: string }
+  /** The member's credit covers it all: nothing for the card (payPlanWithCredit takes the place). */
+  | { kind: "credit"; creditPence: number; creditLeftPence: number; heldUntil: string }
   | { kind: "full" }
   | { kind: "already-in" }
   | { kind: "refused"; error: string };
@@ -338,38 +352,122 @@ const HOLD_WORDS: Record<string, string> = {
   not_found: "That plan couldn’t be found.",
 };
 
-/** Pay and join, step 1: hold a place and make the PaymentIntent the pay sheet draws Stripe's fields for. */
-export async function startPlanPayment(member: { id: string; email: string; stripe_customer_id: string | null }, plan: PlanForPay, hostName: string): Promise<StartPayResult> {
-  if (plan.price_pence === null) return { kind: "refused", error: HOLD_WORDS.free };
-  const statuses = await getPaidStatuses([plan.host_id]);
-  if (statuses.get(plan.host_id) !== "ready") {
-    return { kind: "refused", error: `${hostName} can’t take payments right now, so nobody can pay to join yet.` };
-  }
-  const { data, error } = await serviceDb().rpc("hold_plan_place", { p_member: member.id, p_plan: plan.id, p_minutes: HOLD_MINUTES });
-  if (error) throw error;
-  const r = data as { status: string; hold_id?: string; amount?: number; held_until?: string };
-  if (r.status === "full") return { kind: "full" };
-  if (r.status === "already_in") return { kind: "already-in" };
-  if (r.status !== "held" || !r.hold_id || !r.amount || !r.held_until) return { kind: "refused", error: HOLD_WORDS[r.status] ?? HOLD_WORDS.not_found };
+type Held = { status: string; hold_id?: string; amount?: number; held_until?: string };
 
-  // The place and Club Yuppie's booking fee, in one payment (the host gets the place's price).
-  const total = r.amount + BOOKING_FEE_PENCE;
+async function holdPlace(memberId: string, planId: string): Promise<{ ok: true; holdId: string; amount: number; heldUntil: string } | { ok: false; result: StartPayResult }> {
+  const { data, error } = await serviceDb().rpc("hold_plan_place", { p_member: memberId, p_plan: planId, p_minutes: HOLD_MINUTES });
+  if (error) throw error;
+  const r = data as Held;
+  if (r.status === "full") return { ok: false, result: { kind: "full" } };
+  if (r.status === "already_in") return { ok: false, result: { kind: "already-in" } };
+  if (r.status !== "held" || !r.hold_id || !r.amount || !r.held_until) return { ok: false, result: { kind: "refused", error: HOLD_WORDS[r.status] ?? HOLD_WORDS.not_found } };
+  return { ok: true, holdId: r.hold_id, amount: r.amount, heldUntil: new Date(r.held_until).toISOString() };
+}
+
+/**
+ * How much of `total` the member's credit pays (16 Nov 2026): all of it if it can, otherwise what there is, leaving
+ * the card at least Stripe's smallest payment.
+ */
+function creditShare(total: number, balance: number): number {
+  if (balance >= total) return total;
+  return Math.max(0, Math.min(balance, total - MIN_CARD_PENCE));
+}
+
+/**
+ * Pay and join, step 1: hold a place, and make the PaymentIntent the pay sheet draws Stripe's fields for (for what
+ * the member's credit does not cover). Since 16 Nov 2026 the host needs nothing set up for members to pay.
+ */
+export async function startPlanPayment(member: { id: string; email: string; stripe_customer_id: string | null }, plan: PlanForPay): Promise<StartPayResult> {
+  if (plan.price_pence === null) return { kind: "refused", error: HOLD_WORDS.free };
+  const held = await holdPlace(member.id, plan.id);
+  if (!held.ok) return held.result;
+
+  // The place and Club Yuppie's booking fee (the host gets the place's price), less the member's credit.
+  const total = held.amount + BOOKING_FEE_PENCE;
+  const balance = await creditBalance(member.id);
+  const credit = creditShare(total, balance);
+  if (credit >= total) return { kind: "credit", creditPence: total, creditLeftPence: balance - total, heldUntil: held.heldUntil };
+  const card = total - credit;
   const pi = await stripe.paymentIntents.create(
     {
-      amount: total,
+      amount: card,
       currency: "gbp",
       ...(member.stripe_customer_id ? { customer: member.stripe_customer_id } : {}),
       capture_method: "manual",
       automatic_payment_methods: { enabled: true },
       description: `${plan.title} (Open Invite)`,
       transfer_group: `plan-${plan.id}`,
-      metadata: { kind: "plan", plan_id: plan.id, member_id: member.id, hold_id: r.hold_id, host_id: plan.host_id, fee_pence: String(BOOKING_FEE_PENCE) },
+      metadata: {
+        kind: "plan",
+        plan_id: plan.id,
+        member_id: member.id,
+        hold_id: held.holdId,
+        host_id: plan.host_id,
+        fee_pence: String(BOOKING_FEE_PENCE),
+        credit_pence: String(credit),
+        title: plan.title.slice(0, 120),
+      },
     },
-    { idempotencyKey: `plan-pi-${r.hold_id}-fee` },
+    { idempotencyKey: `plan-pi-${held.holdId}-fee-c${credit}` },
   );
-  await serviceDb().from("plan_holds").update({ payment_intent_id: pi.id }).eq("id", r.hold_id);
+  await serviceDb().from("plan_holds").update({ payment_intent_id: pi.id }).eq("id", held.holdId);
   if (!pi.client_secret) return { kind: "refused", error: "We couldn’t open payment. Nothing was taken." };
-  return { kind: "ready", clientSecret: pi.client_secret, amountPence: total, heldUntil: new Date(r.held_until).toISOString(), paymentIntentId: pi.id };
+  return { kind: "ready", clientSecret: pi.client_secret, amountPence: card, creditPence: credit, heldUntil: held.heldUntil, paymentIntentId: pi.id };
+}
+
+/** The member's credit for a place: taken once per hold (plan-credit:<hold>); -1 when there is not enough now. */
+const takeCredit = (memberId: string, holdId: string, pence: number, title: string) =>
+  spendCredit({ memberId, pence, key: `plan-credit:${holdId}`, strict: true, kind: "plan", note: title });
+
+/** Credit taken for a place the member did not get, put back (once per hold). */
+const putBackCredit = (memberId: string, holdId: string, pence: number, title: string) =>
+  giveBackCredit(memberId, pence, `plan-credit-back:${holdId}`, null, `${title}, not joined`);
+
+/**
+ * Pay and join with credit alone (16 Nov 2026): the member's credit covers the place and the fee. Holds the place,
+ * takes the credit, then takes the place under the plan's lock; a place that went first gives the credit back.
+ */
+export async function payPlanWithCredit(member: { id: string }, plan: PlanForPay): Promise<SettleResult | { kind: "full" | "already-in" } | { kind: "refused"; reason: string; error?: string }> {
+  if (plan.price_pence === null) return { kind: "refused", reason: "free", error: HOLD_WORDS.free };
+  const held = await holdPlace(member.id, plan.id);
+  if (!held.ok) {
+    const r = held.result;
+    if (r.kind === "full" || r.kind === "already-in") return { kind: r.kind };
+    return { kind: "refused", reason: "hold", error: r.kind === "refused" ? r.error : undefined };
+  }
+  const total = held.amount + BOOKING_FEE_PENCE;
+  const taken = await takeCredit(member.id, held.holdId, total, plan.title);
+  if (taken < total) {
+    await closeHold(held.holdId, "released");
+    return { kind: "credit-changed" };
+  }
+  const { data, error } = await serviceDb().rpc("join_paid_plan", {
+    p_member: member.id,
+    p_plan: plan.id,
+    p_hold: held.holdId,
+    p_payment_intent: `${CREDIT_PREFIX}${held.holdId}`,
+    p_amount: held.amount,
+    p_method: "Club Yuppie credit",
+    p_fee: BOOKING_FEE_PENCE,
+    p_credit: total,
+  });
+  if (error) {
+    await putBackCredit(member.id, held.holdId, total, plan.title);
+    throw error;
+  }
+  const r = data as { status: string; payment_id?: string; full?: boolean; price?: number | null };
+  if (r.status === "joined" || r.status === "already_paid") {
+    if (r.status === "joined") {
+      await notify({ type: "plan.joined", planId: plan.id, memberId: member.id, full: Boolean(r.full), paidPence: held.amount });
+      await notify({ type: "plan.receipt", paymentId: r.payment_id! });
+    }
+    return { kind: "paid", paymentId: r.payment_id!, planId: plan.id, memberId: member.id, joinedNow: r.status === "joined" };
+  }
+  await putBackCredit(member.id, held.holdId, total, plan.title);
+  await closeHold(held.holdId);
+  if (r.status === "full") return { kind: "full" };
+  if (r.status === "price_changed") return { kind: "price-changed", newPricePence: r.price ?? null };
+  return { kind: "refused", reason: r.status };
 }
 
 /** What happened to a PaymentIntent for a place (the pay sheet's answer, the webhook's, the sweep's). */
@@ -377,6 +475,8 @@ export type SettleResult =
   | { kind: "paid"; paymentId: string; planId: string; memberId: string; joinedNow: boolean }
   | { kind: "full" }
   | { kind: "price-changed"; newPricePence: number | null }
+  /** The member's credit changed while they paid (spent elsewhere): nothing taken. */
+  | { kind: "credit-changed" }
   | { kind: "declined" }
   | { kind: "pending" }
   | { kind: "refused"; reason: string }
@@ -425,9 +525,28 @@ export async function settlePlanPayment(paymentIntentId: string, expectMember?: 
   }
 
   const method = await methodOf(pi);
-  // The payment is the place and the booking fee (metadata.fee_pence); the place's price must still be the plan's.
+  // The payment is the place and the booking fee (metadata.fee_pence), less the credit the member put towards it
+  // (metadata.credit_pence, 16 Nov 2026); the place's price must still be the plan's.
   const fee = Math.max(0, Number(md.fee_pence ?? 0) || 0);
-  const place = pi.amount - fee;
+  const credit = Math.max(0, Number(md.credit_pence ?? 0) || 0);
+  const place = pi.amount + credit - fee;
+  const title = md.title || (pi.description ?? "").replace(/ \(Open Invite\)$/, "") || "Open Invite plan";
+  const holdKey = md.hold_id || pi.id;
+  // The credit first (once per hold): spent elsewhere meanwhile, the card is let go and nothing is taken.
+  if (credit > 0 && (pi.status === "requires_capture" || pi.status === "succeeded")) {
+    const taken = await takeCredit(md.member_id, holdKey, credit, title);
+    if (taken < credit) {
+      if (pi.status === "succeeded") {
+        try {
+          await stripe.refunds.create({ payment_intent: pi.id, metadata: { reason: "plan credit changed" } }, { idempotencyKey: `plan-unjoined-${pi.id}` });
+        } catch (err) {
+          console.error(`plan-payments: refunding ${pi.id} (credit changed) failed:`, err);
+        }
+      } else await cancelQuietly(pi.id);
+      await closeHold(md.hold_id);
+      return { kind: "credit-changed" };
+    }
+  }
   const { data, error } = await serviceDb().rpc("join_paid_plan", {
     p_member: md.member_id,
     p_plan: md.plan_id,
@@ -436,8 +555,12 @@ export async function settlePlanPayment(paymentIntentId: string, expectMember?: 
     p_amount: place,
     p_method: method,
     p_fee: fee,
+    p_credit: credit,
   });
-  if (error) throw error;
+  if (error) {
+    if (credit > 0) await putBackCredit(md.member_id, holdKey, credit, title);
+    throw error;
+  }
   const r = data as { status: string; payment_id?: string; full?: boolean; price?: number | null };
 
   if (r.status === "joined" || r.status === "already_paid") {
@@ -451,6 +574,7 @@ export async function settlePlanPayment(paymentIntentId: string, expectMember?: 
         console.error(`plan-payments: capturing ${pi.id} failed, the place is given back:`, err);
         await serviceDb().rpc("undo_paid_join", { p_payment: paymentId });
         await cancelQuietly(pi.id);
+        if (credit > 0) await putBackCredit(md.member_id, holdKey, credit, title);
         return { kind: "declined" };
       }
     } else if (pi.status === "succeeded") {
@@ -464,7 +588,8 @@ export async function settlePlanPayment(paymentIntentId: string, expectMember?: 
     return { kind: "paid", paymentId, planId: md.plan_id, memberId: md.member_id, joinedNow: r.status === "joined" };
   }
 
-  // Not taken: let the card go (or, if Stripe already took it, give it back).
+  // Not taken: let the card go (or, if Stripe already took it, give it back), and the credit too.
+  if (credit > 0) await putBackCredit(md.member_id, holdKey, credit, title);
   if (pi.status === "succeeded") {
     try {
       await stripe.refunds.create({ payment_intent: pi.id, metadata: { reason: `plan ${r.status}` } }, { idempotencyKey: `plan-unjoined-${pi.id}` });
@@ -483,7 +608,7 @@ export async function settlePlanPayment(paymentIntentId: string, expectMember?: 
       .select("id")
       .eq("plan_id", md.plan_id)
       .eq("payer_id", md.member_id)
-      .in("status", ["held", "refund_asked", "paid_out"])
+      .in("status", ["held", "refund_asked", "ready", "credited", "withdrawing", "paid_out"])
       .order("paid_at", { ascending: false })
       .limit(1);
     const found = (existing ?? [])[0] as { id: string } | undefined;
@@ -528,16 +653,27 @@ export async function sendRefund(paymentId: string, { tell = true }: { tell?: bo
   const { data: row } = await db.from("plan_payments").select(PAYMENT_COLUMNS).eq("id", paymentId).maybeSingle<PaymentRow>();
   if (!row || row.status !== "refund_due") return row?.status === "refunded";
   try {
-    // The place, and the booking fee only when the plan was cancelled or the club refunded it.
+    // The place, and the booking fee only when the plan was cancelled or the club refunded it: back to the card
+    // first, never more than it paid, and the rest back on the member's credit (16 Nov 2026).
     const amount = refundPenceFor(row);
-    const refund = await stripe.refunds.create(
-      { payment_intent: row.payment_intent_id, amount, reason: "requested_by_customer", metadata: { payment_id: row.id, plan_id: row.plan_id, why: row.refund_reason ?? "" } },
-      { idempotencyKey: `plan-refund-${row.id}-${amount}` },
-    );
+    const toCard = Math.min(amount, cardPenceOf(row));
+    const toCredit = amount - toCard;
+    if (toCredit > 0) {
+      const { data: plan } = await db.from("plans").select("title").eq("id", row.plan_id).maybeSingle();
+      await giveBackCredit(row.payer_id, toCredit, `plan-refund:${row.id}`, null, `${plan?.title ?? "Open Invite plan"}, refunded`);
+    }
+    let refundId: string | null = null;
+    if (toCard > 0 && !isCreditOnly(row)) {
+      const refund = await stripe.refunds.create(
+        { payment_intent: row.payment_intent_id, amount: toCard, reason: "requested_by_customer", metadata: { payment_id: row.id, plan_id: row.plan_id, why: row.refund_reason ?? "" } },
+        { idempotencyKey: `plan-refund-${row.id}-${toCard}` },
+      );
+      refundId = refund.id;
+    }
     // (charge.refunded may have marked it refunded a moment ago: the refund's id is kept either way)
     await db
       .from("plan_payments")
-      .update({ status: "refunded", refund_id: refund.id, refunded_pence: amount, refunded_at: new Date().toISOString() })
+      .update({ status: "refunded", refund_id: refundId ?? `credit:${row.id}`, refunded_pence: amount, refunded_at: new Date().toISOString() })
       .eq("id", row.id)
       .in("status", ["refund_due", "refunded"])
       .is("refund_id", null);
@@ -550,7 +686,7 @@ export async function sendRefund(paymentId: string, { tell = true }: { tell?: bo
   }
 }
 
-/** The plan was cancelled (by the host or the club): every payment still held is refunded in full. */
+/** The plan was cancelled (by the host or the club): every payment still held is refunded in full (card, then credit). */
 export async function refundPlan(planId: string, reason: "host-cancelled" | "club"): Promise<{ refunded: PaymentRow[]; totalPence: number }> {
   const { data, error } = await serviceDb()
     .from("plan_payments")
@@ -581,10 +717,12 @@ export async function recordPlanRefundFromCharge(charge: Stripe.Charge): Promise
   const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
   if (!piId) return { paymentId: null, changed: false };
   const db = serviceDb();
-  const { data: row } = await db.from("plan_payments").select("id, status, amount_pence, fee_pence").eq("payment_intent_id", piId).maybeSingle();
+  const { data: row } = await db.from("plan_payments").select("id, status, amount_pence, fee_pence, credit_pence").eq("payment_intent_id", piId).maybeSingle();
   if (!row) return { paymentId: null, changed: false };
   if (row.status === "refunded") return { paymentId: row.id, changed: false };
-  if (charge.amount_refunded < row.amount_pence) {
+  // Refunded by hand in full: at least the place, or all the card paid when credit paid part of it.
+  const enough = Math.min(row.amount_pence, cardPenceOf(row as Pick<PaymentRow, "amount_pence" | "fee_pence" | "credit_pence">));
+  if (charge.amount_refunded < enough) {
     console.error(`plan-payments: a part refund of ${row.id} was made in Stripe (${charge.amount_refunded} of ${row.amount_pence}); left as it is`);
     return { paymentId: row.id, changed: false };
   }
@@ -597,7 +735,7 @@ export async function recordPlanRefundFromCharge(charge: Stripe.Charge): Promise
           .from("plan_payments")
           .update({ status: "refunded", refund_reason: "club", refunded_at: at, refund_due_at: at, refunded_pence: charge.amount_refunded })
           .eq("id", row.id)
-          .in("status", ["held", "refund_asked"])
+          .in("status", ["held", "refund_asked", "ready"])
           .select("id");
   return { paymentId: row.id, changed: Boolean(data?.length) };
 }
@@ -647,17 +785,29 @@ export async function answerPlanRefund(hostId: string, paymentId: string, answer
 
 // ---------------------------------------------------------------------------- the sweep (cron: the refunds job)
 
-export type PlanMoneySummary = { settled: number; released: number; refundsRetried: number; refundsSent: number; paidOut: number; payoutsWaiting: number; errors: number };
+export type PlanMoneySummary = {
+  settled: number;
+  released: number;
+  refundsRetried: number;
+  refundsSent: number;
+  /** Payments that became the host's this time (the plan was over). */
+  madeReady: number;
+  reminded: number;
+  /** Withdrawals left half done (the server stopped) and finished now. */
+  withdrawalsFinished: number;
+  errors: number;
+};
 
 /**
  * Every 15 minutes, with the refunds job: (1) PaymentIntents whose card was held but never settled (the app was
- * closed after the bank's check): settled now, or let go; (2) refunds Stripe did not confirm: tried again; (3) the
- * payouts: 24 hours after a plan starts, each payment still held goes to the host's Stripe account (an unanswered
- * refund request is kept). A host whose Get paid is not ready waits ("paused"), with the money safe.
+ * closed after the bank's check): settled now, or let go; (2) refunds Stripe did not confirm: tried again; (3) 24 hours
+ * after a plan starts, each payment still held becomes the host's (ready; an unanswered refund request is kept) and
+ * the host is told; (4) money left waiting: the host is reminded after 7 and 30 days; (5) a withdrawal the server
+ * left half done is finished (the same transfer, by its idempotency key).
  */
 export async function runPlanMoney(now: Date = new Date()): Promise<PlanMoneySummary> {
   const db = serviceDb();
-  const summary: PlanMoneySummary = { settled: 0, released: 0, refundsRetried: 0, refundsSent: 0, paidOut: 0, payoutsWaiting: 0, errors: 0 };
+  const summary: PlanMoneySummary = { settled: 0, released: 0, refundsRetried: 0, refundsSent: 0, madeReady: 0, reminded: 0, withdrawalsFinished: 0, errors: 0 };
 
   // (1) holds with a PaymentIntent and no payment, a few minutes old (the member may still be paying)
   const { data: holds } = await db
@@ -698,84 +848,193 @@ export async function runPlanMoney(now: Date = new Date()): Promise<PlanMoneySum
     else summary.errors += 1;
   }
 
-  // (3) payouts
+  // (3) the plan is over: the money is the host's
   const cutoff = new Date(now.getTime() - PAYOUT_AFTER_HOURS * 3_600_000).toISOString();
-  const { data: ready } = await db
+  const { data: over } = await db
     .from("plan_payments")
-    .select(`${PAYMENT_COLUMNS}, plans!inner(starts_at, status, title)`)
+    .select("id, plans!inner(starts_at, status)")
     .in("status", ["held", "refund_asked"])
     .lt("plans.starts_at", cutoff)
     .eq("plans.status", "scheduled")
-    .lt("transfer_tries", MAX_TRIES)
-    .limit(100);
-  const rows = (ready ?? []) as unknown as (PaymentRow & { plans: { starts_at: string } })[];
-  const hosts = new Map<string, HostAccountRow | null>();
-  const sent = new Map<string, { hostId: string; planId: string; pence: number; startsAt: string }>();
-  for (const row of rows) {
-    if (!hosts.has(row.host_id)) {
-      const acct = await hostAccount(row.host_id);
-      hosts.set(row.host_id, acct && acct.status !== "ready" ? await refreshHostAccount(row.host_id) : acct);
-    }
-    const acct = hosts.get(row.host_id);
-    if (!acct || acct.status !== "ready") {
-      summary.payoutsWaiting += 1;
-      continue;
-    }
-    try {
-      let charge = row.charge_id;
-      if (!charge) {
-        const pi = await stripe.paymentIntents.retrieve(row.payment_intent_id);
-        charge = typeof pi.latest_charge === "string" ? pi.latest_charge : (pi.latest_charge?.id ?? null);
-      }
-      const transfer = await stripe.transfers.create(
-        {
-          amount: row.amount_pence,
-          currency: "gbp",
-          destination: acct.stripe_account_id,
-          transfer_group: `plan-${row.plan_id}`,
-          ...(charge ? { source_transaction: charge } : {}),
-          metadata: { payment_id: row.id, plan_id: row.plan_id },
-        },
-        { idempotencyKey: `plan-transfer-${row.id}` },
-      );
-      await db
-        .from("plan_payments")
-        .update({ status: "paid_out", transfer_id: transfer.id, transferred_at: now.toISOString(), payout_on: payoutDayFor(row.plans.starts_at).slice(0, 10), refund_asked_at: null, charge_id: charge })
-        .eq("id", row.id)
-        .in("status", ["held", "refund_asked"]);
-      summary.paidOut += 1;
-      const key = `${row.host_id}:${row.plan_id}`;
-      const so_far = sent.get(key);
-      sent.set(key, { hostId: row.host_id, planId: row.plan_id, pence: (so_far?.pence ?? 0) + row.amount_pence, startsAt: row.plans.starts_at });
-    } catch (err) {
+    .limit(200);
+  const overIds = ((over ?? []) as { id: string }[]).map((r) => r.id);
+  if (overIds.length) {
+    const { data: made, error } = await db
+      .from("plan_payments")
+      .update({ status: "ready", ready_at: now.toISOString(), refund_asked_at: null })
+      .in("id", overIds)
+      .in("status", ["held", "refund_asked"])
+      .select("id, host_id, plan_id, amount_pence");
+    if (error) {
       summary.errors += 1;
-      console.error(`plan-payments sweep: transfer of ${row.id} failed, try ${row.transfer_tries + 1}:`, err);
-      await db.from("plan_payments").update({ transfer_tries: row.transfer_tries + 1 }).eq("id", row.id);
+      console.error("plan-payments sweep: making money ready failed:", error);
+    }
+    const byPlan = new Map<string, { hostId: string; planId: string; pence: number }>();
+    for (const r of (made ?? []) as { host_id: string; plan_id: string; amount_pence: number }[]) {
+      summary.madeReady += 1;
+      const key = `${r.host_id}:${r.plan_id}`;
+      byPlan.set(key, { hostId: r.host_id, planId: r.plan_id, pence: (byPlan.get(key)?.pence ?? 0) + r.amount_pence });
+    }
+    for (const m of byPlan.values()) await notify({ type: "plan.payout", planId: m.planId, hostId: m.hostId, pence: m.pence });
+  }
+
+  // (4) reminders: one per host, for all their money still waiting
+  for (const [index, days] of REMIND_AFTER_DAYS.entries()) {
+    const { data: waiting } = await db
+      .from("plan_payments")
+      .select("id, host_id, amount_pence")
+      .eq("status", "ready")
+      .eq("ready_reminders", index)
+      .lt("ready_at", new Date(now.getTime() - days * DAY).toISOString())
+      .limit(500);
+    const byHost = new Map<string, { ids: string[]; pence: number }>();
+    for (const r of (waiting ?? []) as { id: string; host_id: string; amount_pence: number }[]) {
+      const h = byHost.get(r.host_id) ?? { ids: [], pence: 0 };
+      h.ids.push(r.id);
+      h.pence += r.amount_pence;
+      byHost.set(r.host_id, h);
+    }
+    for (const [hostId, h] of byHost) {
+      await db.from("plan_payments").update({ ready_reminders: index + 1 }).in("id", h.ids).eq("ready_reminders", index);
+      const total = await readyPenceOf(hostId);
+      await notify({ type: "plan.money_reminder", hostId, pence: total || h.pence, days });
+      summary.reminded += 1;
     }
   }
-  for (const s of sent.values()) await notify({ type: "plan.payout", planId: s.planId, hostId: s.hostId, pence: s.pence });
+
+  // (5) withdrawals the server left half done
+  const { data: stuck } = await db
+    .from("plan_payments")
+    .select("id, host_id")
+    .eq("status", "withdrawing")
+    .lt("updated_at", new Date(now.getTime() - 10 * 60_000).toISOString())
+    .lt("transfer_tries", MAX_TRIES)
+    .limit(50);
+  for (const r of (stuck ?? []) as { id: string; host_id: string }[]) {
+    const acct = await hostAccount(r.host_id);
+    if (!acct) continue;
+    const sent = await transferOne(r.id, acct.stripe_account_id, now);
+    if (sent) summary.withdrawalsFinished += 1;
+    else summary.errors += 1;
+  }
   return summary;
+}
+
+// ---------------------------------------------------------------------------- the host's money: credit or bank
+
+/** The host's money that is theirs to add to credit or withdraw (ready), in pence. */
+export async function readyPenceOf(hostId: string): Promise<number> {
+  const { data } = await serviceDb().from("plan_payments").select("amount_pence").eq("host_id", hostId).eq("status", "ready");
+  return ((data ?? []) as { amount_pence: number }[]).reduce((sum, r) => sum + r.amount_pence, 0);
+}
+
+/**
+ * Add the host's ready money to their Club Yuppie credit (16 Nov 2026): at once, no checks, one credit row per
+ * payment. It can't be turned back into cash.
+ */
+export async function creditHostMoney(hostId: string): Promise<{ pence: number; count: number }> {
+  const { data, error } = await serviceDb().rpc("credit_host_money", { p_host: hostId });
+  if (error) throw error;
+  const r = (data ?? {}) as { pence?: number; count?: number };
+  return { pence: Number(r.pence ?? 0), count: Number(r.count ?? 0) };
+}
+
+/**
+ * Send one claimed payment (withdrawing) to the host's Stripe account: a transfer from that very charge when the
+ * card paid at least the place, else from Club Yuppie's balance. Idempotent per payment. A refusal puts it back
+ * (ready) for the host to try again.
+ */
+async function transferOne(paymentId: string, accountId: string, now: Date): Promise<boolean> {
+  const db = serviceDb();
+  const { data: row } = await db.from("plan_payments").select(PAYMENT_COLUMNS).eq("id", paymentId).maybeSingle<PaymentRow>();
+  if (!row || row.status !== "withdrawing") return row?.status === "paid_out";
+  try {
+    let charge = row.charge_id;
+    if (!charge && !isCreditOnly(row)) {
+      const pi = await stripe.paymentIntents.retrieve(row.payment_intent_id);
+      charge = typeof pi.latest_charge === "string" ? pi.latest_charge : (pi.latest_charge?.id ?? null);
+    }
+    const fromCharge = charge && cardPenceOf(row) >= row.amount_pence;
+    const transfer = await stripe.transfers.create(
+      {
+        amount: row.amount_pence,
+        currency: "gbp",
+        destination: accountId,
+        transfer_group: `plan-${row.plan_id}`,
+        ...(fromCharge ? { source_transaction: charge! } : {}),
+        metadata: { payment_id: row.id, plan_id: row.plan_id },
+      },
+      { idempotencyKey: `plan-transfer-${row.id}` },
+    );
+    await db
+      .from("plan_payments")
+      .update({ status: "paid_out", transfer_id: transfer.id, transferred_at: now.toISOString(), payout_on: workingDaysAfter(now, 2).toISOString().slice(0, 10), charge_id: charge })
+      .eq("id", row.id)
+      .eq("status", "withdrawing");
+    return true;
+  } catch (err) {
+    console.error(`plan-payments: transfer of ${row.id} failed, try ${row.transfer_tries + 1}:`, err);
+    await db.from("plan_payments").update({ status: "ready", transfer_tries: row.transfer_tries + 1 }).eq("id", row.id).eq("status", "withdrawing");
+    return false;
+  }
+}
+
+export type WithdrawResult =
+  | { ok: true; pence: number; arriveBy: string; failedPence: number }
+  | { ok: false; kind: "get-paid"; status: GetPaidStatus }
+  | { ok: false; kind: "nothing" }
+  | { ok: false; kind: "failed" };
+
+/**
+ * Withdraw the host's ready money to their bank (16 Nov 2026). Get paid must be ready (Stripe has checked who they
+ * are); each payment is claimed (withdrawing) so a second tap or credit can't take it too, then sent to their Stripe
+ * account, which pays it into their bank.
+ */
+export async function withdrawHostMoney(hostId: string, now: Date = new Date()): Promise<WithdrawResult> {
+  let acct = await hostAccount(hostId);
+  if (acct && acct.status !== "ready") acct = await refreshHostAccount(hostId);
+  if (!acct || acct.status !== "ready") return { ok: false, kind: "get-paid", status: acct?.status ?? "not-set-up" };
+  const { data: claimed, error } = await serviceDb()
+    .from("plan_payments")
+    .update({ status: "withdrawing" })
+    .eq("host_id", hostId)
+    .eq("status", "ready")
+    .select("id, amount_pence");
+  if (error) throw error;
+  const rows = (claimed ?? []) as { id: string; amount_pence: number }[];
+  if (!rows.length) return { ok: false, kind: "nothing" };
+  let pence = 0;
+  let failedPence = 0;
+  for (const r of rows) {
+    if (await transferOne(r.id, acct.stripe_account_id, now)) pence += r.amount_pence;
+    else failedPence += r.amount_pence;
+  }
+  if (!pence) return { ok: false, kind: "failed" };
+  return { ok: true, pence, failedPence, arriveBy: workingDaysAfter(now, 2).toISOString() };
 }
 
 // ---------------------------------------------------------------------------- what the pages show
 
 /** HostPaidPlan.status for one plan's payments. */
-function planMoneyStatus(rows: PaymentRow[], startsAt: string, ready: boolean, now: Date): HostPaidPlan["status"] {
+function planMoneyStatus(rows: PaymentRow[], startsAt: string, now: Date): HostPaidPlan["status"] {
   const live = rows.filter((r) => r.status !== "refunded" && r.status !== "refund_due");
   if (!live.length) return "refunded";
   if (live.some((r) => r.status === "refund_asked") && new Date(startsAt).getTime() > now.getTime()) return "asked";
-  if (live.every((r) => r.status === "paid_out")) {
+  if (live.some((r) => r.status === "held" || r.status === "refund_asked")) return "held";
+  if (live.some((r) => r.status === "ready" || r.status === "withdrawing")) return "ready";
+  if (live.some((r) => r.status === "paid_out")) {
     const day = live.map((r) => r.payout_on ?? "").sort().pop() ?? "";
     return day && new Date(`${day}T23:59:59Z`).getTime() >= now.getTime() ? "on-its-way" : "paid-out";
   }
-  const dueAt = new Date(startsAt).getTime() + PAYOUT_AFTER_HOURS * 3_600_000;
-  if (!ready && dueAt <= now.getTime()) return "paused";
-  return "held";
+  return "credited";
 }
 
-/** You > Payments: the host's paid plans, newest first. */
+/** When a plan's money becomes the host's: 24 hours after it starts. */
+const readyAtFor = (startsAt: string) => new Date(new Date(startsAt).getTime() + PAYOUT_AFTER_HOURS * 3_600_000).toISOString();
+
+/** You > Payments: the host's paid plans, newest first, and their money. */
 export async function hostPayments(memberId: string, now: Date = new Date(), { backFromStripe = false }: { backFromStripe?: boolean } = {}): Promise<HostPayments> {
-  const getPaid = await getPaidFor(memberId, { fresh: backFromStripe ? "now" : true });
+  const [getPaid, creditBalancePence] = await Promise.all([getPaidFor(memberId, { fresh: backFromStripe ? "now" : true }), creditBalance(memberId)]);
   const { data, error } = await serviceDb().from("plan_payments").select(PAYMENT_COLUMNS).eq("host_id", memberId).order("paid_at", { ascending: true });
   if (error) throw error;
   const rows = (data ?? []) as PaymentRow[];
@@ -784,22 +1043,23 @@ export async function hostPayments(memberId: string, now: Date = new Date(), { b
     ? await serviceDb().from("plans").select("id, title, starts_at").in("id", planIds)
     : { data: [] as { id: string; title: string; starts_at: string }[] };
   const refs = await peopleRefs(rows.map((r) => r.payer_id));
-  const ready = getPaid.status === "ready";
-  let held = 0;
-  let onWay = 0;
-  let out = 0;
+  const totals = { held: 0, ready: 0, credited: 0, onWay: 0, out: 0 };
   const list: HostPaidPlan[] = [];
   for (const plan of (plans ?? []) as { id: string; title: string; starts_at: string }[]) {
     const mine = rows.filter((r) => r.plan_id === plan.id);
-    const status = planMoneyStatus(mine, plan.starts_at, ready, now);
+    const status = planMoneyStatus(mine, plan.starts_at, now);
     const live = mine.filter((r) => r.status !== "refunded" && r.status !== "refund_due");
     const counted = status === "refunded" ? mine : live;
     const amount = counted.reduce((sum, r) => sum + r.amount_pence, 0);
     for (const r of live) {
-      if (r.status === "paid_out") {
-        if (status === "on-its-way") onWay += r.amount_pence;
-        else out += r.amount_pence;
-      } else held += r.amount_pence;
+      if (r.status === "held" || r.status === "refund_asked") totals.held += r.amount_pence;
+      else if (r.status === "ready" || r.status === "withdrawing") totals.ready += r.amount_pence;
+      else if (r.status === "credited") totals.credited += r.amount_pence;
+      else if (r.status === "paid_out") {
+        const day = r.payout_on ? new Date(`${r.payout_on}T23:59:59Z`).getTime() : 0;
+        if (day >= now.getTime()) totals.onWay += r.amount_pence;
+        else totals.out += r.amount_pence;
+      }
     }
     const paidOutDay = live.map((r) => r.payout_on).filter(Boolean).sort().pop() ?? null;
     const refundedNames = mine.filter((r) => r.status === "refunded" || r.status === "refund_due").map((r) => ref(refs, r.payer_id).firstName);
@@ -810,13 +1070,27 @@ export async function hostPayments(memberId: string, now: Date = new Date(), { b
       payers: counted.map((r) => ref(refs, r.payer_id).firstName),
       amountPence: amount,
       status,
-      payoutOn: status === "held" || status === "on-its-way" || status === "asked" ? (paidOutDay ? new Date(`${paidOutDay}T09:00:00Z`).toISOString() : payoutDayFor(plan.starts_at)) : null,
+      payoutOn:
+        status === "held" || status === "asked"
+          ? readyAtFor(plan.starts_at)
+          : status === "on-its-way" && paidOutDay
+            ? new Date(`${paidOutDay}T09:00:00Z`).toISOString()
+            : null,
       paidOutOn: status === "paid-out" && paidOutDay ? new Date(`${paidOutDay}T09:00:00Z`).toISOString() : null,
       payersNote: status === "refunded" ? `${refundedNames.join(", ")} refunded in full` : null,
     });
   }
   list.sort((a, b) => b.startsAt.localeCompare(a.startsAt));
-  return { getPaid, heldPence: held, onItsWayPence: onWay, paidOutPence: out, plans: list };
+  return {
+    getPaid,
+    heldPence: totals.held,
+    readyPence: totals.ready,
+    creditedPence: totals.credited,
+    onItsWayPence: totals.onWay,
+    paidOutPence: totals.out,
+    creditBalancePence,
+    plans: list,
+  };
 }
 
 /** You > Payments > one plan (the host's), or null. */
@@ -837,9 +1111,16 @@ export async function hostPlanPayments(memberId: string, planId: string, now: Da
       cost: plan.price_pence === null ? null : { pricePence: plan.price_pence, faceValueConfirmed: plan.face_value_confirmed, bookingFeePence: BOOKING_FEE_PENCE },
     },
     payments: rows.map((r) => toInvitePayment(r, ref(refs, r.payer_id))),
-    payoutOn: held ? payoutDayFor(plan.starts_at) : paidOut ? new Date(`${paidOut.payout_on}T09:00:00Z`).toISOString() : null,
+    payoutOn: held ? readyAtFor(plan.starts_at) : paidOut ? new Date(`${paidOut.payout_on}T09:00:00Z`).toISOString() : null,
+    money: hostMoneyOf(rows),
     now: now.toISOString(),
   };
+}
+
+/** Where one plan's money is now, for the host (16 Nov 2026). */
+function hostMoneyOf(rows: PaymentRow[]): HostPlanPayments["money"] {
+  const sum = (statuses: PaymentRow["status"][]) => rows.filter((r) => statuses.includes(r.status)).reduce((total, r) => total + r.amount_pence, 0);
+  return { readyPence: sum(["ready", "withdrawing"]), creditedPence: sum(["credited"]), paidOutPence: sum(["paid_out"]) };
 }
 
 /** The receipt for this member's latest payment on a plan, or null. */
@@ -859,11 +1140,16 @@ export async function receiptFor(member: { id: string; email: string; full_name:
   };
 }
 
-/** The Payments row on You: Get paid's status, and the member's latest payment for a place still to come. */
+/**
+ * The Payments row on You: money waiting for the host to choose (16 Nov 2026), the member's latest payment for a
+ * place still to come, and Get paid's status once it is started (nobody needs it before they withdraw).
+ */
 export async function paymentsSummary(memberId: string, now: Date = new Date()): Promise<{ lines: string[]; warn?: boolean }> {
   const status = (await getPaidStatuses([memberId])).get(memberId) ?? "not-set-up";
   const words: Record<GetPaidStatus, string> = { "not-set-up": "not set up", "needs-info": "needs more info", "in-review": "in review", ready: "ready" };
-  const lines = [`Get paid: ${words[status]}`];
+  const lines: string[] = [];
+  const ready = await readyPenceOf(memberId);
+  if (ready > 0) lines.push(`${gbpWords(ready)} ready for you`);
   const { data } = await serviceDb()
     .from("plan_payments")
     .select("amount_pence, fee_pence, status, plans!inner(title, starts_at)")
@@ -873,8 +1159,9 @@ export async function paymentsSummary(memberId: string, now: Date = new Date()):
     .order("paid_at", { ascending: false })
     .limit(1);
   const latest = ((data ?? []) as unknown as { amount_pence: number; fee_pence: number; plans: { title: string } }[])[0];
-  if (latest) lines.unshift(`Paid ${gbpWords(latest.amount_pence + (latest.fee_pence ?? 0))} for ${latest.plans.title}`);
-  return { lines, warn: status === "needs-info" };
+  if (latest) lines.push(`Paid ${gbpWords(latest.amount_pence + (latest.fee_pence ?? 0))} for ${latest.plans.title}`);
+  if (status !== "not-set-up" || !lines.length) lines.push(`Get paid: ${words[status]}`);
+  return { lines, warn: ready > 0 || status === "needs-info" };
 }
 
 const gbpWords = (pence: number) => (pence % 100 ? `£${(pence / 100).toFixed(2)}` : `£${pence / 100}`);
@@ -894,8 +1181,10 @@ export type AdminPaymentRow = {
   amountPence: number;
   /** Club Yuppie's booking fee paid with it. */
   feePence: number;
-  /** What went back to the card. */
+  /** What went back (to the card first, then credit). */
   refundedPence: number | null;
+  /** How much was paid with Club Yuppie credit. */
+  creditPence: number;
   method: string;
   status: PaymentRow["status"];
   paidAt: string;
@@ -932,6 +1221,7 @@ export async function adminPayments(limit = 200): Promise<AdminPaymentRow[]> {
     amountPence: r.amount_pence,
     feePence: r.fee_pence ?? 0,
     refundedPence: r.refunded_pence ?? (r.status === "refund_due" ? refundPenceFor(r) : null),
+    creditPence: r.credit_pence ?? 0,
     method: r.method ?? "Card",
     status: r.status,
     paidAt: r.paid_at,
@@ -944,21 +1234,22 @@ export async function adminPayments(limit = 200): Promise<AdminPaymentRow[]> {
 
 /**
  * Admin refunds one payment in full (the club's call: a no-show, a complaint). Only while the money is still with
- * Club Yuppie; once it has gone to the host it is refunded in Stripe (reverse the transfer first). The member leaves
- * the plan if it is still to come.
+ * Club Yuppie (held, or ready and not yet chosen); once the host has taken it as credit or withdrawn it, it is sorted
+ * out by hand. The member leaves the plan if it is still to come.
  */
 export async function adminRefundPayment(paymentId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const db = serviceDb();
   const { data: row } = await db.from("plan_payments").select(PAYMENT_COLUMNS).eq("id", paymentId).maybeSingle<PaymentRow>();
   if (!row) return { ok: false, error: "That payment couldn’t be found." };
-  if (row.status === "paid_out") return { ok: false, error: "This has gone to the host already. Reverse the transfer in Stripe first, then refund it there." };
+  if (row.status === "paid_out" || row.status === "withdrawing") return { ok: false, error: "The host has withdrawn this to their bank. Reverse the transfer in Stripe first, then refund it there." };
+  if (row.status === "credited") return { ok: false, error: "The host added this to their Club Yuppie credit. Take the credit off them in Admin first, then refund it in Stripe." };
   if (row.status === "refunded") return { ok: false, error: "This was refunded already." };
   if (row.status !== "refund_due") {
     const { data: moved } = await db
       .from("plan_payments")
       .update({ status: "refund_due", refund_reason: "club", refund_due_at: new Date().toISOString() })
       .eq("id", paymentId)
-      .in("status", ["held", "refund_asked"])
+      .in("status", ["held", "refund_asked", "ready"])
       .select("id");
     if (!moved?.length) return { ok: false, error: "That payment changed just now. Look again." };
     const { data: left } = await db.rpc("leave_plan", { p_member: row.payer_id, p_plan: row.plan_id });

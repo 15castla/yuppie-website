@@ -25,8 +25,8 @@ eq((await errs({ places: 1 })).error, 'Pick between 2 and 12 places.', '1 place 
 eq((await errs({ note: 'n'.repeat(281) })).error, 'Keep the note to 280 characters.', 'a note over 280 refused');
 // A note is needed (8 Nov 2026).
 eq((await errs({ note: '   ' })).errors.note, 'Add a note so people know what to expect.', 'no note refused');
-// Paid plans are on (15 Nov 2026): a cost needs Get paid first (23-paid-plans.mjs has the rest).
-eq((await errs({ cost: { pricePence: 2200, faceValueConfirmed: true } })).errors.getPaid, 'Finish Get paid first, then post.', 'a cost needs Get paid first');
+// Paid plans are on (15 Nov 2026); since 16 Nov a cost needs no Get paid, only the tick (23-paid-plans.mjs has the rest).
+eq((await errs({ cost: { pricePence: 2200, faceValueConfirmed: false } })).errors.faceValue, 'Tick the box to say you’re not charging more.', 'a cost needs the face-value tick');
 eq(sql1(`select count(*)::int n from plans where host_id = ${q(host.id)}`).n, 0, 'none of those made a plan');
 
 const posted = await post({ title: 'Climbing test', places: 3, note: '  Shoes at the desk.  ' });
@@ -131,7 +131,7 @@ exec(`update plans set places = 3 where id = ${q(planId)}`);
 const tooFew = await action('invite.joinOpenInvite', [planId], other.session);
 ok(tooFew.result.ok, 'a third member joins');
 eq((await edit({ places: 2 })).result.error, '3 people are going, so keep at least 3 places.', 'an edit to fewer places than people going is refused: nobody is taken off');
-eq((await edit({ cost: { pricePence: 1000, faceValueConfirmed: true } })).result.errors.getPaid, 'Finish Get paid first, then post.', 'an edit cannot add a cost without Get paid');
+eq((await edit({ cost: { pricePence: 1000, faceValueConfirmed: true } })).result.error, 'People are in for free already, so a cost can’t be added.', 'an edit cannot add a cost once people are in for free');
 const before = planRow(planId);
 const mark2 = fakesMark();
 const moved = await edit({ ...{ date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 6 * 86400000)), time: '19:00' }, where: 'The Boulder Yard' });

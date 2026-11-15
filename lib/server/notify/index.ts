@@ -52,7 +52,10 @@ export type NotifyEvent =
   | { type: "plan.refunded"; paymentId: string }
   | { type: "plan.refund_asked"; paymentId: string }
   | { type: "plan.refund_kept"; paymentId: string }
+  /** The plan is over and its money is the host's (16 Nov 2026: was "on its way to your bank"). */
   | { type: "plan.payout"; planId: string; hostId: string; pence: number }
+  /** The host's money is still waiting for them to choose (7 and 30 days): push and email, no Update row. */
+  | { type: "plan.money_reminder"; hostId: string; pence: number; days: number }
   | { type: "chat.message"; chatId: string; messageId: string; senderId: string }
   | { type: "photo.removed"; memberId: string; photoId: string; reason: PhotoRemovedReason }
   | { type: "report.created"; reportId: string };
@@ -719,19 +722,18 @@ async function planPayout(e: Extract<NotifyEvent, { type: "plan.payout" }>, now:
   const { plan } = facts;
   const host = (await people([e.hostId])).get(e.hostId);
   if (!host) return none();
-  // About 2 working days after the plan (the day the host was told).
-  const day = workingDay(plan.starts_at, 2);
+  // The plan is over: the money is the host's, to add to their credit or withdraw (16 Nov 2026).
   const amount = pounds(e.pence);
   const c = channelsFor("host.payout", host, now);
   const rows: UpdateInsert[] = [];
   if (c.update) rows.push({ member_id: host.id, kind: "payout", plan_id: plan.id, role: "host", refund_pence: e.pence, dedupe_key: `upd:payout:${plan.id}:${host.id}:${e.pence}` });
-  const pushes: PushInput[] = c.push ? [{ ...planPush(plan, host.id, "push-plan-payout", pushWords.payout(plan.title, amount, day), `push:payout:${plan.id}:${host.id}:${e.pence}`), path: ROUTES.youPayments }] : [];
+  const pushes: PushInput[] = c.push ? [{ ...planPush(plan, host.id, "push-plan-payout", pushWords.payout(plan.title, amount), `push:payout:${plan.id}:${host.id}:${e.pence}`), path: ROUTES.youPayments }] : [];
   const emails: Email[] = c.email
     ? [
         {
           template: "plan-host-money",
           to: host.email,
-          data: { kind: "payout", plan: { title: plan.title, start: start(plan.starts_at) }, amount, payoutDay: day, url: ROUTES.youPayments },
+          data: { kind: "payout", plan: { title: plan.title, start: start(plan.starts_at) }, amount, url: ROUTES.youPayments },
           dedupeKey: `plan-payout:${plan.id}:${host.id}:${e.pence}`,
           refs: { memberId: host.id, planId: plan.id },
         },
@@ -740,6 +742,22 @@ async function planPayout(e: Extract<NotifyEvent, { type: "plan.payout" }>, now:
   const updates = await writeUpdates(rows);
   sendLater(`plan payout ${plan.id}`, emails, [], pushes);
   return { ...none(), updates, emails: emails.length, pushes: pushes.length };
+}
+
+async function planMoneyReminder(e: Extract<NotifyEvent, { type: "plan.money_reminder" }>, now: Date): Promise<NotifyOutcome> {
+  const host = (await people([e.hostId])).get(e.hostId);
+  if (!host) return none();
+  const amount = pounds(e.pence);
+  const c = channelsFor("host.payout", host, now);
+  const key = `${host.id}:${e.days}:${now.toISOString().slice(0, 10)}`;
+  const pushes: PushInput[] = c.push
+    ? [{ template: "push-money-reminder", memberId: host.id, ...pushWords.moneyReminder(amount), path: ROUTES.youPayments, thread: "money", dedupeKey: `push:money-reminder:${key}` }]
+    : [];
+  const emails: Email[] = c.email
+    ? [{ template: "plan-host-money", to: host.email, data: { kind: "reminder", amount, url: ROUTES.youPayments }, dedupeKey: `money-reminder:${key}`, refs: { memberId: host.id } }]
+    : [];
+  sendLater(`money reminder ${host.id}`, emails, [], pushes);
+  return { ...none(), emails: emails.length, pushes: pushes.length };
 }
 
 // ---------------------------------------------------------------------------- the one door
@@ -775,6 +793,8 @@ export async function notify(event: NotifyEvent, options: { now?: Date } = {}): 
         return await planRefundKept(event, now);
       case "plan.payout":
         return await planPayout(event, now);
+      case "plan.money_reminder":
+        return await planMoneyReminder(event, now);
     }
   } catch (err) {
     console.error(`notify ${event.type} failed:`, err);

@@ -1054,9 +1054,25 @@ const planRefundKept: Build<"plan-refund-kept"> = (d: PlanRefundKeptData, o) => 
 };
 
 const planHostMoney: Build<"plan-host-money"> = (d: PlanHostMoneyData, o) => {
-  const { title, start } = d.plan;
   const who = d.memberName?.trim() || "Someone";
   const url = absoluteUrl(d.url, o.site);
+  if (d.kind === "reminder") {
+    return {
+      subject: `${d.amount} is waiting for you`,
+      pre: "Add it to your Club Yuppie credit, or withdraw it to your bank.",
+      label: "Your money",
+      h1: { a: `${d.amount} is waiting`, b: "for you.", br: true },
+      intro: [
+        `You have ${d.amount} from your paid plans. Add it to your Club Yuppie credit to spend on events and Open Invites, or withdraw it to your bank.`,
+      ],
+      blocks: [{ kind: "card", rows: [row("Waiting", d.amount)] }],
+      button: { label: "Choose", url },
+      foot: "member",
+      switchLink: true,
+      why: WHY_HOST,
+    };
+  }
+  const { title, start } = d.plan ?? { title: "Your plan", start: { date: "", time: "" } };
   if (d.kind === "refund-asked") {
     return {
       subject: `${who} asked for a refund`,
@@ -1074,15 +1090,16 @@ const planHostMoney: Build<"plan-host-money"> = (d: PlanHostMoneyData, o) => {
     };
   }
   if (d.kind === "payout") {
-    const day = d.payoutDay?.trim();
     return {
-      subject: `${d.amount} is on its way`,
-      pre: day ? `For ${title}. It should reach your bank by ${day}.` : `For ${title}. It’s on its way to your bank.`,
-      label: "Get paid",
-      h1: { a: `${d.amount} is on its way.`, b: "Thanks for hosting.", br: true },
-      intro: [day ? `The money from ${title} is on its way to your bank. It should land by ${day}.` : `The money from ${title} is on its way to your bank.`],
+      subject: `${d.amount} is yours`,
+      pre: `From ${title}. Add it to your Club Yuppie credit, or withdraw it to your bank.`,
+      label: "Your money",
+      h1: { a: `${d.amount} is yours.`, b: "Thanks for hosting.", br: true },
+      intro: [
+        `${title} is over, so the money from it is yours. Add it to your Club Yuppie credit to spend on events and Open Invites, or withdraw it to your bank.`,
+      ],
       blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Amount", d.amount)] }],
-      button: { label: "See payments", url },
+      button: { label: "Choose", url },
       foot: "member",
       switchLink: true,
       why: WHY_HOST,
@@ -1093,7 +1110,7 @@ const planHostMoney: Build<"plan-host-money"> = (d: PlanHostMoneyData, o) => {
     pre: `${d.amount} is held by Club Yuppie until the plan is over.`,
     label: "Open Invite update",
     h1: { a: `${who} is in.`, b: `Paid ${d.amount}.`, br: true },
-    intro: [`${who} paid ${d.amount} for ${title}. Club Yuppie holds it until the plan is over, then pays you about 2 working days later.`],
+    intro: [`${who} paid ${d.amount} for ${title}. Club Yuppie holds it until the plan is over. Then it’s yours: add it to your Club Yuppie credit, or withdraw it to your bank.`],
     blocks: [{ kind: "card", rows: [row("Plan", title), row("When", at(start)), row("Paid", d.amount)] }],
     button: { label: "See payments", url },
     foot: "member",

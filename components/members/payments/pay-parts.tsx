@@ -27,6 +27,26 @@ export function heldLine(amount: string, host: string, tense: "is" | "would" = "
 
 export const REFUND_RULE = "Leave more than 24 hours before and you get it all back.";
 
+/**
+ * Where a refund goes (16 Nov 2026): back to the card first, never more than it paid, and the rest back on the
+ * member's Club Yuppie credit at once. `paid`: the payment (its place, fee and credit); `refundPence`: what comes back.
+ */
+export function refundSplit(paid: { amountPence: number; feePence?: number; creditPence?: number } | null | undefined, refundPence: number): { card: number; credit: number } {
+  if (!paid) return { card: refundPence, credit: 0 };
+  const card = Math.max(0, paid.amountPence + (paid.feePence ?? 0) - (paid.creditPence ?? 0));
+  const toCard = Math.min(refundPence, card);
+  return { card: toCard, credit: refundPence - toCard };
+}
+
+/** "Your £22 is on its way back to your card…", with the credit part said too. `when`: ", by Fri 27 Nov". */
+export function refundWhere(split: { card: number; credit: number }, when = "", future = false): string {
+  const cardWords = future ? "goes back to your card" : "is on its way back to your card";
+  const creditWords = future ? "goes back on your Club Yuppie credit at once" : "is back on your Club Yuppie credit";
+  if (!split.credit) return `${future ? "" : "Your "}${gbp(split.card)} ${cardWords}. It usually lands in ${BACK_5_10}${when}.`.replace(/^(\S)/, (c) => c.toUpperCase());
+  if (!split.card) return `${future ? "" : "Your "}${gbp(split.credit)} ${creditWords}.`.replace(/^(\S)/, (c) => c.toUpperCase());
+  return `${gbp(split.card)} ${cardWords} (it usually lands in ${BACK_5_10}${when}), and ${gbp(split.credit)} ${creditWords}.`;
+}
+
 /** The refund rule with the booking fee (15 Nov 2026): the place comes back, the fee stays with Club Yuppie. */
 export function refundRule(placePence: number, feePence: number): string {
   return feePence ? `Leave more than 24 hours before and you get your ${gbp(placePence)} back. The ${gbp(feePence)} booking fee isn’t refunded.` : REFUND_RULE;
@@ -107,7 +127,8 @@ export function PlanTile({
 }
 
 export type PriceLines =
-  | { kind: "pay"; pence: number; feePence?: number }
+  /** creditPence: Club Yuppie credit off the total (16 Nov 2026): a line says so, and "You’ll pay" is what is left. */
+  | { kind: "pay"; pence: number; feePence?: number; creditPence?: number }
   | { kind: "paid"; pence: number; feePence?: number }
   | { kind: "changed"; wasPence: number; nowPence: number }
   | { kind: "refunded"; pence: number };
@@ -124,6 +145,7 @@ export function PriceLines({ lines }: { lines: PriceLines }) {
     </div>
   );
   const fee = (lines.kind === "pay" || lines.kind === "paid") && lines.feePence ? lines.feePence : 0;
+  const credit = lines.kind === "pay" && lines.creditPence ? lines.creditPence : 0;
   return (
     <div className="pay-lines">
       {fee ? (
@@ -138,7 +160,13 @@ export function PriceLines({ lines }: { lines: PriceLines }) {
           </div>
         </>
       ) : null}
-      {lines.kind === "pay" ? total("You’ll pay", lines.pence) : null}
+      {credit ? (
+        <div className="pay-line">
+          <span>Your credit</span>
+          <span>−{gbp(credit)}</span>
+        </div>
+      ) : null}
+      {lines.kind === "pay" ? total("You’ll pay", lines.pence - credit) : null}
       {lines.kind === "paid" ? total("Paid", lines.pence) : null}
       {lines.kind === "refunded" ? total("Refunded", lines.pence) : null}
       {lines.kind === "changed" ? (

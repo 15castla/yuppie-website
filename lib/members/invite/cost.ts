@@ -54,7 +54,9 @@ export function validateCost(cost: CostValues, getPaid: GetPaidStatus): CostErro
   else if (pence < MIN_PRICE_PENCE) errors.price = COST_ERROR.low;
   else if (pence > MAX_PRICE_PENCE) errors.price = COST_ERROR.high;
   if (!cost.tick) errors.faceValue = COST_ERROR.untick;
-  if (getPaid !== "ready") errors.getPaid = COST_ERROR.getPaid;
+  // Get paid is no longer needed to add a cost (16 Nov 2026): only to withdraw money to a bank. `getPaid` stays in
+  // the signature for the callers.
+  void getPaid;
   return errors;
 }
 

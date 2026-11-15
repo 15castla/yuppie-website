@@ -25,7 +25,7 @@ import { Sheet } from "@/components/members/invite/sheet";
 import { gbp } from "@/lib/members/invite/format";
 import type { InvitePayment, OpenInvite } from "@/lib/members/invite/types";
 import { messageThreadHref, openInviteReceiptHref } from "@/lib/members/routes";
-import { BACK_5_10, MoneyList, PayActions, PayHead, PayMark, PlanTile, PriceLines } from "./pay-parts";
+import { BACK_5_10, MoneyList, PayActions, PayHead, PayMark, PlanTile, PriceLines, refundSplit, refundWhere } from "./pay-parts";
 
 export function PaidLeaveSheet({
   invite,
@@ -58,7 +58,7 @@ export function PaidLeaveSheet({
         <PlanTile invite={invite} photoOf={invite.host} />
         <MoneyList
           items={[
-            { icon: "undo", text: `${amount} goes back to your card. It usually lands in ${BACK_5_10}.` },
+            { icon: "undo", text: refundWhere(refundSplit(invite.you.payment, invite.you.payment?.amountPence ?? 0), "", true) },
             { icon: "clock", text: "It’s more than 24 hours until the plan, so this is automatic." },
           ]}
         />
@@ -107,7 +107,6 @@ export function LeftSheet({ invite, onClose }: { invite: OpenInvite; onClose: ()
   const id = useId();
   const host = invite.host.firstName;
   const payment = invite.you.payment;
-  const amount = gbp(payment?.amountPence ?? invite.cost?.pricePence ?? 0);
   return (
     <Sheet labelledBy={id} onClose={onClose} variant="pay">
       <PayMark icon="check" />
@@ -118,7 +117,7 @@ export function LeftSheet({ invite, onClose }: { invite: OpenInvite; onClose: ()
       </PlanTile>
       <MoneyList
         items={[
-          { icon: "undo", text: `Your ${amount} is on its way back to your card. It usually lands in ${BACK_5_10}.` },
+          { icon: "undo", text: refundWhere(refundSplit(payment, payment?.refund?.amountPence ?? payment?.amountPence ?? 0)) },
           {
             icon: "mail",
             text: (

@@ -44,6 +44,9 @@ const LATER = fs.readdirSync(path.join(ROOT, 'supabase/migrations')).filter((f) 
 if (!REBUILD) {
   // The stage 2 file's Updates kinds check would refuse the later kinds (paid plans' Updates, test rows only).
   exec(`delete from updates where kind not in ('joined', 'left', 'full', 'place_opened', 'changed', 'cancelled', 'reminder')`);
+  // The same for the files before 16 Nov 2026 (test rows only): credit kinds earnings and plan, and the host money
+  // statuses ready, credited and withdrawing, which their checks would refuse.
+  exec(`delete from credit_ledger where kind in ('earnings', 'plan'); update plan_payments set status = 'paid_out' where status in ('ready', 'credited', 'withdrawing')`);
   psqlFile(FILE);
   psqlFile(FIXES);
   for (const later of LATER) psqlFile(later);
