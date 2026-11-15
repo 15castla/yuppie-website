@@ -368,6 +368,63 @@ export type PlanCancelledData = {
   by?: "host" | "club";
   /** With by "club": "going" (default) to the people who were in, "host" to the host whose plan it was. */
   to?: "going" | "host";
+  /**
+   * A paid plan (15 Nov 2026): what goes back on this member's card ("£22"), so the email says it was refunded
+   * instead of "Nothing to pay". To the host (by "club", to "host"): anything, and the email says everyone who paid
+   * was refunded.
+   */
+  refund?: string;
+};
+
+/** Paid Open Invite (15 Nov 2026): the receipt, to the member who paid. Always sent (a money record). */
+export type PlanReceiptData = {
+  plan: EmailPlan;
+  place: string;
+  hostName: string;
+  /** "£22". */
+  amount: string;
+  /** "Visa ending 4242". */
+  method: string;
+  /** "1001". */
+  receiptNumber: string;
+  paidAt: EmailDateTime;
+  /** Leave by then for a full refund (24 hours before the start). */
+  refundUntil: EmailDateTime;
+  receiptUrl: EmailLink;
+};
+
+/** A payment refunded, to the member who paid (not for a cancelled plan: the cancel email says so). Always sent. */
+export type PlanRefundedData = {
+  plan: EmailPlan;
+  amount: string;
+  /** left-in-time: they left more than 24 hours before. host-agreed: the host said yes. club: Club Yuppie refunded it. */
+  why: "left-in-time" | "host-agreed" | "club";
+  hostName: string;
+  method: string;
+  /** The day it should be on their card by: "Fri 27 Nov". */
+  expectedBy: string;
+  receiptUrl: EmailLink;
+};
+
+/** The host kept a payment the member asked to have back (inside 24 hours): to the member. */
+export type PlanRefundKeptData = {
+  plan: EmailPlan;
+  hostName: string;
+  amount: string;
+  planUrl: EmailLink;
+};
+
+/** The host's money on a paid plan: someone paid, someone asked for a refund, the money is on its way. */
+export type PlanHostMoneyData = {
+  kind: "paid" | "refund-asked" | "payout";
+  plan: EmailPlan;
+  /** paid and refund-asked: the member's first name. */
+  memberName?: string;
+  amount: string;
+  /** payout: the day it should reach the bank, "Wed 18 Nov". */
+  payoutDay?: string;
+  /** paid and payout: You > Payments. refund-asked: the plan's payments page, where the host answers. */
+  url: EmailLink;
 };
 
 /** 24h and 2h before a plan: to the host (when going) and everyone who is in (round 3, notif-email-reminder-plan). */
@@ -543,6 +600,11 @@ export type EmailData = {
   "new-message": NewMessageData;
   "photo-removed": PhotoRemovedData;
   "admin-new-report": AdminNewReportData;
+  // paid Open Invite (15 Nov 2026)
+  "plan-receipt": PlanReceiptData;
+  "plan-refunded": PlanRefundedData;
+  "plan-refund-kept": PlanRefundKeptData;
+  "plan-host-money": PlanHostMoneyData;
 };
 
 export type EmailName = keyof EmailData;

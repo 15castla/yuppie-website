@@ -35,6 +35,8 @@ export function toDrawnWords(name, s) {
  *   other class names), so the html is the r2c shell with the round 3 words and the text part is compared byte for
  *   byte with the round 3 plain-text part (<pre>).
  */
+export const UNDRAWN = new Set(['plan-receipt', 'plan-refunded', 'plan-refund-kept', 'plan-host-money']);
+
 export function designOf(name) {
   const v3 = {
     'event-reminder': path.join(V3, 'notif-email-reminder-event.html'),
@@ -42,6 +44,8 @@ export function designOf(name) {
     'new-message': path.join(DESIGN, 'r2c-v3-msg-email-new-message.html'),
   }[name];
   if (v3) return { kind: 'v3', file: v3 };
+  // Paid Open Invite (15 Nov 2026): not drawn as emails (the payments design's words in the drawn plan frame).
+  if (UNDRAWN.has(name)) return { kind: 'undrawn' };
   return { kind: 'send', html: path.join(DESIGN, `r2c-send-${name}.html`), text: path.join(DESIGN, `r2c-send-${name}.txt`) };
 }
 

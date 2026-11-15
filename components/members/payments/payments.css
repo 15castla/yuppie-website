@@ -298,3 +298,11 @@ button.pay-apple:disabled{cursor:progress}
 .mk-screen.mk-web .pay-subpage>.mk-subbar{padding:5.5px var(--gutter) 5px}
 .pay-dh .pay-pills{margin-top:4px}
 .pay-subpage .mk-btn,.pay-sheet .mk-btn{white-space:nowrap}
+/* A line from the server above the page (15 Nov 2026): Stripe could not be reached. */
+.pay-notice{margin:0 0 8px;font:400 15px/1.45 var(--font-body);color:var(--muted);max-width:560px}
+/* The live pay sheet (15 Nov 2026): the space Stripe's fields take while the place is held and payment opens. */
+.pay-loading{height:132px;margin-top:16px;border-radius:12px;background:linear-gradient(90deg,var(--mk-line,rgba(27,21,18,.08)) 0%,rgba(27,21,18,.04) 50%,var(--mk-line,rgba(27,21,18,.08)) 100%);background-size:200% 100%;animation:pay-shimmer 1.4s linear infinite}
+@keyframes pay-shimmer{from{background-position:200% 0}to{background-position:0 0}}
+@media (prefers-reduced-motion:reduce){.pay-loading{animation:none}}
+.pay-stripe{margin-top:16px;min-height:120px}
+.pay-bank-fields{display:none}

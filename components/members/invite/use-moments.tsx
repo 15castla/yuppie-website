@@ -9,8 +9,9 @@
 // one gets it and the other gets "full", the TakenSheet. The action also refreshes the page (revalidatePath),
 // and fresh plans from the server replace what the hook holds.
 //
-// Paid plans (stage 3) never reach a real page in this stage; their sheets run on the preview harness's
-// stand-ins only (actions.paid).
+// Paid plans (15 Nov 2026): Pay and join opens the live pay sheet (components/members/payments/live-pay-sheet.tsx:
+// Stripe, the place held while paying), and leaving opens the paid leave sheets, whose taps are server actions
+// (app/members/open-invite/pay-actions.ts). The preview harness passes stand-ins instead (actions.paid).
 
 import { useState, type ReactNode } from "react";
 
@@ -22,6 +23,8 @@ import {
   PaidLeaveSheet,
 } from "@/components/members/payments/leave-sheets";
 import { PaySheet, type PayState } from "@/components/members/payments/pay-sheet";
+import { LivePaySheet } from "@/components/members/payments/live-pay-sheet";
+import { leavePaidPlanAction } from "@/app/members/open-invite/pay-actions";
 import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 import { leaveWindow } from "@/lib/members/invite/format";
 import type { InviteMember, OpenInvite } from "@/lib/members/invite/types";
@@ -51,8 +54,9 @@ export type Moment =
   | { kind: "cancelled"; id: string }
   /** The server said no: its words. `gone`: the member may not see the plan any more (removed, a block). */
   | { kind: "refused"; id: string; message: string; gone?: boolean }
-  // paid plans (the preview harness only in this stage): Pay and join, and the leave and refund sheets
-  | { kind: "pay"; id: string; state?: PayState; newPricePence?: number }
+  // paid plans: Pay and join (resume: back from the bank's own page with this PaymentIntent), and the leave and
+  // refund sheets
+  | { kind: "pay"; id: string; state?: PayState; newPricePence?: number; resume?: string }
   | { kind: "leave"; id: string; timing?: "full" | "late" }
   | { kind: "left"; id: string }
   | { kind: "asked"; id: string };
@@ -119,11 +123,37 @@ export function useMoments({
    */
   function join(invite: OpenInvite) {
     if (pendingId) return;
-    if (invite.cost && actions.paid) {
+    if (invite.cost) {
       setMoment({ kind: "pay", id: invite.id });
       return;
     }
     setMoment({ kind: "confirm-join", id: invite.id });
+  }
+
+  /** Leaving a paid plan: refund (more than 24 hours before), ask the host, or leave without a refund. */
+  async function leavePaid(invite: OpenInvite, mode: "refund" | "ask" | "no_refund") {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const result = await attempt(() => leavePaidPlanAction(invite.id, mode));
+      if (isSessionEnded(result)) return goToSessionEnded();
+      if (result.ok) {
+        replace(invite.id, "invite" in result ? result.invite : null);
+        if ("kind" in result && result.kind === "refunded") setMoment({ kind: "left", id: invite.id });
+        else if ("kind" in result && result.kind === "asked") setMoment({ kind: "asked", id: invite.id });
+        else setMoment(null);
+        return;
+      }
+      replace(invite.id, "invite" in result ? result.invite : null);
+      // The 24-hour line passed while the sheet was open: the sheet again, as it is now.
+      if ("timing" in result && result.timing) {
+        setMoment({ kind: "leave", id: invite.id, timing: result.timing });
+        return;
+      }
+      refuse(invite.id, result.error);
+    } finally {
+      setBusy(false);
+    }
   }
 
   /** "I'm in" on "Join this plan?": takes the place. */
@@ -262,10 +292,24 @@ export function useMoments({
           );
         break;
       }
-      // ---- paid plans: the preview harness's stand-ins (actions.paid); no real page reaches these in stage 2
+      // ---- paid plans: live (Stripe and the server actions), or the preview harness's stand-ins (actions.paid)
       case "pay": {
         const paid = actions.paid;
-        if (!paid) break;
+        if (!paid) {
+          sheet = (
+            <LivePaySheet
+              key={`${current.id}:${moment.resume ?? ""}`}
+              invite={current}
+              seeOtherHref={seeOtherHref}
+              resume={moment.resume ?? null}
+              onClose={close}
+              onPaid={(fresh) => replace(current.id, fresh)}
+              onFresh={(fresh) => replace(current.id, fresh)}
+              onRefused={(message) => refuse(current.id, message)}
+            />
+          );
+          break;
+        }
         sheet = (
           <PaySheet
             invite={current}
@@ -280,7 +324,18 @@ export function useMoments({
       }
       case "leave": {
         const paid = actions.paid;
-        if (!paid) break;
+        if (!paid) {
+          sheet = (
+            <PaidLeaveSheet
+              invite={current}
+              timing={moment.timing ?? leaveWindow(current.startsAt, new Date().toISOString())}
+              onClose={close}
+              onLeave={(refund) => void leavePaid(current, refund ? "refund" : "no_refund")}
+              onAsk={() => void leavePaid(current, "ask")}
+            />
+          );
+          break;
+        }
         sheet = (
           <PaidLeaveSheet
             invite={current}
@@ -308,5 +363,8 @@ export function useMoments({
     }
   }
 
-  return { plans, update, pendingId, join, open, close, sheet, moment, busy };
+  /** Back from the bank's own page with a PaymentIntent: the pay sheet, checking it. */
+  const resumePay = (id: string, paymentIntentId: string) => setMoment({ kind: "pay", id, resume: paymentIntentId });
+
+  return { plans, update, pendingId, join, open, close, sheet, moment, busy, resumePay };
 }

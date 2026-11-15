@@ -1,5 +1,5 @@
 // Members area feature flags. Every flag is OFF unless its environment
-// variable is exactly "on". They gate screens that are built but have no
+// variable is exactly "on" (paid plans: ON unless "off", since 15 Nov 2026). They gate screens that are built but have no
 // backend yet (see BUILD_BRIEF section 2): switching one on locally or on a
 // Vercel preview shows the screen running on its example-data adapter
 // (lib/members/mock/). On the live site (VERCEL_ENV=production) the same
@@ -45,7 +45,8 @@ export const flags: Flags = {
   messages: process.env.NEXT_PUBLIC_MEMBERS_MESSAGES === "on",
   notifications: process.env.NEXT_PUBLIC_MEMBERS_NOTIFICATIONS === "on",
   photoGate: process.env.NEXT_PUBLIC_MEMBERS_PHOTO_GATE === "on",
-  paidPlans: process.env.NEXT_PUBLIC_MEMBERS_PAID_PLANS === "on",
+  // Paid Open Invite (15 Nov 2026): on unless "off" (Albert, 13 Nov: "everything should be going live so I can test it").
+  paidPlans: process.env.NEXT_PUBLIC_MEMBERS_PAID_PLANS !== "off",
   // Nominate a friend and Club Yuppie credit (12 Nov 2026): the Nominate page, the You and Access cards, the apply
   // page's code, credit at payment. Off until Albert has seen it.
   nominations: process.env.NEXT_PUBLIC_MEMBERS_NOMINATIONS === "on",

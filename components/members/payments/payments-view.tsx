@@ -10,23 +10,28 @@
 //   review      Stripe is checking the details, no paid plans
 //   empty       ready, no paid plans yet: the closing band with "Post an Open Invite"
 //
-// A pure view of HostPayments. Get paid is local demo state: "Done" on the
-// outline of Stripe's screen marks it ready in this tab and releases a paused
-// payout (components/members/payments/get-paid.tsx). With a backend the four
-// statuses come from Stripe and a returning host lands back here.
+// A view of HostPayments (lib/server/plan-payments.ts hostPayments). Live: Get
+// paid goes to Stripe (components/members/payments/get-paid.tsx), the four
+// statuses come from Stripe, and the page asks again when the host comes back.
+// In the preview harness Get paid is demo state: "Done" on the outline of
+// Stripe's screen marks it ready in that tab and releases a paused payout.
 //
 // needs_device_check: the Get paid hand-off sheet (web, app) and Stripe's outline screen (app).
 
 import "@/components/members/invite/invite.css";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { BackLink, BackRow, Button, DateColumn, KitLink, Main, Pill, TitleBlock } from "@/components/members/kit";
 import { InkDrawing } from "@/components/members/invite/ink-drawing";
 import { dateColumn, formatDay, gbp } from "@/lib/members/invite/format";
 import type { GetPaid, HostPaidPlan, HostPayments } from "@/lib/members/invite/types";
 import { ROUTES, youPaymentsPlanHref } from "@/lib/members/routes";
-import { GetPaidCard, GetPaidHandOff, GetPaidSlim, type GetPaidMode } from "./get-paid";
+import { GetPaidCard, GetPaidHandOff, GetPaidSlim, useGetPaidRefresh, type GetPaidMode } from "./get-paid";
+
+/** Stripe's hosted onboarding and dashboard, through the members route that makes the link. */
+const STRIPE_HREF = "/members/you/payments/stripe";
 import { joinNames } from "./leave-sheets";
 
 const STEPS = [
@@ -132,12 +137,23 @@ function Crumb({ label }: { label: string }) {
 export function PaymentsView({
   payments,
   initialMode = null,
+  live = false,
+  notice = null,
 }: {
   payments: HostPayments;
   initialMode?: GetPaidMode;
+  /** The real page (15 Nov 2026): Get paid goes to Stripe, and the page asks again when the host comes back. */
+  live?: boolean;
+  /** A line from the server: Stripe could not be reached. */
+  notice?: string | null;
 }) {
-  const [getPaid, setGetPaid] = useState<GetPaid>(payments.getPaid);
+  const router = useRouter();
+  const [demoGetPaid, setGetPaid] = useState<GetPaid>(payments.getPaid);
   const [mode, setMode] = useState<GetPaidMode>(initialMode);
+  // Live: the server's Get paid, fresh on every refresh; the harness keeps its own.
+  const getPaid = live ? payments.getPaid : demoGetPaid;
+  const refresh = useCallback(() => router.refresh(), [router]);
+  useGetPaidRefresh(refresh, live);
 
   const ready = getPaid.status === "ready";
   // A paused payout is released once Get paid is ready (demo: the host pressed Done).
@@ -148,12 +164,21 @@ export function PaymentsView({
   const hasPlans = plans.length > 0;
   const demoReady: GetPaid = { status: "ready", accountEnding: getPaid.accountEnding ?? "4321", paused: null };
 
-  const handOff = <GetPaidHandOff mode={mode} onMode={setMode} onDone={() => setGetPaid(demoReady)} />;
+  const handOff = (
+    <GetPaidHandOff mode={mode} onMode={setMode} onDone={() => setGetPaid(demoReady)} stripeHref={live ? STRIPE_HREF : undefined} />
+  );
   const head = (
     <>
       <BackRow href={ROUTES.you} label="Profile" />
       <Crumb label="Profile" />
       <TitleBlock title="Payments." sub="Money from your paid plans." actions={null} />
+      {notice ? (
+        <div className="mk-wrap">
+          <p className="pay-notice" role="status">
+            {notice}
+          </p>
+        </div>
+      ) : null}
     </>
   );
 

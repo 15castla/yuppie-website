@@ -12,14 +12,16 @@
 //   in-review    "We're checking your details." See progress on Stripe
 //   ready        "You're set up to get paid."  Manage on Stripe
 //
-// LOCAL DEMO STATE: nothing is sent to Stripe. "Done" on the outline screen
-// only marks Get paid as ready in this tab. With a backend, Stripe's hosted
-// onboarding and its webhooks set the four statuses, and a returning host
-// lands back on the screen they started from.
+// Live (15 Nov 2026, `stripeHref`): "Continue to Stripe" goes to Stripe's
+// hosted onboarding through /members/you/payments/stripe, and "Manage on
+// Stripe" / "Add the missing info" go straight there; Stripe sends the host back
+// to the screen they started from, which asks Stripe for the new status. The
+// preview harness passes no `stripeHref`: then "Done" on the outline screen only
+// marks Get paid as ready in that tab.
 //
 // needs_device_check: the hand-off sheet (web, app) and the Stripe screen (app).
 
-import { useId, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 
 import { Button, Card, Icon, useExample } from "@/components/members/kit";
 import { Sheet } from "@/components/members/invite/sheet";
@@ -147,10 +149,17 @@ const NEEDS = [
 ] as const;
 
 /** The hand-off sheet: what Club Yuppie needs and who checks what, then on to Stripe. */
-export function GetPaidSheet({ onContinue, onClose }: { onContinue: () => void; onClose: () => void }) {
+export function GetPaidSheet({ onContinue, onClose, stripeHref }: { onContinue: () => void; onClose: () => void; stripeHref?: string }) {
   const id = useId();
-  // Example screens on the live site: there is no Stripe link yet (kit/example-note).
+  // Example screens on the live site: there is no Stripe link (kit/example-note).
   const example = useExample();
+  const [going, setGoing] = useState(false);
+  // Back from Stripe in the same tab (the browser's back button keeps this page): ready to go again.
+  useEffect(() => {
+    const reset = () => setGoing(false);
+    window.addEventListener("pageshow", reset);
+    return () => window.removeEventListener("pageshow", reset);
+  }, []);
   return (
     <Sheet labelledBy={id} onClose={onClose} variant="pay">
       <PayHead id={id} title="Get paid." onClose={onClose} />
@@ -174,10 +183,26 @@ export function GetPaidSheet({ onContinue, onClose }: { onContinue: () => void; 
         </div>
       </div>
       <PayActions>
-        <Button block disabled={example} onClick={onContinue}>
-          {example ? "Coming soon" : "Continue to Stripe"}
-          {example ? null : <Icon name="external" size={18} />}
-        </Button>
+        {stripeHref && !example ? (
+          // A whole-page load (the route sends the browser on to Stripe), never the client router.
+          <Button
+            block
+            data-needs-net=""
+            pending={going}
+            onClick={() => {
+              setGoing(true);
+              window.location.assign(stripeHref);
+            }}
+          >
+            {going ? "Opening Stripe…" : "Continue to Stripe"}
+            {going ? null : <Icon name="external" size={18} />}
+          </Button>
+        ) : (
+          <Button block disabled={example} onClick={onContinue}>
+            {example ? "Coming soon" : "Continue to Stripe"}
+            {example ? null : <Icon name="external" size={18} />}
+          </Button>
+        )}
         <Button block variant="outline" onClick={onClose}>
           Not now
         </Button>
@@ -192,15 +217,29 @@ export function GetPaidHandOff({
   mode,
   onMode,
   onDone,
+  stripeHref,
 }: {
   mode: GetPaidMode;
   onMode: (mode: GetPaidMode) => void;
   /** "Done" on Stripe's screen: the host is back and Get paid is ready (demo). */
   onDone: () => void;
+  /**
+   * Live: where Stripe is (/members/you/payments/stripe, with ?from=post on the post form). "Continue to Stripe"
+   * goes there, and "Manage on Stripe" or "Add the missing info" go straight there (?manage=1).
+   */
+  stripeHref?: string;
 }) {
+  const manageHref = stripeHref ? `${stripeHref}${stripeHref.includes("?") ? "&" : "?"}manage=1` : null;
+  useEffect(() => {
+    if (mode === "stripe" && manageHref) {
+      onMode(null);
+      window.location.assign(manageHref);
+    }
+  }, [mode, manageHref, onMode]);
   if (mode === "intro") {
-    return <GetPaidSheet onContinue={() => onMode("stripe")} onClose={() => onMode(null)} />;
+    return <GetPaidSheet onContinue={() => onMode("stripe")} onClose={() => onMode(null)} stripeHref={stripeHref} />;
   }
+  if (mode === "stripe" && manageHref) return null;
   if (mode === "stripe") {
     return (
       <HandOffScreen
@@ -240,4 +279,28 @@ export function GetPaidBoard() {
       <GetPaidHandOff mode={mode} onMode={setMode} onDone={() => setMode(null)} />
     </main>
   );
+}
+
+/**
+ * Live: ask the server again when the host comes back from Stripe: the page shows again (the tab, the app), the
+ * in-app browser sheet closes (the app tells the page: cy-browser-closed), or Stripe sent them back (?getpaid=back).
+ */
+export function useGetPaidRefresh(refresh: () => void, enabled: boolean) {
+  useEffect(() => {
+    if (!enabled) return;
+    let last = 0;
+    const again = () => {
+      if (document.visibilityState !== "visible" || Date.now() - last < 3000) return;
+      last = Date.now();
+      refresh();
+    };
+    window.addEventListener("cy-browser-closed", again);
+    window.addEventListener("focus", again);
+    document.addEventListener("visibilitychange", again);
+    return () => {
+      window.removeEventListener("cy-browser-closed", again);
+      window.removeEventListener("focus", again);
+      document.removeEventListener("visibilitychange", again);
+    };
+  }, [refresh, enabled]);
 }

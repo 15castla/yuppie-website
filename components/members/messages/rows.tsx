@@ -95,6 +95,8 @@ export function ChatRow({
 
 // Which icon leads an update that nobody did (a reminder, a full plan, a place opening up).
 function updateIcon(update: UpdateItem): IconName {
+  if (update.kind === "paid" || update.kind === "payout" || update.kind === "refund_asked") return "banknote";
+  if (update.kind === "refunded") return "undo";
   return update.kind === "reminder" ? "clock" : "users";
 }
 

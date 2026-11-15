@@ -16,7 +16,7 @@
 
 import "./invite.css";
 
-import { useMemo, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 
 import { Avatar, BackRow, Button, ExampleNote, Icon, KitLink, Main, Pill, Row, Rows, Status, useExample } from "@/components/members/kit";
@@ -277,6 +277,18 @@ export function PlanView({
   });
   const invite = moments.plans[0] ?? page.invite;
   const pending = moments.pendingId === invite.id;
+  // Back from the bank's own page (a 3-D Secure check that left the page): Stripe adds ?payment_intent=...; the pay
+  // sheet opens on "Checking your payment" and the address loses the extras (15 Nov 2026).
+  const resumed = useRef(false);
+  useEffect(() => {
+    if (resumed.current || !paidPlans || !invite.cost) return;
+    resumed.current = true;
+    const params = new URLSearchParams(window.location.search);
+    const pi = params.get("payment_intent");
+    if (!pi || !pi.startsWith("pi_")) return;
+    window.history.replaceState(window.history.state, "", window.location.pathname);
+    moments.resumePay(invite.id, pi);
+  }, [paidPlans, invite.cost, invite.id, moments]);
   const state = planState(invite);
   const host = invite.host;
   const poster = host.firstName;

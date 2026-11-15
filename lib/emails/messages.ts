@@ -18,6 +18,10 @@ import type {
   PlanCancelledData,
   PlanChangedData,
   PlanReminderData,
+  PlanHostMoneyData,
+  PlanReceiptData,
+  PlanRefundedData,
+  PlanRefundKeptData,
   ApplicationReceivedData,
   ApprovalData,
   BookingCancelledData,
@@ -735,6 +739,21 @@ const planCancelled: Build<"plan-cancelled"> = (d: PlanCancelledData, o) => {
   const { title, start } = d.plan;
   const host = d.hostName.trim();
   if (d.by === "club") return planCancelledByClub(d, o);
+  if (d.refund) {
+    // A paid plan (15 Nov 2026): the payments design's refund words in the drawn frame.
+    return {
+      subject: `Cancelled: ${title}`,
+      pre: `${host} cancelled it. Your ${d.refund} is on its way back.`,
+      label: "Open Invite update",
+      h1: { a: `${host} cancelled.`, b: `${d.refund} refunded.`, br: true },
+      intro: [`${host} cancelled ${title} on ${at(start)}. We’ve refunded your ${d.refund} in full. It usually reaches your card in 5 to 10 working days.`],
+      blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Where", d.place.trim()), row("Refund", `${d.refund}, in full`)] }],
+      button: { label: "See Open Invite", url: absoluteUrl(d.openInviteUrl ?? OPEN_INVITE_PATH, o.site) },
+      foot: "member",
+      switchLink: true,
+      why: "You’re getting this because you paid for a place on an Open Invite plan on Club Yuppie.",
+    };
+  }
   return {
     subject: `Cancelled: ${title}`,
     pre: `${host} cancelled it. Nothing to pay and nothing to do.`,
@@ -764,7 +783,11 @@ const planCancelledByClub: Build<"plan-cancelled"> = (d: PlanCancelledData, o) =
       pre: "We took it off Open Invite and told the people going.",
       label: "Open Invite update",
       h1: { a: "We cancelled your plan.", b: "It’s off Open Invite.", br: true },
-      intro: [`We cancelled ${title} on ${at(start)} and told the people going. If you think we got this wrong, reply to this email.`],
+      intro: [
+        d.refund
+          ? `We cancelled ${title} on ${at(start)}, told the people going and refunded everyone who paid. If you think we got this wrong, reply to this email.`
+          : `We cancelled ${title} on ${at(start)} and told the people going. If you think we got this wrong, reply to this email.`,
+      ],
       blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Where", place)] }],
       button: { label: "See Open Invite", url: absoluteUrl(d.openInviteUrl ?? OPEN_INVITE_PATH, o.site) },
       foot: "member",
@@ -774,11 +797,15 @@ const planCancelledByClub: Build<"plan-cancelled"> = (d: PlanCancelledData, o) =
   }
   return {
     subject: `Cancelled: ${title}`,
-    pre: "Club Yuppie cancelled it. Nothing to pay and nothing to do.",
+    pre: d.refund ? `Club Yuppie cancelled it. Your ${d.refund} is on its way back.` : "Club Yuppie cancelled it. Nothing to pay and nothing to do.",
     label: "Open Invite update",
-    h1: { a: "It’s been cancelled.", b: "The plan’s off.", br: true },
-    intro: [`Club Yuppie cancelled ${title} on ${at(start)}. Nothing to pay and nothing to do.`],
-    blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Where", place), row("Host", host)] }],
+    h1: { a: "It’s been cancelled.", b: d.refund ? `${d.refund} refunded.` : "The plan’s off.", br: true },
+    intro: [
+      d.refund
+        ? `Club Yuppie cancelled ${title} on ${at(start)}. We’ve refunded your ${d.refund} in full. It usually reaches your card in 5 to 10 working days.`
+        : `Club Yuppie cancelled ${title} on ${at(start)}. Nothing to pay and nothing to do.`,
+    ],
+    blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Where", place), row("Host", host), ...rowIf("Refund", d.refund ? `${d.refund}, in full` : null)] }],
     button: { label: "See Open Invite", url: absoluteUrl(d.openInviteUrl ?? OPEN_INVITE_PATH, o.site) },
     foot: "member",
     switchLink: true,
@@ -936,6 +963,133 @@ const adminNewReport: Build<"admin-new-report"> = (d: AdminNewReportData, o) => 
   };
 };
 
+// ---------------------------------------------------------------- paid Open Invite (15 Nov 2026)
+// Not drawn as emails: the payments design's words (the pay, leave and Payments sheets) in the drawn plan frame.
+
+const WHY_PAID = "You’re getting this because you paid for a place on an Open Invite plan on Club Yuppie.";
+const WHY_HOST = "You’re getting this because you host a paid Open Invite plan on Club Yuppie.";
+
+const planReceipt: Build<"plan-receipt"> = (d: PlanReceiptData, o) => {
+  const { title, start } = d.plan;
+  const host = d.hostName.trim();
+  return {
+    subject: `Receipt: ${title}`,
+    pre: `You paid ${d.amount}. Club Yuppie holds it until the plan is over.`,
+    label: "Receipt",
+    h1: { a: "You’re in.", b: `Paid ${d.amount}.`, br: true },
+    intro: [`${host} can see you’re in. Club Yuppie holds your ${d.amount} until the plan is over, then pays ${host}.`],
+    blocks: [
+      {
+        kind: "card",
+        rows: [
+          row("Plan", title),
+          row("When", at(start)),
+          row("Where", d.place.trim()),
+          row("Paid", d.amount),
+          row("Card", d.method),
+          row("Date", at(d.paidAt)),
+          row("Receipt", `No. ${d.receiptNumber}`),
+        ],
+      },
+    ],
+    button: { label: "See receipt", url: absoluteUrl(d.receiptUrl, o.site) },
+    below: `Leave by ${at(d.refundUntil)} for a full refund. Later than that, ask ${host}.`,
+    foot: "member",
+    switchLink: false,
+    why: WHY_PAID,
+  };
+};
+
+const planRefunded: Build<"plan-refunded"> = (d: PlanRefundedData, o) => {
+  const { title, start } = d.plan;
+  const host = d.hostName.trim();
+  const intro =
+    d.why === "left-in-time"
+      ? `You left ${title} more than 24 hours before, so we’ve refunded your ${d.amount} in full.`
+      : d.why === "host-agreed"
+        ? `${host} agreed to refund you for ${title}, so your ${d.amount} is on its way back.`
+        : `Club Yuppie refunded your ${d.amount} for ${title}.`;
+  return {
+    subject: `Refunded: ${title}`,
+    pre: `${d.amount} is on its way back to your card.`,
+    label: "Refund",
+    h1: { a: `${d.amount} refunded.`, b: "It’s on its way back.", br: true },
+    intro: [intro],
+    blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Refund", `${d.amount}, in full`), row("To", d.method), row("By", d.expectedBy)] }],
+    button: { label: "See receipt", url: absoluteUrl(d.receiptUrl, o.site) },
+    below: "Card refunds usually take 5 to 10 working days to show.",
+    foot: "member",
+    switchLink: false,
+    why: WHY_PAID,
+  };
+};
+
+const planRefundKept: Build<"plan-refund-kept"> = (d: PlanRefundKeptData, o) => {
+  const { title, start } = d.plan;
+  const host = d.hostName.trim();
+  return {
+    subject: `${title}: no refund`,
+    pre: `${host} kept your ${d.amount}. Your place is still yours.`,
+    label: "Open Invite update",
+    h1: { a: `${host} kept it.`, b: "Your place is still yours.", br: true },
+    intro: [`You asked ${host} for a refund for ${title}. ${host} kept your ${d.amount}, so you’re still in. If you can make it after all, the plan chat is open.`],
+    blocks: [{ kind: "card", rows: [row("Plan", title), row("When", at(start)), row("Paid", d.amount)] }],
+    button: { label: "See the plan", url: absoluteUrl(d.planUrl, o.site) },
+    foot: "member",
+    switchLink: true,
+    why: WHY_PAID,
+  };
+};
+
+const planHostMoney: Build<"plan-host-money"> = (d: PlanHostMoneyData, o) => {
+  const { title, start } = d.plan;
+  const who = d.memberName?.trim() || "Someone";
+  const url = absoluteUrl(d.url, o.site);
+  if (d.kind === "refund-asked") {
+    return {
+      subject: `${who} asked for a refund`,
+      pre: `${who} can’t make ${title}. Refund the ${d.amount}, or keep it.`,
+      label: "Open Invite update",
+      h1: { a: `${who} asked`, b: "for a refund.", br: true },
+      intro: [
+        `${who} can no longer make ${title} and asked for their ${d.amount} back. It’s your call: refund it and the place goes back to the plan, or keep it. If you don’t answer before the plan starts, you keep it.`,
+      ],
+      blocks: [{ kind: "card", rows: [row("Plan", title), row("When", at(start)), row("Paid", `${d.amount} by ${who}`)] }],
+      button: { label: "Answer", url },
+      foot: "member",
+      switchLink: true,
+      why: WHY_HOST,
+    };
+  }
+  if (d.kind === "payout") {
+    const day = d.payoutDay?.trim();
+    return {
+      subject: `${d.amount} is on its way`,
+      pre: day ? `For ${title}. It should reach your bank by ${day}.` : `For ${title}. It’s on its way to your bank.`,
+      label: "Get paid",
+      h1: { a: `${d.amount} is on its way.`, b: "Thanks for hosting.", br: true },
+      intro: [day ? `The money from ${title} is on its way to your bank. It should land by ${day}.` : `The money from ${title} is on its way to your bank.`],
+      blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Amount", d.amount)] }],
+      button: { label: "See payments", url },
+      foot: "member",
+      switchLink: true,
+      why: WHY_HOST,
+    };
+  }
+  return {
+    subject: `${who} paid for ${title}`,
+    pre: `${d.amount} is held by Club Yuppie until the plan is over.`,
+    label: "Open Invite update",
+    h1: { a: `${who} is in.`, b: `Paid ${d.amount}.`, br: true },
+    intro: [`${who} paid ${d.amount} for ${title}. Club Yuppie holds it until the plan is over, then pays you about 2 working days later.`],
+    blocks: [{ kind: "card", rows: [row("Plan", title), row("When", at(start)), row("Paid", d.amount)] }],
+    button: { label: "See payments", url },
+    foot: "member",
+    switchLink: true,
+    why: WHY_HOST,
+  };
+};
+
 export const BUILDERS: { [N in EmailName]: Build<N> } = {
   "application-received": applicationReceived,
   approval,
@@ -959,6 +1113,10 @@ export const BUILDERS: { [N in EmailName]: Build<N> } = {
   "new-message": newMessage,
   "photo-removed": photoRemoved,
   "admin-new-report": adminNewReport,
+  "plan-receipt": planReceipt,
+  "plan-refunded": planRefunded,
+  "plan-refund-kept": planRefundKept,
+  "plan-host-money": planHostMoney,
 };
 
 export const EMAIL_NAMES = Object.keys(BUILDERS) as EmailName[];

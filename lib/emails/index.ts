@@ -60,6 +60,11 @@ export const EMAIL_AUDIENCE: Record<EmailName, "member" | "applicant" | "admin">
   "new-message": "member",
   "photo-removed": "member",
   "admin-new-report": "admin",
+  // paid Open Invite (15 Nov 2026)
+  "plan-receipt": "member",
+  "plan-refunded": "member",
+  "plan-refund-kept": "member",
+  "plan-host-money": "member",
 };
 
 /** One email: subject, preheader, html and the plain-text part. Every value in `data` is escaped. */

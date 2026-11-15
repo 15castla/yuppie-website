@@ -142,12 +142,13 @@ export function photosPrivateDone(): boolean {
 }
 
 /**
- * Paid plans are stage 3 (Stripe Connect). Until this server-only switch is "on" (never in stage 2), nothing may
- * take or pretend to take money: the post form offers free plans only, no plan with a price is shown, and no
- * server path makes a PaymentIntent or a hold.
+ * Paid plans (Stripe Connect, built 15 Nov 2026: lib/server/plan-payments.ts). On unless this server-only switch is
+ * "off" (Albert, 13 Nov: everything goes live so he can test it; a host can only add a cost once Stripe has checked
+ * them, so nothing is taken until Connect is set up). Off: the post form offers free plans only, no plan with a
+ * price is shown, and no server path makes a PaymentIntent or a hold.
  */
 export function paidPlansLive(): boolean {
-  return process.env.MEMBERS_PAID_PLANS_LIVE === "on";
+  return process.env.MEMBERS_PAID_PLANS_LIVE !== "off";
 }
 
 // ---------------------------------------------------------------------------- stage 2 fixes (31 Oct 2026)

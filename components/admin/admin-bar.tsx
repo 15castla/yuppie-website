@@ -25,6 +25,7 @@ const NAV: { href: string; label: string; count?: keyof AdminNavCounts }[] = [
   { href: "/admin/access", label: "Access" },
   { href: "/admin/reports", label: "Reports", count: "reports" },
   { href: "/admin/photos", label: "Photos", count: "photos" },
+  { href: "/admin/payments", label: "Payments" },
 ];
 
 /** What a count means, for screen readers: "Reports (3 open)". */

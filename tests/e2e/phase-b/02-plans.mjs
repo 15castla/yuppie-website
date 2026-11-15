@@ -25,7 +25,8 @@ eq((await errs({ places: 1 })).error, 'Pick between 2 and 12 places.', '1 place 
 eq((await errs({ note: 'n'.repeat(281) })).error, 'Keep the note to 280 characters.', 'a note over 280 refused');
 // A note is needed (8 Nov 2026).
 eq((await errs({ note: '   ' })).errors.note, 'Add a note so people know what to expect.', 'no note refused');
-eq((await errs({ cost: { pricePence: 2200, faceValueConfirmed: true } })).errors.price, 'Paid plans aren’t open yet. Turn off Add a cost to post it free.', 'a cost is refused: nothing in stage 2 takes money');
+// Paid plans are on (15 Nov 2026): a cost needs Get paid first (23-paid-plans.mjs has the rest).
+eq((await errs({ cost: { pricePence: 2200, faceValueConfirmed: true } })).errors.getPaid, 'Finish Get paid first, then post.', 'a cost needs Get paid first');
 eq(sql1(`select count(*)::int n from plans where host_id = ${q(host.id)}`).n, 0, 'none of those made a plan');
 
 const posted = await post({ title: 'Climbing test', places: 3, note: '  Shoes at the desk.  ' });
@@ -63,11 +64,11 @@ exec(`insert into plans (id, host_id, title, type, starts_at, place, places) val
 ok(!(await feedIds(guest)).includes(pausedPlan), 'a paused host\'s plans are not in the feed');
 const priced = sql1(`select gen_random_uuid() id`).id;
 exec(`insert into plans (id, host_id, title, type, starts_at, place, places, price_pence, face_value_confirmed) values (${q(priced)}, ${q(other.id)}, 'Priced plan', 'Culture', now() + interval '3 days', 'Somewhere', 4, 2200, true)`);
-ok(!(await feedIds(guest)).includes(priced), 'a plan with a price is never shown while paid plans are not live');
-eq((await action('plan.getOpenInvitePage', [priced], guest.session)).result, null, 'nor its page');
-eq((await page(`/members/open-invite/${priced}`, guest.session)).status, 404, 'the page 404s');
-eq((await action('invite.joinOpenInvite', [priced], guest.session)).result.ok, false, 'and it cannot be joined');
-eq(sql1(`select count(*)::int n from plan_members where plan_id = ${q(priced)}`).n, 0, 'nobody is in it');
+ok((await feedIds(guest)).includes(priced), 'a plan with a price is shown (paid plans are on, 15 Nov 2026)');
+eq((await action('plan.getOpenInvitePage', [priced], guest.session)).result.invite.cost.pricePence, 2200, 'its page, with the price');
+eq((await page(`/members/open-invite/${priced}`, guest.session)).status, 200, 'the page opens');
+eq((await action('invite.joinOpenInvite', [priced], guest.session)).result.reason, 'paid', 'I’m in is refused (it is Pay and join)');
+eq(sql1(`select count(*)::int n from plan_members where plan_id = ${q(priced)}`).n, 0, 'nobody is in it without paying');
 
 // ---------------------------------------------------------------- I'm in
 const mark = fakesMark();
@@ -130,7 +131,7 @@ exec(`update plans set places = 3 where id = ${q(planId)}`);
 const tooFew = await action('invite.joinOpenInvite', [planId], other.session);
 ok(tooFew.result.ok, 'a third member joins');
 eq((await edit({ places: 2 })).result.error, '3 people are going, so keep at least 3 places.', 'an edit to fewer places than people going is refused: nobody is taken off');
-eq((await edit({ cost: { pricePence: 1000, faceValueConfirmed: true } })).result.errors.price, 'Paid plans aren’t open yet. Turn off Add a cost to post it free.', 'an edit cannot add a cost');
+eq((await edit({ cost: { pricePence: 1000, faceValueConfirmed: true } })).result.errors.getPaid, 'Finish Get paid first, then post.', 'an edit cannot add a cost without Get paid');
 const before = planRow(planId);
 const mark2 = fakesMark();
 const moved = await edit({ ...{ date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(Date.now() + 6 * 86400000)), time: '19:00' }, where: 'The Boulder Yard' });
@@ -206,7 +207,6 @@ const webLanding = await fetch(`${BASE}/members`, { redirect: 'manual' });
 eq(new URL(webLanding.headers.get('location'), BASE).pathname, '/members/open-invite', 'the web lands on Open Invite');
 const noMock = await page('/members/open-invite', guest.session);
 ok(!/Example screen|Example content/.test(noMock.text), 'the real page carries no example note');
-eq(await redirectedTo(`/members/open-invite/${planId}/receipt`, guest.session), null, 'receipt (paid plans) is not a page...');
-eq((await page(`/members/open-invite/${planId}/receipt`, guest.session)).status, 404, '...it is a 404 while paid plans are not live');
-eq((await page('/members/you/payments', guest.session)).status, 404, 'You > Payments: 404 too');
+ok(/NEXT_HTTP_ERROR_FALLBACK;404/.test((await page(`/members/open-invite/${planId}/receipt`, guest.session)).text), 'no receipt for a free plan');
+eq((await page('/members/you/payments', guest.session)).status, 200, 'You > Payments opens (paid plans are on)');
 done();

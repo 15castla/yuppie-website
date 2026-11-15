@@ -522,6 +522,87 @@ export const EMAIL_FIXTURES: { [N in EmailName]: EmailFixture<N>[] } = {
       data: { kind: "plan", reason: "Not a real plan", about: "Dan", by: "Priya", planTitle: "Comedy night, two spare tickets", sent: SENT, open: 4 },
     },
   ],
+  // paid Open Invite (15 Nov 2026)
+  "plan-receipt": [
+    {
+      id: "design",
+      label: "Paid £22",
+      data: {
+        plan: { title: "Padel, then pizza", start: { date: "Tue 24 Nov", time: "19:00" } },
+        place: "Northgate Courts",
+        hostName: "Tom",
+        amount: "£22",
+        method: "Visa ending 4242",
+        receiptNumber: "1001",
+        paidAt: { date: "Sun 15 Nov", time: "10:42" },
+        refundUntil: { date: "Mon 23 Nov", time: "19:00" },
+        receiptUrl: "/members/open-invite/00000000-0000-4000-8000-000000000001/receipt",
+      },
+    },
+  ],
+  "plan-refunded": [
+    {
+      id: "design",
+      label: "Left more than 24 hours before",
+      data: {
+        plan: { title: "Padel, then pizza", start: { date: "Tue 24 Nov", time: "19:00" } },
+        amount: "£22",
+        why: "left-in-time",
+        hostName: "Tom",
+        method: "Visa ending 4242",
+        expectedBy: "Fri 27 Nov",
+        receiptUrl: "/members/open-invite/00000000-0000-4000-8000-000000000001/receipt",
+      },
+    },
+    {
+      id: "host",
+      label: "The host agreed",
+      data: {
+        plan: { title: "Padel, then pizza", start: { date: "Tue 24 Nov", time: "19:00" } },
+        amount: "£22",
+        why: "host-agreed",
+        hostName: "Tom",
+        method: "Visa ending 4242",
+        expectedBy: "Fri 27 Nov",
+        receiptUrl: "/members/open-invite/00000000-0000-4000-8000-000000000001/receipt",
+      },
+    },
+  ],
+  "plan-refund-kept": [
+    {
+      id: "design",
+      label: "The host kept it",
+      data: {
+        plan: { title: "Padel, then pizza", start: { date: "Tue 24 Nov", time: "19:00" } },
+        hostName: "Tom",
+        amount: "£22",
+        planUrl: "/members/open-invite/00000000-0000-4000-8000-000000000001",
+      },
+    },
+  ],
+  "plan-host-money": [
+    {
+      id: "design",
+      label: "Someone paid",
+      data: { kind: "paid", plan: { title: "Padel, then pizza", start: { date: "Tue 24 Nov", time: "19:00" } }, memberName: "Jasmin", amount: "£22", url: "/members/you/payments" },
+    },
+    {
+      id: "asked",
+      label: "A refund asked for",
+      data: {
+        kind: "refund-asked",
+        plan: { title: "Padel, then pizza", start: { date: "Tue 24 Nov", time: "19:00" } },
+        memberName: "Jasmin",
+        amount: "£22",
+        url: "/members/you/payments/00000000-0000-4000-8000-000000000001",
+      },
+    },
+    {
+      id: "payout",
+      label: "On its way",
+      data: { kind: "payout", plan: { title: "Padel, then pizza", start: { date: "Tue 24 Nov", time: "19:00" } }, amount: "£44", payoutDay: "Thu 26 Nov", url: "/members/you/payments" },
+    },
+  ],
 };
 
 export const TEXT_FIXTURES: { [N in TextName]: { id: string; label: string; data: TextData[N] }[] } = {

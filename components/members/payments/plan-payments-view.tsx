@@ -7,12 +7,11 @@
 //   held       Tom paid £40 and it is held until the plan is over
 //   request    Tom asked for a refund: "Refund £40 to Tom?" with Refund and Keep it
 //
-// A pure view of HostPlanPayments. Answering is LOCAL DEMO STATE: "Refund" marks
-// the payment refunded in this tab and "Keep it" puts it back to held. With a
-// backend each is RefundAnswer: a refund goes to the original card (about 5 to
-// 10 working days), the place goes back to the plan, the member is told by
-// email and in the app, and an unanswered request defaults to "keep" once the
-// plan has happened (payments spec D3).
+// A view of HostPlanPayments. Live (15 Nov 2026): each answer is
+// answerRefundAction: a refund goes to the original card (about 5 to 10 working
+// days), the place goes back to the plan, the member is told by email and in the
+// app, and an unanswered request is kept once the plan has started (payments
+// spec D3). In the preview harness answering is demo state in the tab.
 //
 // needs_device_check: the refund sheet (web, app).
 
@@ -27,6 +26,8 @@ import type { HostPlanPayments, InvitePayment, RefundAnswer } from "@/lib/member
 import { ROUTES } from "@/lib/members/routes";
 import { BACK_5_10, MoneyList, PayActions, PayHead } from "./pay-parts";
 import { joinNames } from "./leave-sheets";
+import { answerRefundAction } from "@/app/members/open-invite/pay-actions";
+import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 
 const DAY = 86_400_000;
 
@@ -164,14 +165,19 @@ function AskedRow({
 export function PlanPaymentsView({
   plan,
   initialRefund = false,
+  live: isLive = false,
 }: {
   plan: HostPlanPayments;
   /** The refund sheet open on arrival (the preview harness draws it). */
   initialRefund?: boolean;
+  /** The real page (15 Nov 2026): Refund and Keep it are answerRefundAction; the harness answers in the tab. */
+  live?: boolean;
 }) {
   const { invite } = plan;
   const price = invite.cost?.pricePence ?? 0;
   const [payments, setPayments] = useState<InvitePayment[]>(plan.payments);
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const [sheet, setSheet] = useState<InvitePayment | null>(
     initialRefund ? (plan.payments.find((payment) => payment.status === "refund-asked") ?? null) : null,
   );
@@ -196,8 +202,27 @@ export function PlanPaymentsView({
         ? { label: "Paid out", ink: false, muted: true }
         : { label: "Refunded", ink: false, muted: true };
 
-  const answer = (payment: InvitePayment, choice: RefundAnswer) => {
+  const answer = async (payment: InvitePayment, choice: RefundAnswer) => {
     const name = payment.payer.firstName;
+    if (isLive) {
+      if (busy) return;
+      setBusy(true);
+      try {
+        const result = await answerRefundAction(invite.id, payment.id, choice);
+        if (isSessionEnded(result)) return goToSessionEnded();
+        if ("plan" in result && result.plan) setPayments(result.plan.payments);
+        if (result.ok) {
+          setFailed(null);
+          setSaid(choice === "refund" ? `${name} was refunded ${gbp(payment.amountPence)}.` : `You kept ${name}’s ${gbp(payment.amountPence)}.`);
+        } else setFailed(result.error);
+      } catch {
+        setFailed("That didn’t go through. Try again in a moment.");
+      } finally {
+        setBusy(false);
+        setSheet(null);
+      }
+      return;
+    }
     if (choice === "refund") {
       setPayments((all) =>
         all.map((entry) =>
@@ -314,7 +339,7 @@ export function PlanPaymentsView({
                       key={payment.id}
                       payment={payment}
                       onRefund={() => setSheet(payment)}
-                      onKeep={() => answer(payment, "keep")}
+                      onKeep={() => void answer(payment, "keep")}
                     />
                   ) : (
                     <PaidRow key={payment.id} payment={payment} />
@@ -339,12 +364,19 @@ export function PlanPaymentsView({
       <p className="mk-sr" role="status">
         {said}
       </p>
+      {failed ? (
+        <div className="mk-wrap">
+          <p className="pay-notice" role="alert">
+            {failed}
+          </p>
+        </div>
+      ) : null}
       {sheet ? (
         <RefundSheet
           payment={sheet}
           title={invite.title}
           onClose={() => setSheet(null)}
-          onRefund={() => answer(sheet, "refund")}
+          onRefund={() => void answer(sheet, "refund")}
         />
       ) : null}
     </Main>

@@ -170,6 +170,15 @@ export function updateText(update: UpdateItem, now: string): string {
       return update.reminderHours === 2
         ? `${title} starts in 2 hours, at ${clock(update.plan.startsAt)}`
         : `${title} is ${whenWord(update.plan.startsAt, now)}`;
+    // paid Open Invite (15 Nov 2026)
+    case "paid":
+      return `${who || "Someone"} paid ${pounds(update.refundMinor ?? 0)} for ${title}`;
+    case "refund_asked":
+      return `${who || "Someone"} asked for a refund for ${title}`;
+    case "refunded":
+      return `${pounds(update.refundMinor ?? 0)} refunded for ${title}`;
+    case "payout":
+      return `${pounds(update.refundMinor ?? 0)} on its way for ${title}`;
   }
 }
 
@@ -191,6 +200,14 @@ export function updateDetail(update: UpdateItem): string {
       return update.refundMinor ? "Back on your card in 5 to 10 working days" : planDay(update.plan.startsAt);
     case "reminder":
       return update.plan.place;
+    case "paid":
+      return `Held until the plan is over · ${planDay(update.plan.startsAt)}`;
+    case "refund_asked":
+      return "Refund it or keep it, before the plan starts";
+    case "refunded":
+      return "Back on your card in 5 to 10 working days";
+    case "payout":
+      return "In your bank in about 2 working days";
   }
 }
 

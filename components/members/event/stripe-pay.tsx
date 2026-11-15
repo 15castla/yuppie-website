@@ -29,7 +29,8 @@ import { EventSheet } from "./sheet-parts";
 import { gbp, type EventPageEvent } from "./model";
 
 let stripePromise: Promise<Stripe | null> | null = null;
-function getStripe(): Promise<Stripe | null> {
+/** Stripe.js, loaded once, when a pay sheet first needs it (the event sheet and Open Invite's live pay sheet). */
+export function getStripe(): Promise<Stripe | null> {
   if (!stripePromise) {
     stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "", {
       developerTools: { assistant: { enabled: false } },

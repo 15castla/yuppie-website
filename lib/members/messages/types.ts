@@ -181,7 +181,7 @@ export const MESSAGE_COUNTER_NEAR = 480;
  * events never write to it (their reminders arrive by push, email and text).
  * One record per event. Suggest keeping 30 days.
  */
-export type UpdateKind = "joined" | "left" | "full" | "place_opened" | "changed" | "cancelled" | "reminder";
+export type UpdateKind = "joined" | "left" | "full" | "place_opened" | "changed" | "cancelled" | "reminder" | "paid" | "refund_asked" | "refunded" | "payout";
 
 export type UpdateItem = {
   id: string;
@@ -200,7 +200,7 @@ export type UpdateItem = {
   reminderHours: 24 | 2 | null;
   /** changed: the start time before the change. */
   previousStartsAt: string | null;
-  /** cancelled on a paid plan: what goes back on your card. */
+  /** cancelled on a paid plan: what goes back on your card. paid, refund_asked, refunded, payout: the amount. */
   refundMinor: number | null;
   /** full: how many are going. */
   goingCount: number | null;
@@ -341,6 +341,10 @@ export const NOTIFICATION_TRIGGERS: readonly NotificationTrigger[] = [
   { id: "host.message", group: "host", topic: "host", push: true, updates: false, email: "chat_nudge", text: false },
   { id: "host.paid", group: "host", topic: "host", push: true, updates: true, email: "yes", text: false },
   { id: "host.payout", group: "host", topic: "host", push: true, updates: true, email: "yes", text: false },
+  // paid Open Invite (15 Nov 2026): a member asked for their money back; their money back; the host kept it
+  { id: "host.refund_asked", group: "host", topic: "host", push: true, updates: true, email: "yes", text: false },
+  { id: "in.refunded", group: "in", topic: null, push: true, updates: true, email: "always", text: false },
+  { id: "in.refund_kept", group: "in", topic: "in", push: true, updates: false, email: "yes", text: false },
   { id: "in.message", group: "in", topic: "in", push: true, updates: false, email: "chat_nudge", text: false },
   { id: "in.reply", group: "in", topic: "in", push: true, updates: false, email: "chat_nudge", text: false },
   { id: "in.changed", group: "in", topic: "in", push: true, updates: true, email: "yes", text: false },

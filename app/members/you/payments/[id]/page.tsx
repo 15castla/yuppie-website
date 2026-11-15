@@ -1,26 +1,21 @@
 import { notFound } from "next/navigation";
 
 import { requireMember } from "@/app/members/require-member";
+import { paidPlansShown } from "@/app/members/open-invite/guard";
 import { PlanPaymentsView } from "@/components/members/payments/plan-payments-view";
-import { requireFlag } from "@/lib/members/flags";
-import { paidPlansLive } from "@/lib/server/config";
-import { ExampleScope } from "@/components/members/kit";
-import { assertMockAllowed } from "@/lib/members/mock/guard";
-import { getHostPlanPayments } from "@/lib/members/mock/payments";
+import { openInviteOn, requireFlag } from "@/lib/members/flags";
+import { detectShellMode } from "@/lib/members/shell-mode";
+import { hostPlanPayments } from "@/lib/server/plan-payments";
 
-// You > Payments > one plan: who paid and where the money is. A 404 while paid plans are off.
+// You > Payments > one plan: who paid, where the money is, and a refund request to answer (15 Nov 2026). The host
+// only; a 404 for anyone else and while paid plans are off.
 export default async function YouPaymentsPlanPage({ params }: { params: Promise<{ id: string }> }) {
   requireFlag("openInvite");
   requireFlag("paidPlans");
-  // Paid plans are stage 3: a 404 unless the server-only MEMBERS_PAID_PLANS_LIVE=on too (never in stage 2).
-  if (!paidPlansLive()) notFound();
-  assertMockAllowed();
+  if (!paidPlansShown() || !openInviteOn(await detectShellMode())) notFound();
   const { id } = await params;
-  const [, plan] = await Promise.all([requireMember(), getHostPlanPayments(id)]);
+  const member = await requireMember();
+  const plan = /^[0-9a-f-]{36}$/i.test(id) ? await hostPlanPayments(member.id, id) : null;
   if (!plan) notFound();
-  return (
-    <ExampleScope>
-      <PlanPaymentsView plan={plan} />
-    </ExampleScope>
-  );
+  return <PlanPaymentsView plan={plan} live />;
 }

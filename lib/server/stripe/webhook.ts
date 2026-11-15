@@ -21,6 +21,7 @@ import type Stripe from "stripe";
 
 import { stripe } from "@/lib/stripe";
 import { confirmPaidBooking, recordRefundFromCharge } from "../bookings";
+import { recordPlanRefundFromCharge, settlePlanPayment } from "../plan-payments";
 import { errorMessage, serviceDb, type EndedReason } from "../db";
 import {
   clearMembershipPaymentFailed,
@@ -109,8 +110,16 @@ async function dispatch(event: Stripe.Event): Promise<WebhookOutcome> {
   const type = event.type;
   const previous = (event.data as { previous_attributes?: Record<string, unknown> }).previous_attributes;
   switch (type) {
+    case "payment_intent.amount_capturable_updated": {
+      // Paid Open Invite (15 Nov 2026): a card held for a place (the page normally settles it first; this covers a
+      // member who never came back from the bank's check). settlePlanPayment is safe to call again.
+      const pi = event.data.object as Stripe.PaymentIntent;
+      if (pi.metadata?.kind !== "plan") return { status: "ignored", type };
+      return { status: "processed", type, detail: await settlePlanPayment(pi.id) };
+    }
     case "payment_intent.succeeded": {
       const pi = event.data.object as Stripe.PaymentIntent;
+      if (pi.metadata?.kind === "plan") return { status: "processed", type, detail: await settlePlanPayment(pi.id) };
       if (!pi.metadata?.member_id || !pi.metadata?.event_id) return { status: "ignored", type };
       const result = await confirmPaidBooking(pi);
       return { status: "processed", type, detail: result };
@@ -153,7 +162,10 @@ async function dispatch(event: Stripe.Event): Promise<WebhookOutcome> {
       return { status: "processed", type, detail: await endForSubscription(member, sub) };
     }
     case "charge.refunded": {
-      return { status: "processed", type, detail: await recordRefundFromCharge(event.data.object as Stripe.Charge) };
+      const charge = event.data.object as Stripe.Charge;
+      const booking = await recordRefundFromCharge(charge);
+      if (booking.bookingId) return { status: "processed", type, detail: booking };
+      return { status: "processed", type, detail: { ...booking, plan: await recordPlanRefundFromCharge(charge) } };
     }
     case "customer.updated": {
       // Only a new invoice default card matters.

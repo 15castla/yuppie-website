@@ -71,6 +71,7 @@ for (const name of emails.EMAIL_NAMES) {
   const r = emails.renderEmailWith(name, fx.data, { site: 'https://clubyuppie.com', notificationsLink: true });
   const mine = { html: toDrawnWords(name, toDrawnLinks(r.html)), text: toDrawnWords(name, toDrawnLinks(r.text)) };
   const design = designOf(name);
+  if (design.kind === 'undrawn') continue;
   if (design.kind === 'v3') {
     const v3 = fs.readFileSync(design.file, 'utf8');
     const v3text = unescape(v3.match(/<pre>([\s\S]*?)<\/pre>/)[1]);

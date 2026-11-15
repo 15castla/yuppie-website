@@ -26,6 +26,7 @@ export default async function EditOpenInvitePage({ params }: { params: Promise<{
       paidPlans={paidPlansShown()}
       initial={valuesOf(page.invite)}
       editing={{ id: page.invite.id, title: page.invite.title, others }}
+      live
     />
   );
 }
