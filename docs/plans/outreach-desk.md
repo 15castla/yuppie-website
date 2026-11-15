@@ -471,7 +471,8 @@ Changing the drafter's code to do the above is a change Albert must approve (Pha
 ### 4.1 The rules
 
 Working days are Monday to Friday, excluding England and Wales bank holidays (2026 and 2027 listed in
-`lib/server/outreach/rules.ts`, checked against gov.uk when built, with a reminder to add 2028).
+`lib/server/outreach/rules.ts`, checked against gov.uk when built, with a reminder to add 2028). 21 December to
+1 January also counts as non-working every year, so no follow-up falls due over Christmas (Albert, 15 Nov).
 
 | Step | Channel | Due | Example: first email sent Thu 12 Nov 2026 |
 |---|---|---|---|
@@ -828,8 +829,11 @@ file changes nothing. The import is one audit row (`desk.import`, counts only).
 ### 8.1 The owner gate
 
 - `app/admin/require-owner.ts`: `requireOwner()` calls `requireAdmin()` (signed in, an admin, aal2), then reads
-  `is_owner` through the service role. Not the owner: `notFound()`, so other admins see the same "page not found" as
-  for any unknown address and don't learn the desk exists. Cached per request like `requireAdmin()`.
+  `is_owner` through the service role. Not the owner: a redirect to `/admin/no-access`, a plain page inside the
+  console that says "You don't have access to this page." with a link back to the dashboard (Albert, 15 Nov). The
+  redirect happens before any desk data is read, so nothing leaks. (Next's own `forbidden()` would do this with a
+  403, but it is still experimental and needs a config switch, so the plan doesn't use it.) Cached per request like
+  `requireAdmin()`.
 - Every desk page and every desk server action calls it (actions are reachable on their own, so the page check is
   not enough).
 - The protected layout passes `isOwner` to the admin bar, which shows "Desk" only for the owner. Nothing about the
@@ -906,7 +910,7 @@ Claude Code's Supabase MCP `apply_migration` (or the SQL editor) with Albert app
 
 - `supabase/migrations/20261117090000_outreach_desk.sql`, `release/undo-outreach-desk.sql`,
   `release/set-desk-owner.sql`
-- `app/admin/require-owner.ts`
+- `app/admin/require-owner.ts`; `app/admin/(protected)/no-access/page.tsx` ("You don't have access to this page.")
 - `app/admin/(protected)/layout.tsx` and `components/admin/admin-bar.tsx` (the owner-only Desk link)
 - `app/admin/(protected)/desk/page.tsx`, `loading.tsx`, `t/[id]/page.tsx`, `settings/page.tsx` (import only in
   Phase 1)
@@ -926,7 +930,7 @@ Claude Code's Supabase MCP `apply_migration` (or the SQL editor) with Albert app
 
 - Refusals on every desk page (normal and RSC requests) and every desk action: no session, an aal1 admin, an aal2
   admin who isn't the owner (a second test admin, "Kira"), a member. Each gets the refusal and nothing changes. The
-  non-owner sees no Desk link.
+  non-owner lands on "You don't have access to this page." and sees no Desk link.
 - REST: anon, a member and the non-owner admin read nothing from any `outreach_` table or the view.
 - The owner flag: at most one owner; no action can change it.
 - Logging: target, contact, email touch, letter posted, reply; KPIs, blotter and Due today change as expected.
@@ -941,7 +945,7 @@ Claude Code's Supabase MCP `apply_migration` (or the SQL editor) with Albert app
 
 1. Run the release prompt in Claude Code (merge, migration with his approval, `set-desk-owner.sql`).
 2. Open `/admin/desk`: the KPIs read about "Response 29% (2 of 7)", and five rows match the log.
-3. Ask Kira to open `/admin/desk`: "page not found", and no Desk link.
+3. Ask Kira to open `/admin/desk`: "You don't have access to this page.", and no Desk link.
 4. Add a "Test Bakery" target, log an email, see FU1 in Due today 5 working days later (snooze it to today to see it),
    log a reply, watch the KPIs move; mark it opted out and try to add a touch (refused); then delete it.
 
@@ -1025,11 +1029,13 @@ channel, bounce rate for RocketReach) and count them by hand from the blotter's 
 
 Reply "agree" to take the recommendation, or change it.
 
-1. **What does a non-owner see at `/admin/desk`?** Recommended: "page not found", and no Desk link.
+1. ~~What does a non-owner see at `/admin/desk`?~~ **Decided (Albert, 15 Nov):** a page saying "You don't have
+   access to this page.", and no Desk link.
 2. **Follow-up timing: "5 then 12" working days from the first send, or 12 after follow-up 1?** Recommended: both
    from the first send (FU1 day 5, FU2 day 12), then the letter 5 working days after FU2. 15 working days after a
    letter with no reply, the target closes as "no reply".
-3. **Christmas.** Recommended: treat 21 Dec to 1 Jan as non-working for follow-ups, so none fall due then.
+3. ~~Christmas.~~ **Decided (Albert, 15 Nov):** 21 Dec to 1 Jan counts as non-working, so no follow-up falls due
+   then.
 4. **How the drafter writes to the desk.** Recommended: option A, a narrow route on the website with its own key
    (3.3), not a Supabase Edge Function or database function.
 5. **Setting up the key.** Recommended: made on the Mac, kept in the Keychain, only its fingerprint pasted into the
