@@ -45,6 +45,7 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         startupLog("makeKeyAndVisible returned — bridge non-nil: \(bridgeVC.bridge != nil), webView non-nil: \(bridgeVC.webView != nil)")
 
         observeCapacitorViewDidAppear()
+        seeThroughWebView(on: bridgeVC)
         disableScrollViewTouchDelay(on: bridgeVC)
         installSwipeBack(on: bridgeVC)
         if let webView = bridgeVC.webView {
@@ -530,6 +531,48 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // happened, onto plain yellow when the page wasn't there yet.
         scheduleStillLoading(on: bridgeVC, after: 20)
         startupLog("addOpeningScreen: done")
+    }
+
+    // MARK: back from the background
+    //
+    // Albert, 16 Nov 2026: "If you go back on the app once it is still open in the background there is a white screen
+    // before it loads." iOS ends a web view's page while its app is in the background when it wants the memory back;
+    // Capacitor then loads the page again (WebViewDelegationHandler.webViewWebContentProcessDidTerminate), and until
+    // the page arrives the web view was blank, and a blank web view is white: it draws its own opaque white whatever
+    // capacitor.config.ts's backgroundColor says. Two changes:
+    //   1. The web view is see-through (isOpaque false) over the app's own yellow, so a blank moment, at any time, is
+    //      the club's yellow, never white.
+    //   2. Coming back, the page is asked whether it is there (readinessCheckJS). If it isn't (iOS ended it, or it is
+    //      still on its way back), the opening screen covers it until it can be seen, exactly as at launch: the line
+    //      drawing as the loader, "Still loading." with Try again after 20s. A page that is there answers at once and
+    //      nothing is shown.
+
+    private static let clubYellow = UIColor(red: 1.0, green: 0.8509803921568627, blue: 0.01568627450980392, alpha: 1.0)
+
+    private func seeThroughWebView(on bridgeVC: CAPBridgeViewController) {
+        bridgeVC.view.backgroundColor = Self.clubYellow
+        guard let webView = bridgeVC.webView else { return }
+        webView.isOpaque = false
+        webView.backgroundColor = Self.clubYellow
+        webView.scrollView.backgroundColor = Self.clubYellow
+    }
+
+    func sceneWillEnterForeground(_ scene: UIScene) {
+        guard openingScreen == nil,
+              let bridgeVC = window?.rootViewController as? CAPBridgeViewController,
+              let webView = bridgeVC.webView else { return }
+        webView.evaluateJavaScript(Self.readinessCheckJS) { [weak self, weak bridgeVC] result, error in
+            guard let self, let bridgeVC, self.openingScreen == nil else { return }
+            let state = (result as? String) ?? "waiting"
+            if error == nil && state != "waiting" { return }
+            startupLog("back from the background: the page isn't there (\(error == nil ? state : "no answer")), covering it until it is")
+            // A page iOS ended with nothing to load again (no address left): the start page, as at launch.
+            if bridgeVC.webView?.url == nil, let url = bridgeVC.bridge?.config.appStartServerURL {
+                _ = bridgeVC.webView?.load(URLRequest(url: url))
+            }
+            self.addOpeningScreen(to: bridgeVC)
+            self.hideSplashWhenWebViewReady(on: bridgeVC)
+        }
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
