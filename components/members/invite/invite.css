@@ -553,3 +553,8 @@
 /* The post form on a computer keeps the kit's 40px under the form (the page has no docked bar there). */
 @media (min-width:768px){ .oi-postmain{padding-bottom:40px} }
 .oi-notice .mk-inline-link{display:inline-block;padding:14px 0;margin:-14px 0;line-height:1.4}
+
+/* ---- the Cost row in plain words (17 Nov 2026): the price in bold, a tick once paid */
+.oi-cost-dd b{font-weight:800}
+.oi-cost-v{display:inline-flex;align-items:center;gap:6px}
+.oi-cost-v .mk-ico{flex:none;stroke-width:2.5}

@@ -13,8 +13,12 @@
 //   past      Past          no buttons, muted card
 //   posted    Your invite   See my invite / Post another (after posting)
 //
-// A plan with a cost adds a Cost row with a pill ("£22 each", "Paid £22",
-// "Refunded £22") and, on your own paid plan, a money line ("1 paid, £40").
+// A plan with a cost adds a Cost row in plain words like When and Where (17 Nov
+// 2026, Albert chose A on the cost card canvas; it was a pill, and pills on this
+// card are for its state): "£23 each" (the booking fee in it), "£22 each to you"
+// on your own plan, "You paid £23" with a tick once paid, "Refunded £23". Your
+// own paid plan adds a Paid row: "£15 from Jo", "£30 from Jo and Ann", "£45
+// from 3 people".
 // The whole card is one tap target: the title link stretches over it and the
 // buttons sit above.
 
@@ -30,7 +34,6 @@ import {
   memberPricePence,
   paidTotalPence,
   planState,
-  priceEach,
   type PlanState,
 } from "@/lib/members/invite/format";
 import type { InviteMember, OpenInvite } from "@/lib/members/invite/types";
@@ -118,7 +121,7 @@ export const STATE_PILLS: Record<PlanState, { text: string; kind: "ink" | "outli
   cancelled: { text: "Cancelled", kind: "muted" },
 };
 
-/** The host's one-line money note on their own paid plan: "1 paid, £40". */
+/** The host's one-line money note on their own paid plan: "1 paid, £40" (the plan page). */
 export function hostMoneyLine(invite: OpenInvite): string | null {
   const money = invite.you.hostMoney;
   if (!money) return null;
@@ -128,15 +131,52 @@ export function hostMoneyLine(invite: OpenInvite): string | null {
   return `${paid.length} paid, ${gbp(total)}`;
 }
 
-function CostPill({ invite, state }: { invite: OpenInvite; state: PlanState }) {
+/** The Cost row's words (17 Nov 2026: plain, like When and Where; the price in bold). */
+function CostValue({ invite, state }: { invite: OpenInvite; state: PlanState }) {
   if (!invite.cost) return null;
-  // What a member pays, the booking fee in it (15 Nov 2026); the host sees their own price.
-  const each = invite.you.role === "host" ? invite.cost.pricePence : memberPricePence(invite.cost);
   const payment = invite.you.payment;
-  if (state === "in" && payment) return <Pill kind="ink">Paid {gbp(paidTotalPence(payment))}</Pill>;
-  if (state === "cancelled" && payment?.status === "refunded") return <Pill kind="muted">Refunded {gbp(payment.refund?.amountPence ?? payment.amountPence)}</Pill>;
-  if (state === "past" || state === "cancelled") return <Pill kind="muted">{priceEach(each)}</Pill>;
-  return <Pill>{priceEach(each)}</Pill>;
+  if (state === "in" && payment) {
+    return (
+      <span className="oi-cost-v">
+        <Icon name="check" size={16} />
+        <span>
+          You paid <b>{gbp(paidTotalPence(payment))}</b>
+        </span>
+      </span>
+    );
+  }
+  if (state === "cancelled" && payment?.status === "refunded") {
+    return (
+      <span>
+        Refunded <b>{gbp(payment.refund?.amountPence ?? payment.amountPence)}</b>
+      </span>
+    );
+  }
+  // The host sees their own price; a member what they pay, the booking fee in it (15 Nov 2026).
+  if (invite.you.role === "host") {
+    return (
+      <span>
+        <b>{gbp(invite.cost.pricePence)}</b> each to you
+      </span>
+    );
+  }
+  return (
+    <span>
+      <b>{gbp(memberPricePence(invite.cost))}</b> each
+    </span>
+  );
+}
+
+/** Your own paid plan's Paid row: "£15 from Jo", "£30 from Jo and Ann", "£45 from 3 people". Null: nobody yet. */
+export function hostPaidLine(invite: OpenInvite): string | null {
+  const money = invite.you.hostMoney;
+  if (!money) return null;
+  const paid = money.payments.filter((p) => p.status !== "refunded");
+  if (paid.length === 0) return null;
+  const total = gbp(paid.reduce((sum, p) => sum + p.amountPence, 0));
+  const names = paid.map((p) => p.payer.firstName);
+  const from = names.length === 1 ? names[0] : names.length === 2 ? `${names[0]} and ${names[1]}` : `${names.length} people`;
+  return `${total} from ${from}`;
 }
 
 function Question({ question }: { question: OpenInvite["you"]["questions"][number] }) {
@@ -187,7 +227,7 @@ export function InviteCard({
   const questions = invite.you.questions;
   // "new": questions with something unread (a question already read stays in the list, without a number)
   const newQuestions = questions.filter((question) => question.unread > 0).length;
-  const moneyLine = state === "own" ? hostMoneyLine(invite) : null;
+  const paidLine = state === "own" || state === "past" ? hostPaidLine(invite) : null;
   // On a card, beside "Ask Tom", the short form (15 Nov 2026: "Pay £10 and join" was cut off on a phone); the plan
   // page and the pay sheet say "Pay £10 and join".
   const join = invite.cost ? `Pay ${gbp(memberPricePence(invite.cost))}` : "I’m in";
@@ -306,9 +346,15 @@ export function InviteCard({
         {paid ? (
           <>
             <dt>Cost</dt>
-            <dd>
-              <CostPill invite={invite} state={state} />
+            <dd className="oi-cost-dd">
+              <CostValue invite={invite} state={state} />
             </dd>
+          </>
+        ) : null}
+        {paid && paidLine ? (
+          <>
+            <dt>Paid</dt>
+            <dd>{paidLine}</dd>
           </>
         ) : null}
         <dt>Posted by</dt>
@@ -319,12 +365,6 @@ export function InviteCard({
           </span>
         </dd>
       </dl>
-      {moneyLine ? (
-        <p className="oi-moneyline">
-          <Icon name="banknote" size={18} />
-          <span>{moneyLine}</span>
-        </p>
-      ) : null}
       {withQuestions && state === "own" && questions.length > 0 ? (
         <div className="oi-qs">
           <div className="hd">
