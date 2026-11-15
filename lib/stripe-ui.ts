@@ -10,7 +10,9 @@ export const STRIPE_APPEARANCE = {
     colorBackground: "#F5F3E7",
     colorText: "#1b1512",
     colorDanger: "#b91c1c",
-    fontFamily: "var(--font-almarai), ui-sans-serif, system-ui, sans-serif",
+    // By name, loaded into Stripe's frame with STRIPE_FONTS (17 Nov 2026: a CSS variable can't reach the frame, so
+    // its fields fell back to a serif).
+    fontFamily: "Almarai, 'Helvetica Neue', Arial, sans-serif",
     borderRadius: "12px",
   },
   rules: {
@@ -31,6 +33,9 @@ export const STRIPE_APPEARANCE = {
     },
   },
 };
+
+/** The site's font for Stripe's frame (Elements `fonts`): Stripe loads it from Google Fonts inside the frame. */
+export const STRIPE_FONTS = [{ cssSrc: "https://fonts.googleapis.com/css2?family=Almarai:wght@400;700;800&display=swap" }];
 
 // Shape shared by a Stripe confirm call's own error (from confirmSetup or
 // confirmPayment) and a retrieved Intent's last_setup_error /

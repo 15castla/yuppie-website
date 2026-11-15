@@ -24,7 +24,7 @@ import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-
 import { Sheet } from "@/components/members/invite/sheet";
 import { getStripe } from "@/components/members/event/stripe-pay";
 import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
-import { STRIPE_APPEARANCE, getStripeErrorMessage } from "@/lib/stripe-ui";
+import { STRIPE_APPEARANCE, STRIPE_FONTS, getStripeErrorMessage } from "@/lib/stripe-ui";
 import type { OpenInvite } from "@/lib/members/invite/types";
 import { memberPricePence } from "@/lib/members/invite/format";
 import {
@@ -274,7 +274,7 @@ export function LivePaySheet({
 
   if (stripe && secret && WITH_FIELDS.includes(state)) {
     return (
-      <Elements stripe={stripe} options={{ clientSecret: secret, appearance: STRIPE_APPEARANCE }}>
+      <Elements stripe={stripe} options={{ clientSecret: secret, appearance: STRIPE_APPEARANCE, fonts: STRIPE_FONTS }}>
         <PayFlow secret={secret} state={state} setState={setState} setDeclined={setDeclined} check={check} render={render} />
       </Elements>
     );
@@ -380,7 +380,7 @@ function PayFlow({
           // Pay and Card as two rows, the card's fields opening only when Card is picked.
           layout: { type: "accordion", defaultCollapsed: true, radios: "never", spacedAccordionItems: false },
           paymentMethodOrder: ["apple_pay", "google_pay", "card"],
-          wallets: { applePay: "auto", googlePay: "auto" },
+          wallets: { applePay: "auto", googlePay: "auto", link: "never" },
           fields: { billingDetails: { address: { country: "never", postalCode: "auto" } } },
           readOnly: state === "paying",
         }}
