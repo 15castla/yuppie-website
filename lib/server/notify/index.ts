@@ -541,6 +541,8 @@ type PaymentFacts = {
   payer_id: string;
   host_id: string;
   amount_pence: number;
+  fee_pence: number;
+  refunded_pence: number | null;
   method: string | null;
   paid_at: string;
   refund_reason: string | null;
@@ -552,7 +554,7 @@ type PaymentFacts = {
 async function paymentFacts(paymentId: string): Promise<PaymentFacts | null> {
   const { data } = await serviceDb()
     .from("plan_payments")
-    .select("id, receipt_no, plan_id, payer_id, host_id, amount_pence, method, paid_at, refund_reason, refunded_at, refund_due_at, plan:plans(id, host_id, title, starts_at, place, places, status, changed_at, cancelled_at)")
+    .select("id, receipt_no, plan_id, payer_id, host_id, amount_pence, fee_pence, refunded_pence, method, paid_at, refund_reason, refunded_at, refund_due_at, plan:plans(id, host_id, title, starts_at, place, places, status, changed_at, cancelled_at)")
     .eq("id", paymentId)
     .maybeSingle();
   if (!data) return null;
@@ -587,7 +589,9 @@ async function planReceipt(e: Extract<NotifyEvent, { type: "plan.receipt" }>): P
       plan: { title: f.plan.title, start: start(f.plan.starts_at) },
       place: f.plan.place,
       hostName: nameOf(everyone.get(f.plan.host_id)),
-      amount: pounds(f.amount_pence),
+      // What the card was charged: the place and the booking fee (15 Nov 2026).
+      amount: pounds(f.amount_pence + (f.fee_pence ?? 0)),
+      ...(f.fee_pence ? { placePrice: pounds(f.amount_pence), fee: pounds(f.fee_pence) } : {}),
       method: f.method ?? "Card",
       receiptNumber: String(f.receipt_no).padStart(4, "0"),
       paidAt: start(f.paid_at),
@@ -615,10 +619,12 @@ async function planRefunded(e: Extract<NotifyEvent, { type: "plan.refunded" }>, 
   if (!payer) return none();
   const why = (f.refund_reason === "left-in-time" || f.refund_reason === "host-agreed" ? f.refund_reason : "club") as "left-in-time" | "host-agreed" | "club";
   const at = f.refunded_at ?? f.refund_due_at ?? now.toISOString();
-  const amount = pounds(f.amount_pence);
+  // What went back: the place (leaving keeps the booking fee), or the place and the fee (the club refunded it).
+  const back = f.refunded_pence ?? f.amount_pence + (why === "club" ? f.fee_pence ?? 0 : 0);
+  const amount = pounds(back);
   const c = channelsFor("in.refunded", payer, now);
   const rows: UpdateInsert[] = [];
-  if (c.update) rows.push({ member_id: f.payer_id, kind: "refunded", plan_id: f.plan_id, actor_id: why === "host-agreed" ? f.plan.host_id : null, role: "going", refund_pence: f.amount_pence, dedupe_key: `upd:refunded:${f.id}` });
+  if (c.update) rows.push({ member_id: f.payer_id, kind: "refunded", plan_id: f.plan_id, actor_id: why === "host-agreed" ? f.plan.host_id : null, role: "going", refund_pence: back, dedupe_key: `upd:refunded:${f.id}` });
   const pushes: PushInput[] = [];
   if (c.push) pushes.push({ ...planPush(f.plan, f.payer_id, "push-plan-refunded", pushWords.refunded(f.plan.title, amount), `push:refunded:${f.id}`), path: openInviteReceiptHref(f.plan_id) });
   // Money back on their card: the email goes even where push is live (like a receipt).
@@ -631,6 +637,7 @@ async function planRefunded(e: Extract<NotifyEvent, { type: "plan.refunded" }>, 
             plan: { title: f.plan.title, start: start(f.plan.starts_at) },
             amount,
             why,
+            ...(why !== "club" && f.fee_pence ? { feeKept: pounds(f.fee_pence) } : {}),
             hostName: nameOf(everyone.get(f.plan.host_id)),
             method: f.method ?? "your card",
             expectedBy: workingDay(at, 10),

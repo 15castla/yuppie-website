@@ -30,6 +30,7 @@ import type {
   PaymentStatus,
   Receipt,
 } from "@/lib/members/invite/types";
+import { BOOKING_FEE_PENCE } from "@/lib/members/invite/types";
 import { cardLabel } from "./stripe/card";
 import { serviceDb } from "./db";
 import { londonWall, londonWallToDate } from "./format";
@@ -46,6 +47,10 @@ export type PaymentRow = {
   host_id: string;
   hold_id: string | null;
   amount_pence: number;
+  /** Club Yuppie's booking fee paid with the place (15 Nov 2026). */
+  fee_pence: number;
+  /** What went back to the card. */
+  refunded_pence: number | null;
   payment_intent_id: string;
   charge_id: string | null;
   method: string | null;
@@ -64,7 +69,7 @@ export type PaymentRow = {
 };
 
 const PAYMENT_COLUMNS =
-  "id, receipt_no, plan_id, payer_id, host_id, hold_id, amount_pence, payment_intent_id, charge_id, method, status, paid_at, refund_asked_at, refund_reason, refund_due_at, refund_id, refund_tries, refunded_at, transfer_id, transfer_tries, transferred_at, payout_on";
+  "id, receipt_no, plan_id, payer_id, host_id, hold_id, amount_pence, fee_pence, refunded_pence, payment_intent_id, charge_id, method, status, paid_at, refund_asked_at, refund_reason, refund_due_at, refund_id, refund_tries, refunded_at, transfer_id, transfer_tries, transferred_at, payout_on";
 
 /** How long a place is held while the member pays. */
 export const HOLD_MINUTES = 10;
@@ -103,12 +108,21 @@ export function paymentStatus(row: Pick<PaymentRow, "status">): PaymentStatus {
   return "held";
 }
 
+/**
+ * What a refund gives back (15 Nov 2026): the place, and the booking fee too when the plan was cancelled (by the host
+ * or the club) or the club refunded it. A member who leaves keeps the place's money only.
+ */
+export function refundPenceFor(row: Pick<PaymentRow, "amount_pence" | "fee_pence" | "refund_reason">): number {
+  const feeBack = row.refund_reason === "host-cancelled" || row.refund_reason === "club";
+  return row.amount_pence + (feeBack ? row.fee_pence ?? 0 : 0);
+}
+
 export function toInvitePayment(row: PaymentRow, payer: InviteMember): InvitePayment {
   const refunded = row.status === "refund_due" || row.status === "refunded";
   const refundedAt = row.refunded_at ?? row.refund_due_at ?? row.paid_at;
   const refund: PaymentRefund | null = refunded
     ? {
-        amountPence: row.amount_pence,
+        amountPence: row.refunded_pence ?? refundPenceFor(row),
         reason: row.refund_reason ?? "club",
         refundedAt: new Date(refundedAt).toISOString(),
         expectedBy: refundExpectedBy(refundedAt),
@@ -120,6 +134,7 @@ export function toInvitePayment(row: PaymentRow, payer: InviteMember): InvitePay
     inviteId: row.plan_id,
     payer,
     amountPence: row.amount_pence,
+    feePence: row.fee_pence ?? 0,
     paidAt: new Date(row.paid_at).toISOString(),
     method: row.method ?? "Card",
     status: paymentStatus(row),
@@ -337,22 +352,24 @@ export async function startPlanPayment(member: { id: string; email: string; stri
   if (r.status === "already_in") return { kind: "already-in" };
   if (r.status !== "held" || !r.hold_id || !r.amount || !r.held_until) return { kind: "refused", error: HOLD_WORDS[r.status] ?? HOLD_WORDS.not_found };
 
+  // The place and Club Yuppie's booking fee, in one payment (the host gets the place's price).
+  const total = r.amount + BOOKING_FEE_PENCE;
   const pi = await stripe.paymentIntents.create(
     {
-      amount: r.amount,
+      amount: total,
       currency: "gbp",
       ...(member.stripe_customer_id ? { customer: member.stripe_customer_id } : {}),
       capture_method: "manual",
       automatic_payment_methods: { enabled: true },
       description: `${plan.title} (Open Invite)`,
       transfer_group: `plan-${plan.id}`,
-      metadata: { kind: "plan", plan_id: plan.id, member_id: member.id, hold_id: r.hold_id, host_id: plan.host_id },
+      metadata: { kind: "plan", plan_id: plan.id, member_id: member.id, hold_id: r.hold_id, host_id: plan.host_id, fee_pence: String(BOOKING_FEE_PENCE) },
     },
-    { idempotencyKey: `plan-pi-${r.hold_id}` },
+    { idempotencyKey: `plan-pi-${r.hold_id}-fee` },
   );
   await serviceDb().from("plan_holds").update({ payment_intent_id: pi.id }).eq("id", r.hold_id);
   if (!pi.client_secret) return { kind: "refused", error: "We couldn’t open payment. Nothing was taken." };
-  return { kind: "ready", clientSecret: pi.client_secret, amountPence: r.amount, heldUntil: new Date(r.held_until).toISOString(), paymentIntentId: pi.id };
+  return { kind: "ready", clientSecret: pi.client_secret, amountPence: total, heldUntil: new Date(r.held_until).toISOString(), paymentIntentId: pi.id };
 }
 
 /** What happened to a PaymentIntent for a place (the pay sheet's answer, the webhook's, the sweep's). */
@@ -408,13 +425,17 @@ export async function settlePlanPayment(paymentIntentId: string, expectMember?: 
   }
 
   const method = await methodOf(pi);
+  // The payment is the place and the booking fee (metadata.fee_pence); the place's price must still be the plan's.
+  const fee = Math.max(0, Number(md.fee_pence ?? 0) || 0);
+  const place = pi.amount - fee;
   const { data, error } = await serviceDb().rpc("join_paid_plan", {
     p_member: md.member_id,
     p_plan: md.plan_id,
     p_hold: md.hold_id ?? null,
     p_payment_intent: pi.id,
-    p_amount: pi.amount,
+    p_amount: place,
     p_method: method,
+    p_fee: fee,
   });
   if (error) throw error;
   const r = data as { status: string; payment_id?: string; full?: boolean; price?: number | null };
@@ -437,7 +458,7 @@ export async function settlePlanPayment(paymentIntentId: string, expectMember?: 
       if (charge) await serviceDb().from("plan_payments").update({ charge_id: charge }).eq("id", paymentId).is("charge_id", null);
     }
     if (r.status === "joined") {
-      await notify({ type: "plan.joined", planId: md.plan_id, memberId: md.member_id, full: Boolean(r.full), paidPence: pi.amount });
+      await notify({ type: "plan.joined", planId: md.plan_id, memberId: md.member_id, full: Boolean(r.full), paidPence: place });
       await notify({ type: "plan.receipt", paymentId });
     }
     return { kind: "paid", paymentId, planId: md.plan_id, memberId: md.member_id, joinedNow: r.status === "joined" };
@@ -507,12 +528,19 @@ export async function sendRefund(paymentId: string, { tell = true }: { tell?: bo
   const { data: row } = await db.from("plan_payments").select(PAYMENT_COLUMNS).eq("id", paymentId).maybeSingle<PaymentRow>();
   if (!row || row.status !== "refund_due") return row?.status === "refunded";
   try {
+    // The place, and the booking fee only when the plan was cancelled or the club refunded it.
+    const amount = refundPenceFor(row);
     const refund = await stripe.refunds.create(
-      { payment_intent: row.payment_intent_id, reason: "requested_by_customer", metadata: { payment_id: row.id, plan_id: row.plan_id, why: row.refund_reason ?? "" } },
-      { idempotencyKey: `plan-refund-${row.id}` },
+      { payment_intent: row.payment_intent_id, amount, reason: "requested_by_customer", metadata: { payment_id: row.id, plan_id: row.plan_id, why: row.refund_reason ?? "" } },
+      { idempotencyKey: `plan-refund-${row.id}-${amount}` },
     );
     // (charge.refunded may have marked it refunded a moment ago: the refund's id is kept either way)
-    await db.from("plan_payments").update({ status: "refunded", refund_id: refund.id, refunded_at: new Date().toISOString() }).eq("id", row.id).in("status", ["refund_due", "refunded"]).is("refund_id", null);
+    await db
+      .from("plan_payments")
+      .update({ status: "refunded", refund_id: refund.id, refunded_pence: amount, refunded_at: new Date().toISOString() })
+      .eq("id", row.id)
+      .in("status", ["refund_due", "refunded"])
+      .is("refund_id", null);
     if (tell) await notify({ type: "plan.refunded", paymentId: row.id });
     return true;
   } catch (err) {
@@ -538,9 +566,10 @@ export async function refundPlan(planId: string, reason: "host-cancelled" | "clu
 
 /** What each member going gets back, for the cancel notifications. */
 export async function refundsByPayer(planId: string): Promise<Record<string, number>> {
-  const { data } = await serviceDb().from("plan_payments").select("payer_id, amount_pence").eq("plan_id", planId).in("status", ["refund_due", "refunded"]).in("refund_reason", ["host-cancelled", "club"]);
+  const { data } = await serviceDb().from("plan_payments").select("payer_id, amount_pence, fee_pence").eq("plan_id", planId).in("status", ["refund_due", "refunded"]).in("refund_reason", ["host-cancelled", "club"]);
   const out: Record<string, number> = {};
-  for (const r of (data ?? []) as { payer_id: string; amount_pence: number }[]) out[r.payer_id] = (out[r.payer_id] ?? 0) + r.amount_pence;
+  // Cancelled: the place and the booking fee.
+  for (const r of (data ?? []) as { payer_id: string; amount_pence: number; fee_pence: number }[]) out[r.payer_id] = (out[r.payer_id] ?? 0) + r.amount_pence + (r.fee_pence ?? 0);
   return out;
 }
 
@@ -552,7 +581,7 @@ export async function recordPlanRefundFromCharge(charge: Stripe.Charge): Promise
   const piId = typeof charge.payment_intent === "string" ? charge.payment_intent : charge.payment_intent?.id;
   if (!piId) return { paymentId: null, changed: false };
   const db = serviceDb();
-  const { data: row } = await db.from("plan_payments").select("id, status, amount_pence").eq("payment_intent_id", piId).maybeSingle();
+  const { data: row } = await db.from("plan_payments").select("id, status, amount_pence, fee_pence").eq("payment_intent_id", piId).maybeSingle();
   if (!row) return { paymentId: null, changed: false };
   if (row.status === "refunded") return { paymentId: row.id, changed: false };
   if (charge.amount_refunded < row.amount_pence) {
@@ -563,10 +592,10 @@ export async function recordPlanRefundFromCharge(charge: Stripe.Charge): Promise
   // Our own refund, its webhook a moment before we wrote it down: keep its reason. One made by hand: the club's.
   const { data } =
     row.status === "refund_due"
-      ? await db.from("plan_payments").update({ status: "refunded", refunded_at: at }).eq("id", row.id).eq("status", "refund_due").select("id")
+      ? await db.from("plan_payments").update({ status: "refunded", refunded_at: at, refunded_pence: charge.amount_refunded }).eq("id", row.id).eq("status", "refund_due").select("id")
       : await db
           .from("plan_payments")
-          .update({ status: "refunded", refund_reason: "club", refunded_at: at, refund_due_at: at })
+          .update({ status: "refunded", refund_reason: "club", refunded_at: at, refund_due_at: at, refunded_pence: charge.amount_refunded })
           .eq("id", row.id)
           .in("status", ["held", "refund_asked"])
           .select("id");
@@ -805,7 +834,7 @@ export async function hostPlanPayments(memberId: string, planId: string, now: Da
       startsAt: new Date(plan.starts_at).toISOString(),
       where: plan.place,
       places: plan.places,
-      cost: plan.price_pence === null ? null : { pricePence: plan.price_pence, faceValueConfirmed: plan.face_value_confirmed },
+      cost: plan.price_pence === null ? null : { pricePence: plan.price_pence, faceValueConfirmed: plan.face_value_confirmed, bookingFeePence: BOOKING_FEE_PENCE },
     },
     payments: rows.map((r) => toInvitePayment(r, ref(refs, r.payer_id))),
     payoutOn: held ? payoutDayFor(plan.starts_at) : paidOut ? new Date(`${paidOut.payout_on}T09:00:00Z`).toISOString() : null,
@@ -837,14 +866,14 @@ export async function paymentsSummary(memberId: string, now: Date = new Date()):
   const lines = [`Get paid: ${words[status]}`];
   const { data } = await serviceDb()
     .from("plan_payments")
-    .select("amount_pence, status, plans!inner(title, starts_at)")
+    .select("amount_pence, fee_pence, status, plans!inner(title, starts_at)")
     .eq("payer_id", memberId)
     .in("status", ["held", "refund_asked"])
     .gt("plans.starts_at", now.toISOString())
     .order("paid_at", { ascending: false })
     .limit(1);
-  const latest = ((data ?? []) as unknown as { amount_pence: number; plans: { title: string } }[])[0];
-  if (latest) lines.unshift(`Paid ${gbpWords(latest.amount_pence)} for ${latest.plans.title}`);
+  const latest = ((data ?? []) as unknown as { amount_pence: number; fee_pence: number; plans: { title: string } }[])[0];
+  if (latest) lines.unshift(`Paid ${gbpWords(latest.amount_pence + (latest.fee_pence ?? 0))} for ${latest.plans.title}`);
   return { lines, warn: status === "needs-info" };
 }
 
@@ -863,6 +892,10 @@ export type AdminPaymentRow = {
   hostId: string;
   hostName: string;
   amountPence: number;
+  /** Club Yuppie's booking fee paid with it. */
+  feePence: number;
+  /** What went back to the card. */
+  refundedPence: number | null;
   method: string;
   status: PaymentRow["status"];
   paidAt: string;
@@ -897,6 +930,8 @@ export async function adminPayments(limit = 200): Promise<AdminPaymentRow[]> {
     hostId: r.host_id,
     hostName: nameBy.get(r.host_id) ?? "Member",
     amountPence: r.amount_pence,
+    feePence: r.fee_pence ?? 0,
+    refundedPence: r.refunded_pence ?? (r.status === "refund_due" ? refundPenceFor(r) : null),
     method: r.method ?? "Card",
     status: r.status,
     paidAt: r.paid_at,

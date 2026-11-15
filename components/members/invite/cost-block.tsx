@@ -25,7 +25,7 @@
 import { Button, Icon, KitLink, Pill, Status } from "@/components/members/kit";
 import { cleanPrice, usablePence, type CostErrors, type CostValues } from "@/lib/members/invite/cost";
 import { gbp } from "@/lib/members/invite/format";
-import type { GetPaidStatus } from "@/lib/members/invite/types";
+import { BOOKING_FEE_PENCE, type GetPaidStatus } from "@/lib/members/invite/types";
 import { ROUTES } from "@/lib/members/routes";
 import { cn } from "@/lib/utils";
 import { CheckRow, FieldError, Lab } from "./form-parts";
@@ -169,7 +169,12 @@ export function CostBlock({
           <FieldError id={`${ids.tick}-e`} message={errors.faceValue} />
           <p className="oi-moneynote">
             <Icon name="banknote" size={20} />
-            <span>You get {amount}. Club Yuppie covers the card fees. Paid out about 2 days after the plan.</span>
+            <span>
+              {pence === null
+                ? `You get the full price. Members pay it plus Club Yuppie’s ${gbp(BOOKING_FEE_PENCE)} booking fee, which covers the card fees.`
+                : `You get ${amount}. Members pay ${gbp(pence + BOOKING_FEE_PENCE)}: your price and Club Yuppie’s ${gbp(BOOKING_FEE_PENCE)} booking fee, which covers the card fees.`}{" "}
+              Paid out about 2 working days after the plan.
+            </span>
           </p>
           <GetPaidTile id={ids.getPaid} status={getPaid} error={errors.getPaid} onMode={onMode} />
         </div>

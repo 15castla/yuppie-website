@@ -24,6 +24,7 @@ import { getStripe } from "@/components/members/event/stripe-pay";
 import { goToSessionEnded, isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import { STRIPE_APPEARANCE, getStripeErrorMessage } from "@/lib/stripe-ui";
 import type { OpenInvite } from "@/lib/members/invite/types";
+import { memberPricePence } from "@/lib/members/invite/format";
 import {
   confirmPlanPaymentAction,
   releasePlanHoldAction,
@@ -67,7 +68,9 @@ export function LivePaySheet({
   onRefused: (message: string) => void;
 }) {
   const id = useId();
-  const listed = invite.cost?.pricePence ?? 0;
+  // What the member pays: the place and Club Yuppie's booking fee (15 Nov 2026).
+  const listed = memberPricePence(invite.cost);
+  const feePence = invite.cost?.bookingFeePence ?? 0;
   const [state, setState] = useState<PayState>(resume ? "checking" : "opening");
   const [secret, setSecret] = useState<string | null>(null);
   const [paying, setPaying] = useState(listed);
@@ -98,7 +101,8 @@ export function LivePaySheet({
         done.current = true;
         setState("full");
       } else if (result.kind === "price-changed") {
-        setNewPrice(result.newPricePence ?? listed);
+        // The server says the place's new price; the member pays it with the booking fee.
+        setNewPrice(result.newPricePence === null || result.newPricePence === undefined ? listed : result.newPricePence + feePence);
         setState("price");
       } else if (result.kind === "declined") {
         setDeclined(null);
@@ -111,7 +115,7 @@ export function LivePaySheet({
         onRefused(result.error);
       }
     },
-    [listed, onFresh, onPaid, onRefused],
+    [listed, feePence, onFresh, onPaid, onRefused],
   );
 
   const check = useCallback(
@@ -218,6 +222,7 @@ export function LivePaySheet({
         state={state}
         invite={invite}
         listed={listed}
+        feePence={feePence}
         paying={paying}
         newPricePence={newPrice}
         seeOtherHref={seeOtherHref}

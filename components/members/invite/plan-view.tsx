@@ -26,6 +26,8 @@ import {
   gbp,
   goingText,
   isPaid,
+  memberPricePence,
+  paidTotalPence,
   placesLeft,
   placesLeftText,
   planState,
@@ -96,16 +98,16 @@ function ActionBar({ lead, sub, children }: { lead: string; sub: string; childre
 export function moneyLines(invite: OpenInvite, state: PlanState): { first: ReactNode; second: string } {
   const poster = invite.host.firstName;
   const amount = gbp(invite.cost?.pricePence ?? 0);
+  const fee = invite.cost?.bookingFeePence ?? 0;
+  // With the booking fee (15 Nov 2026): the place's money goes to the host; the fee is Club Yuppie's, kept on leaving.
+  const back = fee ? `Leave up to 24 hours before and get your ${amount} back (not the ${gbp(fee)} booking fee).` : "Leave up to 24 hours before for a full refund.";
   return {
     first: (
       <>
         Your <b>{amount}</b> is held by Club&nbsp;Yuppie until the plan is over. Then it goes to {poster}.
       </>
     ),
-    second:
-      state === "in"
-        ? `Leave up to 24 hours before for a full refund. Later than that, ask ${poster}.`
-        : `Leave up to 24 hours before for a full refund. ${poster} says the price is no more than it cost.`,
+    second: state === "in" ? `${back} Later than that, ask ${poster}.` : `${back} ${poster} says the price is no more than it cost.`,
   };
 }
 
@@ -297,8 +299,12 @@ export function PlanView({
   const isHost = invite.you.role === "host";
   const dead = state === "cancelled" || state === "past";
   const paid = paidPlans && isPaid(invite);
-  const amount = invite.cost ? gbp(invite.cost.pricePence) : "";
+  // What a member pays (the place and the booking fee, 15 Nov 2026); the host sees their own price.
+  const amount = invite.cost ? gbp(isHost ? invite.cost.pricePence : memberPricePence(invite.cost)) : "";
+  const fee = invite.cost?.bookingFeePence ?? 0;
   const payment = invite.you.payment;
+  const paidAmount = payment ? gbp(paidTotalPence(payment)) : amount;
+  const refundedAmount = payment?.refund ? gbp(payment.refund.amountPence) : amount;
   const left = placesLeftText(invite);
   const going = goingText(invite);
   const askHref = invite.you.askThreadId ? messageThreadHref(invite.you.askThreadId) : null;
@@ -314,12 +320,12 @@ export function PlanView({
 
   // ---- pills
   const first = STATE_PILLS[state];
-  const firstText = paid && state === "in" && payment ? `You’re in, paid ${amount}` : started ? "Started" : first.text;
+  const firstText = paid && state === "in" && payment ? `You’re in, paid ${paidAmount}` : started ? "Started" : first.text;
   const pills = (
     <>
       <Pill kind={first.kind === "outline" ? undefined : first.kind}>{firstText}</Pill>
       {!dead && state !== "full" ? <Pill>{left}</Pill> : null}
-      {paid && state === "cancelled" && refunded ? <Pill kind="muted">Refunded {amount}</Pill> : null}
+      {paid && state === "cancelled" && refunded ? <Pill kind="muted">Refunded {refundedAmount}</Pill> : null}
     </>
   );
 
@@ -353,7 +359,7 @@ export function PlanView({
         <div className="oi-notice">
           <Icon name="banknote" size={20} />
           <div>
-            <b>{poster} cancelled this plan.</b> {amount} refunded to your card, back in 5 to 10 working days.{" "}
+            <b>{poster} cancelled this plan.</b> {refundedAmount} refunded to your card, back in 5 to 10 working days.{" "}
             <KitLink className="mk-inline-link" href={openInviteReceiptHref(invite.id)}>
               See receipt
             </KitLink>
@@ -414,6 +420,11 @@ export function PlanView({
           <dt>Cost</dt>
           <dd className="oi-priceline">
             <b>{amount}</b> each
+            {fee ? (
+              <span className="oi-fee">
+                {isHost ? ` to you. Members pay ${gbp(memberPricePence(invite.cost))} with the ${gbp(fee)} booking fee.` : `, including a ${gbp(fee)} booking fee`}
+              </span>
+            ) : null}
           </dd>
         </>
       ) : null}
@@ -455,7 +466,7 @@ export function PlanView({
       break;
     case "in":
       barLead = "You’re in";
-      barSub = paid && payment ? `Paid ${gbp(payment.amountPence)}` : left;
+      barSub = paid && payment ? `Paid ${gbp(paidTotalPence(payment))}` : left;
       barButton = (
         <Button href={chatHref} icon={<Icon name="message" size={20} />}>
           {chatLabel}
@@ -483,7 +494,7 @@ export function PlanView({
       break;
     case "cancelled":
       barLead = "Cancelled";
-      barSub = paid && payment && refunded ? `${amount} refunded` : "Not happening";
+      barSub = paid && payment && refunded ? `${refundedAmount} refunded` : "Not happening";
       barButton = <Button href={ROUTES.openInvite}>See invites</Button>;
       cardButton = <Button href={ROUTES.openInvite}>See Open Invites</Button>;
       break;

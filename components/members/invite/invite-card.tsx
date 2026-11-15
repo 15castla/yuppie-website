@@ -27,6 +27,8 @@ import {
   goingText,
   gbp,
   isPaid,
+  memberPricePence,
+  paidTotalPence,
   planState,
   priceEach,
   type PlanState,
@@ -128,12 +130,13 @@ export function hostMoneyLine(invite: OpenInvite): string | null {
 
 function CostPill({ invite, state }: { invite: OpenInvite; state: PlanState }) {
   if (!invite.cost) return null;
-  const amount = gbp(invite.cost.pricePence);
+  // What a member pays, the booking fee in it (15 Nov 2026); the host sees their own price.
+  const each = invite.you.role === "host" ? invite.cost.pricePence : memberPricePence(invite.cost);
   const payment = invite.you.payment;
-  if (state === "in" && payment) return <Pill kind="ink">Paid {amount}</Pill>;
-  if (state === "cancelled" && payment?.status === "refunded") return <Pill kind="muted">Refunded {amount}</Pill>;
-  if (state === "past" || state === "cancelled") return <Pill kind="muted">{priceEach(invite.cost.pricePence)}</Pill>;
-  return <Pill>{priceEach(invite.cost.pricePence)}</Pill>;
+  if (state === "in" && payment) return <Pill kind="ink">Paid {gbp(paidTotalPence(payment))}</Pill>;
+  if (state === "cancelled" && payment?.status === "refunded") return <Pill kind="muted">Refunded {gbp(payment.refund?.amountPence ?? payment.amountPence)}</Pill>;
+  if (state === "past" || state === "cancelled") return <Pill kind="muted">{priceEach(each)}</Pill>;
+  return <Pill>{priceEach(each)}</Pill>;
 }
 
 function Question({ question }: { question: OpenInvite["you"]["questions"][number] }) {
@@ -185,7 +188,9 @@ export function InviteCard({
   // "new": questions with something unread (a question already read stays in the list, without a number)
   const newQuestions = questions.filter((question) => question.unread > 0).length;
   const moneyLine = state === "own" ? hostMoneyLine(invite) : null;
-  const join = invite.cost ? `Pay ${gbp(invite.cost.pricePence)} and join` : "I’m in";
+  // On a card, beside "Ask Tom", the short form (15 Nov 2026: "Pay £10 and join" was cut off on a phone); the plan
+  // page and the pay sheet say "Pay £10 and join".
+  const join = invite.cost ? `Pay ${gbp(memberPricePence(invite.cost))}` : "I’m in";
   // Example screens on the live site: taking money is not built, so Pay says so (kit/example-note).
   const comingSoon = useExample() && Boolean(invite.cost);
 

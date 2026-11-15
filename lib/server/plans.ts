@@ -41,7 +41,7 @@ import { notify } from "./notify";
 import { peopleRefs, type PersonRef } from "./people";
 import { askPlaceholder, guestQuestions, hostQuestions, latestTexts, questionAskers } from "./questions";
 import { COST_ERROR } from "@/lib/members/invite/cost";
-import { MAX_PRICE_PENCE, MIN_PRICE_PENCE } from "@/lib/members/invite/types";
+import { BOOKING_FEE_PENCE, MAX_PRICE_PENCE, MIN_PRICE_PENCE } from "@/lib/members/invite/types";
 import type { GetPaidStatus, HostPlanMoney, InvitePayment } from "@/lib/members/invite/types";
 import {
   getPaidFor,
@@ -184,7 +184,7 @@ export async function buildInvites(rows: PlanRow[], viewer: Viewer, now: Date, g
       going: (goingBy.get(row.id) ?? []).map(ref),
       status: planStatus(row, now),
       cancelledBy: cancelledBy(row),
-      cost: row.price_pence === null ? null : { pricePence: row.price_pence, faceValueConfirmed: row.face_value_confirmed },
+      cost: row.price_pence === null ? null : { pricePence: row.price_pence, faceValueConfirmed: row.face_value_confirmed, bookingFeePence: BOOKING_FEE_PENCE },
       you: {
         role,
         chatId,
