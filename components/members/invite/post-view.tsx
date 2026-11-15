@@ -37,6 +37,7 @@ import { EMPTY_COST, usablePence, validateCost, type CostValues } from "@/lib/me
 import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 import { formatDateInput, isPaid, londonLocalToIso } from "@/lib/members/invite/format";
 import {
+  BOOKING_FEE_PENCE,
   INVITE_TYPES,
   type GetPaidStatus,
   type InviteMember,
@@ -149,7 +150,7 @@ function previewInvite(values: PostValues, me: InviteMember, others: InviteMembe
     host: me,
     going: values.hostGoing ? [me, ...others] : others,
     status: "scheduled",
-    cost: pence === null ? null : { pricePence: pence, faceValueConfirmed: values.cost.tick },
+    cost: pence === null ? null : { pricePence: pence, faceValueConfirmed: values.cost.tick, bookingFeePence: BOOKING_FEE_PENCE },
     you: {
       role: "guest",
       chatId: null,

@@ -29,11 +29,11 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { Button, Icon, KitLink, useExample } from "@/components/members/kit";
-import { gbp } from "@/lib/members/invite/format";
+import { gbp, memberPricePence } from "@/lib/members/invite/format";
 import type { OpenInvite } from "@/lib/members/invite/types";
 import { messageThreadHref, openInviteReceiptHref } from "@/lib/members/routes";
 import { Sheet, useModalFocus } from "@/components/members/invite/sheet";
-import { BACK_5_10, heldLine, MoneyList, PayActions, PayHead, PayMark, PlanTile, PriceLines, REFUND_RULE } from "./pay-parts";
+import { BACK_5_10, heldLine, MoneyList, PayActions, PayHead, PayMark, PlanTile, PriceLines, refundRule } from "./pay-parts";
 
 export type PayState =
   | "ready"
@@ -182,6 +182,7 @@ export function PayBody({
   fieldsReady = true,
   declinedMessage = null,
   example = false,
+  feePence = 0,
   onClose,
   onPay,
   onPayNewPrice,
@@ -191,8 +192,10 @@ export function PayBody({
   id: string;
   state: PayState;
   invite: OpenInvite;
-  /** The price on the plan as the page drew it. */
+  /** What a member pays, as the page drew it (the place and the booking fee). */
   listed: number;
+  /** Club Yuppie's booking fee in that (15 Nov 2026); 0: none. */
+  feePence?: number;
   /** What is being (or was) taken. */
   paying: number;
   newPricePence: number;
@@ -209,6 +212,8 @@ export function PayBody({
 }): ReactNode {
   const host = invite.host.firstName;
   const amount = gbp(listed);
+  // The host's part of it (what is held for them); the booking fee is Club Yuppie's.
+  const place = gbp(listed - feePence);
   const chatHref = invite.you.chatId ? messageThreadHref(invite.you.chatId) : messageThreadHref(`chat-${invite.id}`);
   const receiptHref = openInviteReceiptHref(invite.id);
   switch (state) {
@@ -218,7 +223,7 @@ export function PayBody({
         <>
           <PayHead id={id} title={state === "opening" ? "Pay and join." : "Checking your payment."} sub={state === "opening" ? "Holding your place." : "This takes a moment."} onClose={onClose} closeOff={state === "checking"} />
           <PlanTile invite={invite} photoOf={invite.host}>
-            <PriceLines lines={{ kind: "pay", pence: listed }} />
+            <PriceLines lines={{ kind: "pay", pence: listed, feePence }} />
           </PlanTile>
           <div className="pay-loading" aria-hidden="true" />
         </>
@@ -238,12 +243,12 @@ export function PayBody({
             closeOff={busy}
           />
           <PlanTile invite={invite} photoOf={invite.host}>
-            <PriceLines lines={{ kind: "pay", pence: listed }} />
+            <PriceLines lines={{ kind: "pay", pence: listed, feePence }} />
           </PlanTile>
           <MoneyList
             items={[
-              { icon: "banknote", text: heldLine(amount, host) },
-              ...(bad ? [] : [{ icon: "undo" as const, text: REFUND_RULE }]),
+              { icon: "banknote", text: heldLine(place, host) },
+              ...(bad ? [] : [{ icon: "undo" as const, text: refundRule(listed - feePence, feePence) }]),
             ]}
           />
           {fields ?? (
@@ -375,7 +380,7 @@ export function PayBody({
           <PlanTile invite={invite} photoOf={invite.host}>
             <PriceLines lines={{ kind: "changed", wasPence: listed, nowPence: newPricePence }} />
           </PlanTile>
-          <MoneyList items={[{ icon: "banknote", text: heldLine(now, host, "would") }]} />
+          <MoneyList items={[{ icon: "banknote", text: heldLine(gbp(newPricePence - feePence), host, "would") }]} />
           <PayActions>
             <Button block disabled={example} icon={example ? undefined : <Icon name="lock" size={18} />} onClick={onPayNewPrice}>
               {example ? "Coming soon" : `Pay ${now} and join`}
@@ -413,11 +418,11 @@ export function PayBody({
           <PayHead id={id} title="You’re in." />
           <p className="pay-p">{host} can see you’re in. The plan chat is open, so say hello.</p>
           <PlanTile invite={invite} photoOf={invite.host}>
-            <PriceLines lines={{ kind: "paid", pence: paying }} />
+            <PriceLines lines={{ kind: "paid", pence: paying, feePence }} />
           </PlanTile>
           <MoneyList
             items={[
-              { icon: "banknote", text: heldLine(gbp(paying), host) },
+              { icon: "banknote", text: heldLine(gbp(paying - feePence), host) },
               {
                 icon: "mail",
                 text: (
@@ -490,7 +495,8 @@ export function PaySheet({
   // Example screens on the live site: taking money is not built here, so nothing can pay (kit/example-note).
   // The entry points already say "Coming soon"; this is the second lock.
   const example = useExample();
-  const listed = invite.cost?.pricePence ?? 0;
+  const listed = memberPricePence(invite.cost);
+  const feePence = invite.cost?.bookingFeePence ?? 0;
   const [state, setState] = useState<PayState>(initialState);
   const [paying, setPaying] = useState(initialState === "price" ? newPricePence : listed);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -518,6 +524,7 @@ export function PaySheet({
         state={state}
         invite={invite}
         listed={listed}
+        feePence={feePence}
         paying={paying}
         newPricePence={newPricePence}
         seeOtherHref={seeOtherHref}

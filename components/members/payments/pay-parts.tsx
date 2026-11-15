@@ -27,6 +27,11 @@ export function heldLine(amount: string, host: string, tense: "is" | "would" = "
 
 export const REFUND_RULE = "Leave more than 24 hours before and you get it all back.";
 
+/** The refund rule with the booking fee (15 Nov 2026): the place comes back, the fee stays with Club Yuppie. */
+export function refundRule(placePence: number, feePence: number): string {
+  return feePence ? `Leave more than 24 hours before and you get your ${gbp(placePence)} back. The ${gbp(feePence)} booking fee isn’t refunded.` : REFUND_RULE;
+}
+
 /** The sheet's heading, with a close button on a phone (a computer's dialog has its own corner button). */
 export function PayHead({
   id,
@@ -102,12 +107,15 @@ export function PlanTile({
 }
 
 export type PriceLines =
-  | { kind: "pay"; pence: number }
-  | { kind: "paid"; pence: number }
+  | { kind: "pay"; pence: number; feePence?: number }
+  | { kind: "paid"; pence: number; feePence?: number }
   | { kind: "changed"; wasPence: number; nowPence: number }
   | { kind: "refunded"; pence: number };
 
-/** The one price. Never a fee line: Club Yuppie covers the card fee (payments spec D1, option A). */
+/**
+ * The price. With Club Yuppie's booking fee (15 Nov 2026: a flat £1) the place and the fee each have a line above
+ * the total (`pence` is the total); without one, the one price.
+ */
 export function PriceLines({ lines }: { lines: PriceLines }) {
   const total = (label: string, pence: number) => (
     <div className="pay-line is-total">
@@ -115,8 +123,21 @@ export function PriceLines({ lines }: { lines: PriceLines }) {
       <b>{gbp(pence)}</b>
     </div>
   );
+  const fee = (lines.kind === "pay" || lines.kind === "paid") && lines.feePence ? lines.feePence : 0;
   return (
     <div className="pay-lines">
+      {fee ? (
+        <>
+          <div className="pay-line">
+            <span>Place</span>
+            <span>{gbp((lines as { pence: number }).pence - fee)}</span>
+          </div>
+          <div className="pay-line">
+            <span>Booking fee</span>
+            <span>{gbp(fee)}</span>
+          </div>
+        </>
+      ) : null}
       {lines.kind === "pay" ? total("You’ll pay", lines.pence) : null}
       {lines.kind === "paid" ? total("Paid", lines.pence) : null}
       {lines.kind === "refunded" ? total("Refunded", lines.pence) : null}

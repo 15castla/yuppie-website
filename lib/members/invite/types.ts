@@ -162,11 +162,20 @@ export type NewOpenInviteField = "title" | "type" | "date" | "time" | "where" | 
 
 /** The cost a host put on a plan. Free is the default: no cost. */
 export type InviteCost = {
-  /** Per person, in pence. From MIN_PRICE_PENCE (£1) to MAX_PRICE_PENCE (£200). */
+  /** Per person, in pence: what the host gets. From MIN_PRICE_PENCE (£1) to MAX_PRICE_PENCE (£200). */
   pricePence: number;
   /** The host ticked "I'm not charging more than it cost me". Stored with the plan. */
   faceValueConfirmed: boolean;
+  /**
+   * Club Yuppie's booking fee on each place (Albert, 15 Nov 2026: "a flat £1 booking fee as that will cover the
+   * majority of cases"): a member pays pricePence + this, shown in the price from the start. Left out: none (the
+   * preview harness's examples).
+   */
+  bookingFeePence?: number;
 };
+
+/** Club Yuppie's booking fee on a paid place (15 Nov 2026): flat £1, kept when a member leaves, refunded when the plan is cancelled. */
+export const BOOKING_FEE_PENCE = 100;
 
 export const MIN_PRICE_PENCE = 100;
 /** An example cap per person at launch (a decision for Albert, payments spec D4). */
@@ -198,7 +207,10 @@ export type InvitePayment = {
   receiptNumber: string;
   inviteId: string;
   payer: InviteMember;
+  /** The place: what the host gets (and what leaving in time gives back). */
   amountPence: number;
+  /** Club Yuppie's booking fee paid with it (15 Nov 2026); left out: none. The card was charged amountPence + this. */
+  feePence?: number;
   paidAt: string;
   /** How it was paid, in words: "Visa ending 4242". Never a full card number. */
   method: string;

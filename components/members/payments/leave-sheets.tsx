@@ -44,12 +44,16 @@ export function PaidLeaveSheet({
   const id = useId();
   const host = invite.host.firstName;
   const amount = gbp(invite.you.payment?.amountPence ?? invite.cost?.pricePence ?? 0);
+  // The booking fee (15 Nov 2026) stays with Club Yuppie when a member leaves.
+  const fee = invite.you.payment?.feePence ?? invite.cost?.bookingFeePence ?? 0;
   if (timing === "full") {
     return (
       <Sheet labelledBy={id} onClose={onClose} variant="pay">
         <PayHead id={id} title="Leave this plan?" onClose={onClose} />
         <p className="pay-p">
-          You’ll get your {amount} back in full. Your place goes back to the plan and {host} is told.
+          {fee
+            ? `You’ll get your ${amount} back (the ${gbp(fee)} booking fee isn’t refunded). Your place goes back to the plan and ${host} is told.`
+            : `You’ll get your ${amount} back in full. Your place goes back to the plan and ${host} is told.`}
         </p>
         <PlanTile invite={invite} photoOf={invite.host} />
         <MoneyList

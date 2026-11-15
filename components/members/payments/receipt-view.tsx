@@ -54,6 +54,9 @@ export function ReceiptView({ receipt, live = false }: { receipt: Receipt; live?
   const { payment, invite } = receipt;
   const host = invite.host.firstName;
   const price = gbp(payment.amountPence);
+  // The place and Club Yuppie's booking fee (15 Nov 2026): the card was charged both.
+  const fee = payment.feePence ?? 0;
+  const total = gbp(payment.amountPence + fee);
   const refund = payment.status === "refunded" ? payment.refund : null;
   const [sent, setSent] = useState(false);
   const [sending, setSending] = useState(false);
@@ -125,9 +128,15 @@ export function ReceiptView({ receipt, live = false }: { receipt: Receipt; live?
                 <Line label="Paid by" value={receipt.paidBy} />
                 <Line label="Paid with" value={payment.method} />
                 <Line label="Paid on" value={formatWhen(payment.paidAt)} />
+                {fee ? (
+                  <>
+                    <Line label="Place" value={price} />
+                    <Line label="Booking fee" value={gbp(fee)} />
+                  </>
+                ) : null}
                 <div className="pay-r is-total">
                   <span>Total paid</span>
-                  <b>{price}</b>
+                  <b>{total}</b>
                 </div>
               </div>
               {refund ? (

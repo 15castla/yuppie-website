@@ -147,7 +147,7 @@ export function cardLabel(invite: OpenInvite, state: PlanState): string {
     cancelled: "Cancelled Open Invite",
     past: "Past Open Invite",
   };
-  return invite.cost ? `${base[state]}, ${priceEach(invite.cost.pricePence)}` : base[state];
+  return invite.cost ? `${base[state]}, ${priceEach(invite.you.role === "host" ? invite.cost.pricePence : memberPricePence(invite.cost))}` : base[state];
 }
 
 // ---------------------------------------------------------------- the post form's dates
@@ -190,4 +190,14 @@ export function londonLocalToIso(date: string, time: string): string | null {
   let ms = asUtc - londonOffsetMinutes(asUtc) * 60_000;
   ms = asUtc - londonOffsetMinutes(ms) * 60_000;
   return new Date(ms).toISOString();
+}
+
+/** What a member pays for a place: the host's price and Club Yuppie's booking fee (15 Nov 2026). */
+export function memberPricePence(cost: { pricePence: number; bookingFeePence?: number } | null | undefined): number {
+  return cost ? cost.pricePence + (cost.bookingFeePence ?? 0) : 0;
+}
+
+/** What a member paid: the place and the booking fee. */
+export function paidTotalPence(payment: { amountPence: number; feePence?: number }): number {
+  return payment.amountPence + (payment.feePence ?? 0);
 }

@@ -381,8 +381,11 @@ export type PlanReceiptData = {
   plan: EmailPlan;
   place: string;
   hostName: string;
-  /** "£22". */
+  /** What the card was charged: "£23". */
   amount: string;
+  /** With a booking fee (15 Nov 2026): the place's price, "£22", and the fee, "£1" (rows on the card). */
+  placePrice?: string;
+  fee?: string;
   /** "Visa ending 4242". */
   method: string;
   /** "1001". */
@@ -399,6 +402,8 @@ export type PlanRefundedData = {
   amount: string;
   /** left-in-time: they left more than 24 hours before. host-agreed: the host said yes. club: Club Yuppie refunded it. */
   why: "left-in-time" | "host-agreed" | "club";
+  /** Leaving keeps Club Yuppie's booking fee (15 Nov 2026): "£1", said under the card. */
+  feeKept?: string;
   hostName: string;
   method: string;
   /** The day it should be on their card by: "Fri 27 Nov". */

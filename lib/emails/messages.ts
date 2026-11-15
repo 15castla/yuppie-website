@@ -977,7 +977,11 @@ const planReceipt: Build<"plan-receipt"> = (d: PlanReceiptData, o) => {
     pre: `You paid ${d.amount}. Club Yuppie holds it until the plan is over.`,
     label: "Receipt",
     h1: { a: "You’re in.", b: `Paid ${d.amount}.`, br: true },
-    intro: [`${host} can see you’re in. Club Yuppie holds your ${d.amount} until the plan is over, then pays ${host}.`],
+    intro: [
+      d.fee && d.placePrice
+        ? `${host} can see you’re in. Club Yuppie holds ${d.placePrice} for ${host} until the plan is over, then pays ${host}.`
+        : `${host} can see you’re in. Club Yuppie holds your ${d.amount} until the plan is over, then pays ${host}.`,
+    ],
     blocks: [
       {
         kind: "card",
@@ -985,6 +989,8 @@ const planReceipt: Build<"plan-receipt"> = (d: PlanReceiptData, o) => {
           row("Plan", title),
           row("When", at(start)),
           row("Where", d.place.trim()),
+          ...rowIf("Place", d.fee ? d.placePrice : null),
+          ...rowIf("Booking fee", d.fee),
           row("Paid", d.amount),
           row("Card", d.method),
           row("Date", at(d.paidAt)),
@@ -993,7 +999,9 @@ const planReceipt: Build<"plan-receipt"> = (d: PlanReceiptData, o) => {
       },
     ],
     button: { label: "See receipt", url: absoluteUrl(d.receiptUrl, o.site) },
-    below: `Leave by ${at(d.refundUntil)} for a full refund. Later than that, ask ${host}.`,
+    below: d.fee
+      ? `Leave by ${at(d.refundUntil)} and get ${d.placePrice} back (the ${d.fee} booking fee stays with Club Yuppie). Later than that, ask ${host}.`
+      : `Leave by ${at(d.refundUntil)} for a full refund. Later than that, ask ${host}.`,
     foot: "member",
     switchLink: false,
     why: WHY_PAID,
@@ -1005,7 +1013,9 @@ const planRefunded: Build<"plan-refunded"> = (d: PlanRefundedData, o) => {
   const host = d.hostName.trim();
   const intro =
     d.why === "left-in-time"
-      ? `You left ${title} more than 24 hours before, so we’ve refunded your ${d.amount} in full.`
+      ? d.feeKept
+        ? `You left ${title} more than 24 hours before, so we’ve refunded your ${d.amount}.`
+        : `You left ${title} more than 24 hours before, so we’ve refunded your ${d.amount} in full.`
       : d.why === "host-agreed"
         ? `${host} agreed to refund you for ${title}, so your ${d.amount} is on its way back.`
         : `Club Yuppie refunded your ${d.amount} for ${title}.`;
@@ -1015,9 +1025,11 @@ const planRefunded: Build<"plan-refunded"> = (d: PlanRefundedData, o) => {
     label: "Refund",
     h1: { a: `${d.amount} refunded.`, b: "It’s on its way back.", br: true },
     intro: [intro],
-    blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Refund", `${d.amount}, in full`), row("To", d.method), row("By", d.expectedBy)] }],
+    blocks: [{ kind: "card", rows: [row("Plan", title), row("Was", at(start)), row("Refund", d.feeKept ? d.amount : `${d.amount}, in full`), row("To", d.method), row("By", d.expectedBy)] }],
     button: { label: "See receipt", url: absoluteUrl(d.receiptUrl, o.site) },
-    below: "Card refunds usually take 5 to 10 working days to show.",
+    below: d.feeKept
+      ? `The ${d.feeKept} booking fee isn’t refunded when you leave. Card refunds usually take 5 to 10 working days to show.`
+      : "Card refunds usually take 5 to 10 working days to show.",
     foot: "member",
     switchLink: false,
     why: WHY_PAID,

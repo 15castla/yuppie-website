@@ -74,7 +74,12 @@ export async function confirmPlanPaymentAction(paymentIntentId: string, planId: 
     if (typeof paymentIntentId !== "string" || !paymentIntentId.startsWith("pi_")) return { ok: false as const, kind: "refused" as const, invite: null, error: CONFIRM_WORDS.refused };
     const r = await settlePlanPayment(paymentIntentId, viewer.id);
     const invite = await inviteFor(viewer, planId);
-    if (r.kind === "paid") return { ok: true as const, kind: "paid" as const, invite: invite!, pence: invite?.you.payment?.amountPence ?? invite?.cost?.pricePence ?? 0 };
+    if (r.kind === "paid") {
+      // What was taken: the place and the booking fee.
+      const pay = invite?.you.payment;
+      const pence = pay ? pay.amountPence + (pay.feePence ?? 0) : (invite?.cost?.pricePence ?? 0) + (invite?.cost?.bookingFeePence ?? 0);
+      return { ok: true as const, kind: "paid" as const, invite: invite!, pence };
+    }
     if (r.kind === "not-ours") return { ok: false as const, kind: "refused" as const, invite, error: CONFIRM_WORDS.refused };
     return {
       ok: false as const,

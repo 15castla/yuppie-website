@@ -96,17 +96,19 @@ eq(sql1(`select price_pence, face_value_confirmed from plans where id = ${q(plan
 const feed = (await action('invite.getOpenInviteFeed', [], ann.session)).result;
 eq(feed.invites.find((i) => i.id === planA)?.cost?.pricePence, 2200, 'members see it with its cost');
 p = await page(`/members/open-invite/${planA}`, ann.session);
-ok(p.status === 200 && p.text.includes('Pay £22 and join'), 'its page: "Pay £22 and join"', p.status);
+ok(p.status === 200 && p.text.includes('Pay £23 and join'), 'its page: "Pay £23 and join" (the £22 place and the £1 booking fee, shown from the start)', p.status);
+ok(/including a (<!-- -->)?£1(<!-- -->)? booking fee/.test(p.text), 'and the Cost line says the booking fee is in it');
+eq(feed.invites.find((i) => i.id === planA)?.cost?.bookingFeePence, 100, 'the plan carries the £1 booking fee');
 r = await action('invite.joinOpenInvite', [planA], ann.session);
 eq([r.result.ok, r.result.reason], [false, 'paid'], 'I’m in is refused on a paid plan (it is Pay and join)');
 
 // ---------------------------------------------------------------- Pay and join (the page settles it)
 let start = await pay('startPlanPaymentAction', [planA], ann);
 ok(start.ok && start.clientSecret, 'Pay and join opens payment', start);
-eq(start.amountPence, 2200, 'for the price');
+eq(start.amountPence, 2300, 'for the place and the booking fee: £23');
 const piA = piOf(start.clientSecret);
 let pi = (await fakeState()).payment_intents[piA];
-eq([pi.capture_method, pi.metadata.kind, pi.metadata.plan_id, pi.metadata.member_id, Number(pi.amount)], ['manual', 'plan', planA, ann.id, 2200], 'the card is only held (manual capture), for this place');
+eq([pi.capture_method, pi.metadata.kind, pi.metadata.plan_id, pi.metadata.member_id, Number(pi.amount), pi.metadata.fee_pence], ['manual', 'plan', planA, ann.id, 2300, '100'], 'the card is only held (manual capture), for this place and the fee');
 eq(sql1(`select status from plan_holds where payment_intent_id = ${q(piA)}`).status, 'open', 'the place is held while paying');
 let confirm = await pay('confirmPlanPaymentAction', [piA, planA], ann);
 eq([confirm.ok, confirm.kind], [false, 'declined'], 'nothing held yet: declined, nothing taken');
@@ -116,7 +118,7 @@ confirm = await pay('confirmPlanPaymentAction', [piA, planA], ann);
 eq([confirm.ok, confirm.kind], [true, 'paid'], 'card held: the place is taken, then the money');
 eq(going(planA, ann.id), 'going', 'Ann is in');
 let row = payment(planA, ann.id);
-eq([row.status, row.amount_pence, row.method, Boolean(row.charge_id)], ['held', 2200, 'Visa ending 4242', true], 'the payment: held by Club Yuppie, Visa ending 4242, its charge kept');
+eq([row.status, row.amount_pence, row.fee_pence, row.method, Boolean(row.charge_id)], ['held', 2200, 100, 'Visa ending 4242', true], 'the payment: £22 for the host held by Club Yuppie, the £1 fee, Visa ending 4242, its charge kept');
 eq((await fakeState()).payment_intents[piA].status, 'succeeded', 'captured at Stripe');
 eq(confirm.invite.you.payment.status, 'held', 'the plan page: "You’re in, paid £22"');
 ok(sql1(`select 1 as x from messages m join chats c on c.id = m.chat_id where c.plan_id = ${q(planA)} and m.system_event = 'paid' and m.about_member_id = ${q(ann.id)}`), 'the plan chat says Ann paid and is in');
@@ -180,7 +182,7 @@ confirm = await pay('confirmPlanPaymentAction', [piOf(calC.clientSecret), planC]
 eq([confirm.kind, confirm.newPricePence], ['price-changed', 1200], '"The price changed": £10 to £12');
 eq((await fakeState()).payment_intents[piOf(calC.clientSecret)].status, 'canceled', 'nothing taken');
 const calC2 = await pay('startPlanPaymentAction', [planC], cal);
-eq(calC2.amountPence, 1200, 'Pay £12 and join: a new payment at the new price');
+eq(calC2.amountPence, 1300, 'Pay £13 and join: a new payment at the new price (and the fee)');
 await holdCard(piOf(calC2.clientSecret));
 eq((await pay('confirmPlanPaymentAction', [piOf(calC2.clientSecret), planC], cal)).kind, 'paid', 'Cal pays £12');
 r = await action('plan.editOpenInvite', [planC, planInput({ title: 'Spin, two spares', places: 3, ...paid(1500) })], host.session);
@@ -195,7 +197,8 @@ mark = fakesMark();
 let leave = await pay('leavePaidPlanAction', [planC, 'refund'], cal);
 eq([leave.ok, leave.kind], [true, 'refunded'], 'more than 24 hours before: leave, refunded in full');
 row = payment(planC, cal.id);
-eq([row.status, row.refund_reason, Boolean(row.refund_id)], ['refunded', 'left-in-time', true], 'refunded at Stripe (left in time)');
+eq([row.status, row.refund_reason, Boolean(row.refund_id), row.refunded_pence], ['refunded', 'left-in-time', true, 1200], 'refunded at Stripe (left in time): the £12 place, the £1 fee kept');
+eq(Object.values((await fakeState()).refunds).filter((x) => x.payment_intent === piOf(calC2.clientSecret)).map((x) => x.amount), [1200], 'Stripe refunded £12 of the £13');
 eq(going(planC, cal.id), 'left', 'Cal is out');
 eq(update(cal.id, 'refunded', planC)?.refund_pence, 1200, 'Cal’s Update: £12 refunded');
 await new Promise((res) => setTimeout(res, 1000));
@@ -221,7 +224,7 @@ eq([ans.ok, ans.error], [false, 'That was answered already.'], 'an answer counts
 await pay('leavePaidPlanAction', [planA, 'ask'], ann);
 ans = await pay('answerRefundAction', [planA, payment(planA, ann.id).id, 'refund'], host);
 row = payment(planA, ann.id);
-eq([ans.ok, row.status, row.refund_reason, going(planA, ann.id)], [true, 'refunded', 'host-agreed', 'left'], 'Refund: back to Ann’s card, her place back to the plan');
+eq([ans.ok, row.status, row.refund_reason, row.refunded_pence, going(planA, ann.id)], [true, 'refunded', 'host-agreed', 2200, 'left'], 'Refund: £22 back to Ann’s card (the fee kept), her place back to the plan');
 leave = await pay('leavePaidPlanAction', [planA, 'no_refund'], ben);
 eq([leave.ok, leave.kind, payment(planA, ben.id).status, going(planA, ben.id)], [true, 'left-no-refund', 'held', 'left'], 'leave without a refund: Ben is out, the host keeps it');
 
@@ -236,7 +239,8 @@ mark = fakesMark();
 r = await action('plan.cancelOpenInvite', [planD], host.session);
 eq(r.result.ok, true, 'the host cancels');
 eq(sql(`select status, refund_reason from plan_payments where plan_id = ${q(planD)}`), [{ status: 'refunded', refund_reason: 'host-cancelled' }, { status: 'refunded', refund_reason: 'host-cancelled' }], 'every payer refunded in full');
-eq(update(ann.id, 'cancelled', planD)?.refund_pence, 3000, 'Ann’s Update: cancelled, £30 refunded');
+eq(update(ann.id, 'cancelled', planD)?.refund_pence, 3100, 'Ann’s Update: cancelled, £31 refunded (the booking fee too)');
+eq(sql(`select refunded_pence from plan_payments where plan_id = ${q(planD)}`).map((x) => x.refunded_pence), [3100, 3100], 'the host cancelled: the place and the fee back to each');
 await new Promise((res) => setTimeout(res, 1000));
 const cancelMail = emailsTo(mark, cal.email).find((e) => e.subject === 'Cancelled: Supper for four');
 ok(cancelMail, 'the cancel email (paid wording)');
@@ -301,7 +305,7 @@ p = await page('/admin/payments', admin);
 ok(p.status === 200 && p.text.includes('Pilates and juice'), 'Admin > Payments lists them', p.status);
 r = await action('admin.payments.adminRefundPlanPayment', [payment(planG, cal.id).id], admin);
 eq(r.result.ok, true, 'Admin refunds one');
-eq([payment(planG, cal.id).status, payment(planG, cal.id).refund_reason, going(planG, cal.id)], ['refunded', 'club', 'left'], 'refunded by the club, Cal off the plan');
+eq([payment(planG, cal.id).status, payment(planG, cal.id).refund_reason, payment(planG, cal.id).refunded_pence, going(planG, cal.id)], ['refunded', 'club', 1000, 'left'], 'refunded by the club, the fee too (£10), Cal off the plan');
 r = await action('admin.payments.adminRefundPlanPayment', [payment(planE, ann.id).id], admin);
 eq(r.result.ok, false, 'paid out already: refunded in Stripe instead');
 
@@ -310,7 +314,7 @@ const planH = await postPlan(host, { title: 'Wine tasting', places: 4, ...paid(2
 const sH = await pay('startPlanPaymentAction', [planH], ben);
 await holdCard(piOf(sH.clientSecret));
 await pay('confirmPlanPaymentAction', [piOf(sH.clientSecret), planH], ben);
-await emit('charge.refunded', { id: 'ch_hand', object: 'charge', payment_intent: piOf(sH.clientSecret), amount: 2500, amount_refunded: 2500 });
+await emit('charge.refunded', { id: 'ch_hand', object: 'charge', payment_intent: piOf(sH.clientSecret), amount: 2600, amount_refunded: 2600 });
 eq(payment(planH, ben.id).status, 'refunded', 'charge.refunded (by hand in Stripe): recorded as refunded');
 
 // ---------------------------------------------------------------- switched off
