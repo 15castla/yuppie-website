@@ -126,6 +126,40 @@ export function PlanTile({
   );
 }
 
+/**
+ * The pay sheet's plan line (17 Nov 2026, Albert: "Can we just have the half screen pop up like we have when you
+ * say im in"): the plan between two rules as on the I'm in sheet, and on the right what is paid now, the booking fee
+ * and any credit in small words under it. `pence`: the place and the fee; `payNow`: what the card pays (default all).
+ */
+export function PayPlanLine({
+  invite,
+  pence,
+  feePence = 0,
+  creditPence = 0,
+}: {
+  invite: Pick<OpenInvite, "title" | "startsAt" | "where">;
+  pence: number;
+  feePence?: number;
+  creditPence?: number;
+}) {
+  const now = Math.max(0, pence - creditPence);
+  const notes = [feePence ? `incl. ${gbp(feePence)} booking fee` : null, creditPence ? `${gbp(creditPence)} from your credit` : null].filter(Boolean);
+  return (
+    <div className="pay-plan">
+      <div className="tx">
+        <b>{invite.title}</b>
+        <span>
+          {formatWhen(invite.startsAt)} · {invite.where}
+        </span>
+      </div>
+      <div className="amt">
+        <b>{gbp(now)}</b>
+        {notes.length ? <span>{notes.join(", ")}</span> : null}
+      </div>
+    </div>
+  );
+}
+
 export type PriceLines =
   /** creditPence: Club Yuppie credit off the total (16 Nov 2026): a line says so, and "You’ll pay" is what is left. */
   | { kind: "pay"; pence: number; feePence?: number; creditPence?: number }

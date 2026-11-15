@@ -33,7 +33,7 @@ import { gbp, memberPricePence } from "@/lib/members/invite/format";
 import type { OpenInvite } from "@/lib/members/invite/types";
 import { messageThreadHref, openInviteReceiptHref } from "@/lib/members/routes";
 import { Sheet, useModalFocus } from "@/components/members/invite/sheet";
-import { BACK_5_10, heldLine, MoneyList, PayActions, PayHead, PayMark, PlanTile, PriceLines, refundRule } from "./pay-parts";
+import { BACK_5_10, heldLine, MoneyList, PayActions, PayHead, PayMark, PayPlanLine, PlanTile, PriceLines } from "./pay-parts";
 
 export type PayState =
   | "ready"
@@ -64,35 +64,6 @@ function AppleMark() {
     <svg className="pay-apple-g" width="17" height="21" viewBox="0 0 24 24" aria-hidden="true" fill="currentColor">
       <path d="M16.365 1.43c0 1.14-.493 2.27-1.177 3.08-.744.9-1.99 1.57-2.987 1.57-.12 0-.23-.02-.3-.03-.01-.06-.04-.22-.04-.39 0-1.15.572-2.27 1.206-2.98.804-.94 2.142-1.64 3.248-1.68.03.13.05.28.05.43zm4.565 15.71c-.03.07-.463 1.58-1.518 3.12-.945 1.34-1.94 2.71-3.43 2.71-1.517 0-1.9-.88-3.63-.88-1.698 0-2.302.91-3.67.91-1.377 0-2.332-1.26-3.428-2.8-1.287-1.82-2.323-4.63-2.323-7.28 0-4.28 2.797-6.55 5.552-6.55 1.448 0 2.675.95 3.6.95.865 0 2.222-1.01 3.902-1.01.613 0 2.886.06 4.374 2.19-.13.09-2.383 1.37-2.383 4.19 0 3.26 2.854 4.42 2.955 4.45z" />
     </svg>
-  );
-}
-
-/** The card box: number on top, expiry and security code under it. Static: Stripe draws the real one. */
-function CardBox({ mode }: { mode: "empty" | "filled" | "error" | "off" }) {
-  const ph = mode === "empty";
-  const cls = mode === "error" ? " is-error" : mode === "off" ? " is-off" : "";
-  const text = (placeholder: string, value: string) =>
-    ph ? <span className="mk-ph">{placeholder}</span> : <span>{value}</span>;
-  return (
-    <>
-      <div className="pay-lab" id="pay-card-label">
-        Card details
-      </div>
-      <div
-        className={`pay-cb${cls}`}
-        role="img"
-        aria-labelledby="pay-card-label"
-      >
-        <div className="r1">
-          {text("1234 1234 1234 1234", "4242 4242 4242 4242")}
-          <Icon name="credit-card" size={22} />
-        </div>
-        <div className="r2">
-          <div>{text("MM / YY", "12 / 28")}</div>
-          <div>{text("CVC", "123")}</div>
-        </div>
-      </div>
-    </>
   );
 }
 
@@ -226,6 +197,10 @@ export function PayBody({
   const amount = gbp(listed);
   // The host's part of it (what is held for them); the booking fee is Club Yuppie's.
   const place = gbp(listed - feePence);
+  // The money rules in one small line under the button (17 Nov 2026: the sheet is half the screen, like I'm in).
+  const moneyRules = feePence
+    ? `Held by Club Yuppie until the plan is over, then it goes to ${host}. Leave more than 24 hours before and you get ${place} back (not the ${gbp(feePence)} booking fee).`
+    : `Held by Club Yuppie until the plan is over, then it goes to ${host}. Leave more than 24 hours before and you get it all back.`;
   const chatHref = invite.you.chatId ? messageThreadHref(invite.you.chatId) : messageThreadHref(`chat-${invite.id}`);
   const receiptHref = openInviteReceiptHref(invite.id);
   switch (state) {
@@ -234,10 +209,8 @@ export function PayBody({
       return (
         <>
           <PayHead id={id} title={state === "opening" ? "Pay and join." : "Checking your payment."} sub={state === "opening" ? "Holding your place." : "This takes a moment."} onClose={onClose} closeOff={state === "checking"} />
-          <PlanTile invite={invite} photoOf={invite.host}>
-            <PriceLines lines={{ kind: "pay", pence: listed, feePence }} />
-          </PlanTile>
-          <div className="pay-loading" aria-hidden="true" />
+          <PayPlanLine invite={invite} pence={listed} feePence={feePence} />
+          <div className="pay-loading is-short" aria-hidden="true" />
         </>
       );
     case "credit":
@@ -246,21 +219,14 @@ export function PayBody({
       return (
         <>
           <PayHead id={id} title="Pay with your credit." sub="Your credit covers it, so there’s nothing to pay." onClose={onClose} closeOff={busy} />
-          <PlanTile invite={invite} photoOf={invite.host}>
-            <PriceLines lines={{ kind: "pay", pence: listed, feePence, creditPence: listed }} />
-          </PlanTile>
-          <MoneyList
-            items={[
-              { icon: "gift", text: `${amount} comes off your credit. You’ll have ${gbp(creditLeftPence)} left.` },
-              { icon: "banknote", text: heldLine(place, host) },
-              { icon: "undo", text: refundRule(listed - feePence, feePence) },
-            ]}
-          />
+          <PayPlanLine invite={invite} pence={listed} feePence={feePence} creditPence={listed} />
+          <MoneyList items={[{ icon: "gift", text: `${amount} comes off your credit. You’ll have ${gbp(creditLeftPence)} left.` }]} />
           <PayActions>
             <Button block data-needs-net="" pending={busy} disabled={example} onClick={busy ? undefined : onPayCredit}>
               {busy ? "Paying…" : example ? "Coming soon" : "Pay with credit"}
             </Button>
           </PayActions>
+          <p className="pay-fine">{moneyRules}</p>
         </>
       );
     }
@@ -278,26 +244,19 @@ export function PayBody({
             onClose={onClose}
             closeOff={busy}
           />
-          <PlanTile invite={invite} photoOf={invite.host}>
-            <PriceLines lines={{ kind: "pay", pence: listed, feePence, creditPence }} />
-          </PlanTile>
-          <MoneyList
-            items={[
-              { icon: "banknote", text: heldLine(place, host) },
-              ...(bad ? [] : [{ icon: "undo" as const, text: refundRule(listed - feePence, feePence) }]),
-            ]}
-          />
+          <PayPlanLine invite={invite} pence={listed} feePence={feePence} creditPence={creditPence} />
           {fields ?? (
-            <>
-              <button type="button" className={`pay-apple${busy || example ? " is-off" : ""}`} disabled={busy || example} onClick={onPay}>
+            // The harness's stand-in for Stripe's folded list of ways to pay (the card's fields open when chosen).
+            <div className={`pay-methods${busy || example ? " is-off" : ""}`} aria-hidden="true">
+              <span>
                 <AppleMark />
-                <span>Pay</span>
-              </button>
-              <div className="pay-or">
-                <span>or pay by card</span>
-              </div>
-              <CardBox mode={busy ? "off" : bad ? "error" : "empty"} />
-            </>
+                Apple Pay
+              </span>
+              <span>
+                <Icon name="credit-card" size={20} />
+                Card
+              </span>
+            </div>
           )}
           {bad ? (
             <div className="pay-alert" role="alert">
@@ -319,6 +278,7 @@ export function PayBody({
               {busy ? "Paying…" : example ? "Coming soon" : `Pay ${creditPence ? gbp(listed - creditPence) : amount}`}
             </Button>
           </PayActions>
+          <p className="pay-fine">{moneyRules}</p>
         </>
       );
     }
