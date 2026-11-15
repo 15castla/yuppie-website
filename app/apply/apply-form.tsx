@@ -40,7 +40,7 @@ import {
   SITE_PAGE_CLASS,
   TEXT_LINK_CLASS,
 } from "@/components/site/ui";
-import { STRIPE_APPEARANCE, getStripeErrorMessage } from "@/lib/stripe-ui";
+import { STRIPE_APPEARANCE, STRIPE_FONTS, getStripeErrorMessage } from "@/lib/stripe-ui";
 import { checkApplicant, checkNominationCode, submitApplication } from "./actions";
 
 const stripePromise = loadStripe(
@@ -864,7 +864,7 @@ export default function ApplyForm({
             {clientSecret ? (
               <Elements
                 stripe={stripePromise}
-                options={{ clientSecret, appearance: APPLY_STRIPE_APPEARANCE }}
+                options={{ clientSecret, appearance: APPLY_STRIPE_APPEARANCE, fonts: STRIPE_FONTS }}
               >
                 <ApplicationForm
                   onSubmitted={() => setSubmitted(true)}

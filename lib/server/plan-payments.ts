@@ -394,7 +394,9 @@ export async function startPlanPayment(member: { id: string; email: string; stri
       currency: "gbp",
       ...(member.stripe_customer_id ? { customer: member.stripe_customer_id } : {}),
       capture_method: "manual",
-      automatic_payment_methods: { enabled: true },
+      // Cards, with Apple Pay and Google Pay (17 Nov 2026: automatic payment methods brought Stripe's Link sign-up
+      // box into the pay sheet under the card's fields).
+      payment_method_types: ["card"],
       description: `${plan.title} (Open Invite)`,
       transfer_group: `plan-${plan.id}`,
       metadata: {

@@ -509,7 +509,8 @@
    ================================================================================================================= */
 
 /* ---- P1. sheets: a bottom sheet on a phone that can scroll, a centred dialog from 768px ----------------------- */
-.mk-sheet.inv-sheet{max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain}
+/* Never under the phone's status bar (17 Nov 2026: the pay sheet with the card open reached the clock in the app) */
+.mk-sheet.inv-sheet{max-height:calc(100dvh - var(--safe-top) - 24px);overflow-y:auto;overscroll-behavior:contain}
 .mk-sheet.inv-sheet:focus{outline:none}
 /* .mk-icon-btn.inv-sheet-x, not .inv-sheet-x: members.css's .mk-icon-btn (display, position) can load after this
    file, and with the same weight it won, drawing the computer's corner button on phones too (a second close

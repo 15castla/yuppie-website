@@ -21,7 +21,7 @@ import type { PaymentIntent, Stripe, StripeError } from "@stripe/stripe-js";
 import { loadStripe } from "@stripe/stripe-js/pure";
 import { Elements, PaymentElement, useElements, useStripe } from "@stripe/react-stripe-js";
 
-import { STRIPE_APPEARANCE, getStripeErrorMessage } from "@/lib/stripe-ui";
+import { STRIPE_APPEARANCE, STRIPE_FONTS, getStripeErrorMessage } from "@/lib/stripe-ui";
 import type { ConfirmEventPaymentResult } from "@/app/members/events/actions";
 import { isSessionEnded, type SessionEnded } from "@/components/members/session-ended";
 import { PaySheetBody, payDismissable, payStatus, type PayState } from "./pay-sheet-body";
@@ -145,7 +145,7 @@ export function StripePaySheet({
 
   if (stripe && clientSecret && WITH_FIELDS.includes(state)) {
     return (
-      <Elements stripe={stripe} options={{ clientSecret, appearance: STRIPE_APPEARANCE }}>
+      <Elements stripe={stripe} options={{ clientSecret, appearance: STRIPE_APPEARANCE, fonts: STRIPE_FONTS }}>
         <PayFlow
           clientSecret={clientSecret}
           eventId={event.id}

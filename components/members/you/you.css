@@ -148,7 +148,7 @@
 .yu-photo-edit label.mk-link{cursor:pointer}
 
 /* 4. dialogs: a bottom sheet on phones, a centred modal from 768. A native <dialog>, so focus is trapped, Escape closes it and the page behind is inert. */
-.yu-dialog{position:fixed;inset:auto 0 0 0;margin:0;width:100%;max-width:none;max-height:calc(100dvh - 24px);overflow:auto;padding:0;border:2px solid var(--ink);border-bottom:0;border-radius:24px 24px 0 0;background:var(--pale);color:var(--ink);font-family:var(--font-body)}
+.yu-dialog{position:fixed;inset:auto 0 0 0;margin:0;width:100%;max-width:none;max-height:calc(100dvh - var(--safe-top) - 24px);overflow:auto;padding:0;border:2px solid var(--ink);border-bottom:0;border-radius:24px 24px 0 0;background:var(--pale);color:var(--ink);font-family:var(--font-body)}
 .yu-dialog:focus{outline:none}
 .yu-dialog::backdrop{background:rgba(245,243,231,.86)}
 .yu-dialog-body{padding:22px 20px calc(20px + var(--safe-bottom))}
