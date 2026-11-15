@@ -3,6 +3,8 @@ import { audit } from "@/lib/server/audit";
 import { attendeesCsv, attendeesCsvFilename, listAttendees } from "@/lib/server/events";
 
 export const dynamic = "force-dynamic";
+// The same time limit as every page (app/layout.tsx), so this shares their warm server function.
+export const maxDuration = 60;
 
 // GET /api/admin/events/<id>/attendees: the Attendees list as a .csv download
 // (r2b Events, Export list, B-D7). Admins at aal2 only (requireAdmin).

@@ -4,6 +4,8 @@ import { calendarForMember } from "@/lib/server/events";
 import { requireMember } from "@/app/members/require-member";
 
 export const dynamic = "force-dynamic";
+// The same time limit as every page (app/layout.tsx), so this shares their warm server function.
+export const maxDuration = 60;
 
 // GET /members/events/<slug>/calendar.ics: Add to calendar (r2a section 4;
 // the booking email links here). Only for a member with a confirmed booking:
