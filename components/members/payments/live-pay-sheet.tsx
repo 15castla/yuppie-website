@@ -376,7 +376,10 @@ function PayFlow({
         onLoadError={() => setState("load-error")}
         options={{
           business: { name: "Club Yuppie" },
-          layout: { type: "accordion", defaultCollapsed: false },
+          // Folded until a way to pay is chosen (17 Nov 2026, Albert: the sheet half the screen, like I'm in): Apple
+          // Pay and Card as two rows, the card's fields opening only when Card is picked.
+          layout: { type: "accordion", defaultCollapsed: true, radios: "never", spacedAccordionItems: false },
+          paymentMethodOrder: ["apple_pay", "google_pay", "card"],
           wallets: { applePay: "auto", googlePay: "auto" },
           fields: { billingDetails: { address: { country: "never", postalCode: "auto" } } },
           readOnly: state === "paying",
