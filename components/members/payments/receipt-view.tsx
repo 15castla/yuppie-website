@@ -7,8 +7,8 @@
 //   paid       "Paid Sun 25 Oct."      where the money is, the refund rule, the tickets promise
 //   refunded   "Refunded Tue 27 Oct."  why, when, and when it should reach the card
 //
-// "Email me a copy" only marks itself as sent here (nothing is emailed). With a
-// backend it resends the receipt email to Receipt.email.
+// "Email me a copy" sends the receipt email again to Receipt.email (live, 15 Nov
+// 2026; in the preview harness it only marks itself as sent).
 //
 // needs_device_check: none (no fixed overlays).
 
@@ -23,6 +23,8 @@ import { openInviteHref } from "@/lib/members/routes";
 import { BarMessages } from "@/components/members/invite/top-block";
 import { useShell } from "@/components/members/shell/shell-context";
 import { BACK_5_10, MoneyList } from "./pay-parts";
+import { emailReceiptAction } from "@/app/members/open-invite/pay-actions";
+import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 
 const CONTACT = "hello@clubyuppie.com";
 
@@ -44,15 +46,30 @@ function Line({ label, value }: { label: string; value: string }) {
 function refundWhy(reason: PaymentRefund["reason"], host: string): string {
   if (reason === "left-in-time") return "You left more than 24 hours before";
   if (reason === "host-cancelled") return `${host} cancelled the plan`;
+  if (reason === "club") return "Club Yuppie refunded it";
   return `${host} agreed to refund you`;
 }
 
-export function ReceiptView({ receipt }: { receipt: Receipt }) {
+export function ReceiptView({ receipt, live = false }: { receipt: Receipt; live?: boolean }) {
   const { payment, invite } = receipt;
   const host = invite.host.firstName;
   const price = gbp(payment.amountPence);
   const refund = payment.status === "refunded" ? payment.refund : null;
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  // "Email me a copy": the receipt email again (live, 15 Nov 2026); the harness only marks it sent.
+  async function emailCopy() {
+    if (!live) return setSent(true);
+    if (sending || sent) return;
+    setSending(true);
+    try {
+      const result = await emailReceiptAction(invite.id);
+      if (isSessionEnded(result)) return goToSessionEnded();
+      if (result.ok) setSent(true);
+    } finally {
+      setSending(false);
+    }
+  }
 
   const sub = refund ? `Refunded ${formatDay(refund.refundedAt)}.` : `Paid ${formatDay(payment.paidAt)}.`;
 
@@ -129,7 +146,7 @@ export function ReceiptView({ receipt }: { receipt: Receipt }) {
           <div className="pay-rside">
             <MoneyList className="pay-rmoney" items={lines} />
             <div className="pay-ract">
-              <Button block variant="outline" onClick={() => setSent(true)}>
+              <Button block variant="outline" data-needs-net="" pending={sending} onClick={() => void emailCopy()}>
                 <Icon name={sent ? "check" : "mail"} size={20} />
                 {sent ? "Copy sent" : "Email me a copy"}
               </Button>

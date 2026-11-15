@@ -37,12 +37,20 @@ const NEW_TABLES = ['member_photos', 'plans', 'plan_members', 'chats', 'chat_mem
 
 const REBUILD = process.argv.includes('--rebuild');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'phase-b-pre-'));
+// Every migration after the fixes, in order: run again after the stage 2 files, as on a database that has them all
+// (15 Nov 2026: otherwise the stage 2 file leaves its own versions of functions a later file replaced, such as
+// plan_visible_to_me, and the Updates kinds, for the scripts that follow).
+const LATER = fs.readdirSync(path.join(ROOT, 'supabase/migrations')).filter((f) => f > path.basename(FIXES)).sort().map((f) => `${ROOT}/supabase/migrations/${f}`);
 if (!REBUILD) {
+  // The stage 2 file's Updates kinds check would refuse the later kinds (paid plans' Updates, test rows only).
+  exec(`delete from updates where kind not in ('joined', 'left', 'full', 'place_opened', 'changed', 'cancelled', 'reminder')`);
   psqlFile(FILE);
   psqlFile(FIXES);
-  ok(true, 'the stage 2 migration and its fixes apply again on the database as it is');
+  for (const later of LATER) psqlFile(later);
+  ok(true, 'the stage 2 migration and its fixes apply again on the database as it is (then every later one)');
   psqlFile(FILE);
   psqlFile(FIXES);
+  for (const later of LATER) psqlFile(later);
   ok(true, 'and a third time');
 }
 if (REBUILD) {

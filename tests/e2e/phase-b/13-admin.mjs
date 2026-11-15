@@ -95,7 +95,7 @@ try {
   // The nav and the dashboard.
   await open('/admin');
   const navText = await pg.locator('nav.ad-nav').innerText();
-  ok(/Reports/.test(navText) && /Photos/.test(navText) && !/Payments/.test(navText), 'the nav gains Reports and Photos (Payments waits for paid plans)', navText);
+  ok(/Reports/.test(navText) && /Photos/.test(navText) && /Payments/.test(navText), 'the nav gains Reports and Photos, and Payments (paid plans, 15 Nov 2026)', navText);
   await sameAsDb('the nav count beside Reports is the open reports', async () => { await open('/admin'); return Number((await pg.locator('nav.ad-nav a[href="/admin/reports"] .n').innerText()).replace(/\D+/g, '')); }, openReports);
   await sameAsDb('the nav count beside Photos is the photos to check', async () => { await open('/admin'); return Number((await pg.locator('nav.ad-nav a[href="/admin/photos"] .n').innerText()).replace(/\D+/g, '')); }, photosToCheck);
   eq(await action('admin.reports.adminOpenReportCount', [], admin).then((r) => r.result) >= 1, true, 'the foundation’s own count agrees there is one open');

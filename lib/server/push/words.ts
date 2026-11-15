@@ -48,10 +48,29 @@ export const pushWords = {
     body: host ? `${host} moved the plan ${moved(how, startsAt, place, now)}.` : `The plan has moved ${moved(how, startsAt, place, now)}.`,
   }),
   /** A plan you're in was cancelled: by the host (named unless you blocked them) or by the club. */
-  planCancelled: (plan: string, host: string | null, byClub: boolean): PushText => ({
+  planCancelled: (plan: string, host: string | null, byClub: boolean, refund: string | null = null): PushText => ({
     title: plan,
-    body: byClub ? "Club Yuppie cancelled this plan." : host ? `${host} cancelled the plan.` : "The plan has been cancelled.",
+    body:
+      (byClub ? "Club Yuppie cancelled this plan." : host ? `${host} cancelled the plan.` : "The plan has been cancelled.") +
+      (refund ? ` Your ${refund} is on its way back.` : ""),
   }),
+  // paid Open Invite (15 Nov 2026)
+  /** The host: someone paid for a place (named unless the host blocked them). */
+  paid: (plan: string, name: string | null, amount: string, full: boolean): PushText => ({
+    title: plan,
+    body: `${name ?? "Someone"} paid ${amount} and is in.${full ? " Your plan is now full." : ""}`,
+  }),
+  /** The host: someone who paid can’t make it and asked for their money back. */
+  refundAsked: (plan: string, name: string | null, amount: string): PushText => ({
+    title: plan,
+    body: `${name ?? "Someone"} can’t make it and asked for a refund of ${amount}. Refund it or keep it.`,
+  }),
+  /** The member: their money is on its way back. */
+  refunded: (plan: string, amount: string): PushText => ({ title: plan, body: `${amount} refunded. It’s on its way back to your card.` }),
+  /** The member: the host kept the money they asked to have back. */
+  refundKept: (plan: string, host: string, amount: string): PushText => ({ title: plan, body: `${host} kept your ${amount}. You’re still in.` }),
+  /** The host: the money from a plan is on its way to their bank. */
+  payout: (plan: string, amount: string, day: string): PushText => ({ title: plan, body: `${amount} is on its way to your bank. It should land by ${day}.` }),
   /** The host's own plan, removed by the club. */
   hostPlanRemoved: (plan: string): PushText => ({ title: plan, body: "Club Yuppie cancelled your plan." }),
   /** 24 hours or 2 hours before a plan or a club event. */

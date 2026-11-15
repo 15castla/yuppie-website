@@ -1,8 +1,6 @@
-// The data Open Invite and paid plans need from the backend. Open Invite is
-// real (stage 2: lib/server/plans.ts builds these for one viewer); paid plans
-// are stage 3, so the payment types below are still drawn only from the
-// example fixtures (lib/members/mock/payments.ts, open-invite.ts) in the
-// preview harness. Every screen under components/members/invite and
+// The data Open Invite and paid plans need from the backend: lib/server/plans.ts and lib/server/plan-payments.ts
+// build these for one viewer (paid plans since 15 Nov 2026; the preview harness still draws them from the example
+// fixtures in lib/members/mock/payments.ts, open-invite.ts). Every screen under components/members/invite and
 // components/members/payments reads these types and nothing else.
 //
 // Conventions (so the backend and the screens agree):
@@ -183,8 +181,11 @@ export type PaymentStatus =
 
 export type PaymentRefund = {
   amountPence: number;
-  /** left-in-time: more than 24 hours before, automatic. host-cancelled: automatic. host-agreed: the host said yes inside 24 hours. */
-  reason: "left-in-time" | "host-cancelled" | "host-agreed";
+  /**
+   * left-in-time: more than 24 hours before, automatic. host-cancelled: automatic. host-agreed: the host said yes
+   * inside 24 hours. club: Club Yuppie cancelled the plan or refunded the payment (15 Nov 2026).
+   */
+  reason: "left-in-time" | "host-cancelled" | "host-agreed" | "club";
   refundedAt: string;
   /** Card refunds usually land in 5 to 10 working days: the date by which they should have. */
   expectedBy: string;

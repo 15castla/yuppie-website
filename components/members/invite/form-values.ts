@@ -21,5 +21,9 @@ export function valuesOf(invite: OpenInvite): Partial<PostValues> {
     places: invite.places,
     hostGoing: invite.hostGoing,
     note: invite.note ?? "",
+    // A paid plan keeps its cost in the form (15 Nov 2026), so saving other changes does not take the price off.
+    ...(invite.cost
+      ? { cost: { on: true, price: (invite.cost.pricePence / 100).toFixed(invite.cost.pricePence % 100 ? 2 : 0), tick: invite.cost.faceValueConfirmed } }
+      : {}),
   };
 }

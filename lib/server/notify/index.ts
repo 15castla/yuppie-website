@@ -25,10 +25,10 @@ import "server-only";
 
 import type { PhotoRemovedReason } from "@/lib/emails";
 import { NOTIFICATION_TRIGGERS, type NotificationTrigger } from "@/lib/members/messages/types";
-import { messageThreadHref, openInviteHref, ROUTES } from "@/lib/members/routes";
+import { messageThreadHref, openInviteHref, openInviteReceiptHref, ROUTES, youPaymentsPlanHref } from "@/lib/members/routes";
 import { adminAlertsEmail, pushLiveFor } from "../config";
 import { serviceDb } from "../db";
-import { dayDate, firstName, time24 } from "../format";
+import { dayDate, firstName, pounds, time24 } from "../format";
 import { later } from "../later";
 import { isGated, membershipState } from "../membership";
 import { sendEmail, sendPush, sendText, type MessageRefs, type PushInput, type SendResult } from "../messages";
@@ -40,10 +40,19 @@ import { reasonLabel, type ReportKind } from "../report-reasons";
 // ---------------------------------------------------------------------------- events
 
 export type NotifyEvent =
-  | { type: "plan.joined"; planId: string; memberId: string; full: boolean }
-  | { type: "plan.left"; planId: string; memberId: string; wasFull: boolean }
+  /** paidPence: a paid place (15 Nov 2026): the host hears "Sam paid £22" (host.paid) instead of "Sam is in". */
+  | { type: "plan.joined"; planId: string; memberId: string; full: boolean; paidPence?: number }
+  /** quietToHost: the host made it happen (refunded a request), so no push to them about it. */
+  | { type: "plan.left"; planId: string; memberId: string; wasFull: boolean; quietToHost?: boolean }
   | { type: "plan.changed"; planId: string; byId: string; previousStartsAt: string; previousPlace: string; timeChanged: boolean; placeChanged: boolean }
-  | { type: "plan.cancelled"; planId: string; byClub: boolean }
+  /** refunds: a paid plan, what each member going gets back (member id to pence). */
+  | { type: "plan.cancelled"; planId: string; byClub: boolean; refunds?: Record<string, number> }
+  // paid Open Invite (15 Nov 2026)
+  | { type: "plan.receipt"; paymentId: string; copy?: boolean }
+  | { type: "plan.refunded"; paymentId: string }
+  | { type: "plan.refund_asked"; paymentId: string }
+  | { type: "plan.refund_kept"; paymentId: string }
+  | { type: "plan.payout"; planId: string; hostId: string; pence: number }
   | { type: "chat.message"; chatId: string; messageId: string; senderId: string }
   | { type: "photo.removed"; memberId: string; photoId: string; reason: PhotoRemovedReason }
   | { type: "report.created"; reportId: string };
@@ -109,7 +118,7 @@ export function channelsFor(triggerId: string, p: Person, now: Date, options: { 
 
 export type UpdateInsert = {
   member_id: string;
-  kind: "joined" | "left" | "full" | "place_opened" | "changed" | "cancelled" | "reminder";
+  kind: "joined" | "left" | "full" | "place_opened" | "changed" | "cancelled" | "reminder" | "paid" | "refund_asked" | "refunded" | "payout";
   plan_id: string;
   actor_id?: string | null;
   role: "host" | "going";
@@ -212,14 +221,39 @@ async function planJoined(e: Extract<NotifyEvent, { type: "plan.joined" }>, now:
   const rows: UpdateInsert[] = [];
   const pushes: PushInput[] = [];
   const host = everyone.get(plan.host_id);
-  if (host && !blockers.has(host.id) && channelsFor("host.joined", host, now).update) {
-    rows.push({ member_id: host.id, kind: "joined", plan_id: plan.id, actor_id: e.memberId, role: "host", dedupe_key: `upd:joined:${plan.id}:${e.memberId}:${ms(joinedAt)}` });
-  }
-  // The host hears who joined (and whether that filled it); the others going see "full" in Updates only (a push
-  // about a plan they are already in would be noise).
-  if (host && !blockers.has(host.id) && channelsFor(e.full ? "host.full" : "host.joined", host, now).push) {
-    const words = pushWords.joined(plan.title, nameOf(everyone.get(e.memberId)), e.full);
-    pushes.push(planPush(plan, host.id, e.full ? "push-plan-full" : "push-plan-joined", words, `push:joined:${plan.id}:${e.memberId}:${ms(joinedAt)}`));
+  const paid = typeof e.paidPence === "number" && e.paidPence > 0;
+  const emails: Email[] = [];
+  if (paid) {
+    // A paid place: the host's Update says who paid and how much, and the email goes by host.paid (a block does not
+    // hide money on the host's own plan: they see "Someone paid" without the name).
+    const c = host ? channelsFor("host.paid", host, now) : null;
+    const hidden = Boolean(host && blockers.has(host.id));
+    if (host && c?.update) {
+      rows.push({ member_id: host.id, kind: "paid", plan_id: plan.id, actor_id: hidden ? null : e.memberId, role: "host", refund_pence: e.paidPence, dedupe_key: `upd:paid:${plan.id}:${e.memberId}:${ms(joinedAt)}` });
+    }
+    if (host && c?.push) {
+      const words = pushWords.paid(plan.title, hidden ? null : nameOf(everyone.get(e.memberId)), pounds(e.paidPence!), e.full);
+      pushes.push({ ...planPush(plan, host.id, "push-plan-paid", words, `push:paid:${plan.id}:${e.memberId}:${ms(joinedAt)}`), path: youPaymentsPlanHref(plan.id) });
+    }
+    if (host && c?.email) {
+      emails.push({
+        template: "plan-host-money",
+        to: host.email,
+        data: { kind: "paid", plan: { title: plan.title, start: start(plan.starts_at) }, memberName: hidden ? "Someone" : nameOf(everyone.get(e.memberId)), amount: pounds(e.paidPence!), url: ROUTES.youPayments },
+        dedupeKey: `plan-paid:${plan.id}:${e.memberId}:${ms(joinedAt)}`,
+        refs: { memberId: host.id, planId: plan.id },
+      });
+    }
+  } else {
+    if (host && !blockers.has(host.id) && channelsFor("host.joined", host, now).update) {
+      rows.push({ member_id: host.id, kind: "joined", plan_id: plan.id, actor_id: e.memberId, role: "host", dedupe_key: `upd:joined:${plan.id}:${e.memberId}:${ms(joinedAt)}` });
+    }
+    // The host hears who joined (and whether that filled it); the others going see "full" in Updates only (a push
+    // about a plan they are already in would be noise).
+    if (host && !blockers.has(host.id) && channelsFor(e.full ? "host.full" : "host.joined", host, now).push) {
+      const words = pushWords.joined(plan.title, nameOf(everyone.get(e.memberId)), e.full);
+      pushes.push(planPush(plan, host.id, e.full ? "push-plan-full" : "push-plan-joined", words, `push:joined:${plan.id}:${e.memberId}:${ms(joinedAt)}`));
+    }
   }
   if (e.full) {
     if (host && channelsFor("host.full", host, now).update) {
@@ -233,8 +267,8 @@ async function planJoined(e: Extract<NotifyEvent, { type: "plan.joined" }>, now:
     }
   }
   const updates = await writePlanUpdates(plan.id, rows);
-  sendLater(`plan joined ${plan.id}`, [], [], pushes);
-  return { ...none(), updates, pushes: pushes.length };
+  sendLater(`plan joined ${plan.id}`, emails, [], pushes);
+  return { ...none(), updates, emails: emails.length, pushes: pushes.length };
 }
 
 async function planLeft(e: Extract<NotifyEvent, { type: "plan.left" }>, now: Date): Promise<NotifyOutcome> {
@@ -249,7 +283,7 @@ async function planLeft(e: Extract<NotifyEvent, { type: "plan.left" }>, now: Dat
   const rows: UpdateInsert[] = [];
   const pushes: PushInput[] = [];
   const host = everyone.get(plan.host_id);
-  if (host && channelsFor("host.left", host, now).push && (!blockers.has(host.id) || e.wasFull)) {
+  if (host && !e.quietToHost && channelsFor("host.left", host, now).push && (!blockers.has(host.id) || e.wasFull)) {
     // A host who blocked the member hears only that the full plan has a place again, without their name (QB1-02).
     const words = pushWords.left(plan.title, blockers.has(host.id) ? null : nameOf(everyone.get(e.memberId)));
     pushes.push(planPush(plan, host.id, "push-plan-left", words, `push:left:${plan.id}:${e.memberId}:${leftAt}`));
@@ -339,20 +373,23 @@ async function planCancelled(e: Extract<NotifyEvent, { type: "plan.cancelled" }>
     const p = everyone.get(id);
     if (!p) continue;
     const c = channelsFor("in.cancelled", p, now);
+    const refund = e.refunds?.[id] ?? 0;
     if (c.push) {
-      const words = pushWords.planCancelled(plan.title, blockers.has(id) ? null : hostName, e.byClub);
+      const words = pushWords.planCancelled(plan.title, blockers.has(id) ? null : hostName, e.byClub, refund ? pounds(refund) : null);
       pushes.push(planPush(plan, id, "push-plan-cancelled", words, `push:cancelled:${plan.id}:${id}`));
     }
     if (c.update) {
-      rows.push({ member_id: id, kind: "cancelled", plan_id: plan.id, actor_id: e.byClub || blockers.has(id) ? null : plan.host_id, role: "going", dedupe_key: `upd:cancelled:${plan.id}:${id}` });
+      rows.push({ member_id: id, kind: "cancelled", plan_id: plan.id, actor_id: e.byClub || blockers.has(id) ? null : plan.host_id, role: "going", refund_pence: refund || null, dedupe_key: `upd:cancelled:${plan.id}:${id}` });
     }
     // Everyone going hears it by their email switch, a member who blocked the host too (QB1-02: a fact about a
-    // plan they are going to). The club's cancel has the club's words (the host did not cancel it).
-    if (c.email) {
+    // plan they are going to). The club's cancel has the club's words (the host did not cancel it). A refund is
+    // money back on their card: that email always goes (like a receipt).
+    if (c.email || (refund > 0 && !pushLiveFor(p.email))) {
+      const paidData = refund ? { ...cancelData, refund: pounds(refund) } : cancelData;
       emails.push({
         template: "plan-cancelled",
         to: p.email,
-        data: e.byClub ? { ...cancelData, by: "club", to: "going" } : cancelData,
+        data: e.byClub ? { ...paidData, by: "club", to: "going" } : paidData,
         dedupeKey: `plan-cancelled:${plan.id}:${id}`,
         refs: { memberId: id, planId: plan.id },
       });
@@ -367,7 +404,7 @@ async function planCancelled(e: Extract<NotifyEvent, { type: "plan.cancelled" }>
     emails.push({
       template: "plan-cancelled",
       to: host.email,
-      data: { ...cancelData, by: "club", to: "host" },
+      data: { ...cancelData, by: "club", to: "host", ...(e.refunds && Object.keys(e.refunds).length ? { refund: "yes" } : {}) },
       dedupeKey: `plan-cancelled:${plan.id}:${host.id}`,
       refs: { memberId: host.id, planId: plan.id },
     });
@@ -495,6 +532,209 @@ async function reportCreated(e: Extract<NotifyEvent, { type: "report.created" }>
   return { ...none(), emails: 1 };
 }
 
+// ---------------------------------------------------------------------------- paid Open Invite (15 Nov 2026)
+
+type PaymentFacts = {
+  id: string;
+  receipt_no: number;
+  plan_id: string;
+  payer_id: string;
+  host_id: string;
+  amount_pence: number;
+  method: string | null;
+  paid_at: string;
+  refund_reason: string | null;
+  refunded_at: string | null;
+  refund_due_at: string | null;
+  plan: PlanFacts;
+};
+
+async function paymentFacts(paymentId: string): Promise<PaymentFacts | null> {
+  const { data } = await serviceDb()
+    .from("plan_payments")
+    .select("id, receipt_no, plan_id, payer_id, host_id, amount_pence, method, paid_at, refund_reason, refunded_at, refund_due_at, plan:plans(id, host_id, title, starts_at, place, places, status, changed_at, cancelled_at)")
+    .eq("id", paymentId)
+    .maybeSingle();
+  if (!data) return null;
+  const plan = (Array.isArray(data.plan) ? data.plan[0] : data.plan) as PlanFacts | null;
+  return plan ? ({ ...(data as unknown as Omit<PaymentFacts, "plan">), plan } as PaymentFacts) : null;
+}
+
+/** "Fri 27 Nov": 10 working days after a refund (card refunds land in 5 to 10). */
+function workingDay(from: string, n: number): string {
+  let t = new Date(from).getTime();
+  let left = n;
+  while (left > 0) {
+    t += 86_400_000;
+    const dow = new Date(t).getUTCDay();
+    if (dow !== 0 && dow !== 6) left -= 1;
+  }
+  return dayDate(new Date(t).toISOString());
+}
+
+/** The receipt email, to the member who paid (always: it is a money record; "Email me a copy" sends it again). */
+async function planReceipt(e: Extract<NotifyEvent, { type: "plan.receipt" }>): Promise<NotifyOutcome> {
+  const f = await paymentFacts(e.paymentId);
+  if (!f) return none();
+  const everyone = await people([f.payer_id, f.plan.host_id]);
+  const payer = everyone.get(f.payer_id);
+  if (!payer?.email) return none();
+  const refundUntil = new Date(new Date(f.plan.starts_at).getTime() - 24 * 3_600_000).toISOString();
+  const email: Email = {
+    template: "plan-receipt",
+    to: payer.email,
+    data: {
+      plan: { title: f.plan.title, start: start(f.plan.starts_at) },
+      place: f.plan.place,
+      hostName: nameOf(everyone.get(f.plan.host_id)),
+      amount: pounds(f.amount_pence),
+      method: f.method ?? "Card",
+      receiptNumber: String(f.receipt_no).padStart(4, "0"),
+      paidAt: start(f.paid_at),
+      refundUntil: start(refundUntil),
+      receiptUrl: openInviteReceiptHref(f.plan_id),
+    },
+    // A copy asked for is a new send (at most one a minute).
+    dedupeKey: e.copy ? `plan-receipt:${f.id}:copy:${Math.floor(Date.now() / 60_000)}` : `plan-receipt:${f.id}`,
+    refs: { memberId: f.payer_id, planId: f.plan_id },
+  };
+  if (e.copy) {
+    await sendEmail(email);
+    return { ...none(), emails: 1 };
+  }
+  sendLater(`plan receipt ${f.id}`, [email]);
+  return { ...none(), emails: 1 };
+}
+
+/** A payment refunded (not for a cancelled plan: its cancel notice says so): to the member who paid. */
+async function planRefunded(e: Extract<NotifyEvent, { type: "plan.refunded" }>, now: Date): Promise<NotifyOutcome> {
+  const f = await paymentFacts(e.paymentId);
+  if (!f || f.refund_reason === "host-cancelled") return none();
+  const everyone = await people([f.payer_id, f.plan.host_id]);
+  const payer = everyone.get(f.payer_id);
+  if (!payer) return none();
+  const why = (f.refund_reason === "left-in-time" || f.refund_reason === "host-agreed" ? f.refund_reason : "club") as "left-in-time" | "host-agreed" | "club";
+  const at = f.refunded_at ?? f.refund_due_at ?? now.toISOString();
+  const amount = pounds(f.amount_pence);
+  const c = channelsFor("in.refunded", payer, now);
+  const rows: UpdateInsert[] = [];
+  if (c.update) rows.push({ member_id: f.payer_id, kind: "refunded", plan_id: f.plan_id, actor_id: why === "host-agreed" ? f.plan.host_id : null, role: "going", refund_pence: f.amount_pence, dedupe_key: `upd:refunded:${f.id}` });
+  const pushes: PushInput[] = [];
+  if (c.push) pushes.push({ ...planPush(f.plan, f.payer_id, "push-plan-refunded", pushWords.refunded(f.plan.title, amount), `push:refunded:${f.id}`), path: openInviteReceiptHref(f.plan_id) });
+  // Money back on their card: the email goes even where push is live (like a receipt).
+  const emails: Email[] = payer.email
+    ? [
+        {
+          template: "plan-refunded",
+          to: payer.email,
+          data: {
+            plan: { title: f.plan.title, start: start(f.plan.starts_at) },
+            amount,
+            why,
+            hostName: nameOf(everyone.get(f.plan.host_id)),
+            method: f.method ?? "your card",
+            expectedBy: workingDay(at, 10),
+            receiptUrl: openInviteReceiptHref(f.plan_id),
+          },
+          dedupeKey: `plan-refunded:${f.id}`,
+          refs: { memberId: f.payer_id, planId: f.plan_id },
+        },
+      ]
+    : [];
+  const updates = await writeUpdates(rows);
+  sendLater(`plan refunded ${f.id}`, emails, [], pushes);
+  return { ...none(), updates, emails: emails.length, pushes: pushes.length };
+}
+
+/** A member who paid left it late and asked the host for a refund: to the host. */
+async function planRefundAsked(e: Extract<NotifyEvent, { type: "plan.refund_asked" }>, now: Date): Promise<NotifyOutcome> {
+  const f = await paymentFacts(e.paymentId);
+  if (!f) return none();
+  const everyone = await people([f.payer_id, f.plan.host_id]);
+  const host = everyone.get(f.plan.host_id);
+  if (!host) return none();
+  const blockers = await blockedBy([host.id], f.payer_id);
+  const who = blockers.has(host.id) ? null : nameOf(everyone.get(f.payer_id));
+  const amount = pounds(f.amount_pence);
+  const c = channelsFor("host.refund_asked", host, now);
+  const askedKey = `${f.id}:${ms(f.paid_at)}`;
+  const rows: UpdateInsert[] = [];
+  if (c.update) rows.push({ member_id: host.id, kind: "refund_asked", plan_id: f.plan_id, actor_id: who ? f.payer_id : null, role: "host", refund_pence: f.amount_pence, dedupe_key: `upd:refund_asked:${askedKey}:${now.getTime()}` });
+  const pushes: PushInput[] = [];
+  if (c.push) pushes.push({ ...planPush(f.plan, host.id, "push-plan-refund-asked", pushWords.refundAsked(f.plan.title, who, amount), `push:refund_asked:${askedKey}:${now.getTime()}`), path: youPaymentsPlanHref(f.plan_id) });
+  const emails: Email[] = c.email
+    ? [
+        {
+          template: "plan-host-money",
+          to: host.email,
+          data: { kind: "refund-asked", plan: { title: f.plan.title, start: start(f.plan.starts_at) }, memberName: who ?? "Someone", amount, url: youPaymentsPlanHref(f.plan_id) },
+          dedupeKey: `plan-refund-asked:${askedKey}:${now.getTime()}`,
+          refs: { memberId: host.id, planId: f.plan_id },
+        },
+      ]
+    : [];
+  const updates = await writeUpdates(rows);
+  sendLater(`plan refund asked ${f.id}`, emails, [], pushes);
+  return { ...none(), updates, emails: emails.length, pushes: pushes.length };
+}
+
+/** The host kept a payment the member asked to have back: to the member (they are still in). */
+async function planRefundKept(e: Extract<NotifyEvent, { type: "plan.refund_kept" }>, now: Date): Promise<NotifyOutcome> {
+  const f = await paymentFacts(e.paymentId);
+  if (!f) return none();
+  const everyone = await people([f.payer_id, f.plan.host_id]);
+  const payer = everyone.get(f.payer_id);
+  if (!payer) return none();
+  const hostName = nameOf(everyone.get(f.plan.host_id));
+  const amount = pounds(f.amount_pence);
+  const c = channelsFor("in.refund_kept", payer, now);
+  const key = `${f.id}:${now.getTime()}`;
+  const pushes: PushInput[] = c.push ? [planPush(f.plan, f.payer_id, "push-plan-refund-kept", pushWords.refundKept(f.plan.title, hostName, amount), `push:refund_kept:${key}`)] : [];
+  const emails: Email[] = c.email
+    ? [
+        {
+          template: "plan-refund-kept",
+          to: payer.email,
+          data: { plan: { title: f.plan.title, start: start(f.plan.starts_at) }, hostName, amount, planUrl: openInviteHref(f.plan_id) },
+          dedupeKey: `plan-refund-kept:${key}`,
+          refs: { memberId: f.payer_id, planId: f.plan_id },
+        },
+      ]
+    : [];
+  sendLater(`plan refund kept ${f.id}`, emails, [], pushes);
+  return { ...none(), emails: emails.length, pushes: pushes.length };
+}
+
+/** The money from a plan is on its way to the host's bank. */
+async function planPayout(e: Extract<NotifyEvent, { type: "plan.payout" }>, now: Date): Promise<NotifyOutcome> {
+  const facts = await planFacts(e.planId);
+  if (!facts) return none();
+  const { plan } = facts;
+  const host = (await people([e.hostId])).get(e.hostId);
+  if (!host) return none();
+  // About 2 working days after the plan (the day the host was told).
+  const day = workingDay(plan.starts_at, 2);
+  const amount = pounds(e.pence);
+  const c = channelsFor("host.payout", host, now);
+  const rows: UpdateInsert[] = [];
+  if (c.update) rows.push({ member_id: host.id, kind: "payout", plan_id: plan.id, role: "host", refund_pence: e.pence, dedupe_key: `upd:payout:${plan.id}:${host.id}:${e.pence}` });
+  const pushes: PushInput[] = c.push ? [{ ...planPush(plan, host.id, "push-plan-payout", pushWords.payout(plan.title, amount, day), `push:payout:${plan.id}:${host.id}:${e.pence}`), path: ROUTES.youPayments }] : [];
+  const emails: Email[] = c.email
+    ? [
+        {
+          template: "plan-host-money",
+          to: host.email,
+          data: { kind: "payout", plan: { title: plan.title, start: start(plan.starts_at) }, amount, payoutDay: day, url: ROUTES.youPayments },
+          dedupeKey: `plan-payout:${plan.id}:${host.id}:${e.pence}`,
+          refs: { memberId: host.id, planId: plan.id },
+        },
+      ]
+    : [];
+  const updates = await writeUpdates(rows);
+  sendLater(`plan payout ${plan.id}`, emails, [], pushes);
+  return { ...none(), updates, emails: emails.length, pushes: pushes.length };
+}
+
 // ---------------------------------------------------------------------------- the one door
 
 const none = (): NotifyOutcome => ({ updates: 0, emails: 0, texts: 0, pushes: 0 });
@@ -518,6 +758,16 @@ export async function notify(event: NotifyEvent, options: { now?: Date } = {}): 
         return await photoRemoved(event);
       case "report.created":
         return await reportCreated(event);
+      case "plan.receipt":
+        return await planReceipt(event);
+      case "plan.refunded":
+        return await planRefunded(event, now);
+      case "plan.refund_asked":
+        return await planRefundAsked(event, now);
+      case "plan.refund_kept":
+        return await planRefundKept(event, now);
+      case "plan.payout":
+        return await planPayout(event, now);
     }
   } catch (err) {
     console.error(`notify ${event.type} failed:`, err);

@@ -16,11 +16,11 @@
 //   success        "You're in."
 //   load-error     "We couldn't open payment."
 //
-// NO STRIPE IS LOADED. The card fields below are static markup that looks like
-// the fields Stripe draws (an approximation, marked in the spec). Pressing Pay
-// only changes what this browser tab shows; nothing is sent and nothing is
-// charged. With a backend this becomes: reserve the place (PayHold), mount
-// Stripe's Payment Element, confirm, then show the PayResult.
+// Two sheets share PayBody (every state's words): PaySheet here is the preview
+// harness's, with static markup that looks like the fields Stripe draws and a
+// Pay that only changes what the tab shows. The real one is LivePaySheet
+// (./live-pay-sheet.tsx, 15 Nov 2026): it holds the place, mounts Stripe's
+// Payment Element in the same spot, and shows what the server answered.
 //
 // needs_device_check: Apple Pay, the card fields, the 3D Secure window, the
 // keyboard pushing the sheet up, the sheet's height against Safari's toolbars,
@@ -46,7 +46,12 @@ export type PayState =
   | "price"
   | "hold-expired"
   | "success"
-  | "load-error";
+  | "load-error"
+  // the live sheet (15 Nov 2026, ./live-pay-sheet.tsx): holding the place and opening payment; back from the
+  // bank's own page, checking; the payment still being checked by the bank
+  | "opening"
+  | "checking"
+  | "pending";
 
 /** How long "Paying…" shows before the demo says yes (the stand-in for the server). */
 export const PAY_DELAY_MS = 1300;
@@ -164,66 +169,71 @@ export function HandOffScreen({
   );
 }
 
-export function PaySheet({
+/** Every state's words and buttons (the demo sheet and the live one). `fields`: Stripe's Payment Element (live). */
+export function PayBody({
+  id,
+  state,
   invite,
-  initialState = "ready",
-  newPricePence = 2500,
+  listed,
+  paying,
+  newPricePence,
   seeOtherHref,
+  fields,
+  fieldsReady = true,
+  declinedMessage = null,
+  example = false,
   onClose,
-  onPaid,
+  onPay,
+  onPayNewPrice,
+  onRetry,
+  onCancelBank,
 }: {
+  id: string;
+  state: PayState;
   invite: OpenInvite;
-  initialState?: PayState;
-  /** The "price changed" state: what the host changed it to. */
-  newPricePence?: number;
+  /** The price on the plan as the page drew it. */
+  listed: number;
+  /** What is being (or was) taken. */
+  paying: number;
+  newPricePence: number;
   seeOtherHref: string;
+  fields?: ReactNode;
+  fieldsReady?: boolean;
+  declinedMessage?: string | null;
+  example?: boolean;
   onClose: () => void;
-  /** The payment went through: the plan page behind flips to "You're in". `pence` is what was taken. */
-  onPaid: (pence: number) => void;
-}) {
-  const id = useId();
-  // Example screens on the live site: taking money is not built, so nothing here can pay (kit/example-note).
-  // The entry points already say "Coming soon"; this is the second lock.
-  const example = useExample();
+  onPay: () => void;
+  onPayNewPrice: () => void;
+  onRetry: () => void;
+  onCancelBank: () => void;
+}): ReactNode {
   const host = invite.host.firstName;
-  const listed = invite.cost?.pricePence ?? 0;
-  const [state, setState] = useState<PayState>(initialState);
-  const [paying, setPaying] = useState(initialState === "price" ? newPricePence : listed);
-  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  useEffect(() => () => clearTimeout(timer.current), []);
-
   const amount = gbp(listed);
   const chatHref = invite.you.chatId ? messageThreadHref(invite.you.chatId) : messageThreadHref(`chat-${invite.id}`);
   const receiptHref = openInviteReceiptHref(invite.id);
-
-  /** Pay: "Paying…", then the plan says yes. */
-  function pay(pence: number) {
-    if (state === "paying" || example) return;
-    setPaying(pence);
-    setState("paying");
-    timer.current = setTimeout(() => {
-      onPaid(pence);
-      setState("success");
-    }, PAY_DELAY_MS);
-  }
-
-  if (state === "bank-screen") {
-    return <HandOffScreen who="Your bank" address="Your bank" kind="bank" cancel="Cancel" onCancel={() => setState("bank")} />;
-  }
-
-  let body: ReactNode;
   switch (state) {
+    case "opening":
+    case "checking":
+      return (
+        <>
+          <PayHead id={id} title={state === "opening" ? "Pay and join." : "Checking your payment."} sub={state === "opening" ? "Holding your place." : "This takes a moment."} onClose={onClose} closeOff={state === "checking"} />
+          <PlanTile invite={invite} photoOf={invite.host}>
+            <PriceLines lines={{ kind: "pay", pence: listed }} />
+          </PlanTile>
+          <div className="pay-loading" aria-hidden="true" />
+        </>
+      );
     case "ready":
     case "paying":
     case "declined": {
       const busy = state === "paying";
       const bad = state === "declined";
-      body = (
+      return (
         <>
           <PayHead
             id={id}
             title="Pay and join."
-            sub={busy ? `Taking your ${gbp(paying)}. Please stay on this screen.` : `Your place is held for ${bad ? "7" : "10"} minutes.`}
+            sub={busy ? `Taking your ${gbp(paying)}. Please stay on this screen.` : bad && !fields ? "Your place is held for 7 minutes." : "Your place is held for 10 minutes."}
             onClose={onClose}
             closeOff={busy}
           />
@@ -236,33 +246,43 @@ export function PaySheet({
               ...(bad ? [] : [{ icon: "undo" as const, text: REFUND_RULE }]),
             ]}
           />
-          <button type="button" className={`pay-apple${busy || example ? " is-off" : ""}`} disabled={busy || example} onClick={() => pay(listed)}>
-            <AppleMark />
-            <span>Pay</span>
-          </button>
-          <div className="pay-or">
-            <span>or pay by card</span>
-          </div>
-          <CardBox mode={busy ? "off" : bad ? "error" : "empty"} />
+          {fields ?? (
+            <>
+              <button type="button" className={`pay-apple${busy || example ? " is-off" : ""}`} disabled={busy || example} onClick={onPay}>
+                <AppleMark />
+                <span>Pay</span>
+              </button>
+              <div className="pay-or">
+                <span>or pay by card</span>
+              </div>
+              <CardBox mode={busy ? "off" : bad ? "error" : "empty"} />
+            </>
+          )}
           {bad ? (
             <div className="pay-alert" role="alert">
               <Icon name="circle-alert" size={18} />
               <span>
-                <b>Your card was declined.</b> Nothing was taken. Try another card or Apple Pay.
+                <b>{declinedMessage ?? "Your card was declined."}</b> Nothing was taken. Try another card or Apple Pay.
               </span>
             </div>
           ) : null}
           <PayActions tight={bad}>
-            <Button block pending={busy} disabled={example} icon={busy || example ? undefined : <Icon name="lock" size={18} />} onClick={busy ? undefined : () => pay(listed)}>
+            <Button
+              block
+              data-needs-net=""
+              pending={busy}
+              disabled={example || !fieldsReady}
+              icon={busy || example ? undefined : <Icon name="lock" size={18} />}
+              onClick={busy ? undefined : onPay}
+            >
               {busy ? "Paying…" : example ? "Coming soon" : `Pay ${amount}`}
             </Button>
           </PayActions>
         </>
       );
-      break;
     }
     case "bank":
-      body = (
+      return (
         <>
           <PayMark icon="shield-check" tone="line" />
           <PayHead id={id} title="Check with your bank." />
@@ -282,16 +302,32 @@ export function PaySheet({
           <MoneyList
             items={[{ icon: "banknote", text: `Nothing has been taken yet. Your ${amount} only leaves your account when you approve it.` }]}
           />
+          {fields ? <div className="pay-bank-fields">{fields}</div> : null}
           <PayActions>
-            <Button block variant="outline" onClick={() => setState("ready")}>
+            <Button block variant="outline" onClick={onCancelBank}>
               Cancel payment
             </Button>
           </PayActions>
         </>
       );
-      break;
+    case "pending":
+      return (
+        <>
+          <PayMark icon="clock" tone="line" />
+          <PayHead id={id} title="Your payment is being checked." onClose={onClose} />
+          <p className="pay-p">
+            Your bank is still checking it. You’ll be in as soon as it clears, and if it doesn’t, nothing is taken. We’ll tell you either way.
+          </p>
+          <PlanTile invite={invite} photoOf={invite.host} />
+          <PayActions>
+            <Button block onClick={onClose}>
+              Close
+            </Button>
+          </PayActions>
+        </>
+      );
     case "full":
-      body = (
+      return (
         <>
           <PayMark icon="info" tone="line" />
           <PayHead id={id} title="That was the last place." />
@@ -307,9 +343,8 @@ export function PaySheet({
           </PayActions>
         </>
       );
-      break;
     case "full-refunded":
-      body = (
+      return (
         <>
           <PayMark icon="info" tone="line" />
           <PayHead id={id} title="That was the last place." />
@@ -328,10 +363,9 @@ export function PaySheet({
           </PayActions>
         </>
       );
-      break;
     case "price": {
       const now = gbp(newPricePence);
-      body = (
+      return (
         <>
           <PayMark icon="info" tone="line" />
           <PayHead id={id} title="The price changed." />
@@ -343,7 +377,7 @@ export function PaySheet({
           </PlanTile>
           <MoneyList items={[{ icon: "banknote", text: heldLine(now, host, "would") }]} />
           <PayActions>
-            <Button block disabled={example} icon={example ? undefined : <Icon name="lock" size={18} />} onClick={() => pay(newPricePence)}>
+            <Button block disabled={example} icon={example ? undefined : <Icon name="lock" size={18} />} onClick={onPayNewPrice}>
               {example ? "Coming soon" : `Pay ${now} and join`}
             </Button>
             <Button block variant="outline" onClick={onClose}>
@@ -352,10 +386,9 @@ export function PaySheet({
           </PayActions>
         </>
       );
-      break;
     }
     case "hold-expired":
-      body = (
+      return (
         <>
           <PayMark icon="clock" tone="line" />
           <PayHead id={id} title="Your place is no longer held." />
@@ -364,7 +397,7 @@ export function PaySheet({
           </p>
           <PlanTile invite={invite} photoOf={invite.host} />
           <PayActions>
-            <Button block onClick={() => setState("ready")}>
+            <Button block onClick={onRetry}>
               Try again
             </Button>
             <Button block variant="outline" onClick={onClose}>
@@ -373,9 +406,8 @@ export function PaySheet({
           </PayActions>
         </>
       );
-      break;
     case "success":
-      body = (
+      return (
         <>
           <PayMark icon="check" />
           <PayHead id={id} title="You’re in." />
@@ -409,17 +441,16 @@ export function PaySheet({
           </PayActions>
         </>
       );
-      break;
     case "load-error":
-      body = (
+      return (
         <>
           <PayMark icon="circle-alert" tone="bad" />
           <PayHead id={id} title="We couldn’t open payment." />
           <p className="pay-p">
-            <b>Nothing was taken.</b> Check your connection and try again. Your place is still held for 8 minutes.
+            <b>Nothing was taken.</b> Check your connection and try again.
           </p>
           <PayActions>
-            <Button block onClick={() => setState("ready")}>
+            <Button block onClick={onRetry}>
               Try again
             </Button>
             <Button block variant="outline" onClick={onClose}>
@@ -428,14 +459,77 @@ export function PaySheet({
           </PayActions>
         </>
       );
-      break;
+    case "bank-screen":
+      return null;
+  }
+}
+
+/** The screen reader's line while paying, and once in. */
+export function payLiveLine(state: PayState): string {
+  return state === "paying" ? "Taking your payment. Please stay on this screen." : state === "success" ? "You’re in." : "";
+}
+
+export function PaySheet({
+  invite,
+  initialState = "ready",
+  newPricePence = 2500,
+  seeOtherHref,
+  onClose,
+  onPaid,
+}: {
+  invite: OpenInvite;
+  initialState?: PayState;
+  /** The "price changed" state: what the host changed it to. */
+  newPricePence?: number;
+  seeOtherHref: string;
+  onClose: () => void;
+  /** The payment went through: the plan page behind flips to "You're in". `pence` is what was taken. */
+  onPaid: (pence: number) => void;
+}) {
+  const id = useId();
+  // Example screens on the live site: taking money is not built here, so nothing can pay (kit/example-note).
+  // The entry points already say "Coming soon"; this is the second lock.
+  const example = useExample();
+  const listed = invite.cost?.pricePence ?? 0;
+  const [state, setState] = useState<PayState>(initialState);
+  const [paying, setPaying] = useState(initialState === "price" ? newPricePence : listed);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(timer.current), []);
+
+  /** Pay: "Paying…", then the plan says yes (the demo). */
+  function pay(pence: number) {
+    if (state === "paying" || example) return;
+    setPaying(pence);
+    setState("paying");
+    timer.current = setTimeout(() => {
+      onPaid(pence);
+      setState("success");
+    }, PAY_DELAY_MS);
+  }
+
+  if (state === "bank-screen") {
+    return <HandOffScreen who="Your bank" address="Your bank" kind="bank" cancel="Cancel" onCancel={() => setState("bank")} />;
   }
 
   return (
     <Sheet labelledBy={id} onClose={onClose} dismissable={state !== "paying"} variant="pay">
-      {body}
+      <PayBody
+        id={id}
+        state={state}
+        invite={invite}
+        listed={listed}
+        paying={paying}
+        newPricePence={newPricePence}
+        seeOtherHref={seeOtherHref}
+        example={example}
+        onClose={onClose}
+        onPay={() => pay(listed)}
+        onPayNewPrice={() => pay(newPricePence)}
+        onRetry={() => setState("ready")}
+        onCancelBank={() => setState("ready")}
+      />
       <span className="mk-sr" role="status" aria-live="polite">
-        {state === "paying" ? "Taking your payment. Please stay on this screen." : state === "success" ? "You’re in." : ""}
+        {payLiveLine(state)}
       </span>
     </Sheet>
   );

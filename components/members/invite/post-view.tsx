@@ -25,11 +25,14 @@
 
 import "./invite.css";
 
-import { useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useState, type FormEvent, type ReactNode } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { BackRow, Button, ExampleNote, Icon, Main } from "@/components/members/kit";
-import { GetPaidHandOff, type GetPaidMode } from "@/components/members/payments/get-paid";
+import { GetPaidHandOff, useGetPaidRefresh, type GetPaidMode } from "@/components/members/payments/get-paid";
+
+/** The post form kept for the trip to Stripe's Get paid pages and back (this tab only). */
+const DRAFT_KEY = "cy-post-draft";
 import { EMPTY_COST, usablePence, validateCost, type CostValues } from "@/lib/members/invite/cost";
 import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 import { formatDateInput, isPaid, londonLocalToIso } from "@/lib/members/invite/format";
@@ -228,7 +231,13 @@ export function PostView({
   initialMode = null,
   editing,
   initialFormError,
+  live = false,
 }: {
+  /**
+   * The real page (15 Nov 2026): Get paid goes to Stripe (and back here, with what was typed kept on this phone for
+   * a moment), and Get paid's status is the server's, asked again when the host comes back.
+   */
+  live?: boolean;
   context: NewOpenInviteContext;
   /** `flags.paidPlans`: draws "Add a cost". Off, the form is exactly the free one. */
   paidPlans?: boolean;
@@ -263,9 +272,43 @@ export function PostView({
   const [formError, setFormError] = useState<string | null>(initialFormError ?? null);
   // The server's answer moves focus to its first error once it is drawn (a number that changes per answer).
   const [answered, setAnswered] = useState(0);
-  // Paid plans (stage 3, the harness only): Get paid starts as the context says and turns ready when "Done" is tapped on Stripe's outline screen.
-  const [getPaid, setGetPaid] = useState<GetPaidStatus>(context.getPaid.status);
+  // Get paid: live, the server's (fresh after the host comes back from Stripe); in the harness it starts as the
+  // context says and turns ready when "Done" is tapped on Stripe's outline screen.
+  const [demoGetPaid, setGetPaid] = useState<GetPaidStatus>(context.getPaid.status);
+  const getPaid = live ? context.getPaid.status : demoGetPaid;
   const [mode, setMode] = useState<GetPaidMode>(initialMode);
+  const refreshGetPaid = useCallback(() => router.refresh(), [router]);
+  useGetPaidRefresh(refreshGetPaid, live && paidPlans && getPaid !== "ready");
+  // Live: what was typed survives the trip to Stripe (sessionStorage, this tab only, a few minutes).
+  useEffect(() => {
+    if (!live || editing) return;
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const draft = JSON.parse(raw) as { at: number; values: PostValues };
+      if (Date.now() - draft.at < 30 * 60_000 && new URLSearchParams(window.location.search).get("getpaid") === "back") {
+        // After the first paint (the server drew the empty form).
+        const timer = setTimeout(() => {
+          setValues(draft.values);
+          try {
+            sessionStorage.removeItem(DRAFT_KEY);
+          } catch {}
+        }, 0);
+        return () => clearTimeout(timer);
+      }
+      sessionStorage.removeItem(DRAFT_KEY);
+    } catch {
+      // nothing kept: the form starts empty, as it would anyway
+    }
+  }, [live, editing]);
+  useEffect(() => {
+    if (!live || editing || mode !== "intro") return;
+    try {
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ at: Date.now(), values }));
+    } catch {
+      // no storage (a private window): the form is typed again
+    }
+  }, [live, editing, mode, values]);
   const alreadyGoing = editing?.others ?? [];
   // Editing: never fewer places than the people already going (the server refuses it too).
   const placesMin = Math.max(PLACES_MIN, alreadyGoing.length + (values.hostGoing ? 1 : 0));
@@ -613,7 +656,7 @@ export function PostView({
           </Button>
         </div>
       </div>
-      <GetPaidHandOff mode={mode} onMode={setMode} onDone={() => setGetPaid("ready")} />
+      <GetPaidHandOff mode={mode} onMode={setMode} onDone={() => setGetPaid("ready")} stripeHref={live ? "/members/you/payments/stripe?from=post" : undefined} />
     </Main>
   );
 }

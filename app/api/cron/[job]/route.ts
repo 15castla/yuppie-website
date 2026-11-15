@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { runMemberships } from "@/lib/server/cron/memberships";
 import { runRefunds } from "@/lib/server/cron/refunds";
 import { runReminders } from "@/lib/server/cron/reminders";
+import { runPlanMoney } from "@/lib/server/plan-payments";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,10 +14,14 @@ export const dynamic = "force-dynamic";
 // safe every 15 minutes; the answer is a JSON summary of what it did. The
 // schedule itself is the release's to set (no vercel.json crons here).
 
+// Paid Open Invite's money (15 Nov 2026: held cards never settled, refunds Stripe did not confirm, the payouts to
+// hosts) runs with the refunds job, so the schedule already on the live database covers it; "plan-money" runs it
+// on its own.
 const JOBS = {
   reminders: runReminders,
   memberships: runMemberships,
-  refunds: runRefunds,
+  refunds: async (now: Date) => ({ ...(await runRefunds(now)), plans: await runPlanMoney(now) }),
+  "plan-money": runPlanMoney,
 } as const;
 
 function authorised(request: Request): boolean {

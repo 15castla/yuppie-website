@@ -87,7 +87,7 @@ try {
   await H.page.getByRole('link', { name: 'Post an Open Invite' }).first().click();
   await H.page.waitForURL('**/members/open-invite/new');
   const form = H.page.locator('form.oi-form');
-  eq(await H.page.getByText('Add a cost').count(), 0, 'post form: no "Add a cost" (free plans only while paid plans are not live)');
+  eq(await H.page.getByText('Add a cost', { exact: true }).count(), 1, 'post form: "Add a cost" (paid plans are on since 15 Nov 2026), off until switched on');
   ok(!/£/.test(await H.page.locator('main').innerText()), 'post form: no price anywhere');
   const postButton = dock(H.page).getByRole('button', { name: 'Post Open Invite' });
   await postButton.click();
@@ -397,15 +397,14 @@ try {
   ok(/NEXT_HTTP_ERROR_FALLBACK;404/.test((await getPage(`/members/open-invite/${walk}/edit`, a.session)).text), 'edit: someone else’s plan is "Not on the list." (the page’s notFound)');
   eq((await getPage(`/members/open-invite/${walk}/edit`, y.session)).status, 404, 'edit: a plan you may not see is a real 404');
 
-  // ---------------------------------------------------------------- paid plans: nothing that takes money
+  // ---------------------------------------------------------------- paid plans (on since 15 Nov 2026; 23-paid-plans.mjs)
   const priced = sql1('select gen_random_uuid() id').id;
   exec(`insert into plans (id, host_id, title, type, starts_at, place, places, price_pence, face_value_confirmed) values (${q(priced)}, ${q(host.id)}, ${q(`Priced ${r}`)}, 'Culture', now() + interval '4 days', 'The Bell Room', 3, 2200, true)`);
   await A.page.goto(`${BASE}/members/open-invite`, { waitUntil: 'networkidle' });
-  eq(await card(A.page, `Priced ${r}`).count(), 0, 'paid: a plan with a price is not in the feed');
-  ok(!/£|and join|Pay /.test(await A.page.locator('main').innerText()), 'paid: no price and no pay button on browse');
-  eq((await getPage(`/members/open-invite/${priced}`, a.session)).status, 404, 'paid: its page is a 404');
-  eq((await getPage(`/members/open-invite/${walk}/receipt`, a.session)).status, 404, 'paid: no receipt page');
-  eq((await getPage('/members/you/payments', a.session)).status, 404, 'paid: no payments page');
+  eq(await card(A.page, `Priced ${r}`).count(), 1, 'paid: a plan with a price is in the feed');
+  eq((await getPage(`/members/open-invite/${priced}`, a.session)).status, 200, 'paid: its page opens');
+  ok(/NEXT_HTTP_ERROR_FALLBACK;404/.test((await getPage(`/members/open-invite/${walk}/receipt`, a.session)).text), 'paid: no receipt for a free plan');
+  eq((await getPage('/members/you/payments', a.session)).status, 200, 'paid: You > Payments opens');
   exec(`delete from plans where id = ${q(priced)}`);
 
   // ---------------------------------------------------------------- a session that ended on the page

@@ -5,7 +5,7 @@
 // server actions. Shared by /members/you and /members/you/photo (the same page
 // with the Change photo sheet open). Not a route: only page.tsx files are.
 
-import { flags, messagesOn } from "@/lib/members/flags";
+import { flags, messagesOn, openInviteOn } from "@/lib/members/flags";
 import { ROUTES } from "@/lib/members/routes";
 import { detectShellMode } from "@/lib/members/shell-mode";
 import { displayPhone, firstNameOf, legalLines, memberSince } from "@/lib/members/you/format";
@@ -16,6 +16,8 @@ import { bookingsAfter } from "@/lib/server/bookings";
 import { dayDate } from "@/lib/server/format";
 import { membershipCardFor } from "@/lib/server/membership-actions";
 import { nominateCard } from "@/lib/server/nominations";
+import { paidPlansLive } from "@/lib/server/config";
+import { paymentsSummary } from "@/lib/server/plan-payments";
 import { getNotificationPreferences, notificationSummary } from "@/lib/server/notification-prefs";
 import { currentPhotoUrl } from "@/lib/server/photos";
 import type { YouViewProps } from "@/components/members/you/you-view";
@@ -49,20 +51,23 @@ export async function loadYou({ billingUnavailable = false }: { billingUnavailab
   // Cancel needs a subscription to set to end; without one there is no Cancel link.
   const canCancel = Boolean(member.stripe_subscription_id);
 
-  // Stage 2: the Settings rows from real data (the notification channels, the blocked count). Payments is a
-  // paid-plans row: none until paid plans are live (stage 3). Blocked members goes with Messages: not in the app
-  // while Open Invite is hidden there (messagesOn; QR-04).
+  // The Settings rows from real data (the notification channels, Payments, the blocked count). Blocked members goes
+  // with Messages: not in the app while Open Invite is hidden there (messagesOn; QR-04).
   const messages = messagesOn(mode);
-  const [photoUrl, preferences, blocked, nominate] = await Promise.all([
+  const [photoUrl, preferences, blocked, nominate, payments] = await Promise.all([
     member.photo_id ? currentPhotoUrl(member.id, "full") : Promise.resolve(null),
     flags.notifications ? getNotificationPreferences(member, mode) : Promise.resolve(null),
     messages ? blockedCount(member.id) : Promise.resolve(null),
     // Nominate a friend's card (12 Nov 2026). A failed read leaves the card off rather than the page.
     flags.nominations ? nominateCard(member.id).catch((err) => (console.error("You: the nominate card failed:", err), null)) : Promise.resolve(null),
+    // Paid Open Invite (15 Nov 2026): the Payments row, where Open Invite shows (a failed read leaves the row off).
+    flags.paidPlans && paidPlansLive() && openInviteOn(mode)
+      ? paymentsSummary(member.id).catch((err) => (console.error("You: the payments summary failed:", err), null))
+      : Promise.resolve(null),
   ]);
   const settingsRows = buildSettingsRows({ ...flags, messages }, {
     notifications: preferences ? notificationSummary(preferences) : null,
-    payments: null,
+    payments,
     blocked,
   });
 

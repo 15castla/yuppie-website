@@ -4,9 +4,10 @@ import "server-only";
 // and the rows on Your plans. Every function returns the shapes in lib/members/invite/types.ts, built for one
 // viewer (their role, their chat, their unread count, the questions they asked or were asked).
 //
-// Rules kept here and in the database functions (supabase/migrations/20261030090000):
-//   - free plans only in stage 2: a plan with a price is never shown or joined, and a cost is refused, unless
-//     the server-only switch MEMBERS_PAID_PLANS_LIVE=on (never set in stage 2);
+// Rules kept here and in the database functions (supabase/migrations/20261030090000, 20261115090000):
+//   - paid plans (15 Nov 2026, lib/server/plan-payments.ts): on unless MEMBERS_PAID_PLANS_LIVE=off; then a plan
+//     with a price is never shown or joined, and a cost is refused. A cost needs the host's Get paid ready;
+//     paying, leaving and refunds are plan-payments.ts's;
 //   - capacity and joins under the plan's row lock (join_plan), no double joins, the host cannot join as a guest;
 //   - blocks either way between a member and a host: the plan is not in the feed, its page is not found, and
 //     joining or asking is refused (the plan stays visible to members already going);
@@ -39,6 +40,20 @@ import { isGated, membershipState, type MemberStateFields } from "./membership";
 import { notify } from "./notify";
 import { peopleRefs, type PersonRef } from "./people";
 import { askPlaceholder, guestQuestions, hostQuestions, latestTexts, questionAskers } from "./questions";
+import { COST_ERROR } from "@/lib/members/invite/cost";
+import { MAX_PRICE_PENCE, MIN_PRICE_PENCE } from "@/lib/members/invite/types";
+import type { GetPaidStatus, HostPlanMoney, InvitePayment } from "@/lib/members/invite/types";
+import {
+  getPaidFor,
+  getPaidStatuses,
+  leavePaidPlan,
+  paymentsForPlans,
+  payoutDayFor,
+  refundPlan,
+  refundsByPayer,
+  sendRefund,
+  toInvitePayment,
+} from "./plan-payments";
 
 export const PLAN_COLUMNS =
   "id, host_id, title, type, starts_at, place, note, places, host_going, price_pence, face_value_confirmed, status, cancelled_at, changed_at, removed_at, removed_reason, created_at";
@@ -81,7 +96,7 @@ export function planStatus(row: Pick<PlanRow, "status" | "starts_at">, now: Date
   return new Date(row.starts_at).getTime() <= now.getTime() ? "finished" : "scheduled";
 }
 
-/** Plans with a price exist only from stage 3: until the switch is on they are never shown. */
+/** Plans with a price: shown while paid plans are on (the default since 15 Nov 2026). */
 const priceAllowed = (row: Pick<PlanRow, "price_pence">) => row.price_pence === null || paidPlansLive();
 
 const iso = (value: string) => new Date(value).toISOString();
@@ -122,11 +137,34 @@ export async function buildInvites(rows: PlanRow[], viewer: Viewer, now: Date, g
     guestQuestions(viewer.id, guests),
     latestTexts(inChats, (m) => !m.sender_id || !sets.blocked.has(m.sender_id)),
   ]);
+  // Paid plans: the payments on them (the viewer's own, and every one on a plan they host), and the hosts' Get paid.
+  const priced = rows.filter((r) => r.price_pence !== null).map((r) => r.id);
+  const [payments, getPaid] = await Promise.all([
+    priced.length ? paymentsForPlans(priced) : Promise.resolve([]),
+    hosted.length ? getPaidStatuses([viewer.id]) : Promise.resolve(new Map<string, GetPaidStatus>()),
+  ]);
   const people = new Set<string>([...rows.map((r) => r.host_id), ...[...goingBy.values()].flat(), ...askers]);
   for (const p of previews.values()) if (p.sender_id) people.add(p.sender_id);
+  for (const p of payments) if (p.host_id === viewer.id) people.add(p.payer_id);
   const refs = await peopleRefs([...people]);
   const questions = await hostQuestions(hosted, unread, refs, sets.blocked);
   const ref = (id: string): InviteMember => refs.get(id) ?? { id, firstName: "Member", photoUrl: null };
+
+  const myPayment = (row: PlanRow): InvitePayment | null => {
+    const mine = payments.filter((p) => p.plan_id === row.id && p.payer_id === viewer.id);
+    const latest = mine[mine.length - 1];
+    return latest ? toInvitePayment(latest, ref(viewer.id)) : null;
+  };
+  const hostMoney = (row: PlanRow): HostPlanMoney | null => {
+    if (row.price_pence === null || row.host_id !== viewer.id) return null;
+    const list = payments.filter((p) => p.plan_id === row.id);
+    const held = list.some((p) => p.status === "held" || p.status === "refund_asked");
+    return {
+      payments: list.map((p) => toInvitePayment(p, ref(p.payer_id))),
+      payoutOn: held ? payoutDayFor(row.starts_at) : null,
+      getPaid: getPaid.get(viewer.id) ?? "not-set-up",
+    };
+  };
 
   return rows.map((row) => {
     const role = roleOf(row);
@@ -157,9 +195,8 @@ export async function buildInvites(rows: PlanRow[], viewer: Viewer, now: Date, g
         askThreadId: role === "guest" ? ask?.chatId ?? askPlaceholder(row.id) : null,
         hostReply: role === "guest" ? ask?.hostReply ?? null : null,
         questions: role === "host" ? questions.get(row.id) ?? [] : [],
-        // Paid plans are stage 3: no payment and no money exist in stage 2.
-        payment: null,
-        hostMoney: null,
+        payment: row.price_pence === null ? null : myPayment(row),
+        hostMoney: hostMoney(row),
         receiptEmail: viewer.email,
       },
     };
@@ -259,7 +296,7 @@ export async function openInviteYours(viewer: Viewer, now: Date = new Date()): P
   };
 }
 
-async function planById(planId: string): Promise<PlanRow | null> {
+export async function planById(planId: string): Promise<PlanRow | null> {
   if (!isUuid(planId)) return null;
   const { data, error } = await serviceDb().from("plans").select(PLAN_COLUMNS).eq("id", planId).maybeSingle<PlanRow>();
   if (error) throw error;
@@ -301,7 +338,7 @@ export async function openInvitePage(viewer: Viewer, planId: string, now: Date =
   return { invite, me: me.get(viewer.id)!, now: now.toISOString() };
 }
 
-async function inviteFor(viewer: Viewer, planId: string, now: Date): Promise<OpenInvite | null> {
+export async function inviteFor(viewer: Viewer, planId: string, now: Date = new Date()): Promise<OpenInvite | null> {
   return (await openInvitePage(viewer, planId, now))?.invite ?? null;
 }
 
@@ -313,10 +350,14 @@ export function londonToday(now: Date = new Date()): string {
   return `${w.year}-${String(w.month).padStart(2, "0")}-${String(w.day).padStart(2, "0")}`;
 }
 
-export async function newInviteContext(viewer: Viewer, now: Date = new Date()): Promise<NewOpenInviteContext> {
-  const me = await peopleRefs([viewer.id]);
-  // Get paid is stage 3 (Stripe Connect): nobody has set it up, so the form can never offer a cost that works.
-  const getPaid: GetPaid = { status: "not-set-up", accountEnding: null, paused: null };
+export async function newInviteContext(viewer: Viewer, now: Date = new Date(), { backFromStripe = false }: { backFromStripe?: boolean } = {}): Promise<NewOpenInviteContext> {
+  // Get paid (Stripe Connect): asked of Stripe again unless it is ready, so a host back from Stripe can add a cost.
+  const [me, getPaid] = await Promise.all([
+    peopleRefs([viewer.id]),
+    paidPlansLive()
+      ? getPaidFor(viewer.id, { fresh: backFromStripe ? "now" : true })
+      : Promise.resolve<GetPaid>({ status: "not-set-up", accountEnding: null, paused: null }),
+  ]);
   return { me: me.get(viewer.id)!, getPaid, today: londonToday(now), now: now.toISOString() };
 }
 
@@ -334,6 +375,8 @@ export const POST_ERRORS = {
   note: "Keep the note to 280 characters.",
   noteMissing: "Add a note so people know what to expect.",
   paid: "Paid plans aren’t open yet. Turn off Add a cost to post it free.",
+  pricePaid: "People have paid already, so the price can’t change.",
+  priceGuests: "People are in for free already, so a cost can’t be added.",
 } as const;
 
 export type PlanFieldErrors = Partial<Record<NewOpenInviteField, string>>;
@@ -367,9 +410,25 @@ export function checkNewInvite(input: NewOpenInvite, now: Date): { errors: PlanF
   if (!note) errors.note = POST_ERRORS.noteMissing;
   else if ([...note].length > 280) error = POST_ERRORS.note;
   if (typeof input?.hostGoing !== "boolean") error = error ?? POST_ERRORS.places;
-  // Nothing in stage 2 takes or pretends to take money.
-  if (input?.cost) errors.price = POST_ERRORS.paid;
+  // A cost: the form's own rules (lib/members/invite/cost.ts), Get paid apart (postOpenInvite asks Stripe's status).
+  if (input?.cost) {
+    if (!paidPlansLive()) errors.price = POST_ERRORS.paid;
+    else {
+      const pence = input.cost.pricePence;
+      if (!Number.isInteger(pence) || pence < MIN_PRICE_PENCE) errors.price = pence === 0 ? COST_ERROR.zero : COST_ERROR.low;
+      else if (pence > MAX_PRICE_PENCE) errors.price = COST_ERROR.high;
+      if (input.cost.faceValueConfirmed !== true) errors.faceValue = COST_ERROR.untick;
+    }
+  }
   return { errors, error, startsAt };
+}
+
+/** A cost needs the host's Get paid ready (the post form's last cost rule, on the server). */
+async function costNeedsGetPaid(viewer: Viewer, input: NewOpenInvite, errors: PlanFieldErrors): Promise<void> {
+  if (!input?.cost || errors.price || !paidPlansLive()) return;
+  const status = (await getPaidStatuses([viewer.id])).get(viewer.id);
+  const ready = status === "ready" || (await getPaidFor(viewer.id, { fresh: true })).status === "ready";
+  if (!ready) errors.getPaid = COST_ERROR.getPaid;
 }
 
 export type PostInviteResult =
@@ -378,8 +437,9 @@ export type PostInviteResult =
 
 export async function postOpenInvite(viewer: Viewer, input: NewOpenInvite, now: Date = new Date()): Promise<PostInviteResult> {
   const check = checkNewInvite(input, now);
+  await costNeedsGetPaid(viewer, input, check.errors);
   if (Object.keys(check.errors).length || check.error || !check.startsAt) return { ok: false, errors: check.errors, error: check.error };
-  const { data, error } = await serviceDb().rpc("post_plan", {
+  const { data, error } = await serviceDb().rpc("post_plan_priced", {
     p_host: viewer.id,
     p_title: input.title.trim(),
     p_type: input.type,
@@ -389,6 +449,8 @@ export async function postOpenInvite(viewer: Viewer, input: NewOpenInvite, now: 
     p_places: input.places,
     // The person posting is always going (Albert, 8 Nov 2026: "the person posting needs to be going").
     p_host_going: true,
+    p_price: input.cost ? input.cost.pricePence : null,
+    p_face: input.cost ? input.cost.faceValueConfirmed === true : false,
   });
   if (error) {
     console.error(`plans: post by ${viewer.id} failed:`, error);
@@ -409,10 +471,12 @@ export async function editOpenInvite(viewer: Viewer, planId: string, input: NewO
   const row = await planById(planId);
   if (!row || row.host_id !== viewer.id) return { ok: false, error: NOT_FOUND, invite: null };
   const check = checkNewInvite(input, now);
+  // A new cost (or a cost on a plan that had none) needs Get paid; an unchanged one does not ask Stripe again.
+  if (input?.cost && input.cost.pricePence !== row.price_pence) await costNeedsGetPaid(viewer, input, check.errors);
   if (Object.keys(check.errors).length || check.error || !check.startsAt) {
     return { ok: false, error: check.error ?? "Check the details and try again.", errors: check.errors, invite: await inviteFor(viewer, planId, now) };
   }
-  const { data, error } = await serviceDb().rpc("edit_plan", {
+  const { data, error } = await serviceDb().rpc("edit_plan_priced", {
     p_host: viewer.id,
     p_plan: planId,
     p_title: input.title.trim(),
@@ -424,6 +488,10 @@ export async function editOpenInvite(viewer: Viewer, planId: string, input: NewO
     // Never from going to not going (8 Nov 2026: the host is always going; the form has no box for it). A plan
     // posted before then for spare tickets keeps its host not going unless they choose to go.
     p_host_going: row.host_going || input.hostGoing === true,
+    // The price follows the form while paid plans are on (taken off, added or changed: only while nobody has paid).
+    p_set_price: paidPlansLive(),
+    p_price: input.cost ? input.cost.pricePence : null,
+    p_face: input.cost ? input.cost.faceValueConfirmed === true : false,
   });
   if (error) {
     console.error(`plans: edit of ${planId} failed:`, error);
@@ -438,7 +506,12 @@ export async function editOpenInvite(viewer: Viewer, planId: string, input: NewO
     past: POST_ERRORS.past,
     too_few_places: `${r.going ?? "More"} people are going, so keep at least ${r.going ?? "that many"} places.`,
     full: "There’s no place left for you. Add a place first.",
+    price_paid: POST_ERRORS.pricePaid,
+    price_guests: POST_ERRORS.priceGuests,
   };
+  if (r.status === "price_paid" || r.status === "price_guests") {
+    return { ok: false, error: words[r.status], errors: { price: words[r.status] }, invite: await inviteFor(viewer, planId, now) };
+  }
   if (r.status !== "saved") return { ok: false, error: words[r.status] ?? "Your changes didn’t save. Try again.", invite: await inviteFor(viewer, planId, now) };
   if (r.time_changed || r.place_changed) {
     await notify({
@@ -465,7 +538,12 @@ export async function cancelOpenInvite(viewer: Viewer, planId: string, now: Date
   const r = data as { status: string };
   if (r.status === "started") return { ok: false, error: "This plan has started, so it can’t be cancelled.", invite: await inviteFor(viewer, planId, now) };
   if (r.status !== "cancelled" && r.status !== "already_cancelled") return { ok: false, error: NOT_FOUND, invite: null };
-  if (r.status === "cancelled") await notify({ type: "plan.cancelled", planId, byClub: false });
+  if (r.status === "cancelled") {
+    // A paid plan: everyone who paid is refunded in full, and the cancel notice says so.
+    if (row.price_pence !== null) await refundPlan(planId, "host-cancelled");
+    const refunds = row.price_pence !== null ? await refundsByPayer(planId) : undefined;
+    await notify({ type: "plan.cancelled", planId, byClub: false, refunds });
+  }
   return { ok: true, invite: (await inviteFor(viewer, planId, now))! };
 }
 
@@ -479,7 +557,7 @@ const JOIN_WORDS: Record<JoinRefusal, string> = {
   started: "This plan has started.",
   cancelled: "This plan was cancelled.",
   host: "It’s your plan, so you’re in already.",
-  paid: "Paid plans aren’t open yet.",
+  paid: "This plan has a cost. Pay to join.",
   blocked: NOT_FOUND,
   inactive: "Your membership isn’t active, so you can’t join plans.",
   not_found: NOT_FOUND,
@@ -506,6 +584,13 @@ export type WithdrawResult = { ok: true; invite: OpenInvite } | { ok: false; rea
 export async function withdrawFromOpenInvite(viewer: Viewer, planId: string, now: Date = new Date()): Promise<WithdrawResult> {
   const row = await planById(planId);
   if (!row) return { ok: false, reason: "not_found", error: NOT_FOUND, invite: null };
+  if (row.price_pence !== null) {
+    // A paid place leaves through the paid leave (refunded in full more than 24 hours before; later, it asks).
+    const r = await leavePaidPlan(viewer.id, planId, "refund");
+    if (r.ok) return { ok: true, invite: (await inviteFor(viewer, planId, now))! };
+    if (r.reason === "late") return { ok: false, reason: "started", error: "It’s less than 24 hours before, so ask the host for a refund instead.", invite: await inviteFor(viewer, planId, now) };
+    if (r.reason !== "no_payment") return { ok: false, reason: r.reason === "not_in" ? "not_in" : r.reason === "host" ? "host" : r.reason === "started" ? "started" : "not_found", error: r.reason === "not_in" ? "You’re not in this plan." : NOT_FOUND, invite: await inviteFor(viewer, planId, now) };
+  }
   const { data, error } = await serviceDb().rpc("leave_plan", { p_member: viewer.id, p_plan: planId });
   if (error) {
     console.error(`plans: withdraw from ${planId} by ${viewer.id} failed:`, error);
@@ -556,7 +641,8 @@ export async function adminRemovePlan(adminId: string, planId: string, reason: s
     return { ok: false, error: "We couldn’t remove it. Try again in a moment." };
   }
   await audit(adminId, "plan.remove", { type: "plan", id: planId }, { reason, hostId: row.host_id });
-  if (row.status === "scheduled") await notify({ type: "plan.cancelled", planId, byClub: true });
+  if (row.price_pence !== null) await refundPlan(planId, "club");
+  if (row.status === "scheduled") await notify({ type: "plan.cancelled", planId, byClub: true, refunds: row.price_pence !== null ? await refundsByPayer(planId) : undefined });
   return { ok: true };
 }
 
@@ -586,7 +672,8 @@ export async function leaveOpenInviteForGate(memberId: string, why: "paused" | "
       const { data } = await db.rpc("club_cancel_plan", { p_plan: p.id, p_reason: why === "paused" ? "host_paused" : "host_ended" });
       if ((data as { status: string } | null)?.status === "cancelled") {
         summary.cancelled += 1;
-        await notify({ type: "plan.cancelled", planId: p.id, byClub: true });
+        const { refunded } = await refundPlan(p.id, "club");
+        await notify({ type: "plan.cancelled", planId: p.id, byClub: true, refunds: refunded.length ? await refundsByPayer(p.id) : undefined });
       }
     }
     const { data: going } = await db.from("plan_members").select("plan_id").eq("member_id", memberId).eq("status", "going").eq("role", "guest");
@@ -596,6 +683,7 @@ export async function leaveOpenInviteForGate(memberId: string, why: "paused" | "
       if (r?.status === "left") {
         summary.left += 1;
         await notify({ type: "plan.left", planId: g.plan_id, memberId, wasFull: Boolean(r.was_full) });
+        await refundMemberOnPlan(memberId, g.plan_id);
       }
     }
     const { data: closed } = await db
@@ -629,7 +717,8 @@ export async function leaveOpenInviteForDeletion(memberId: string, now: Date = n
       const { data } = await db.rpc("cancel_plan", { p_host: memberId, p_plan: p.id });
       if ((data as { status: string } | null)?.status === "cancelled") {
         cancelled += 1;
-        await notify({ type: "plan.cancelled", planId: p.id, byClub: false });
+        const { refunded } = await refundPlan(p.id, "host-cancelled");
+        await notify({ type: "plan.cancelled", planId: p.id, byClub: false, refunds: refunded.length ? await refundsByPayer(p.id) : undefined });
       }
     }
     const { data: going } = await db.from("plan_members").select("plan_id").eq("member_id", memberId).eq("status", "going").eq("role", "guest");
@@ -639,6 +728,7 @@ export async function leaveOpenInviteForDeletion(memberId: string, now: Date = n
       if (r?.status === "left") {
         left += 1;
         await notify({ type: "plan.left", planId: g.plan_id, memberId, wasFull: Boolean(r.was_full) });
+        await refundMemberOnPlan(memberId, g.plan_id);
       }
     }
     const at = now.toISOString();
@@ -652,4 +742,23 @@ export async function leaveOpenInviteForDeletion(memberId: string, now: Date = n
     console.error(`plans: leaving Open Invite for the deleted account ${memberId} failed:`, err);
   }
   return { cancelled, left };
+}
+
+/**
+ * A member taken off a plan by the club (paused, ended, deleted) is refunded what they paid for it, in full: they
+ * did not choose to leave late. Never throws.
+ */
+async function refundMemberOnPlan(memberId: string, planId: string): Promise<void> {
+  try {
+    const { data } = await serviceDb()
+      .from("plan_payments")
+      .update({ status: "refund_due", refund_reason: "club", refund_due_at: new Date().toISOString() })
+      .eq("plan_id", planId)
+      .eq("payer_id", memberId)
+      .in("status", ["held", "refund_asked"])
+      .select("id");
+    for (const p of (data ?? []) as { id: string }[]) await sendRefund(p.id);
+  } catch (err) {
+    console.error(`plans: refunding ${memberId} on ${planId} failed (the sweep tries again):`, err);
+  }
 }

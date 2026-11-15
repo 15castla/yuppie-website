@@ -82,6 +82,13 @@ public class ExternalLinkPlugin: CAPPlugin, CAPBridgedPlugin, SFSafariViewContro
     private func isInAppHost(_ host: String?) -> Bool {
         guard let host = host?.lowercased() else { return false }
 
+        // Stripe Connect (Get paid, 15 Nov 2026): Stripe's hosted onboarding and Express dashboard "are only
+        // supported in web browsers", not in an app's web view, so they open in the in-app browser sheet. Stripe
+        // sends the host back to clubyuppie.com/get-paid there, which says to close it.
+        if host == "connect.stripe.com" {
+            return false
+        }
+
         if let serverHost = bridge?.config.serverURL.host?.lowercased(), host == serverHost {
             return true
         }
@@ -105,5 +112,7 @@ public class ExternalLinkPlugin: CAPPlugin, CAPBridgedPlugin, SFSafariViewContro
 
     public func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
         safariViewController = nil
+        // The page behind may want to look again (Get paid's status after Stripe): tell it the sheet closed.
+        bridge?.webView?.evaluateJavaScript("window.dispatchEvent(new Event('cy-browser-closed'))", completionHandler: nil)
     }
 }
