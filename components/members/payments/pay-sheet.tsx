@@ -51,7 +51,10 @@ export type PayState =
   // bank's own page, checking; the payment still being checked by the bank
   | "opening"
   | "checking"
-  | "pending";
+  | "pending"
+  // Club Yuppie credit covers it all (16 Nov 2026): no card, one tap
+  | "credit"
+  | "credit-paying";
 
 /** How long "Paying…" shows before the demo says yes (the stand-in for the server). */
 export const PAY_DELAY_MS = 1300;
@@ -183,6 +186,9 @@ export function PayBody({
   declinedMessage = null,
   example = false,
   feePence = 0,
+  creditPence = 0,
+  creditLeftPence = 0,
+  onPayCredit,
   onClose,
   onPay,
   onPayNewPrice,
@@ -196,6 +202,12 @@ export function PayBody({
   listed: number;
   /** Club Yuppie's booking fee in that (15 Nov 2026); 0: none. */
   feePence?: number;
+  /** The member's Club Yuppie credit put towards it (16 Nov 2026); the card pays `paying`, the rest. */
+  creditPence?: number;
+  /** "credit": what is left of their credit after this. */
+  creditLeftPence?: number;
+  /** "credit": Pay with credit. */
+  onPayCredit?: () => void;
   /** What is being (or was) taken. */
   paying: number;
   newPricePence: number;
@@ -228,6 +240,30 @@ export function PayBody({
           <div className="pay-loading" aria-hidden="true" />
         </>
       );
+    case "credit":
+    case "credit-paying": {
+      const busy = state === "credit-paying";
+      return (
+        <>
+          <PayHead id={id} title="Pay with your credit." sub="Your credit covers it, so there’s nothing to pay." onClose={onClose} closeOff={busy} />
+          <PlanTile invite={invite} photoOf={invite.host}>
+            <PriceLines lines={{ kind: "pay", pence: listed, feePence, creditPence: listed }} />
+          </PlanTile>
+          <MoneyList
+            items={[
+              { icon: "gift", text: `${amount} comes off your credit. You’ll have ${gbp(creditLeftPence)} left.` },
+              { icon: "banknote", text: heldLine(place, host) },
+              { icon: "undo", text: refundRule(listed - feePence, feePence) },
+            ]}
+          />
+          <PayActions>
+            <Button block data-needs-net="" pending={busy} disabled={example} onClick={busy ? undefined : onPayCredit}>
+              {busy ? "Paying…" : example ? "Coming soon" : "Pay with credit"}
+            </Button>
+          </PayActions>
+        </>
+      );
+    }
     case "ready":
     case "paying":
     case "declined": {
@@ -243,7 +279,7 @@ export function PayBody({
             closeOff={busy}
           />
           <PlanTile invite={invite} photoOf={invite.host}>
-            <PriceLines lines={{ kind: "pay", pence: listed, feePence }} />
+            <PriceLines lines={{ kind: "pay", pence: listed, feePence, creditPence }} />
           </PlanTile>
           <MoneyList
             items={[
@@ -280,7 +316,7 @@ export function PayBody({
               icon={busy || example ? undefined : <Icon name="lock" size={18} />}
               onClick={busy ? undefined : onPay}
             >
-              {busy ? "Paying…" : example ? "Coming soon" : `Pay ${amount}`}
+              {busy ? "Paying…" : example ? "Coming soon" : `Pay ${creditPence ? gbp(listed - creditPence) : amount}`}
             </Button>
           </PayActions>
         </>
@@ -295,7 +331,7 @@ export function PayBody({
           <ol className="pay-steps">
             {[
               "Open your banking app, or follow the steps on your bank’s screen.",
-              `Approve the ${amount} payment.`,
+              `Approve the ${gbp(paying)} payment.`,
               "You’ll come straight back here.",
             ].map((step, index) => (
               <li className="pay-step" key={step}>
@@ -305,7 +341,7 @@ export function PayBody({
             ))}
           </ol>
           <MoneyList
-            items={[{ icon: "banknote", text: `Nothing has been taken yet. Your ${amount} only leaves your account when you approve it.` }]}
+            items={[{ icon: "banknote", text: `Nothing has been taken yet. Your ${gbp(paying)} only leaves your account when you approve it.` }]}
           />
           {fields ? <div className="pay-bank-fields">{fields}</div> : null}
           <PayActions>

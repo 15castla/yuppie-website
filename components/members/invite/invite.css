@@ -511,12 +511,15 @@
 /* ---- P1. sheets: a bottom sheet on a phone that can scroll, a centred dialog from 768px ----------------------- */
 .mk-sheet.inv-sheet{max-height:calc(100dvh - 24px);overflow-y:auto;overscroll-behavior:contain}
 .mk-sheet.inv-sheet:focus{outline:none}
-.inv-sheet-x{display:none}
+/* .mk-icon-btn.inv-sheet-x, not .inv-sheet-x: members.css's .mk-icon-btn (display, position) can load after this
+   file, and with the same weight it won, drawing the computer's corner button on phones too (a second close
+   button on the pay sheets, 16 Nov 2026) */
+.mk-icon-btn.inv-sheet-x{display:none}
 @media (min-width:768px){
   .mk-sheet.inv-sheet{left:50%;right:auto;top:50%;bottom:auto;transform:translate(-50%,-50%);width:480px;max-width:calc(100% - 40px);max-height:calc(100dvh - 40px);border:2px solid var(--ink);border-radius:20px;padding:32px;box-shadow:8px 8px 0 var(--ink)}
   .mk-sheet.inv-sheet.pay-sheet{width:520px}
   .inv-sheet .mk-grab{display:none}
-  .inv-sheet-x{display:flex;position:absolute;top:16px;right:16px}
+  .mk-icon-btn.inv-sheet-x{display:flex;position:absolute;top:16px;right:16px}
   .oi-sheet .oi-sh-h{font-size:32px}
   .oi-sheet .oi-sh-act{flex-direction:row;gap:12px}
   .oi-sheet .oi-sh-act .mk-btn{flex:1 1 0;width:auto}

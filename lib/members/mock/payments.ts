@@ -75,22 +75,28 @@ const PADEL: HostPaidPlan = {
   payersNote: "Jasmin paid, then left in time",
 };
 
-const PLANS: HostPaidPlan[] = [POLO, POTTERY, GIG, PADEL];
-
 const READY: GetPaid = { status: "ready", accountEnding: "4321", paused: null };
 
+const ZERO = { readyPence: 0, creditedPence: 0, creditBalancePence: 0 };
+
+// The Pottery money is the host's to choose with (16 Nov 2026: ready, Add to my credit or Withdraw to my bank).
+const POTTERY_READY: HostPaidPlan = { ...POTTERY, status: "ready", payoutOn: null };
+
 const SCENARIOS: Record<PaymentsScenario, HostPayments> = {
-  full: { getPaid: READY, heldPence: 4000, onItsWayPence: 3500, paidOutPence: 3600, plans: PLANS },
+  full: { getPaid: READY, heldPence: 4000, readyPence: 3500, creditedPence: 0, onItsWayPence: 0, paidOutPence: 3600, creditBalancePence: 1000, plans: [POLO, POTTERY_READY, GIG, PADEL] },
   attention: {
-    getPaid: { status: "needs-info", accountEnding: null, paused: { amountPence: 3500, dueOn: "2026-10-27T09:00:00Z" } },
+    getPaid: { status: "needs-info", accountEnding: null, paused: null },
     heldPence: 4000,
-    onItsWayPence: 3500,
+    readyPence: 3500,
+    creditedPence: 0,
+    onItsWayPence: 0,
     paidOutPence: 3600,
-    plans: PLANS.map((plan) => (plan.status === "on-its-way" ? { ...plan, status: "paused" as const } : plan)),
+    creditBalancePence: 0,
+    plans: [POLO, POTTERY_READY, GIG, PADEL],
   },
-  new: { getPaid: { status: "not-set-up", accountEnding: null, paused: null }, heldPence: 0, onItsWayPence: 0, paidOutPence: 0, plans: [] },
-  review: { getPaid: { status: "in-review", accountEnding: null, paused: null }, heldPence: 0, onItsWayPence: 0, paidOutPence: 0, plans: [] },
-  empty: { getPaid: READY, heldPence: 0, onItsWayPence: 0, paidOutPence: 0, plans: [] },
+  new: { getPaid: { status: "not-set-up", accountEnding: null, paused: null }, heldPence: 0, onItsWayPence: 0, paidOutPence: 0, ...ZERO, plans: [] },
+  review: { getPaid: { status: "in-review", accountEnding: null, paused: null }, heldPence: 0, onItsWayPence: 0, paidOutPence: 0, ...ZERO, plans: [] },
+  empty: { getPaid: READY, heldPence: 0, onItsWayPence: 0, paidOutPence: 0, ...ZERO, plans: [] },
 };
 
 export const EXAMPLE_HOST_PAYMENTS = SCENARIOS;

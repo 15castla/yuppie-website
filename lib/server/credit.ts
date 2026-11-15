@@ -1,15 +1,16 @@
 import "server-only";
 
 // Club Yuppie credit (Albert, 11 to 12 Nov 2026), server only. Credit is not money: it is added for a nomination the
-// committee approves (lib/server/nominations.ts) or by the club in Admin, and spent on Club events; it is never paid
-// out. Every change is a row in credit_ledger (+ added, - spent), so a balance is the sum of a member's rows and the
+// committee approves (lib/server/nominations.ts), by the club in Admin, or by a host who adds the money from a paid
+// plan to it (16 Nov 2026, lib/server/plan-payments.ts creditHostMoney), and spent on Club events and paid Open
+// Invite places; it is never paid out or turned back into cash. Every change is a row in credit_ledger (+ added, - spent), so a balance is the sum of a member's rows and the
 // history is the rows themselves. A row with a dedupe key is written once, however often it is asked for.
 
 import type { CreditRow } from "@/lib/members/nominate/types";
 import { serviceDb } from "./db";
 import { dayMonth, firstName, pounds } from "./format";
 
-export type CreditKind = "nomination" | "admin" | "booking" | "refund";
+export type CreditKind = "nomination" | "admin" | "booking" | "refund" | "earnings" | "plan";
 
 type One<T> = T | T[] | null;
 type LedgerRow = {
@@ -37,6 +38,9 @@ function labelFor(row: LedgerRow): string {
   const title = one(one(row.booking)?.event ?? null)?.title?.trim();
   if (row.kind === "booking" && title) return title;
   if (row.kind === "refund" && title) return `${title}, cancelled`;
+  // Paid Open Invite (16 Nov 2026): the plan's title is the note ("Padel", "Padel, refunded").
+  if (row.kind === "earnings") return row.note?.trim() ? `From ${row.note.trim()}` : "From a paid plan";
+  if (row.kind === "plan") return row.note?.trim() || "An Open Invite plan";
   if (row.kind === "nomination") {
     const name = firstName(app?.full_name);
     return name ? `${name}’s nomination` : "A nomination";
@@ -114,22 +118,33 @@ export async function adjustCreditByAdmin(input: { memberId: string; amountPence
  * member). strict: all of it or nothing (-1: not enough). Not strict: what they have, up to `pence` (a card payment
  * that already went through for the rest). Answers the pence taken.
  */
-export async function spendCredit(input: { memberId: string; pence: number; key: string; bookingId?: string | null; strict: boolean }): Promise<number> {
+export async function spendCredit(input: {
+  memberId: string;
+  pence: number;
+  key: string;
+  bookingId?: string | null;
+  strict: boolean;
+  /** booking (a Club event) or plan (a paid Open Invite place, with its title as the note). */
+  kind?: "booking" | "plan";
+  note?: string | null;
+}): Promise<number> {
   const { data, error } = await serviceDb().rpc("spend_credit", {
     p_member: input.memberId,
     p_pence: input.pence,
     p_key: input.key,
     p_booking: input.bookingId ?? null,
     p_strict: input.strict,
+    p_kind: input.kind ?? "booking",
+    p_note: input.note ?? null,
   });
   if (error) throw error;
   return typeof data === "number" ? data : Number(data ?? 0);
 }
 
 /** Put back credit taken for something that did not happen (a booking that could not be made). Once per key. */
-export async function giveBackCredit(memberId: string, pence: number, key: string, bookingId: string | null = null): Promise<void> {
+export async function giveBackCredit(memberId: string, pence: number, key: string, bookingId: string | null = null, note: string | null = null): Promise<void> {
   if (pence <= 0) return;
-  const saved = await addCredit({ memberId, amountPence: pence, kind: "refund", dedupeKey: key, bookingId });
+  const saved = await addCredit({ memberId, amountPence: pence, kind: "refund", dedupeKey: key, bookingId, note });
   if (!saved.ok) throw new Error(saved.error);
 }
 

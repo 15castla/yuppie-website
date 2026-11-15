@@ -421,14 +421,19 @@ export type PlanRefundKeptData = {
 
 /** The host's money on a paid plan: someone paid, someone asked for a refund, the money is on its way. */
 export type PlanHostMoneyData = {
-  kind: "paid" | "refund-asked" | "payout";
-  plan: EmailPlan;
+  /**
+   * paid: someone paid. refund-asked: a member asked for their money back. payout: the plan is over and the money is
+   * the host's, to add to their credit or withdraw (16 Nov 2026; was "on its way"). reminder: it is still waiting.
+   */
+  kind: "paid" | "refund-asked" | "payout" | "reminder";
+  /** Every kind but reminder (which is about all the host's money waiting). */
+  plan?: EmailPlan;
   /** paid and refund-asked: the member's first name. */
   memberName?: string;
   amount: string;
-  /** payout: the day it should reach the bank, "Wed 18 Nov". */
+  /** Unused since 16 Nov 2026 (nothing is paid out by itself). */
   payoutDay?: string;
-  /** paid and payout: You > Payments. refund-asked: the plan's payments page, where the host answers. */
+  /** paid, payout and reminder: You > Payments. refund-asked: the plan's payments page, where the host answers. */
   url: EmailLink;
 };
 

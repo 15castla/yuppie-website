@@ -133,12 +133,9 @@ function MoneyTile({ invite, state }: { invite: OpenInvite; state: PlanState }) 
   );
 }
 
-const GET_PAID_LINE = {
-  "not-set-up": { text: "Get paid is not set up", tone: "warn" },
-  "needs-info": { text: "Get paid needs more info", tone: "warn" },
-  "in-review": { text: "Get paid is in review", tone: "warn" },
-  ready: { text: "Get paid is ready", tone: "ok" },
-} as const;
+// Since 16 Nov 2026 a host needs nothing set up to take payments: the money is theirs once the plan is over, to add
+// to their credit or withdraw (Get paid then). So the line says where the money goes, never "not set up".
+const MONEY_LINE = { text: "Yours once the plan is over", tone: "ok" } as const;
 
 /** The host's Money block on their own paid plan. */
 function MoneyOwn({ invite }: { invite: OpenInvite }) {
@@ -146,7 +143,7 @@ function MoneyOwn({ invite }: { invite: OpenInvite }) {
   if (!money) return null;
   const paid = money.payments.filter((payment) => payment.status !== "refunded");
   const total = paid.reduce((sum, payment) => sum + payment.amountPence, 0);
-  const line = GET_PAID_LINE[money.getPaid];
+  const line = MONEY_LINE;
   return (
     <div className="oi-sec">
       <div className="mk-sh">
@@ -160,10 +157,10 @@ function MoneyOwn({ invite }: { invite: OpenInvite }) {
               <b>
                 {paid.length} paid, {gbp(total)}.
               </b>{" "}
-              Paid out about 2 days after the plan.
+              Yours once the plan is over: add it to your credit or withdraw it.
             </>
           ) : (
-            "Nobody has paid yet. Paid out about 2 days after the plan."
+            "Nobody has paid yet. What members pay is yours once the plan is over."
           )}
         </p>
         {paid.length > 0 ? (

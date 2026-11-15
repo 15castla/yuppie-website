@@ -22,7 +22,7 @@ import type { PaymentRefund, Receipt } from "@/lib/members/invite/types";
 import { openInviteHref } from "@/lib/members/routes";
 import { BarMessages } from "@/components/members/invite/top-block";
 import { useShell } from "@/components/members/shell/shell-context";
-import { BACK_5_10, MoneyList } from "./pay-parts";
+import { MoneyList, refundSplit, refundWhere } from "./pay-parts";
 import { emailReceiptAction } from "@/app/members/open-invite/pay-actions";
 import { goToSessionEnded, isSessionEnded } from "@/components/members/session-ended";
 
@@ -80,7 +80,7 @@ export function ReceiptView({ receipt, live = false }: { receipt: Receipt; live?
     ? [
         {
           icon: "undo" as const,
-          text: `Your ${gbp(refund.amountPence)} is on its way back to your card. It usually lands in ${BACK_5_10}, by ${formatDay(refund.expectedBy)}.`,
+          text: refundWhere(refundSplit(payment, refund.amountPence), `, by ${formatDay(refund.expectedBy)}`),
         },
         { icon: "check" as const, text: "Nothing more to pay." },
       ]
@@ -127,6 +127,7 @@ export function ReceiptView({ receipt, live = false }: { receipt: Receipt; live?
                 <Line label="Host" value={host} />
                 <Line label="Paid by" value={receipt.paidBy} />
                 <Line label="Paid with" value={payment.method} />
+                {payment.creditPence && !payment.method.includes("credit") ? <Line label="Credit used" value={gbp(payment.creditPence)} /> : null}
                 <Line label="Paid on" value={formatWhen(payment.paidAt)} />
                 {fee ? (
                   <>

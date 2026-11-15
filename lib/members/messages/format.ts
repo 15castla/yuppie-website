@@ -178,7 +178,8 @@ export function updateText(update: UpdateItem, now: string): string {
     case "refunded":
       return `${pounds(update.refundMinor ?? 0)} refunded for ${title}`;
     case "payout":
-      return `${pounds(update.refundMinor ?? 0)} on its way for ${title}`;
+      // The plan is over and the money is the host's (16 Nov 2026).
+      return `${pounds(update.refundMinor ?? 0)} from ${title} is yours`;
   }
 }
 
@@ -207,7 +208,7 @@ export function updateDetail(update: UpdateItem): string {
     case "refunded":
       return "Back on your card in 5 to 10 working days";
     case "payout":
-      return "In your bank in about 2 working days";
+      return "Add it to your credit or withdraw it to your bank";
   }
 }
 

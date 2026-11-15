@@ -351,11 +351,12 @@ export function londonToday(now: Date = new Date()): string {
 }
 
 export async function newInviteContext(viewer: Viewer, now: Date = new Date(), { backFromStripe = false }: { backFromStripe?: boolean } = {}): Promise<NewOpenInviteContext> {
-  // Get paid (Stripe Connect): asked of Stripe again unless it is ready, so a host back from Stripe can add a cost.
+  // Get paid (Stripe Connect): no longer needed to add a cost (16 Nov 2026), so Stripe is only asked again when the
+  // host is back from it; otherwise the last known status (no Stripe call on every visit to the form).
   const [me, getPaid] = await Promise.all([
     peopleRefs([viewer.id]),
     paidPlansLive()
-      ? getPaidFor(viewer.id, { fresh: backFromStripe ? "now" : true })
+      ? getPaidFor(viewer.id, { fresh: backFromStripe ? "now" : false })
       : Promise.resolve<GetPaid>({ status: "not-set-up", accountEnding: null, paused: null }),
   ]);
   return { me: me.get(viewer.id)!, getPaid, today: londonToday(now), now: now.toISOString() };
@@ -423,13 +424,8 @@ export function checkNewInvite(input: NewOpenInvite, now: Date): { errors: PlanF
   return { errors, error, startsAt };
 }
 
-/** A cost needs the host's Get paid ready (the post form's last cost rule, on the server). */
-async function costNeedsGetPaid(viewer: Viewer, input: NewOpenInvite, errors: PlanFieldErrors): Promise<void> {
-  if (!input?.cost || errors.price || !paidPlansLive()) return;
-  const status = (await getPaidStatuses([viewer.id])).get(viewer.id);
-  const ready = status === "ready" || (await getPaidFor(viewer.id, { fresh: true })).status === "ready";
-  if (!ready) errors.getPaid = COST_ERROR.getPaid;
-}
+// A cost no longer needs Get paid (16 Nov 2026, Albert: "the vinted way"): the host is asked for it only when they
+// withdraw their money to their bank (lib/server/plan-payments.ts withdrawHostMoney).
 
 export type PostInviteResult =
   | { ok: true; id: string; invite: OpenInvite }
@@ -437,7 +433,6 @@ export type PostInviteResult =
 
 export async function postOpenInvite(viewer: Viewer, input: NewOpenInvite, now: Date = new Date()): Promise<PostInviteResult> {
   const check = checkNewInvite(input, now);
-  await costNeedsGetPaid(viewer, input, check.errors);
   if (Object.keys(check.errors).length || check.error || !check.startsAt) return { ok: false, errors: check.errors, error: check.error };
   const { data, error } = await serviceDb().rpc("post_plan_priced", {
     p_host: viewer.id,
@@ -471,8 +466,6 @@ export async function editOpenInvite(viewer: Viewer, planId: string, input: NewO
   const row = await planById(planId);
   if (!row || row.host_id !== viewer.id) return { ok: false, error: NOT_FOUND, invite: null };
   const check = checkNewInvite(input, now);
-  // A new cost (or a cost on a plan that had none) needs Get paid; an unchanged one does not ask Stripe again.
-  if (input?.cost && input.cost.pricePence !== row.price_pence) await costNeedsGetPaid(viewer, input, check.errors);
   if (Object.keys(check.errors).length || check.error || !check.startsAt) {
     return { ok: false, error: check.error ?? "Check the details and try again.", errors: check.errors, invite: await inviteFor(viewer, planId, now) };
   }

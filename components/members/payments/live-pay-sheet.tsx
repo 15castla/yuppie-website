@@ -8,6 +8,8 @@
 //      (3-D Secure) is Stripe's own window over the sheet, or a page the browser leaves for and comes back from.
 //   3. confirmPlanPaymentAction: the server takes the place under the plan's lock, then the money. A plan that
 //      filled first, or a price that changed, lets the card go: "That was the last place" or "The price changed".
+// Club Yuppie credit (16 Nov 2026) comes off first: the card pays what is left, and a member whose credit covers it
+// all pays with one tap and no card ("credit": payPlanWithCreditAction).
 // Closing the sheet without paying gives the place back at once (releasePlanHoldAction). A member who leaves for
 // the bank's page comes back to the plan with ?payment_intent=... and the page opens this sheet on "Checking your
 // payment" (resume).
@@ -27,6 +29,7 @@ import type { OpenInvite } from "@/lib/members/invite/types";
 import { memberPricePence } from "@/lib/members/invite/format";
 import {
   confirmPlanPaymentAction,
+  payPlanWithCreditAction,
   releasePlanHoldAction,
   startPlanPaymentAction,
   type ConfirmPayAnswer,
@@ -74,11 +77,59 @@ export function LivePaySheet({
   const [state, setState] = useState<PayState>(resume ? "checking" : "opening");
   const [secret, setSecret] = useState<string | null>(null);
   const [paying, setPaying] = useState(listed);
+  // The member's credit put towards it, and (credit covers it all) what they'll have left.
+  const [creditPence, setCreditPence] = useState(0);
+  const [creditLeft, setCreditLeft] = useState(0);
   const [newPrice, setNewPrice] = useState(listed);
   const [declined, setDeclined] = useState<string | null>(null);
   const [stripe, setStripe] = useState<Stripe | null>(null);
   const done = useRef(false);
   const heldAt = useRef(0);
+
+  const open = useCallback(async () => {
+    setState("opening");
+    setSecret(null);
+    setDeclined(null);
+    try {
+      const result = await startPlanPaymentAction(invite.id);
+      if (isSessionEnded(result)) return goToSessionEnded();
+      if (result.ok && "credit" in result) {
+        heldAt.current = Date.now();
+        setCreditPence(result.creditPence);
+        setCreditLeft(result.creditLeftPence);
+        setPaying(result.creditPence);
+        setState("credit");
+        return;
+      }
+      if (result.ok) {
+        heldAt.current = Date.now();
+        setSecret(result.clientSecret);
+        setPaying(result.amountPence);
+        setCreditPence(result.creditPence);
+        setState("ready");
+        return;
+      }
+      if ("kind" in result) {
+        onFresh(result.invite);
+        if (result.kind === "full") {
+          done.current = true;
+          setState("full");
+          return;
+        }
+        if (result.kind === "already-in") {
+          done.current = true;
+          setState("success");
+          return;
+        }
+        done.current = true;
+        onRefused(result.error);
+        return;
+      }
+      setState("load-error");
+    } catch {
+      setState("load-error");
+    }
+  }, [invite.id, onFresh, onRefused]);
 
   const answer = useCallback(
     (result: ConfirmPayAnswer | SessionEnded | Failed) => {
@@ -110,12 +161,15 @@ export function LivePaySheet({
       } else if (result.kind === "pending") {
         done.current = true;
         setState("pending");
+      } else if (result.kind === "credit-changed") {
+        // Their credit was spent elsewhere meanwhile: nothing taken, open payment again with what there is now.
+        setTimeout(() => void open(), 0);
       } else {
         done.current = true;
         onRefused(result.error);
       }
     },
-    [listed, feePence, onFresh, onPaid, onRefused],
+    [listed, feePence, onFresh, onPaid, onRefused, open],
   );
 
   const check = useCallback(
@@ -131,41 +185,15 @@ export function LivePaySheet({
     [answer, invite.id],
   );
 
-  const open = useCallback(async () => {
-    setState("opening");
-    setSecret(null);
-    setDeclined(null);
+  const payWithCredit = useCallback(async () => {
+    setState("credit-paying");
     try {
-      const result = await startPlanPaymentAction(invite.id);
-      if (isSessionEnded(result)) return goToSessionEnded();
-      if (result.ok) {
-        heldAt.current = Date.now();
-        setSecret(result.clientSecret);
-        setPaying(result.amountPence);
-        setState("ready");
-        return;
-      }
-      if ("kind" in result) {
-        onFresh(result.invite);
-        if (result.kind === "full") {
-          done.current = true;
-          setState("full");
-          return;
-        }
-        if (result.kind === "already-in") {
-          done.current = true;
-          setState("success");
-          return;
-        }
-        done.current = true;
-        onRefused(result.error);
-        return;
-      }
-      setState("load-error");
+      answer(await payPlanWithCreditAction(invite.id));
     } catch {
-      setState("load-error");
+      done.current = true;
+      setState("pending");
     }
-  }, [invite.id, onFresh, onRefused]);
+  }, [answer, invite.id]);
 
   // Once: open payment, or check the one the bank sent the member back with (after the first paint; a second
   // mount in development cancels the first one's timer, so it still happens once).
@@ -202,9 +230,9 @@ export function LivePaySheet({
 
   // The 10 minutes: once they are up (and nothing is being paid), the place is no longer held.
   useEffect(() => {
-    if (state !== "ready" && state !== "declined") return;
+    if (state !== "ready" && state !== "declined" && state !== "credit") return;
     const left = heldAt.current + HOLD_MS - Date.now();
-    const timer = setTimeout(() => setState((now) => (now === "ready" || now === "declined" ? "hold-expired" : now)), Math.max(0, left));
+    const timer = setTimeout(() => setState((now) => (now === "ready" || now === "declined" || now === "credit" ? "hold-expired" : now)), Math.max(0, left));
     return () => clearTimeout(timer);
   }, [state]);
 
@@ -214,7 +242,7 @@ export function LivePaySheet({
     onClose();
   }, [invite.id, onClose]);
 
-  const dismissable = state !== "paying" && state !== "checking" && state !== "bank";
+  const dismissable = state !== "paying" && state !== "checking" && state !== "bank" && state !== "credit-paying";
   const render = (fields: ReactNode | undefined, ready: boolean, onPay: () => void, onCancelBank: () => void) => (
     <Sheet labelledBy={id} onClose={close} dismissable={dismissable} variant="pay">
       <PayBody
@@ -223,6 +251,9 @@ export function LivePaySheet({
         invite={invite}
         listed={listed}
         feePence={feePence}
+        creditPence={creditPence}
+        creditLeftPence={creditLeft}
+        onPayCredit={() => void payWithCredit()}
         paying={paying}
         newPricePence={newPrice}
         seeOtherHref={seeOtherHref}

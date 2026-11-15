@@ -306,3 +306,9 @@ button.pay-apple:disabled{cursor:progress}
 @media (prefers-reduced-motion:reduce){.pay-loading{animation:none}}
 .pay-stripe{margin-top:16px;min-height:120px}
 .pay-bank-fields{display:none}
+
+/* ---- 15. the host's money (16 Nov 2026): the "Your money" card's two buttons, and what sits under it in the slot */
+.pay-money-act{display:grid;gap:10px}
+.pay-slot > * + *{margin-top:20px}
+.pay-slimwrap > * + *{margin-top:16px}
+.pay-slimwrap .pay-none{display:flex;align-items:center;gap:8px}
