@@ -5,6 +5,8 @@ import { billingPortalUrl } from "@/lib/server/membership-actions";
 import { requireMember } from "../require-member";
 
 export const dynamic = "force-dynamic";
+// The same time limit as every page (app/layout.tsx), so this shares their warm server function.
+export const maxDuration = 60;
 
 // GET /members/billing: straight to the Stripe Billing Portal (r2c: the
 // payment-failed email's "Update card" links here). Opens on "update payment

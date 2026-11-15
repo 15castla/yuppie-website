@@ -7,6 +7,8 @@ import { getPaidLink } from "@/lib/server/plan-payments";
 import { requireMember } from "../../../require-member";
 
 export const dynamic = "force-dynamic";
+// The same time limit as every page (app/layout.tsx), so this shares their warm server function.
+export const maxDuration = 60;
 
 // GET /members/you/payments/stripe: "Continue to Stripe" (Get paid) and "Manage on Stripe" (15 Nov 2026). Makes the
 // host's connected account the first time, then a one-use link to Stripe's hosted onboarding (or, with ?manage=1 once

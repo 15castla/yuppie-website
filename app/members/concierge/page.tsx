@@ -11,8 +11,9 @@ import { ConciergeConsentView } from "@/components/members/concierge/concierge-c
 import { landingPath } from "@/lib/members/routes";
 import { agreeToConcierge, forgetAllConciergeMemory, forgetConciergeMemory, sendConciergeMessage, turnOffConcierge } from "./actions";
 
-// A reply checks places on the web first, which can take a while: the page's server actions get up to a minute.
-export const maxDuration = 60;
+// A reply checks places on the web first, which can take a while: the page's server actions get up to a minute,
+// from the 60s limit every page shares (app/layout.tsx). Not set here: a page with its own limit gets a server
+// function of its own, which was cold on most taps.
 
 // The Concierge: an AI that recommends places and never books. App only, behind flags.concierge (a 404 on the
 // web and with the flag off; the checks run before anything about the member is read).

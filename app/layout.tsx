@@ -5,6 +5,13 @@ import { SiteNav } from "@/components/templates/creative-studio/site-nav";
 import { NATIVE_APP_COOKIE_NAME } from "@/lib/native-app";
 import "./globals.css";
 
+// One time limit for every page (and the members' route handlers), so Vercel keeps them all in one server
+// function that stays warm. A page with its own limit gets a function to itself: the Concierge had one (60s, for
+// its replies) and, opened rarely, it was cold on most taps (15 Nov 2026: "a bit of a lag ... particularly when
+// you tap Concierge"). 60s covers a Concierge reply; a normal page takes well under a second, so the limit only
+// matters if something hangs. A route handler that sets its own limit must use the same 60.
+export const maxDuration = 60;
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
