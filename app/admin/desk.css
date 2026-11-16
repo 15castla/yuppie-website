@@ -47,6 +47,13 @@
 .dk-btn.sm{height:26px;padding:0 9px;font-size:12px}
 .dk-btn.link{border:0;padding:0 2px;height:auto;text-decoration:underline;text-underline-offset:3px;border-radius:0}
 .dk-btn.link:hover{background:none;color:var(--yellow)}
+/* sending (components/admin/desk/submit.tsx): the button pressed keeps its colour and says what is happening; the
+   form's other buttons fade so nothing is sent twice */
+.dk-btn:disabled{cursor:default;opacity:.45}
+.dk-btn:not(.primary,.danger,.link):disabled:hover{background:transparent}
+.dk-btn.primary:disabled:not([aria-busy=true]):hover{opacity:.45}
+.dk-btn[aria-busy=true]{opacity:1;cursor:progress}
+.dk-sending{font-size:12px;color:var(--dk-dim)}
 .dk input[type=text],.dk input[type=email],.dk input[type=search],.dk input[type=date],.dk input[type=datetime-local],.dk input[type=url],.dk input[type=file],.dk select,.dk textarea{
   width:100%;min-height:34px;padding:6px 9px;border:1px solid var(--dk-field-line);border-radius:6px;background:var(--dk-field);color:var(--dk-fg);
   font:400 13px/1.35 var(--font-body);color-scheme:dark}

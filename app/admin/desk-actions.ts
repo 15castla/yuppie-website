@@ -676,7 +676,7 @@ export async function deskImport(fd: FormData): Promise<void> {
   if (!parsed.ok) go("/admin/desk/settings", "error", "bad_file");
   const result = await importDesk(serviceDb(), parsed.data);
   await audit(owner.id, "desk.import", { type: "outreach_import", id: null }, result);
-  go("/admin/desk/settings", "done", "imported");
+  go("/admin/desk/settings", "done", result.targets === 0 && result.skipped > 0 ? "import_nothing_new" : "imported");
 }
 
 /** Rates a reply: positive, neutral or negative (the positive rate counts the first reply of each approach). */

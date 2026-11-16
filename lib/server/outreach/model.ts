@@ -271,7 +271,8 @@ export const DONE_WORDS: Record<string, string> = {
   action: "Action point saved.",
   action_done: "Done.",
   followup: "Follow-up saved.",
-  imported: "Imported.",
+  imported: "Imported. Your partners are on the Blotter and in Partners.",
+  import_nothing_new: "Nothing new: every partner in that file is already in the desk.",
 };
 
 /** What the desk says when an action is refused (?error=<code>). */

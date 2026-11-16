@@ -1,6 +1,6 @@
 import { requireOwner } from "@/app/admin/require-owner";
 import { ImportForm } from "@/components/admin/desk/import-form";
-import { DeskShell, type SearchParams } from "@/components/admin/desk/shell";
+import { DeskShell, one, type SearchParams } from "@/components/admin/desk/shell";
 import { serviceDb } from "@/lib/server/db";
 
 // Desk settings (17 Nov 2026): the copy from the outreach log, and what's coming (the Outlook connection in Phase
@@ -36,7 +36,8 @@ export default async function DeskSettingsPage({ searchParams }: { searchParams:
           <h2 id="i-h">Import the outreach log</h2>
         </div>
         <div style={{ paddingTop: 12 }}>
-          <ImportForm />
+          {/* a fresh form after each import, so the last file's preview and button don't linger */}
+          <ImportForm key={one(sp, "done") ?? one(sp, "error") ?? "pick"} />
         </div>
       </section>
       <section className="dk-panel" aria-labelledby="n-h">

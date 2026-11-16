@@ -16,6 +16,7 @@ import {
 } from "@/lib/server/outreach/model";
 import { addWorkingDays, ukDate } from "@/lib/server/outreach/rules";
 import { dateWords, dayWords, shortDate, stampWords, timeWords } from "./format";
+import { DeskSubmit } from "./submit";
 
 // The desk home's pieces (17 Nov 2026): the KPI strip, the Due today list and the blotter. Server components;
 // every button is a plain form posting to a desk action, so the page works before any JavaScript loads.
@@ -88,17 +89,17 @@ function FollowupButtons({ id, back, today }: { id: string; back: string; today:
           Snooze until
         </label>
         <input id={`snooze-${id}`} type="date" name="until" defaultValue={addWorkingDays(today, 1)} min={addWorkingDays(today, 1)} />
-        <button className="dk-btn sm" type="submit">
+        <DeskSubmit className="dk-btn sm" busy="Snoozing…">
           Snooze
-        </button>
+        </DeskSubmit>
       </form>
       <form action={deskFollowup}>
         <input type="hidden" name="followup" value={id} />
         <input type="hidden" name="back" value={back} />
         <input type="hidden" name="op" value="skip" />
-        <button className="dk-btn sm" type="submit">
+        <DeskSubmit className="dk-btn sm" busy="Skipping…">
           Skip
-        </button>
+        </DeskSubmit>
       </form>
     </>
   );
@@ -152,9 +153,9 @@ export function DueList({ items, back, empty = "Nothing due. Nothing late." }: {
                   <input type="hidden" name="action" value={item.id} />
                   <input type="hidden" name="back" value={back} />
                   <input type="hidden" name="op" value="done" />
-                  <button className="dk-btn sm" type="submit">
+                  <DeskSubmit className="dk-btn sm" busy="Saving…">
                     Done
-                  </button>
+                  </DeskSubmit>
                 </form>
               </span>
             </li>

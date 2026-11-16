@@ -10,7 +10,8 @@
 //     skip, pause, resume and stop; the KPIs, the blotter and Today on the pages;
 //   privacy: opted-out people can't be written to; deleting a person clears their address and words; deleting a
 //     partner removes everything; the audit rows hold ids and counts, never a name or an address;
-//   the import: a file is imported once (a second import changes nothing).
+//   the import: a file is imported once (a second import changes nothing and says so); six partners at once each keep
+//     their own history and dates.
 //   node tests/e2e/phase-b/24-outreach-desk.mjs     (needs: seed.mjs --prefix bf. and --prefix dk.; bf. the owner)
 import fs from 'node:fs';
 import {
@@ -32,7 +33,8 @@ ok(jwtClaims(owner.access_token).aal === 'aal2' && jwtClaims(other.access_token)
 
 const run = (name, fields, session = owner) => action(DESK(name), [fd(fields)], session);
 const idFrom = (redirect) => /\/admin\/desk\/t\/([0-9a-f-]{36})/.exec(redirect ?? '')?.[1];
-const counts = () => sql1(`select (select count(*) from outreach_targets)::int t, (select count(*) from outreach_contacts)::int c, (select count(*) from outreach_touches)::int x,
+// (not "t": the helper wraps the query as a subquery named t, and a column t would be taken for the row)
+const counts = () => sql1(`select (select count(*) from outreach_targets)::int tg, (select count(*) from outreach_contacts)::int c, (select count(*) from outreach_touches)::int x,
   (select count(*) from outreach_outcomes)::int o, (select count(*) from outreach_followups)::int f, (select count(*) from outreach_notes)::int n, (select count(*) from outreach_actions)::int a`);
 
 // ============================================================================================ the record
@@ -284,9 +286,32 @@ eq(sql1(`select is_first_reply, reply_seconds from outreach_outcomes where targe
 const beforeAgain = counts();
 r = await action(DESK('deskImport'), [imp], owner);
 eq(counts(), beforeAgain, 'a second import of the same file changes nothing');
+ok(r.redirect?.endsWith('?done=import_nothing_new'), 'and says so ("Nothing new")', r);
+// several partners go in a few at a time (16 Nov: the live import was slow); each keeps its own history and dates
+const many = {
+  format: 'club-yuppie-desk-import', version: 1,
+  targets: Array.from({ length: 6 }, (_, i) => ({
+    key: `${MARK}-m${i}`, name: `${MARK} Many ${i}`, category: 'bar', stage: 'contacted',
+    contacts: [{ key: `${MARK}-m${i}-c`, name: `${MARK} Manager ${i}`, mailbox_type: 'named_person', email: `${MARK.toLowerCase()}.m${i}@example-many.test`, email_source: 'published' }, { key: `${MARK}-m${i}-c2`, name: `${MARK} Owner ${i}`, mailbox_type: 'founder', email: `${MARK.toLowerCase()}.o${i}@example-many.test`, email_source: 'published' }],
+    touches: [{ key: `${MARK}-m${i}-e`, sequence: `${MARK}-m${i}-e`, channel: 'email', kind: 'first', sent_at: `2026-11-1${i % 3}T09:00:00Z`, to: [`${MARK}-m${i}-c`], cc: [`${MARK}-m${i}-c2`] }],
+    outcomes: [], notes_list: [{ key: `${MARK}-m${i}-n`, kind: 'note', happened_at: '2026-11-13T09:00:00Z', body: 'A' }, { key: `${MARK}-m${i}-n2`, kind: 'note', happened_at: '2026-11-13T10:00:00Z', body: 'B' }],
+    actions: [{ key: `${MARK}-m${i}-a`, kind: 'task', title: 'One', due_on: '2026-11-20' }, { key: `${MARK}-m${i}-a2`, kind: 'task', title: 'Two', due_on: '2026-11-21' }],
+  })),
+};
+const beforeMany = counts();
+r = await action(DESK('deskImport'), [fileArg({}, { file: { name: 'many.json', type: 'application/json', base64: Buffer.from(JSON.stringify(many)).toString('base64') } })], owner);
+ok(r.redirect?.endsWith('?done=imported'), 'Import of six partners: done', r);
+const afterMany = counts();
+eq({ t: afterMany.tg - beforeMany.tg, c: afterMany.c - beforeMany.c, x: afterMany.x - beforeMany.x, f: afterMany.f - beforeMany.f, n: afterMany.n - beforeMany.n, a: afterMany.a - beforeMany.a },
+  { t: 6, c: 12, x: 6, f: 6, n: 12, a: 12 }, 'all six, each with its two contacts, its email, its follow-up, two notes and two action points');
+eq(sql(`select t.import_key k, f.due_on::text d, t.stage s, (select count(*) from outreach_touch_recipients r join outreach_touches x on x.id = r.touch_id where x.target_id = t.id)::int r
+  from outreach_targets t join outreach_followups f on f.target_id = t.id where t.import_key like ${q(`${MARK}-m%`)} order by t.import_key`).map((x) => `${x.k.slice(-2)} ${x.d} ${x.s} ${x.r}`),
+  ['m0 2026-11-19 contacted 2', 'm1 2026-11-20 contacted 2', 'm2 2026-11-23 contacted 2', 'm3 2026-11-19 contacted 2', 'm4 2026-11-20 contacted 2', 'm5 2026-11-23 contacted 2'],
+  'each follow-up 7 working days after its own email (10th to 19th, 11th to 20th, 12th to 23rd), to and cc kept');
+const beforeBad = counts();
 const bad = fileArg({}, { file: { name: 'bad.json', type: 'application/json', base64: Buffer.from(JSON.stringify({ format: 'club-yuppie-desk-import', version: 1, targets: [{ key: 'x', name: 'X', category: 'pubs' }] })).toString('base64') } });
 r = await action(DESK('deskImport'), [bad], owner);
-ok(r.redirect?.endsWith('?error=bad_file') && JSON.stringify(counts()) === JSON.stringify(beforeAgain), 'a file with a wrong value is refused whole');
+ok(r.redirect?.endsWith('?error=bad_file') && JSON.stringify(counts()) === JSON.stringify(beforeBad), 'a file with a wrong value is refused whole');
 
 // ============================================================================================ the audit trail
 const auditRows = sql(`select action, details::text as d, target_type from admin_audit where action like 'desk.%' and created_at > now() - interval '30 minutes'`);

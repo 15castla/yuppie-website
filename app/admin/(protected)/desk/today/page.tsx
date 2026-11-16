@@ -5,6 +5,7 @@ import { requireOwner } from "@/app/admin/require-owner";
 import { dateWords, dayWords, longDay, timeWords } from "@/components/admin/desk/format";
 import { DueList } from "@/components/admin/desk/panels";
 import { DeskShell, type SearchParams } from "@/components/admin/desk/shell";
+import { DeskSubmit } from "@/components/admin/desk/submit";
 import { dueItems } from "@/lib/server/outreach/compute";
 import { loadDesk } from "@/lib/server/outreach/desk";
 import { addWorkingDays, ukDate } from "@/lib/server/outreach/rules";
@@ -63,9 +64,9 @@ export default async function DeskTodayPage({ searchParams }: { searchParams: Pr
                   <input type="hidden" name="outcome" value={o.id} />
                   <input type="hidden" name="back" value="/admin/desk/today" />
                   {(["positive", "neutral", "negative"] as const).map((s) => (
-                    <button key={s} className="dk-btn sm" type="submit" name="sentiment" value={s}>
+                    <DeskSubmit key={s} className="dk-btn sm" name="sentiment" value={s} busy="Saving…">
                       {s === "positive" ? "Positive" : s === "neutral" ? "Neutral" : "Negative"}
-                    </button>
+                    </DeskSubmit>
                   ))}
                 </form>
               </li>

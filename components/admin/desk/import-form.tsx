@@ -8,6 +8,9 @@ import { useState } from "react";
 import { deskImport } from "@/app/admin/desk-actions";
 import { parseImport, type ImportFile } from "@/lib/server/outreach/import-format";
 import { CATEGORIES, STAGES } from "@/lib/server/outreach/model";
+import { DeskSubmit, WhileSending } from "./submit";
+
+const partners = (f: ImportFile) => `${f.targets.length} ${f.targets.length === 1 ? "partner" : "partners"}`;
 
 export function ImportForm() {
   const [file, setFile] = useState<ImportFile | null>(null);
@@ -77,9 +80,10 @@ export function ImportForm() {
         </div>
       )}
       <div className="dk-form-foot">
-        <button className="dk-btn primary" type="submit" disabled={!file}>
-          Import {file ? `${file.targets.length} partners` : ""}
-        </button>
+        <DeskSubmit className="dk-btn primary" disabled={!file} busy={file ? `Importing ${partners(file)}…` : "Importing…"}>
+          {file ? `Import ${partners(file)}` : "Import"}
+        </DeskSubmit>
+        <WhileSending className="dk-sending">Adding each partner and their history. This can take up to a minute, so keep this page open.</WhileSending>
       </div>
     </form>
   );
