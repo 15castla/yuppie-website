@@ -198,7 +198,7 @@ const STATUS_WORDS: Record<BlotterRow["status"], string> = {
 
 export function StatusChip({ status, sentiment }: { status: BlotterRow["status"]; sentiment?: BlotterRow["sentiment"] }) {
   const mark = status === "replied" ? (sentiment === "positive" ? " +" : sentiment === "negative" ? " -" : "") : "";
-  return <span className={`dk-chip ${status}${status === "replied" ? ` ${sentiment ?? "none"}` : ""}`}>{STATUS_WORDS[status] + mark}</span>;
+  return <span className={`dk-chip st ${status}${status === "replied" ? ` ${sentiment ?? "none"}` : ""}`}>{STATUS_WORDS[status] + mark}</span>;
 }
 
 function stepShort(row: BlotterRow): string {

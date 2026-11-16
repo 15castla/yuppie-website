@@ -120,6 +120,12 @@
 .dk-chip.stage.live,.dk-chip.stage.agreed{background:var(--success);color:var(--cream)}
 .dk-chip.stage.call_booked,.dk-chip.stage.in_talks,.dk-chip.stage.replied{border-color:var(--yellow);color:var(--yellow);background:transparent}
 .dk-chip.stage.declined,.dk-chip.stage.no_reply{background:var(--muted);color:var(--cream)}
+/* every chip in a column is one width (Albert, 16 Nov 2026: "why is sent and replied diff sizes"): each kind is as
+   wide as its longest word, so a column of them lines up whatever the rows */
+.dk-chip.st{min-width:92px}                 /* a status: "To confirm" */
+.dk-chip.stage{min-width:104px}             /* a stage: "Researching" */
+.dk-list > li > .dk-chip{min-width:92px}    /* a follow-up's status: "Scheduled" */
+.dk-due .tag .dk-tag{min-width:52px}        /* Late, Today, a day, Call */
 
 /* due list ----------------------------------------------------------------------------------------------- */
 .dk-due{list-style:none}
@@ -181,7 +187,8 @@
 .dk-list .t{font-weight:700}
 .dk-list .m{color:var(--dk-dim);font-size:12px;overflow-wrap:anywhere}
 .dk-tl{list-style:none}
-.dk-tl > li{display:grid;grid-template-columns:118px 98px minmax(0,1fr) auto;gap:4px 12px;padding:9px 0;border-bottom:1px solid var(--dk-rule);align-items:start}
+.dk-tl > li{display:grid;grid-template-columns:118px 112px minmax(0,1fr) auto;gap:4px 12px;padding:9px 0;border-bottom:1px solid var(--dk-rule);align-items:start}
+.dk-tl .c .dk-chip{width:112px}           /* the timeline's chips: "Asked to stop" */
 .dk-tl .d{color:var(--dk-dim);font-variant-numeric:tabular-nums;font-size:12px;padding-top:2px}
 .dk-tl .b{min-width:0}
 .dk-tl .b .t{font-weight:700}
