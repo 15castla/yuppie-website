@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 
 import { DONE_WORDS, ERROR_WORDS } from "@/lib/server/outreach/model";
 import { longDay, timeWords } from "./format";
+import { OutlookLine } from "./outlook";
 
 // The Outreach Desk's frame (17 Nov 2026): the dark main under the admin bar, the title with today's date, a
 // search for a partner (for an impromptu meeting), New partner, the desk's tabs and the line saying what just
@@ -55,6 +56,7 @@ export function DeskShell({ current, sp, children, right }: { current: DeskTab |
             <span>
               <b>{longDay(now)}</b> {timeWords(now.toISOString())}
             </span>
+            <OutlookLine />
           </p>
           <div className="dk-top-r">
             {right}

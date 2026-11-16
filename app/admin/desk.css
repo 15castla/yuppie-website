@@ -220,3 +220,25 @@
 /* the import preview ------------------------------------------------------------------------------------- */
 .dk-problems{margin-top:10px;padding:10px 12px;border:1px solid var(--error);border-radius:6px;max-height:280px;overflow:auto}
 .dk-problems li{margin-left:16px;font-size:12px}
+
+/* the Outlook connection (Phase 2, 16 Nov 2026) ----------------------------------------------------------------- */
+.dk .warn,.dk .warn a{color:var(--yellow)}
+.dk-meta a{text-decoration:none}
+.dk-meta a:hover{text-decoration:underline;text-underline-offset:3px}
+.dk-inline{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.dk-inline select{width:auto;max-width:240px;min-height:28px;padding:2px 6px;font-size:12px}
+.dk-inline small.hint{color:var(--dk-faint)}
+.dk-fu-text{margin-top:8px}
+.dk-fu-text > .dk-drawer{width:100%}
+.dk-fu-state{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:12px;color:var(--dk-dim)}
+.dk-fu-state.err{color:var(--yellow)}
+.dk-fu-state a{color:var(--dk-fg)}
+.dk-outlook{display:grid;gap:12px}
+.dk-outlook p{max-width:72ch}
+.dk-outlook code{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--dk-field);padding:1px 5px;border-radius:4px}
+.dk-outlook small.hint{color:var(--dk-faint)}
+.dk-review > li{grid-template-columns:minmax(0,1fr)}
+.dk-review .m a,.dk-tl .m a{color:var(--dk-fg);text-decoration:underline;text-underline-offset:3px}
+.dk-review-acts{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:flex-start}
+.dk-review-acts > form{flex:0 1 auto;min-width:0;max-width:100%}
+.dk-due .what a{color:var(--dk-fg)}

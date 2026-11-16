@@ -174,7 +174,16 @@ export type Touch = {
   note: string | null;
   created_at: string;
   recipients: Recipient[];
+  // Phase 2, the Outlook connection
+  internet_message_id?: string | null;
+  conversation_id?: string | null;
+  attachments?: FileNote[];
+  guess_kind?: TouchKind | null;
+  candidate_targets?: string[];
 };
+
+/** What Outlook says was attached: a name and a size, never the file. */
+export type FileNote = { name: string; size: number | null; inline?: boolean };
 
 export type Outcome = {
   id: string;
@@ -198,6 +207,11 @@ export type Outcome = {
   is_first_reply: boolean;
   reply_seconds: number | null;
   created_at: string;
+  // Phase 2
+  match_method?: string;
+  attachments?: FileNote[];
+  hint?: "possible_opt_out" | "invite" | null;
+  candidate_targets?: string[];
 };
 
 export type Followup = {
@@ -212,6 +226,24 @@ export type Followup = {
   reason: string | null;
   touch_id: string | null;
   stale_draft: boolean;
+  // Phase 2: the Outlook draft the drafter made, and why the last try failed
+  draft_id?: string | null;
+  draft_link?: string | null;
+  draft_made_at?: string | null;
+  draft_error?: string | null;
+};
+
+/** The words of a follow-up that the drafter turns into an Outlook draft (Phase 2; Alex writes them in Phase 3). */
+export type DraftText = {
+  id: string;
+  target_id: string;
+  followup_id: string | null;
+  kind: "follow_up" | "january" | "reply";
+  subject: string | null;
+  body: string;
+  status: "written" | "drafted" | "discarded";
+  written_by: "albert" | "assistant";
+  updated_at: string;
 };
 
 export type Note = {
@@ -273,6 +305,13 @@ export const DONE_WORDS: Record<string, string> = {
   followup: "Follow-up saved.",
   imported: "Imported. Your partners are on the Blotter and in Partners.",
   import_nothing_new: "Nothing new: every partner in that file is already in the desk.",
+  linked: "Outlook linked. The drafter syncs at its next run.",
+  unlinked: "Outlook unlinked. The drafter can't reach the desk now.",
+  text: "Saved. The draft is made in Outlook the evening before it's due.",
+  text_removed: "Follow-up text removed.",
+  retry: "The draft will be made again at the next sync.",
+  confirmed: "Confirmed.",
+  ignored: "Ignored. It won't come back.",
 };
 
 /** What the desk says when an action is refused (?error=<code>). */
@@ -288,4 +327,7 @@ export const ERROR_WORDS: Record<string, string> = {
   confirm: "Tick the box to confirm.",
   bad_file: "That file couldn't be read. It should be the desk import file.",
   failed: "That didn't save. Try again.",
+  bad_fingerprint: "That isn't a fingerprint. Copy the 64 letters and numbers draft-partner-emails desk-link shows.",
+  not_open: "That follow-up isn't waiting any more.",
+  drafted_already: "The draft is already in Outlook. Edit it there.",
 };

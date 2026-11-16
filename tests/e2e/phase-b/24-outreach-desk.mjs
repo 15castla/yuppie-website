@@ -228,6 +228,15 @@ const ACTIONS = [
   ['deskSetAction', { action: act.id, op: 'reopen' }],
   ['deskFollowup', { followup: f4, op: 'resume' }],
   ['deskRateOutcome', { outcome: sql1(`select id from outreach_outcomes limit 1`).id, sentiment: 'negative' }],
+  // Phase 2, the Outlook connection
+  ['deskLinkDrafter', { fingerprint: 'a'.repeat(64) }],
+  ['deskUnlinkDrafter', {}],
+  ['deskSaveFollowupText', { followup: f4, body: `${MARK} intruder` }],
+  ['deskRetryDraft', { followup: f4 }],
+  ['deskConfirmOutcome', { outcome: sql1(`select id from outreach_outcomes limit 1`).id }],
+  ['deskIgnoreOutcome', { outcome: sql1(`select id from outreach_outcomes limit 1`).id }],
+  ['deskConfirmTouch', { touch: first.id, kind: 'first' }],
+  ['deskIgnoreTouch', { touch: first.id }],
 ];
 const snapshot = () => JSON.stringify([
   counts(),
@@ -236,6 +245,9 @@ const snapshot = () => JSON.stringify([
   sql(`select id, sentiment from outreach_outcomes order by id`),
   sql(`select id, status, snoozed_until from outreach_followups order by id`),
   sql(`select id, name, email from outreach_contacts order by id`),
+  sql(`select id, key_hash, revoked_at from outreach_drafter_keys order by id`),
+  sql(`select id, body from outreach_draft_texts order by id`),
+  sql(`select internet_message_id from outreach_ignored_messages order by 1`),
 ]);
 const was = snapshot();
 for (const [name, fields] of ACTIONS) {
@@ -252,7 +264,7 @@ for (const [label, sess, where] of WHO) {
 eq(snapshot(), was, 'every refused action changed nothing');
 
 // REST: nobody but the service role reads a row
-for (const table of ['outreach_targets', 'outreach_contacts', 'outreach_touches', 'outreach_touch_recipients', 'outreach_outcomes', 'outreach_followups', 'outreach_notes', 'outreach_actions', 'outreach_stage_history']) {
+for (const table of ['outreach_targets', 'outreach_contacts', 'outreach_touches', 'outreach_touch_recipients', 'outreach_outcomes', 'outreach_followups', 'outreach_notes', 'outreach_actions', 'outreach_stage_history', 'outreach_drafter_keys', 'outreach_sync_runs', 'outreach_draft_texts', 'outreach_ignored_messages']) {
   for (const [label, sess] of [['anon', null], ['a member', memberSess], ['another admin', other], ['the owner\u2019s own session', owner]]) {
     const res = await rest('GET', `${table}?select=*&limit=1`, sess);
     ok(res.status !== 200 || (Array.isArray(res.json) && res.json.length === 0), `REST ${table}, ${label}: nothing`, res);

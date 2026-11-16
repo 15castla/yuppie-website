@@ -12,6 +12,7 @@ import { redirect } from "next/navigation";
 import { audit } from "@/lib/server/audit";
 import { serviceDb } from "@/lib/server/db";
 import { afterBounce, afterOutreachTouch, afterReply, nextStep, setStage, stopFollowups } from "@/lib/server/outreach/desk";
+import { effects, ensureContact } from "@/lib/server/outreach/drafter";
 import { importDesk, parseImport } from "@/lib/server/outreach/import";
 import {
   ACTION_KINDS,
@@ -693,4 +694,179 @@ export async function deskRateOutcome(fd: FormData): Promise<void> {
   await db.from("outreach_outcomes").update({ sentiment }).eq("id", id);
   await audit(owner.id, "desk.outcome.rate", { type: "outreach_outcome", id }, { target: outcome.target_id, sentiment });
   go(back, "done", "saved");
+}
+
+// ---------------------------------------------------------------------------------------------- Outlook (Phase 2)
+
+/** Links the drafter on the Mac: Albert pastes the fingerprint "draft-partner-emails desk-link" showed (never the key). */
+export async function deskLinkDrafter(fd: FormData): Promise<void> {
+  const owner = await requireOwner();
+  const fp = (text(fd, "fingerprint", 200) ?? "").replace(/[\s:]/g, "").toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(fp)) go("/admin/desk/settings", "error", "bad_fingerprint");
+  const db = serviceDb();
+  await db.from("outreach_drafter_keys").update({ revoked_at: new Date().toISOString() }).is("revoked_at", null);
+  const { data, error } = await db.from("outreach_drafter_keys").insert({ key_hash: fp, created_by: owner.id, label: text(fd, "label", 60) ?? "Albert's Mac" }).select("id").single();
+  if (error || !data) go("/admin/desk/settings", "error", "failed");
+  await audit(owner.id, "desk.drafter.link", { type: "outreach_drafter_key", id: data.id }, {});
+  go("/admin/desk/settings", "done", "linked");
+}
+
+/** Unlinks the drafter at once: its next call gets "not linked". */
+export async function deskUnlinkDrafter(): Promise<void> {
+  const owner = await requireOwner();
+  const { data } = await serviceDb().from("outreach_drafter_keys").update({ revoked_at: new Date().toISOString() }).is("revoked_at", null).select("id");
+  await audit(owner.id, "desk.drafter.unlink", { type: "outreach_drafter_key", id: data?.[0]?.id ?? null }, { keys: data?.length ?? 0 });
+  go("/admin/desk/settings", "done", "unlinked");
+}
+
+/**
+ * The words of a follow-up (Albert's now; Alex's from Phase 3). The drafter puts them into an Outlook draft in the
+ * thread, with the first email's attachment, the evening before it is due. Nothing is sent.
+ */
+export async function deskSaveFollowupText(fd: FormData): Promise<void> {
+  const owner = await requireOwner();
+  const id = idOf(fd, "followup");
+  if (!id) go("/admin/desk", "error", "not_found");
+  const db = serviceDb();
+  const { data: f } = await db.from("outreach_followups").select("id, target_id, step, status").eq("id", id).maybeSingle();
+  if (!f) go("/admin/desk", "error", "not_found");
+  const back = backTo(fd, `/admin/desk/t/${f.target_id}`);
+  if (f.status === "drafted") go(back, "error", "drafted_already");
+  if (f.status !== "scheduled" && f.status !== "paused") go(back, "error", "not_open");
+  const body = text(fd, "body", 20000);
+  if (!body) {
+    await db.from("outreach_draft_texts").update({ status: "discarded" }).eq("followup_id", id).neq("status", "discarded");
+    await audit(owner.id, "desk.followup.text_remove", { type: "outreach_followup", id }, { target: f.target_id });
+    go(back, "done", "text_removed");
+  }
+  const subject = text(fd, "subject", 300);
+  const kind = f.step === 2 ? "january" : "follow_up";
+  const { data: existing } = await db.from("outreach_draft_texts").select("id").eq("followup_id", id).maybeSingle();
+  const row = { target_id: f.target_id, followup_id: id, kind, subject, body, status: "written", written_by: "albert" };
+  const { error } = existing ? await db.from("outreach_draft_texts").update(row).eq("id", existing.id) : await db.from("outreach_draft_texts").insert(row);
+  if (error) go(back, "error", "failed");
+  await db.from("outreach_followups").update({ draft_error: null }).eq("id", id);
+  await audit(owner.id, "desk.followup.text", { type: "outreach_followup", id }, { target: f.target_id, chars: body.length });
+  go(back, "done", "text");
+}
+
+/** After a failed or deleted draft: make it again at the next sync. */
+export async function deskRetryDraft(fd: FormData): Promise<void> {
+  const owner = await requireOwner();
+  const id = idOf(fd, "followup");
+  if (!id) go("/admin/desk", "error", "not_found");
+  const db = serviceDb();
+  const { data: f } = await db.from("outreach_followups").select("id, target_id").eq("id", id).maybeSingle();
+  if (!f) go("/admin/desk", "error", "not_found");
+  await db.from("outreach_followups").update({ draft_error: null }).eq("id", id);
+  await audit(owner.id, "desk.followup.retry", { type: "outreach_followup", id }, { target: f.target_id });
+  go(backTo(fd, `/admin/desk/t/${f.target_id}`), "done", "retry");
+}
+
+async function ignore(imid: string | null, kind: "incoming" | "sent") {
+  if (imid) await serviceDb().from("outreach_ignored_messages").upsert({ internet_message_id: imid, kind }, { onConflict: "internet_message_id" });
+}
+
+/** The review list: a probable reply (matched by the sender's domain only, or to two partners) is confirmed. */
+export async function deskConfirmOutcome(fd: FormData): Promise<void> {
+  const owner = await requireOwner();
+  const id = idOf(fd, "outcome");
+  if (!id) go("/admin/desk/today", "error", "not_found");
+  const db = serviceDb();
+  const { data: o } = await db.from("outreach_outcomes").select("*").eq("id", id).maybeSingle();
+  if (!o) go("/admin/desk/today", "error", "not_found");
+  const back = backTo(fd, "/admin/desk/today");
+  const target = (await targetOf(idOf(fd, "target"))) ?? (await targetOf(o.target_id));
+  if (!target) go(back, "error", "not_found");
+  const patch: Record<string, unknown> = { confirmed: true, candidate_targets: [] };
+  let sequenceId: string | null = o.sequence_id;
+  let touchId: string | null = o.touch_id;
+  if (target.id !== o.target_id) {
+    // another partner: the email it answers is that partner's newest one before it arrived
+    const { data: t } = await db.from("outreach_touches").select("id, sequence_id").eq("target_id", target.id).in("status", ["sent", "posted"]).in("kind", OUTREACH_KINDS as unknown as string[])
+      .lte("sent_at", o.received_at).order("sent_at", { ascending: false }).limit(1).maybeSingle();
+    sequenceId = t?.sequence_id ?? null;
+    touchId = t?.id ?? null;
+    Object.assign(patch, { target_id: target.id, sequence_id: sequenceId, touch_id: touchId, contact_id: null, match_method: "manual" });
+  }
+  if (o.kind === "reply" && o.from_address) patch.contact_id = await ensureContact(db, target.id, { address: o.from_address, name: o.from_name }, "their_reply");
+  const { error } = await db.from("outreach_outcomes").update(patch).eq("id", id);
+  if (error) go(back, "error", "failed");
+  await effects(db, { id, target_id: target.id, sequence_id: sequenceId, touch_id: touchId, received_at: o.received_at, kind: o.kind, bounced_address: o.bounced_address, bounce_code: o.bounce_code }, "albert");
+  await audit(owner.id, "desk.outcome.confirm", { type: "outreach_outcome", id }, { target: target.id, moved: target.id !== o.target_id });
+  go(back, "done", "confirmed");
+}
+
+/** The review list: not a reply from a partner. Removed, and never brought back by the drafter. */
+export async function deskIgnoreOutcome(fd: FormData): Promise<void> {
+  const owner = await requireOwner();
+  const id = idOf(fd, "outcome");
+  if (!id) go("/admin/desk/today", "error", "not_found");
+  const db = serviceDb();
+  const { data: o } = await db.from("outreach_outcomes").select("id, target_id, internet_message_id, confirmed").eq("id", id).maybeSingle();
+  if (!o || o.confirmed) go("/admin/desk/today", "error", "not_found");
+  await ignore(o.internet_message_id, "incoming");
+  await db.from("outreach_outcomes").delete().eq("id", id);
+  await audit(owner.id, "desk.outcome.ignore", { type: "outreach_outcome", id }, { target: o.target_id });
+  go(backTo(fd, "/admin/desk/today"), "done", "ignored");
+}
+
+/**
+ * The review list: an email Albert sent that the drafter found in Sent Items (typed by hand, so not tracked). Albert
+ * says what it was and whose; then it counts like any other email and the follow-ups follow.
+ */
+export async function deskConfirmTouch(fd: FormData): Promise<void> {
+  const owner = await requireOwner();
+  const id = idOf(fd, "touch");
+  if (!id) go("/admin/desk/today", "error", "not_found");
+  const db = serviceDb();
+  const { data: t } = await db.from("outreach_touches").select("*").eq("id", id).maybeSingle();
+  if (!t || t.status !== "unconfirmed") go("/admin/desk/today", "error", "not_found");
+  const back = backTo(fd, "/admin/desk/today");
+  const target = (await targetOf(idOf(fd, "target"))) ?? (await targetOf(t.target_id));
+  if (!target) go(back, "error", "not_found");
+  const kind = choice(fd, "kind", TOUCH_KINDS, (t.guess_kind as keyof typeof TOUCH_KINDS) ?? "first");
+  let sequenceId: string = id;
+  if (kind !== "first") {
+    // the thread it was in, else the partner's newest sequence; with none, it starts one
+    const { data: same } = t.conversation_id
+      ? await db.from("outreach_touches").select("sequence_id").eq("target_id", target.id).eq("conversation_id", t.conversation_id).neq("id", id).limit(1).maybeSingle()
+      : { data: null };
+    const { data: newest } = await db.from("outreach_touches").select("sequence_id").eq("target_id", target.id).in("status", ["sent", "posted"]).neq("id", id)
+      .order("sent_at", { ascending: false, nullsFirst: false }).limit(1).maybeSingle();
+    sequenceId = same?.sequence_id ?? newest?.sequence_id ?? id;
+  }
+  const finalKind = sequenceId === id ? "first" : kind;
+  const step = finalKind === "first" ? 0 : finalKind === "follow_up" ? await nextStep(db, sequenceId) : null;
+  const { error } = await db.from("outreach_touches").update({
+    status: "sent", kind: finalKind, step, sequence_id: sequenceId, target_id: target.id, guess_kind: null, candidate_targets: [],
+  }).eq("id", id);
+  if (error) go(back, "error", "failed");
+  if (target.id !== t.target_id) {
+    // the addresses become the new partner's contacts when they are at its domain
+    const { data: recips } = await db.from("outreach_touch_recipients").select("id, address").eq("touch_id", id);
+    for (const r of recips ?? []) {
+      const at = r.address && (target.domains ?? []).includes(String(r.address).split("@")[1]);
+      await db.from("outreach_touch_recipients").update({ contact_id: at ? await ensureContact(db, target.id, { address: r.address, name: null }, "unknown") : null }).eq("id", r.id);
+    }
+  }
+  if (OUTREACH_KINDS.includes(finalKind)) {
+    await afterOutreachTouch(db, { id, target_id: target.id, sequence_id: sequenceId, channel: "email", kind: finalKind, step, sent_at: t.sent_at }, target);
+  }
+  await audit(owner.id, "desk.touch.confirm", { type: "outreach_touch", id }, { target: target.id, kind: finalKind });
+  go(back, "done", "confirmed");
+}
+
+/** The review list: not outreach (a personal email to someone at a partner, say). Removed, never brought back. */
+export async function deskIgnoreTouch(fd: FormData): Promise<void> {
+  const owner = await requireOwner();
+  const id = idOf(fd, "touch");
+  if (!id) go("/admin/desk/today", "error", "not_found");
+  const db = serviceDb();
+  const { data: t } = await db.from("outreach_touches").select("id, target_id, internet_message_id, status").eq("id", id).maybeSingle();
+  if (!t || t.status !== "unconfirmed") go("/admin/desk/today", "error", "not_found");
+  await ignore(t.internet_message_id, "sent");
+  await db.from("outreach_touches").delete().eq("id", id);
+  await audit(owner.id, "desk.touch.ignore", { type: "outreach_touch", id }, { target: t.target_id });
+  go(backTo(fd, "/admin/desk/today"), "done", "ignored");
 }

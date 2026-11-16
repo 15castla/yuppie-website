@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { deskDeleteContact, deskDeleteNote, deskDeleteOutcome, deskDeleteTarget, deskDeleteTouch, deskFollowup, deskSetAction, deskSetFlags } from "@/app/admin/desk-actions";
 import { requireOwner } from "@/app/admin/require-owner";
 import { dateWords, dayWords, stampWords, timeWords } from "@/components/admin/desk/format";
+import { FollowupText } from "@/components/admin/desk/followup-text";
 import { ActionForm, ContactForm, Drawer, EditTargetForm, LetterForm, LogEmailForm, NoteForm, OtherTouchForm, OutcomeForm, StageForm } from "@/components/admin/desk/forms";
 import { DeskShell, type SearchParams } from "@/components/admin/desk/shell";
 import { DeskSubmit } from "@/components/admin/desk/submit";
@@ -32,7 +33,23 @@ import { addWorkingDays, effectiveDue, ukDate } from "@/lib/server/outreach/rule
 // then the timeline (every email, letter, call, reply, note and stage change, newest first) beside the contacts,
 // action points, notes and follow-ups. Owner only.
 
-type Item = { at: string; key: string; chip: { cls: string; word: string }; title: string; meta?: string; body?: string | null; del?: { action: (fd: FormData) => Promise<void>; field: string; id: string; confirm: boolean } };
+type Item = {
+  at: string;
+  key: string;
+  chip: { cls: string; word: string };
+  title: string;
+  meta?: string;
+  body?: string | null;
+  /** Outlook's link to the email itself (Phase 2) */
+  link?: string | null;
+  del?: { action: (fd: FormData) => Promise<void>; field: string; id: string; confirm: boolean };
+};
+
+/** "Overview.pdf (412 KB)" for each file Outlook says was attached (not the images in a signature). */
+function filesWords(files: { name: string; size: number | null; inline?: boolean }[] | undefined): string | null {
+  const list = (files ?? []).filter((a) => !a.inline);
+  return list.length ? list.map((a) => (a.size ? `${a.name} (${Math.max(1, Math.round(a.size / 1024))} KB)` : a.name)).join(", ") : null;
+}
 
 const FOLLOWUP_WORDS: Record<Followup["status"], string> = {
   scheduled: "Scheduled",
@@ -72,7 +89,7 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
   const [{ id }, sp] = await Promise.all([params, searchParams]);
   const page = await loadTarget(id);
   if (!page) notFound();
-  const { target: t, contacts, touches, outcomes, followups, actions, notes, stageHistory } = page;
+  const { target: t, contacts, touches, outcomes, followups, actions, notes, stageHistory, texts } = page;
   const back = `/admin/desk/t/${t.id}`;
   const today = ukDate();
   const contactName = new Map(contacts.map((c) => [c.id, c.name ?? c.email ?? "someone"]));
@@ -82,6 +99,8 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
     .sort((a, b) => effectiveDue(a.due_on, a.snoozed_until).localeCompare(effectiveDue(b.due_on, b.snoozed_until)));
   const next = open[0];
   const nextTo = next ? followupAddresses(page, next) : null;
+  const nextText = next ? (texts ?? []).find((x) => x.followup_id === next.id && x.status !== "discarded") : undefined;
+  const nextInThread = !!next && touches.some((x) => x.sequence_id === next.sequence_id && x.channel === "email" && x.status === "sent");
 
   // the timeline
   const items: Item[] = [];
@@ -92,10 +111,23 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
     items.push({
       at: x.sent_at ?? x.created_at,
       key: `t-${x.id}`,
-      chip: { cls: x.status === "sent" || x.status === "posted" ? "sent" : x.status, word: x.kind === "conversation" ? CHANNELS[x.channel] : x.channel === "letter" ? "Letter" : x.channel === "email" ? "Email" : CHANNELS[x.channel] },
+      chip: x.status === "unconfirmed"
+        ? { cls: "unconfirmed", word: "To confirm" }
+        : { cls: x.status === "sent" || x.status === "posted" ? "sent" : x.status, word: x.kind === "conversation" ? CHANNELS[x.channel] : x.channel === "letter" ? "Letter" : x.channel === "email" ? "Email" : CHANNELS[x.channel] },
       title: `${verb}${x.kind !== "first" && x.kind !== "conversation" ? `, ${x.kind === "follow_up" ? stepWords(x.step).toLowerCase() : x.kind}` : x.kind === "first" ? ", first" : ""}${who.length ? ` to ${who.join(", ")}` : ""}`,
-      meta: [x.subject && `"${x.subject}"`, x.version, x.attachment, bounced ? `${bounced} bounced` : null, x.counts_in_stats ? null : "not counted", x.note].filter(Boolean).join(" · "),
+      meta: [
+        x.status === "unconfirmed" ? "Found in Outlook: confirm it on Today" : null,
+        x.subject && `"${x.subject}"`,
+        x.version,
+        filesWords(x.attachments) ?? x.attachment,
+        bounced ? `${bounced} bounced` : null,
+        x.counts_in_stats ? null : "not counted",
+        x.note,
+      ]
+        .filter(Boolean)
+        .join(" · "),
       body: x.body_text,
+      link: x.web_link,
       del: { action: deskDeleteTouch, field: "touch", id: x.id, confirm: true },
     });
   }
@@ -105,21 +137,25 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
     items.push({
       at: o.received_at,
       key: `o-${o.id}`,
-      chip: {
+      chip: !o.confirmed ? { cls: "unconfirmed", word: "To confirm" } : {
         cls: o.kind === "reply" ? `replied ${o.sentiment ?? "none"}` : o.kind === "bounce" ? "bounced" : o.kind === "opt_out_request" ? "opted" : "oof",
         word: o.kind === "reply" ? `Reply${o.sentiment === "positive" ? " +" : o.sentiment === "negative" ? " -" : ""}` : o.kind === "auto_reply" ? "Auto reply" : OUTCOME_KINDS[o.kind],
       },
       title: `${OUTCOME_KINDS[o.kind]}${from ? ` from ${from}` : ""}${o.kind === "bounce" && o.bounced_address ? `: ${o.bounced_address}` : ""}`,
       meta: [
+        o.confirmed ? null : "A probable match: confirm it on Today",
+        o.hint === "possible_opt_out" ? "Possible opt-out: read it" : o.hint === "invite" ? "A calendar invitation" : null,
         o.subject && `"${o.subject}"`,
         o.bounce_code,
         o.sentiment ? SENTIMENTS[o.sentiment] : null,
         o.kind === "reply" && answered?.sent_at ? `${replyTimeWords(answered.sent_at, o.received_at)} after the ${answered.channel === "letter" ? "letter" : "email"}` : null,
         o.summary,
+        filesWords(o.attachments),
       ]
         .filter(Boolean)
         .join(" · "),
       body: o.body_text,
+      link: o.web_link,
       del: { action: deskDeleteOutcome, field: "outcome", id: o.id, confirm: true },
     });
   }
@@ -255,6 +291,9 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
             </form>
           </div>
         )}
+        {next && (next.status === "scheduled" || next.status === "drafted" || next.status === "paused") && (
+          <FollowupText f={next} text={nextText} back={back} inThread={nextInThread} />
+        )}
 
         <div className="dk-drawers">
           <Drawer id="log-email" title="Log an email" hint="An email you sent: the first, the follow-up, a resend or a reply in the conversation.">
@@ -299,6 +338,13 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
                     <div className="b">
                       <p className="t">{i.title}</p>
                       {i.meta && <p className="m">{i.meta}</p>}
+                      {i.link && (
+                        <p className="m">
+                          <a href={i.link} target="_blank" rel="noreferrer">
+                            Open in Outlook
+                          </a>
+                        </p>
+                      )}
                       {i.body && (
                         <details>
                           <summary>Show the full text</summary>

@@ -12,7 +12,13 @@ from Outreach_Log · 8 Security and privacy · 9 Phased build · 10 Risks and op
 
 All 33 questions in section 10 are answered. Where an older passage below disagrees, this section wins.
 
-**Build status (17 Nov 2026):** Phase 1 is built on branch `admin/outreach-desk` (Technical Reference Part 22). Three
+**Build status (16 Nov 2026):** Phase 1 is live (PR #63, then the button, chip and alignment fixes). Phase 2, the
+Outlook connection, is built on branch `admin/desk-outlook` (Technical Reference Part 23). Differences from section 3
+and 4 below: the follow-up words come from the desk (Albert writes them on the partner's page until Alex does in Phase
+3), stored in `outreach_draft_texts` from Phase 2 rather than 3, so `outreach_templates` is never made; a partner
+email drafted from OneDrive tells the desk only once it has been sent (the business is added then), so there is no
+`drafted` action; the spike is replaced by code that works either way (a sent follow-up is found by its hidden key or,
+if Outlook drops it, as the next email in its thread) and by Albert's first real sync. Phase 1 note: three
 differences from the detail below: the forms open as drawers on the partner's page rather than dialogs (plain forms
 that work before JavaScript loads); the `outreach_sequences_v` view waits for Phase 4 (the numbers are worked out in
 `lib/server/outreach/compute.ts`); `outreach_templates` becomes Alex's approved guidance in Phase 3.

@@ -1,10 +1,11 @@
 import { requireOwner } from "@/app/admin/require-owner";
 import { ImportForm } from "@/components/admin/desk/import-form";
+import { OutlookSettings } from "@/components/admin/desk/outlook";
 import { DeskShell, one, type SearchParams } from "@/components/admin/desk/shell";
 import { serviceDb } from "@/lib/server/db";
 
-// Desk settings (17 Nov 2026): the copy from the outreach log, and what's coming (the Outlook connection in Phase
-// 2, Alex in Phase 3). Owner only.
+// Desk settings (17 Nov 2026): the Outlook connection (Phase 2, 16 Nov), the copy from the outreach log, and what's
+// coming (Alex, Phase 3). Owner only.
 
 async function count(table: string): Promise<number> {
   const { count: n } = await serviceDb().from(table).select("id", { count: "exact", head: true });
@@ -23,6 +24,7 @@ export default async function DeskSettingsPage({ searchParams }: { searchParams:
   ]);
   return (
     <DeskShell current="settings" sp={sp}>
+      <OutlookSettings />
       <section className="dk-panel" aria-labelledby="s-h">
         <div className="dk-panel-h">
           <h2 id="s-h">In the desk</h2>
@@ -45,12 +47,6 @@ export default async function DeskSettingsPage({ searchParams }: { searchParams:
           <h2 id="n-h">Coming next</h2>
         </div>
         <ul className="dk-list">
-          <li>
-            <div>
-              <p className="t">The Outlook connection</p>
-              <p className="m">The drafter on your Mac logs every email, reply, bounce and out-of-office here by itself, and makes the follow-ups as drafts the night before. Nothing is ever sent.</p>
-            </div>
-          </li>
           <li>
             <div>
               <p className="t">Alex</p>

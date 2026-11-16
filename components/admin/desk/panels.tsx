@@ -121,7 +121,28 @@ export function DueList({ items, back, empty = "Nothing due. Nothing late." }: {
                 <Link href={`/admin/desk/t/${item.targetId}`}>{item.name}</Link>
               </span>
               <span className="what">
-                {stepWords(item.step)} email{item.drafted ? " · draft ready" : ""}
+                {stepWords(item.step)} email
+                {item.draftError ? (
+                  <> · <span className="warn">draft failed</span></>
+                ) : item.text === "drafted" ? (
+                  <>
+                    {" · "}
+                    {item.draftLink ? (
+                      <a href={item.draftLink} target="_blank" rel="noreferrer">
+                        draft ready in Outlook
+                      </a>
+                    ) : (
+                      "draft ready in Outlook"
+                    )}
+                  </>
+                ) : item.text === "written" ? (
+                  " · words written, drafted the evening before"
+                ) : (
+                  <>
+                    {" · "}
+                    <Link href={`/admin/desk/t/${item.targetId}#fu-text`}>write it</Link>
+                  </>
+                )}
                 {item.stale ? " · stale draft" : ""}
               </span>
               <span className="to">{item.needsEmail ? "Needs an email address" : [...item.to, ...item.cc.map((c) => `cc ${c}`)].join(", ")}</span>
