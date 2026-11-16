@@ -479,11 +479,13 @@ Each count starts only when the email or letter before it has actually gone out 
 | Step | Channel | Due | Example |
 |---|---|---|---|
 | 1 | email, in the thread | 7 working days after the first email was sent | first email Thu 12 Nov: Mon 23 Nov |
-| 2 | email, in the thread | 7 working days after follow-up 1 was actually sent | follow-up 1 sent Mon 23 Nov: Wed 2 Dec |
-| 3 | to decide (question 10.24) | | |
+| 2 | the January email, in the thread | the January round (question 10.33): no second follow-up before then | week of Mon 11 Jan 2027 |
+
+Only one follow-up, then the partner is left until the middle of January, when launch is close and a third email
+has something new to say (Albert, 16 Nov). The January email goes to everyone still without a reply.
 
 **When a letter goes first** (Albert, 16 Nov): follow-up 1 is an email 10 working days after posting (Hawes &
-Curtis, posted Mon 9 Nov: Mon 23 Nov), then follow-up 2 as above. With no email address for the person or the
+Curtis, posted Mon 9 Nov: Mon 23 Nov), then the January email as above. With no email address for the person or the
 business, Due today shows "Needs an email address" so one can be found (RocketReach first).
 
 When a touch becomes `sent` or `posted` as a first touch (or a resend after every address bounced), the desk creates
@@ -1108,29 +1110,71 @@ Risks 19 to 22: noted and accepted (Albert, 16 Nov).
 - The partner page is quick to reach and shows everything, so Albert can review a partner before an impromptu
   meeting.
 
-24. **After follow-up 2.** Recommended: for an email-first sequence, a printed letter 7 working days after follow-up 2
+24. ~~After the follow-up.~~ **Decided (Albert, 16 Nov):** one follow-up email only, then nothing until the middle
+    of January, when a third email goes out (4.1). The earlier recommendation, kept for the record: for an email-first sequence, a printed letter 7 working days after follow-up 2
     if there is a postal address; for a letter-first sequence, nothing more. Either way the sequence closes as "no
     reply" 15 working days after the last step.
-25. **The Mac overnight.** Overnight drafts need the drafter running, and a sleeping Mac can't. Recommended: drafts
+25. ~~The Mac overnight.~~ **Decided (Albert, 16 Nov): agreed.** drafts
     are made from 21:00 the evening before, so they're usually done before the laptop is closed; anything missed is
     made the moment the Mac wakes, and the 06:30 agenda says what's missing. Later, when WhatsApp is added, consider
     moving mail access from the Mac to the website itself (a new Entra app registration with a certificate, for
     Albert to approve; the website would then hold a standing sign-in to the mailbox).
-26. **How the 06:30 agenda reaches Albert.** It's built on the server (a pg_cron job), so it doesn't need the Mac.
+26. ~~How the 06:30 agenda reaches Albert.~~ **Decided (Albert, 16 Nov):** an email to albert@clubyuppie.com with the
+    whole agenda written in it, and a link to the desk at the bottom. It comes from the assistant's own address
+    (10.32). The earlier recommendation, kept for the record: It's built on the server (a pg_cron job), so it doesn't need the Mac.
     Recommended: the website emails it to albert@clubyuppie.com only, never anyone else, through its existing email
     service, with a link to the desk's Today page. This is the one exception to "nothing sends email", which is about
     partners, so it needs Albert's explicit yes. Alternatives: only the Today page, or a phone notification (not built
     for admins yet).
-27. **Who writes the replies and follow-ups.** Recommended: overnight, the website asks Claude, through the Anthropic
-    account Concierge already uses, to draft each reply and follow-up from the partner's history and Albert's writing
+27. ~~Who writes the replies and follow-ups.~~ **Decided (Albert, 16 Nov):** Albert's own Claude account writes them,
+    not the Anthropic account Concierge uses. How: question 10.30. The rejected recommendation, kept for the record:
+    overnight, the website asks Claude, through the Anthropic account Concierge already uses, to draft each reply and follow-up from the partner's history and Albert's writing
     rules; the drafter puts them into the Outlook thread as drafts. This sends partners' email text to Anthropic for
     processing. Alternative: the desk chat writes them when Albert asks.
-28. **Meeting notes.** Recommended: Albert gives Claude the notes (typed, or a photo like the Pall Mall Barbers notes
+28. ~~Meeting notes.~~ **Decided (Albert, 16 Nov):** a dedicated assistant chat in Albert's Claude account. He
+    uploads photos of notes or types things up; it sorts them and puts them on the partner's page with their action
+    points. How it reaches the desk: question 10.30. The earlier recommendation, kept for the record: Albert gives Claude the notes (typed, or a photo like the Pall Mall Barbers notes
     of 16 Nov); Claude saves them to a OneDrive folder ("Desk inbox") and the drafter files them on the partner's page
     with their action points. Albert can also type notes straight onto the partner page.
-29. **Attachments.** Recommended: every email's full text is saved in the desk; attachments stay in Outlook, with their
-    names and a link on the partner's page.
+29. ~~Attachments.~~ **Decided (Albert, 16 Nov):** every email's full text is saved in the desk; attachments stay
+    in Outlook, with their names and a link on the partner's page. Every follow-up carries the attachment too: the
+    drafter copies the first email's PDF onto the follow-up draft. A follow-up after a letter has no earlier PDF, so
+    the desk asks for the partner's overview PDF two working days before it's due.
 
 Notes, not questions: calls and meetings that arrive as invitations in the mailbox (such as Desh's for Padium) are
 read with the existing permission; reading Albert's whole calendar would need `Calendars.Read`, an Entra change, and
 isn't planned.
+
+### Added by Albert, 16 Nov: the desk as his executive assistant
+
+The desk acts as Albert's EA, with a human name and its own email address that writes only to
+albert@clubyuppie.com (the 06:30 agenda, and anything else it needs to tell him). The website's email service
+already sends from noreply@clubyuppie.com, so a second address on the same domain needs no new mailbox; the code
+allows exactly one recipient, albert@clubyuppie.com, so it can never write to a partner.
+
+30. **How Albert's Claude account reaches the desk.** A website can't use a claude.ai account directly. The way to
+    use Albert's account is for Claude, working in his account, to do the writing and hand it to the desk.
+    Recommended: a **Desk connector** on the website, added to Albert's Claude account in its connector settings.
+    Albert connects it once by signing in to the admin with his password and authenticator code. It is the one door
+    through which:
+    - the assistant chat files meeting notes, action points and anything he types up, from his phone or laptop, and
+      answers questions such as "brief me on Pall Mall Barbers";
+    - a nightly scheduled task in his account (about 21:30) reads what is due tomorrow, writes each reply and
+      follow-up in his voice, and saves the text in the desk; the drafter then puts it into the Outlook thread.
+    The connector can read the desk, add notes, actions and draft text, and nothing else: it can't send, delete,
+    change an opt-out, or touch anything outside the desk. It is revocable from the desk at any time. It runs on
+    Albert's Claude plan's usage. Alternative: Claude Code on the Mac writes the drafts each night, and the assistant
+    chat saves notes to a OneDrive folder for the drafter to file. That needs no new website surface, but it works
+    only when the Mac is on, so notes from a phone would wait.
+31. **The assistant's name.** In the club's 80s world. Options: **Penny** (the classic executive assistant, and money
+    in her name), **Sloane** (as in the Sloane Ranger), **Margot**, **Harriet**. Recommended: Penny.
+32. **Her email address.** Recommended: "Penny at Yuppie" <penny@clubyuppie.com> (whatever name is chosen), sent through
+    the website's existing email service. Replies to her go to albert@clubyuppie.com (an alias Albert adds in
+    Microsoft 365 admin, free, no licence), so nothing is lost if he replies by mistake.
+33. **The January round.** Recommended: the January emails go out across the week of Mon 11 Jan 2027, a few each
+    morning rather than all at once, so replies arrive at a pace Albert can handle. Each is drafted the night
+    before, like any follow-up.
+
+Risk to note: the nightly writer reads partners' emails, and an email could contain text aimed at an AI ("ignore your
+instructions..."). Mitigation: the connector has no send, delete or opt-out tools, every draft waits for Albert, and
+the writer is told to treat email text as information, never as instructions.
