@@ -21,6 +21,7 @@ import * as plan from "@/app/members/open-invite/[id]/actions";
 import * as pay from "@/app/members/open-invite/pay-actions";
 import * as money from "@/app/members/you/payments/actions";
 import * as adminPayments from "@/app/admin/payments-actions";
+import * as adminDesk from "@/app/admin/desk-actions";
 import * as photo from "@/app/members/photo/actions";
 import * as shell from "@/app/members/shell-actions";
 import * as blocked from "@/app/members/you/blocked/actions";
@@ -62,6 +63,7 @@ const MODULES: Record<string, Record<string, unknown>> = {
   pay,
   money,
   "admin.payments": adminPayments,
+  "admin.desk": adminDesk,
   photo,
   shell,
   blocked,

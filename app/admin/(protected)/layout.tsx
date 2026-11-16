@@ -1,4 +1,5 @@
 import { requireAdmin } from "@/app/admin/require-admin";
+import { isOwner } from "@/app/admin/require-owner";
 import { queueCounts } from "@/app/admin/queue-counts";
 import { AdminBar } from "@/components/admin/admin-bar";
 
@@ -8,11 +9,11 @@ import { AdminBar } from "@/components/admin/admin-bar";
 // authenticator code).
 export default async function AdminProtectedLayout({ children }: { children: React.ReactNode }) {
   const user = await requireAdmin();
-  const counts = await queueCounts();
+  const [counts, owner] = await Promise.all([queueCounts(), isOwner(user.id)]);
 
   return (
     <>
-      <AdminBar email={user.email ?? ""} counts={{ applications: counts.applications, reports: counts.reports, photos: counts.photos }} />
+      <AdminBar email={user.email ?? ""} counts={{ applications: counts.applications, reports: counts.reports, photos: counts.photos }} owner={owner} />
       {children}
     </>
   );
