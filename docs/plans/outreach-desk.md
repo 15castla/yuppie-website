@@ -1,10 +1,63 @@
 # Outreach Desk: the plan
 
 A plan for Albert to approve. Nothing in it is built. Written 15 Nov 2026 on branch `plan/outreach-desk`, from main
-at 155e3e1. Section 10 ends with numbered questions: reply "agree" or change any of them.
+at 155e3e1; every question answered by Albert on 15 and 16 Nov (section 0).
 
-Contents: 1 Summary · 2 Data model · 3 Capture · 4 Follow-ups · 5 Screens · 6 Analytics definitions · 7 The copy
+Contents: 0 Where the plan landed · 1 Summary · 2 Data model · 3 Capture · 4 Follow-ups · 5 Screens · 6 Analytics definitions · 7 The copy
 from Outreach_Log · 8 Security and privacy · 9 Phased build · 10 Risks and open questions
+
+---
+
+## 0. Where the plan landed (Albert, 15 and 16 Nov)
+
+All 33 questions in section 10 are answered. Where an older passage below disagrees, this section wins.
+
+**What it is.** An owner-only section of the admin, run by an executive assistant called **Alex**. Alex keeps one
+record of every communication with each partner (emails in full, both ways; letters; calls; meetings and their notes;
+WhatsApp later), logs every action point, writes replies and follow-ups as Outlook drafts in Albert's voice, and
+emails Albert his day at 06:30. Nothing is ever sent to a partner: Albert sends.
+
+| Topic | Decision |
+|---|---|
+| Access | Owner only. Anyone else sees "You don't have access to this page." and no Desk link |
+| Follow-ups | One follow-up email, 7 working days after the first email actually went out, or 10 working days after a letter was posted, carrying the same attachment. Then nothing until the **January round**: a third email to everyone without a reply, across the week of Mon 11 Jan 2027, a few each morning |
+| Working days | Monday to Friday, skipping England and Wales bank holidays and 21 Dec to 1 Jan |
+| When drafts appear | Written the night before they're due, so Albert reviews them that morning |
+| Who writes | Alex, which is Albert's own Claude account (not the Anthropic account Concierge uses), through the Desk connector. A nightly scheduled task in his account (about 21:30) writes tomorrow's follow-ups, January emails and replies to partners' replies; the drafter then makes them Outlook drafts in the thread at its next check. Albert approves Alex's guidance for each kind of email once the flow is built; until then no drafts of that kind |
+| Desk connector | One secure door between Albert's Claude account and the desk, connected once with his admin password and authenticator code. It can read the desk and add notes, actions and draft text; it can't send, delete or change an opt-out. Revocable from the desk |
+| Assistant chat | A dedicated "Alex" chat in Albert's Claude account with the connector. He sends photos of meeting notes or types things up; Alex sorts them onto the partner's page with their action points, and briefs him on any partner |
+| Morning email | 06:30 every day, from "Alex at Yuppie" <alex@clubyuppie.com> to albert@clubyuppie.com only (the code allows no other recipient), sent by the website's existing email service. The whole agenda is in the email, with a link to the desk's Today page at the bottom. alex@ becomes a free alias in Microsoft 365 so a reply reaches Albert |
+| Outlook | The drafter on the Mac keeps all mail access: no new Microsoft permission, no Entra change. It checks every 15 minutes while the Mac is awake, reads everything since 1 Nov the first time, and links to the desk with its own key (made on the Mac, kept in the Keychain; only its fingerprint goes into the desk; re-linked every six months). After a reply, an unedited follow-up draft moves to Deleted Items. Moving mail access to the website is for later, with WhatsApp |
+| Records | The full text of every email both ways; attachments stay in Outlook, with their names and a link. No phone numbers for now (WhatsApp will need them). Unrecorded address sources count as "supplied by Albert". Deleting someone who opted out is done by hand. Categories as listed in 10.12, Padium as fitness. Kira has no view |
+| Outreach_Log | Stops being updated once the desk is live; the desk is the record |
+
+**Build phases** (detail in section 9)
+
+1. **Records and partner pages:** the copy from the log, partner pages with everything on them, the blotter, manual
+   logging of emails, letters, calls, meetings, notes and actions, Due today, the Today page, the no-access page.
+2. **Outlook:** the drafter reads sends, replies, bounces, out-of-office replies and invitations in full, backfills
+   from 1 Nov, and turns draft text saved in the desk into in-thread drafts with the attachment.
+3. **Alex:** the Desk connector, the assistant chat, the nightly writer and the 06:30 email.
+4. **Charts and breakdowns.**
+
+WhatsApp comes another day.
+
+### 0.1 Data added by these decisions
+
+- **Phase 1:** `outreach_notes` (id, target_id, kind `meeting, call, note, whatsapp`, happened_at, title, body,
+  source `albert, assistant`, created_at; a photo of notes stays in the chat, its transcription comes to the desk) and
+  `outreach_actions` (id, target_id, kind `call, meeting, task, reply_due`, title, due_on or starts_at, status `open,
+  done, cancelled`, source `albert, assistant, drafter`, note_id, created_at, done_at). Follow-ups stay in
+  `outreach_followups`; the Today page and the 06:30 email combine both.
+- **Phase 2:** touches and outcomes gain `body_html`, `body_text` and `attachments` (names, sizes, Outlook link); the
+  `preview` column goes.
+- **Phase 3:** `outreach_draft_texts` (id, target_id, followup_id or outcome_id, kind `follow_up, january, reply`,
+  subject, html, written_at, status `written, drafted, discarded`, draft_touch_id); `outreach_guidance` (per kind,
+  Albert's approved instructions and example wording for Alex; replaces `outreach_templates`); `desk_connector_grants`
+  (the connector's OAuth clients and hashed tokens, created_at, last_used_at, revoked_at); `desk_agenda_runs` (date,
+  sent_at, counts and the email service's id, no content). Migration `20261201090000_desk_alex.sql` with its undo
+  file.
+- Deleting a person also clears the text of their emails and notes about them.
 
 ---
 
@@ -253,7 +306,8 @@ calling Supabase's REST API with her own session, gets nothing from these tables
 |---|---|---|
 | 1 | `supabase/migrations/20261117090000_outreach_desk.sql`: owner flag, targets, contacts, touches, recipients, outcomes, stage history, follow-ups, the view, RLS | `release/undo-outreach-desk.sql`; plus `release/set-desk-owner.sql` |
 | 2 | `supabase/migrations/20261124090000_outreach_drafter_link.sql`: drafter keys, sync runs, templates | `release/undo-outreach-drafter-link.sql` |
-| 3 | none expected; if the charts need more from the view, `20261201090000_outreach_analytics_view.sql` | |
+| 3 | `supabase/migrations/20261201090000_desk_alex.sql`: draft texts, guidance, connector grants, agenda runs (section 0.1) | `release/undo-desk-alex.sql` |
+| 4 | none expected; if the charts need more from the view, `20261208090000_outreach_analytics_view.sql` | |
 
 The timestamps are placeholders: each is set when the phase is built, after the newest migration on main.
 
@@ -566,6 +620,9 @@ posted". With no postal address the step is skipped (reason `no_address`) and th
 
 ### 4.7 The wording
 
+Superseded on 16 Nov: Alex writes each draft in Albert's voice from guidance Albert approves for each kind of email
+(section 0). The template design below is kept for the record.
+
 Each email step uses a template stored in the desk (`outreach_templates`, Phase 2): Albert's wording with three fields,
 the first name (or "team" for a group mailbox), the target's name and its `ask_line`. Claude writes the first two
 templates in Albert's voice (British English, no em dashes or exclamation marks, "Club Yuppie"), each ending with a
@@ -600,7 +657,7 @@ trading screen built only from the console's tokens (`app/admin/admin.css`):
 - Rows 28px high at desktop width, a sticky header row, no cards around tables.
 - Colour is never the only signal: every chip has a word (SENT, DRAFTED, REPLIED +, BOUNCED, OOF, LATE), and every
   change has an arrow and a number ("▲2 vs last week").
-- Keyboard (Phase 3, optional): `/` search, `j`/`k` move, `Enter` open, `n` new touch, `r` log a reply.
+- Keyboard (Phase 4, optional): `/` search, `j`/`k` move, `Enter` open, `n` new touch, `r` log a reply.
 
 ### 5.2 Desk home (`/admin/desk`)
 
@@ -694,7 +751,7 @@ audit row.
 - **Review list** (Phase 2): each probable reply or unlogged send with "Confirm", "Not this target" (choose another),
   "Ignore".
 
-### 5.5 Analytics (`/admin/desk/analytics`, Phase 3)
+### 5.5 Analytics (`/admin/desk/analytics`, Phase 4)
 
 A window picker at the top ("Since 1 Nov" by default; This week; Last 4 weeks; a date range) and a "settled only"
 tick (sequences started at least 15 working days ago, so recent ones don't drag rates down). Every chart is a small
@@ -879,9 +936,9 @@ An "opted out" tick on a person or a whole target. Once set:
 - **Delete a target:** removes everything about the business.
 - The dialog says what goes and that it can't be undone, and reminds Albert that copies outside the desk (Outlook,
   OneDrive files, Outreach_Log) are separate and must be deleted there if the request covers them.
-- What we keep: professional, public information plus what people send us. No phone numbers, no home addresses, no
-  personal email addresses that people haven't used with us, no message bodies beyond Outlook's 255-character preview
-  of a reply.
+- What we keep: professional, public information plus what people send us, which now includes the full text of every
+  email to and from a partner (Albert, 16 Nov). No phone numbers, no home addresses, no personal email addresses that
+  people haven't used with us. Deleting a person clears the text of their emails and notes about them.
 - The lawful basis (legitimate interests for business-to-business outreach) and PECR's rules for emailing businesses
   are for Albert to confirm; this is not legal advice. The desk supports them with sources, opt-out lines in
   follow-ups and deletion.
@@ -1010,7 +1067,47 @@ sending, what Exchange's bounce looks like (message class, conversation id, the 
 5. Reply again: the follow-up is cancelled and the draft flagged stale.
 6. Unlink the drafter: the next run says the desk key was revoked.
 
-### Phase 3: charts and breakdowns
+### Phase 3: Alex
+
+**Files**
+
+- `supabase/migrations/20261201090000_desk_alex.sql` and `release/undo-desk-alex.sql` (section 0.1)
+- `app/api/desk/mcp/route.ts`: the Desk connector, a remote MCP server for Albert's Claude account, with its sign-in
+  in `app/api/desk/oauth/[step]/route.ts` and a consent page at `app/admin/(protected)/desk/connect/page.tsx` (owner,
+  aal2). Tools: `desk_today`, `desk_partner` (everything about one partner), `desk_search`, `desk_add_note`,
+  `desk_add_action`, `desk_due_writing` (what needs writing tonight, with each thread and Alex's guidance) and
+  `desk_save_draft_text`. No send, delete or opt-out tools
+- `lib/server/outreach/agenda.ts` (builds the day) and `lib/server/outreach/alex-email.ts` (the email; one allowed
+  recipient, albert@clubyuppie.com)
+- `app/api/cron/[job]/route.ts`: a `desk-agenda` job; `release/schedule-cron.sql` gains `club-yuppie-desk-agenda` at
+  05:30 and 06:30 UTC, and the job sends only when it is 06:30 in the UK, once a day, so the clock change doesn't
+  matter
+- `app/admin/(protected)/desk/today/page.tsx` (the Today page the email links to); settings gain the connector
+  (connected, last used, disconnect) and the guidance editor
+- The drafter (Phase 2 code) now also turns Alex's saved draft text into in-thread drafts
+- Set up with Albert, outside the repo: the "Alex" assistant chat (instructions written by Claude, with the
+  connector), the nightly scheduled task (created with his approval), and the alex@clubyuppie.com alias in
+  Microsoft 365 (his admin task)
+
+**Tests**
+
+- The connector refuses no token, a revoked token, and a consent attempt by a non-owner or without aal2; each tool's
+  shape; no tool can send, delete or change an opt-out.
+- The 06:30 email: any recipient other than albert@clubyuppie.com is refused; one email a day; correct across the
+  clock change; its content matches a seeded day.
+- Draft text flows from `desk_save_draft_text` to an in-thread Outlook draft (with the stand-in Microsoft) with the
+  attachment.
+- An email containing text aimed at an AI ("ignore your instructions...") produces only a draft text and changes
+  nothing else.
+
+**Size:** large. About 3 sessions.
+
+**How Albert verifies:** connect the Desk connector in his Claude settings (admin password and authenticator code);
+in the Alex chat, send a photo of meeting notes and see them on the partner's page with their actions; ask "brief me on
+Padium"; the next morning at 06:30 the email from Alex arrives with his day; a due follow-up sits in Outlook Drafts, in
+the thread, in his voice, with the PDF, unsent.
+
+### Phase 4: charts and breakdowns
 
 **Files**
 
@@ -1152,7 +1249,7 @@ albert@clubyuppie.com (the 06:30 agenda, and anything else it needs to tell him)
 already sends from noreply@clubyuppie.com, so a second address on the same domain needs no new mailbox; the code
 allows exactly one recipient, albert@clubyuppie.com, so it can never write to a partner.
 
-30. **How Albert's Claude account reaches the desk.** A website can't use a claude.ai account directly. The way to
+30. ~~How Albert's Claude account reaches the desk.~~ **Decided (Albert, 16 Nov): agreed** (the Desk connector). A website can't use a claude.ai account directly. The way to
     use Albert's account is for Claude, working in his account, to do the writing and hand it to the desk.
     Recommended: a **Desk connector** on the website, added to Albert's Claude account in its connector settings.
     Albert connects it once by signing in to the admin with his password and authenticator code. It is the one door
@@ -1166,12 +1263,11 @@ allows exactly one recipient, albert@clubyuppie.com, so it can never write to a 
     Albert's Claude plan's usage. Alternative: Claude Code on the Mac writes the drafts each night, and the assistant
     chat saves notes to a OneDrive folder for the drafter to file. That needs no new website surface, but it works
     only when the Mac is on, so notes from a phone would wait.
-31. **The assistant's name.** In the club's 80s world. Options: **Penny** (the classic executive assistant, and money
-    in her name), **Sloane** (as in the Sloane Ranger), **Margot**, **Harriet**. Recommended: Penny.
-32. **Her email address.** Recommended: "Penny at Yuppie" <penny@clubyuppie.com> (whatever name is chosen), sent through
+31. ~~The assistant's name.~~ **Decided (Albert, 16 Nov): Alex.**
+32. ~~The assistant's email address.~~ **Decided (Albert, 16 Nov):** "Alex at Yuppie" <alex@clubyuppie.com>, sent through
     the website's existing email service. Replies to her go to albert@clubyuppie.com (an alias Albert adds in
     Microsoft 365 admin, free, no licence), so nothing is lost if he replies by mistake.
-33. **The January round.** Recommended: the January emails go out across the week of Mon 11 Jan 2027, a few each
+33. ~~The January round.~~ **Decided (Albert, 16 Nov): agreed.** the January emails go out across the week of Mon 11 Jan 2027, a few each
     morning rather than all at once, so replies arrive at a pace Albert can handle. Each is drafted the night
     before, like any follow-up.
 
