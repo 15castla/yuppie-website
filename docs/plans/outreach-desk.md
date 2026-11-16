@@ -12,6 +12,11 @@ from Outreach_Log · 8 Security and privacy · 9 Phased build · 10 Risks and op
 
 All 33 questions in section 10 are answered. Where an older passage below disagrees, this section wins.
 
+**Build status (17 Nov 2026):** Phase 1 is built on branch `admin/outreach-desk` (Technical Reference Part 22). Three
+differences from the detail below: the forms open as drawers on the partner's page rather than dialogs (plain forms
+that work before JavaScript loads); the `outreach_sequences_v` view waits for Phase 4 (the numbers are worked out in
+`lib/server/outreach/compute.ts`); `outreach_templates` becomes Alex's approved guidance in Phase 3.
+
 **What it is.** An owner-only section of the admin, run by an executive assistant called **Alex**. Alex keeps one
 record of every communication with each partner (emails in full, both ways; letters; calls; meetings and their notes;
 WhatsApp later), logs every action point, writes replies and follow-ups as Outlook drafts in Albert's voice, and

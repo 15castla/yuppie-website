@@ -16,7 +16,9 @@ import { Icon } from "./icons";
 
 export type AdminNavCounts = { applications: number; reports: number; photos: number };
 
-const NAV: { href: string; label: string; count?: keyof AdminNavCounts }[] = [
+type NavItem = { href: string; label: string; count?: keyof AdminNavCounts };
+
+const NAV: NavItem[] = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/applications", label: "Applications", count: "applications" },
   { href: "/admin/members", label: "Members" },
@@ -27,6 +29,9 @@ const NAV: { href: string; label: string; count?: keyof AdminNavCounts }[] = [
   { href: "/admin/photos", label: "Photos", count: "photos" },
   { href: "/admin/payments", label: "Payments" },
 ];
+
+// The Outreach Desk (17 Nov 2026): the owner's only; no other admin sees the link.
+const OWNER_NAV: NavItem[] = [...NAV, { href: "/admin/desk", label: "Desk" }];
 
 /** What a count means, for screen readers: "Reports (3 open)". */
 const COUNT_WORD: Record<keyof AdminNavCounts, string> = { applications: "waiting", reports: "open", photos: "to check" };
@@ -44,8 +49,9 @@ function LogOutButton({ className, children }: { className: string; children: Re
   );
 }
 
-export function AdminBar({ email, counts }: { email: string; counts: AdminNavCounts }) {
+export function AdminBar({ email, counts, owner = false }: { email: string; counts: AdminNavCounts; owner?: boolean }) {
   const pathname = usePathname();
+  const nav = owner ? OWNER_NAV : NAV;
   const [menuOpen, setMenuOpen] = useState(false);
   const [acctOpen, setAcctOpen] = useState(false);
   const acctRef = useRef<HTMLDivElement>(null);
@@ -109,7 +115,7 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
             <Image src="/yuppie_logo_forte_forward.png" alt="Club Yuppie" width={1942} height={641} sizes="92px" priority className="ad-wm" />
           </Link>
           <nav className="ad-nav" aria-label="Admin">
-            {NAV.map((item) => {
+            {nav.map((item) => {
               const n = countOf(item.count);
               return (
                 <Link key={item.href} href={item.href} aria-current={isCurrent(pathname, item.href) ? "page" : undefined}>
@@ -170,7 +176,7 @@ export function AdminBar({ email, counts }: { email: string; counts: AdminNavCou
             <div className="ad-menu" id="ad-menu" ref={panelRef}>
               <div className="ad-wrap">
                 <nav aria-label="Admin">
-                  {NAV.map((item) => {
+                  {nav.map((item) => {
                     const n = countOf(item.count);
                     const current = isCurrent(pathname, item.href);
                     return (
