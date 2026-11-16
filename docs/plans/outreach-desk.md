@@ -474,27 +474,31 @@ Working days are Monday to Friday, excluding England and Wales bank holidays (20
 `lib/server/outreach/rules.ts`, checked against gov.uk when built, with a reminder to add 2028). 21 December to
 1 January also counts as non-working every year, so no follow-up falls due over Christmas (Albert, 15 Nov).
 
-| Step | Channel | Due | Example: first email sent Thu 12 Nov 2026 |
-|---|---|---|---|
-| 1 | email, in the thread | 5 working days after the first touch was sent | Thu 19 Nov |
-| 2 | email, in the thread | 12 working days after the first touch was sent | Mon 30 Nov |
-| 3 | printed letter | 5 working days after step 2 is due, if the target has a postal address | Mon 7 Dec |
+Each count starts only when the email or letter before it has actually gone out (Albert, 16 Nov):
 
-Then, 15 working days after the letter is posted with no reply, the target moves to `no_reply` and the sequence
-closes. Whether "12" counts from the first send or from follow-up 1 is question 10.2; the table shows the
-recommendation (from the first send), which matches the "Follow-up due Thu 19 Nov" already in the log.
+| Step | Channel | Due | Example |
+|---|---|---|---|
+| 1 | email, in the thread | 7 working days after the first email was sent | first email Thu 12 Nov: Mon 23 Nov |
+| 2 | email, in the thread | 7 working days after follow-up 1 was actually sent | follow-up 1 sent Mon 23 Nov: Wed 2 Dec |
+| 3 | to decide (question 10.24) | | |
+
+**When a letter goes first** (Albert, 16 Nov): follow-up 1 is an email 10 working days after posting (Hawes &
+Curtis, posted Mon 9 Nov: Mon 23 Nov), then follow-up 2 as above. With no email address for the person or the
+business, Due today shows "Needs an email address" so one can be found (RocketReach first).
 
 When a touch becomes `sent` or `posted` as a first touch (or a resend after every address bounced), the desk creates
-its three follow-up rows. A target marked "Do not follow up" (WatchHouse) gets none.
+follow-up 1. Each later step is created when the one before it actually goes out, so a late send never bunches two
+together. A target marked "Do not follow up" (WatchHouse) gets none.
 
 ### 4.2 Where they run
 
 - **The rules run in the website's server code**, at the moment something happens: a send creates the follow-ups, a
   reply, bounce or opt-out cancels or pauses them, a snooze moves them. They are stored rows, so "Due today" is a
   simple query and the history is kept.
-- **The drafts are made by the drafter on the Mac**, the only place that can reach Outlook. Each run asks the desk
-  what is due today (`GET plan`) and makes those drafts. If the Mac is off on the due date, the draft appears on the
-  next run and the desk shows it as late.
+- **The drafts are made by the drafter on the Mac**, the only place that can reach Outlook. They are made the night
+  before the due date, so Albert reviews them on the morning they go out (Albert, 16 Nov). Each run from 21:00 asks
+  the desk what is due the next day (`GET plan`) and makes those drafts. If the Mac is asleep or off, they are made
+  the moment it next runs, and the 6:30 agenda says which are missing (question 10.25).
 - **pg_cron: not needed.** Nothing has to happen at a set time on the server. If later wanted (for example a weekly
   summary email to Albert), it is one more job in `release/schedule-cron.sql` calling `/api/cron/desk`, following
   the existing pattern.
@@ -1036,40 +1040,41 @@ Reply "agree" to take the recommendation, or change it.
 
 1. ~~What does a non-owner see at `/admin/desk`?~~ **Decided (Albert, 15 Nov):** a page saying "You don't have
    access to this page.", and no Desk link.
-2. **Follow-up timing: "5 then 12" working days from the first send, or 12 after follow-up 1?** Recommended: both
-   from the first send (FU1 day 5, FU2 day 12), then the letter 5 working days after FU2. 15 working days after a
-   letter with no reply, the target closes as "no reply".
+2. ~~Follow-up timing.~~ **Decided (Albert, 16 Nov):** 7 working days, counted from when the previous email or letter
+   actually went out (4.1).
 3. ~~Christmas.~~ **Decided (Albert, 15 Nov):** 21 Dec to 1 Jan counts as non-working, so no follow-up falls due
    then.
-4. **How the drafter writes to the desk.** Recommended: option A, a narrow route on the website with its own key
+4. ~~How the drafter writes to the desk.~~ **Decided (Albert, 16 Nov): agreed.** Recommended: option A, a narrow route on the website with its own key
    (3.3), not a Supabase Edge Function or database function.
-5. **Setting up the key.** Recommended: made on the Mac, kept in the Keychain, only its fingerprint pasted into the
+5. ~~Setting up the key.~~ **Decided (Albert, 16 Nov): agreed.** Recommended: made on the Mac, kept in the Keychain, only its fingerprint pasted into the
    desk; re-link every six months; Unlink in the desk stops it at once.
-6. **How often the drafter syncs.** Recommended: every 15 minutes while the Mac is awake, from a LaunchAgent that
+6. ~~How often the drafter syncs.~~ **Decided (Albert, 16 Nov): agreed.** Recommended: every 15 minutes while the Mac is awake, from a LaunchAgent that
    `draft-partner-emails schedule on` installs (and `off` removes), plus every manual run. macOS may ask once to let
    python3 read the OneDrive folder ("Files and Folders"); that's all it needs, never accessibility or keystrokes.
-7. **When follow-up drafts appear.** Recommended: on the first sync after 07:00 on the due date, so they're waiting
-   when Albert starts.
-8. **Stale follow-up drafts after a reply.** Recommended: the drafter moves an unedited one to Deleted Items
+7. ~~When follow-up drafts appear.~~ **Decided (Albert, 16 Nov):** written the night before the due date, so they
+   are ready to review on the morning they go out. How, if the Mac sleeps: question 10.25.
+8. ~~Stale follow-up drafts after a reply.~~ **Decided (Albert, 16 Nov): agreed.** Recommended: the drafter moves an unedited one to Deleted Items
    (recoverable); an edited one is left alone and flagged.
-9. **Phone numbers** (such as Houman's, in Desh's email). Recommended: not stored in the desk; they stay in Outlook.
-10. **Deleting someone who opted out.** Recommended: keep their email address alone on a suppression list (so we never
-    write again) and delete everything else.
-11. **Address sources for the bounced and unrecorded addresses.** You said the bounces were guessed addresses.
-    Recommended: corporate@headmasters.com and both ukpress@ addresses as `guessed`; adam.reynolds@everymancinema.com
-    as `supplied by Albert` (as logged) unless you guessed it; marketing@pallmallbarbers.com as `published` if it was
-    on their site. Please correct any.
+9. ~~Phone numbers.~~ **Decided (Albert, 16 Nov):** not stored for now. WhatsApp tracking, when it comes, will need
+   them; revisit then.
+10. ~~Deleting someone who opted out.~~ **Decided (Albert, 16 Nov):** an edge case, handled by hand; no special
+    feature.
+11. ~~Address sources.~~ **Decided (Albert, 16 Nov):** where the source wasn't recorded (corporate@headmasters.com,
+    both ukpress@ addresses, marketing@pallmallbarbers.com) it is `supplied by Albert`, as is Adam Reynolds'. From now
+    on every address records its real source.
 12. ~~Categories.~~ **Decided (Albert, 16 Nov):** the list as proposed; Padium is fitness. For exclusivity, Padium's
     category would be defined narrowly ("padel"), so it never blocks 1Rebel or Third Space.
 13. ~~Missing history.~~ **Decided (Albert, 16 Nov):** Padium and Hawes & Curtis were both posted on 9 Nov (no reply
     from Touker yet). Email history, including any Headmasters resend, comes from the Outlook backfill (7.3).
 14. ~~The WatchHouse heads-up.~~ **Decided (Albert, 16 Nov):** kept on record, left out of the numbers; nothing sent
     since. It came from his personal email, so it's imported from the log, not Outlook.
-15. **Outreach_Log after the copy.** Recommended: frozen as history with a note at the top; the desk becomes the
-    record; the skills write `.desk.json` files instead of log rows (skill changes for you to approve in Phase 2).
+15. ~~Outreach_Log after the copy.~~ **Decided (Albert, 16 Nov):** the desk becomes the one record of every
+    communication with each partner (emails, letters, calls, meetings and their notes, and WhatsApp later). The
+    Markdown log stops being updated once the desk is live.
 16. ~~Follow-up wording.~~ **Decided (Albert, 16 Nov):** build the flow first; Albert approves the templates after.
     No follow-up draft is made until its template is approved.
-17. **How much of a reply the desk keeps.** When someone replies, the desk can keep the first couple of lines of
+17. ~~How much of a reply the desk keeps.~~ **Decided (Albert, 16 Nov): save all communications in full** (see
+    10.29 for attachments). The earlier recommendation, kept for the record: When someone replies, the desk can keep the first couple of lines of
     what they wrote (the snippet Outlook shows in the inbox list, up to 255 characters), so the timeline reads
     "Richard Marshall: Thanks Albert, would be good to speak next week..." without opening Outlook. Or it keeps
     nothing but a link to the email. Recommended: keep the snippet for real replies only, never the whole email, and
@@ -1086,8 +1091,46 @@ Risks 19 to 22: noted and accepted (Albert, 16 Nov).
     yellow; nothing is lost, it catches up on the next run (the sync reads from the last sync time).
 22. **Risk: UK GDPR and PECR.** Mitigation: section 8. Recommended: Albert confirms the lawful basis and the
     business-email rules with a lawyer or the ICO's guidance before outreach grows; this plan is not legal advice.
-23. **Follow-ups after a letter** (new, from Padium and Hawes & Curtis). The rules in 4.1 were written for emails.
+23. ~~Follow-ups after a letter.~~ **Decided (Albert, 16 Nov):** an email 10 working days after posting (4.1). The
+    earlier recommendation, kept for the record: The rules in 4.1 were written for emails.
     Recommended: when a letter is the first touch, follow-up 1 falls 7 working days after posting (2 days for the
     post). If we have an email address for the person or a published one for the business, it's an email draft.
     If not (Touker Suleyman), Due today shows "Follow up by hand" (a call, a LinkedIn message or a second letter) and
     Albert logs what he does. Under this rule Hawes & Curtis would be due Wed 18 Nov.
+
+### Scope added by Albert, 16 Nov (to be written through the plan once 24 to 29 are answered)
+
+- The desk records **every** communication with each partner: emails in full (both directions), letters, calls,
+  meetings, meeting notes Albert gives Claude, and WhatsApp later (set up another day).
+- It logs every action point (follow-ups, booked calls, meetings) and at **06:30 each day** gives Albert a to-do list
+  and agenda for the day.
+- It **writes the replies and follow-ups** as drafts, by the rules above. It never sends.
+- The partner page is quick to reach and shows everything, so Albert can review a partner before an impromptu
+  meeting.
+
+24. **After follow-up 2.** Recommended: for an email-first sequence, a printed letter 7 working days after follow-up 2
+    if there is a postal address; for a letter-first sequence, nothing more. Either way the sequence closes as "no
+    reply" 15 working days after the last step.
+25. **The Mac overnight.** Overnight drafts need the drafter running, and a sleeping Mac can't. Recommended: drafts
+    are made from 21:00 the evening before, so they're usually done before the laptop is closed; anything missed is
+    made the moment the Mac wakes, and the 06:30 agenda says what's missing. Later, when WhatsApp is added, consider
+    moving mail access from the Mac to the website itself (a new Entra app registration with a certificate, for
+    Albert to approve; the website would then hold a standing sign-in to the mailbox).
+26. **How the 06:30 agenda reaches Albert.** It's built on the server (a pg_cron job), so it doesn't need the Mac.
+    Recommended: the website emails it to albert@clubyuppie.com only, never anyone else, through its existing email
+    service, with a link to the desk's Today page. This is the one exception to "nothing sends email", which is about
+    partners, so it needs Albert's explicit yes. Alternatives: only the Today page, or a phone notification (not built
+    for admins yet).
+27. **Who writes the replies and follow-ups.** Recommended: overnight, the website asks Claude, through the Anthropic
+    account Concierge already uses, to draft each reply and follow-up from the partner's history and Albert's writing
+    rules; the drafter puts them into the Outlook thread as drafts. This sends partners' email text to Anthropic for
+    processing. Alternative: the desk chat writes them when Albert asks.
+28. **Meeting notes.** Recommended: Albert gives Claude the notes (typed, or a photo like the Pall Mall Barbers notes
+    of 16 Nov); Claude saves them to a OneDrive folder ("Desk inbox") and the drafter files them on the partner's page
+    with their action points. Albert can also type notes straight onto the partner page.
+29. **Attachments.** Recommended: every email's full text is saved in the desk; attachments stay in Outlook, with their
+    names and a link on the partner's page.
+
+Notes, not questions: calls and meetings that arrive as invitations in the mailbox (such as Desh's for Padium) are
+read with the existing permission; reading Albert's whole calendar would need `Calendars.Read`, an Entra change, and
+isn't planned.
