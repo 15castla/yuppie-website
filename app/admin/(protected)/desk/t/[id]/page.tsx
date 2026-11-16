@@ -6,6 +6,7 @@ import { requireOwner } from "@/app/admin/require-owner";
 import { dateWords, dayWords, stampWords, timeWords } from "@/components/admin/desk/format";
 import { ActionForm, ContactForm, Drawer, EditTargetForm, LetterForm, LogEmailForm, NoteForm, OtherTouchForm, OutcomeForm, StageForm } from "@/components/admin/desk/forms";
 import { DeskShell, type SearchParams } from "@/components/admin/desk/shell";
+import { DeskSubmit } from "@/components/admin/desk/submit";
 import { followupAddresses, replyTimeWords } from "@/lib/server/outreach/compute";
 import { loadTarget } from "@/lib/server/outreach/desk";
 import {
@@ -58,9 +59,9 @@ function Del({ d, back, target }: { d: NonNullable<Item["del"]>; back: string; t
             <input type="checkbox" name="confirm" value="delete" required /> Delete for good
           </label>
         )}
-        <button className="dk-btn sm danger" type="submit">
+        <DeskSubmit className="dk-btn sm danger" busy="Deleting…">
           Delete
-        </button>
+        </DeskSubmit>
       </form>
     </details>
   );
@@ -215,9 +216,9 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
                     Snooze until
                   </label>
                   <input id="snooze-next" type="date" name="until" defaultValue={addWorkingDays(today, 1)} min={addWorkingDays(today, 1)} />
-                  <button className="dk-btn sm" type="submit">
+                  <DeskSubmit className="dk-btn sm" busy="Snoozing…">
                     Snooze
-                  </button>
+                  </DeskSubmit>
                 </form>
                 {[
                   ["skip", "Skip"],
@@ -227,9 +228,9 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
                     <input type="hidden" name="followup" value={next.id} />
                     <input type="hidden" name="back" value={back} />
                     <input type="hidden" name="op" value={op} />
-                    <button className="dk-btn sm" type="submit">
+                    <DeskSubmit className="dk-btn sm" busy="Saving…">
                       {label}
-                    </button>
+                    </DeskSubmit>
                   </form>
                 ))}
               </>
@@ -239,18 +240,18 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
                 <input type="hidden" name="followup" value={next.id} />
                 <input type="hidden" name="back" value={back} />
                 <input type="hidden" name="op" value="resume" />
-                <button className="dk-btn sm" type="submit">
+                <DeskSubmit className="dk-btn sm" busy="Resuming…">
                   Resume
-                </button>
+                </DeskSubmit>
               </form>
             )}
             <form action={deskFollowup}>
               <input type="hidden" name="followup" value={next.id} />
               <input type="hidden" name="back" value={back} />
               <input type="hidden" name="op" value="stop" />
-              <button className="dk-btn sm" type="submit">
+              <DeskSubmit className="dk-btn sm" busy="Stopping…">
                 Stop follow-ups
-              </button>
+              </DeskSubmit>
             </form>
           </div>
         )}
@@ -356,9 +357,9 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
                             <label className="dk-check">
                               <input type="checkbox" name="confirm" value="delete" required /> Delete this person for good (their emails stay without their name)
                             </label>
-                            <button className="dk-btn sm danger" type="submit">
+                            <DeskSubmit className="dk-btn sm danger" busy="Deleting…">
                               Delete person
-                            </button>
+                            </DeskSubmit>
                           </form>
                         </div>
                       </details>
@@ -395,12 +396,12 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
                       <form action={deskSetAction} style={{ display: "flex", gap: 6 }}>
                         <input type="hidden" name="action" value={a.id} />
                         <input type="hidden" name="back" value={back} />
-                        <button className="dk-btn sm" type="submit" name="op" value="done">
+                        <DeskSubmit className="dk-btn sm" name="op" value="done" busy="Saving…">
                           Done
-                        </button>
-                        <button className="dk-btn sm link" type="submit" name="op" value="cancel">
+                        </DeskSubmit>
+                        <DeskSubmit className="dk-btn sm link" name="op" value="cancel" busy="Saving…">
                           Drop
-                        </button>
+                        </DeskSubmit>
                       </form>
                     </li>
                   ))}
@@ -492,17 +493,17 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
                   <input type="hidden" name="target" value={t.id} />
                   <input type="hidden" name="back" value={back} />
                   <input type="hidden" name="op" value={t.do_not_follow_up ? "follow_up" : "no_follow_up"} />
-                  <button className="dk-btn sm" type="submit">
+                  <DeskSubmit className="dk-btn sm" busy="Saving…">
                     {t.do_not_follow_up ? "Allow follow-ups" : "Do not follow up"}
-                  </button>
+                  </DeskSubmit>
                 </form>
                 <form action={deskSetFlags}>
                   <input type="hidden" name="target" value={t.id} />
                   <input type="hidden" name="back" value={back} />
                   <input type="hidden" name="op" value={t.opted_out ? "opt_in" : "opt_out"} />
-                  <button className="dk-btn sm" type="submit">
+                  <DeskSubmit className="dk-btn sm" busy="Saving…">
                     {t.opted_out ? "Undo opt-out" : "They opted out (the whole business)"}
-                  </button>
+                  </DeskSubmit>
                 </form>
               </div>
               <details style={{ marginTop: 12 }}>
@@ -514,9 +515,9 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
                   <label className="dk-check">
                     <input type="checkbox" name="confirm" value="delete" required /> Delete {t.name} and everything about them (contacts, emails, letters, replies, notes). This can&apos;t be undone. Copies in Outlook and OneDrive stay.
                   </label>
-                  <button className="dk-btn sm danger" type="submit">
+                  <DeskSubmit className="dk-btn sm danger" busy="Deleting…">
                     Delete partner
-                  </button>
+                  </DeskSubmit>
                 </form>
               </details>
             </section>

@@ -30,6 +30,7 @@ import {
 } from "@/lib/server/outreach/model";
 import { isoToUkLocal, ukDate } from "@/lib/server/outreach/rules";
 import { shortDate } from "./format";
+import { DeskSubmit } from "./submit";
 
 // The desk's forms (17 Nov 2026; plan 5.4). Plain server-action forms (they work before JavaScript loads), each in a
 // drawer on the partner's page. Field names match app/admin/desk-actions.ts.
@@ -160,9 +161,9 @@ export function NewTargetForm() {
         </div>
       </fieldset>
       <div className="dk-form-foot">
-        <button className="dk-btn primary" type="submit">
+        <DeskSubmit className="dk-btn primary" busy="Adding…">
           Add partner
-        </button>
+        </DeskSubmit>
       </div>
     </form>
   );
@@ -174,9 +175,9 @@ export function EditTargetForm({ t, back }: { t: Target; back: string }) {
       <Hidden target={t.id} back={back} />
       <TargetFields t={t} />
       <div className="dk-form-foot">
-        <button className="dk-btn primary" type="submit">
+        <DeskSubmit className="dk-btn primary" busy="Saving…">
           Save
-        </button>
+        </DeskSubmit>
       </div>
     </form>
   );
@@ -236,9 +237,9 @@ export function ContactForm({ target, back, c }: { target: string; back: string;
       {c && <input type="hidden" name="contact" value={c.id} />}
       <ContactFields c={c} />
       <div className="dk-form-foot">
-        <button className="dk-btn primary" type="submit">
+        <DeskSubmit className="dk-btn primary" busy="Saving…">
           {c ? "Save contact" : "Add contact"}
-        </button>
+        </DeskSubmit>
       </div>
     </form>
   );
@@ -359,9 +360,9 @@ export function LogEmailForm({ target, back, contacts, touches }: { target: Targ
         <label className="dk-check">
           <input type="checkbox" name="counts_in_stats" value="on" defaultChecked /> Counts in the numbers
         </label>
-        <button className="dk-btn primary" type="submit">
+        <DeskSubmit className="dk-btn primary" busy="Logging…">
           Log email
-        </button>
+        </DeskSubmit>
       </div>
     </form>
   );
@@ -407,9 +408,9 @@ export function LetterForm({ target, back, contacts, touches }: { target: Target
         <label className="dk-check">
           <input type="checkbox" name="counts_in_stats" value="on" defaultChecked /> Counts in the numbers
         </label>
-        <button className="dk-btn primary" type="submit">
+        <DeskSubmit className="dk-btn primary" busy="Logging…">
           Log letter
-        </button>
+        </DeskSubmit>
       </div>
     </form>
   );
@@ -446,9 +447,9 @@ export function OtherTouchForm({ target, back, contacts, touches }: { target: Ta
         <label className="dk-check">
           <input type="checkbox" name="counts_in_stats" value="on" defaultChecked /> Counts in the numbers
         </label>
-        <button className="dk-btn primary" type="submit">
+        <DeskSubmit className="dk-btn primary" busy="Logging…">
           Log it
-        </button>
+        </DeskSubmit>
       </div>
     </form>
   );
@@ -534,9 +535,9 @@ export function OutcomeForm({ target, back, contacts, touches }: { target: Targe
         <label className="dk-check">
           <input type="checkbox" name="opted_out" /> They asked us to stop (opt them out)
         </label>
-        <button className="dk-btn primary" type="submit">
+        <DeskSubmit className="dk-btn primary" busy="Logging…">
           Log it
-        </button>
+        </DeskSubmit>
       </div>
     </form>
   );
@@ -561,9 +562,9 @@ export function NoteForm({ target, back }: { target: string; back: string }) {
         <textarea name="body" rows={6} required />
       </Field>
       <div className="dk-form-foot">
-        <button className="dk-btn primary" type="submit">
+        <DeskSubmit className="dk-btn primary" busy="Saving…">
           Save note
-        </button>
+        </DeskSubmit>
       </div>
     </form>
   );
@@ -588,9 +589,9 @@ export function ActionForm({ target, back }: { target: string; back: string }) {
         <input type="datetime-local" name="starts_at" />
       </Field>
       <div className="dk-form-foot">
-        <button className="dk-btn primary" type="submit">
+        <DeskSubmit className="dk-btn primary" busy="Adding…">
           Add action point
-        </button>
+        </DeskSubmit>
       </div>
     </form>
   );
@@ -617,9 +618,9 @@ export function StageForm({ t, back }: { t: Target; back: string }) {
             <input type="checkbox" name="clear_call" /> Clear the next call
           </label>
         )}
-        <button className="dk-btn primary" type="submit">
+        <DeskSubmit className="dk-btn primary" busy="Saving…">
           Save
-        </button>
+        </DeskSubmit>
       </div>
     </form>
   );
