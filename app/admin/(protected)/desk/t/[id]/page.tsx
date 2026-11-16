@@ -107,7 +107,7 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
       key: `o-${o.id}`,
       chip: {
         cls: o.kind === "reply" ? `replied ${o.sentiment ?? "none"}` : o.kind === "bounce" ? "bounced" : o.kind === "opt_out_request" ? "opted" : "oof",
-        word: o.kind === "reply" ? `Reply${o.sentiment === "positive" ? " +" : o.sentiment === "negative" ? " -" : ""}` : OUTCOME_KINDS[o.kind],
+        word: o.kind === "reply" ? `Reply${o.sentiment === "positive" ? " +" : o.sentiment === "negative" ? " -" : ""}` : o.kind === "auto_reply" ? "Auto reply" : OUTCOME_KINDS[o.kind],
       },
       title: `${OUTCOME_KINDS[o.kind]}${from ? ` from ${from}` : ""}${o.kind === "bounce" && o.bounced_address ? `: ${o.bounced_address}` : ""}`,
       meta: [
