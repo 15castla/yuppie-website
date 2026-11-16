@@ -563,8 +563,9 @@ posted". With no postal address the step is skipped (reason `no_address`) and th
 Each email step uses a template stored in the desk (`outreach_templates`, Phase 2): Albert's wording with three fields,
 the first name (or "team" for a group mailbox), the target's name and its `ask_line`. Claude writes the first two
 templates in Albert's voice (British English, no em dashes or exclamation marks, "Club Yuppie"), each ending with a
-one-line way to opt out ("If you'd rather I didn't write again, just say and I won't."). Albert approves them in the
-desk and can edit any draft in Outlook before sending. For a bespoke follow-up, the desk chat writes it as a
+one-line way to opt out ("If you'd rather I didn't write again, just say and I won't."). The flow is built first and
+Albert approves the templates afterwards (Albert, 16 Nov). Until a step has an approved template, Due today shows
+"Template needed" and no draft is made for it. Albert can edit any draft in Outlook before sending. For a bespoke follow-up, the desk chat writes it as a
 `.desk.json` with `"kind": "follow_up"` (3.2) and the drafter puts that text into the thread instead.
 
 ---
@@ -604,8 +605,8 @@ trading screen built only from the console's tokens (`app/admin/admin.css`):
 |                                                                                       [Letter posted] [Reply]  |
 +-----------------+-----------------+-----------------+-----------------+-----------------+--------------------+
 | SENT THIS WEEK  | RESPONSE RATE   | POSITIVE RATE   | CALLS BOOKED    | PARTNERS LIVE   | DUE TODAY          |
-|        6        |      29%        |      29%        |        1        |        0        |    4               |
-| E5 L1  ▲2 vs lw | 2 of 7          | 2 of 7          | Padium Fri 12:00| 0 agreed        | 1 late             |
+|        6        |      25%        |      25%        |        1        |        0        |    4               |
+| E5 L1  ▲2 vs lw | 2 of 8          | 2 of 8          | Padium Fri 12:00| 0 agreed        | 1 late             |
 +-----------------+-----------------+-----------------+-----------------+-----------------+--------------------+
 | DUE TODAY                                                                                                      |
 | LATE   Wed 18 Nov  Nobu Portman Square   FU1 email  events-portmansquare@ +1   Draft ready >   Snooze  Skip      |
@@ -625,7 +626,7 @@ trading screen built only from the console's tokens (`app/admin/admin.css`):
 | 11 Nov        Nobu Portman Sq     E  1     events-portmansquare@ +1 (pub) SENT       -          6   Cont.  LATE  |
 | 10 Nov 00:56  Pall Mall Barbers   E  1     marketing@ (?)                 REPLIED +  7.5 h      0   Repl.  Call? |
 | 10 Nov        Headmasters         E  1     corporate@ (guess)             BOUNCED    -          -   New address    |
-| ? Nov         Padium              L  1     Houman Ashrafzadeh (Albert)    REPLIED +  ?          ?   Call   20 Nov|
+| 9 Nov         Padium              L  1     Houman Ashrafzadeh (Albert)    REPLIED +  3 d        3   Call   20 Nov|
 +--------------------------------------------------------------------------------------------------------------+
 ```
 
@@ -695,7 +696,7 @@ server-rendered SVG with its numbers printed on it, and a "Show table" link unde
 
 | # | Chart | Plots |
 |---|---|---|
-| A1 | Response rate by channel | bars for email, letter, LinkedIn, call: rate, labelled "29% (2 of 7)" |
+| A1 | Response rate by channel | bars for email, letter, LinkedIn, call: rate, labelled "25% (2 of 8)" |
 | A2 | The touch that got the reply | replies by the last touch before them: first, follow-up 1, follow-up 2, letter |
 | A3 | Response rate by mailbox type | named person, founder, group mailbox |
 | A4 | Bounce rate by address source | RocketReach, Apollo, published, supplied by Albert, guessed, their reply, unknown |
@@ -745,7 +746,7 @@ time). Numerator and denominator always come from the same set. Replies are coun
 
 Sample sizes:
 
-- Every rate is written as a percentage with its counts: "29% (2 of 7)". Percentages are whole numbers.
+- Every rate is written as a percentage with its counts: "25% (2 of 8)". Percentages are whole numbers.
 - With nothing to count the chart shows "-" and "no data", never 0%.
 - With fewer than 5 in the denominator the bar is drawn as an outline with diagonal hatching and labelled
   "small sample", so a 100% from one letter doesn't look like a result.
@@ -788,29 +789,33 @@ Sample sizes:
 | Headmasters | hair_beauty | email 10 Nov to corporate@, bounced 10 Nov; marketing@, pr@ and info@ as contacts | contacted, needs a new address |
 | Everyman | cinema | email to adam.reynolds@ (supplied by Albert), bounced 11 Nov; resend 12 Nov to privatehire@ (published) "FAO Adam Reynolds" | contacted, FU1 Thu 19 Nov |
 | Ted's Grooming Room | grooming | none (no route to Mus) | paused |
-| Hawes & Curtis | clothing | letter final, dated 9 Nov, not posted per the log | ready |
-| Padium | to confirm | letter posted (date to confirm); reply 12 Nov 22:18 from Houman (founder), positive; Desh's messages 13 Nov; Albert's reply-all 13 Nov 12:18 | call booked, Fri 20 Nov 12:00 |
+| Hawes & Curtis | clothing | letter to Touker Suleyman posted Mon 9 Nov (Albert, 16 Nov); no reply yet | contacted |
+| Padium | fitness | letter posted Mon 9 Nov (Albert, 16 Nov); reply 12 Nov 22:18 from Houman (founder), positive; Desh's messages 13 Nov; Albert's reply-all 13 Nov 12:18 | call booked, Fri 20 Nov 12:00 |
 | Charles Tyrwhitt | clothing | none (to redo) | researching |
 | Mayfair House Group | bar | none (to redo) | researching |
 | The Salad Project | restaurant | none (to redo; signed by Kira) | researching |
 | Upstairs at Langan's | restaurant | none (to redo; signed by Kira) | researching |
-| WatchHouse | cafe | the 1 Nov heads-up from Albert's personal email, `counts_in_stats` false | do not follow up |
+| WatchHouse | cafe | the 1 Nov heads-up from Albert's personal email, `counts_in_stats` false; nothing sent since (Albert, 16 Nov) | do not follow up |
 | Cleménce (superseded) | | not imported | |
 | Next targets 1 to 7 | dry_cleaning, fitness, hair_beauty | none | researching |
 
-As it stands this gives 8 sequences started since 1 Nov, 7 delivered (Headmasters fully bounced), 2 replied
-(29%, 2 of 7), and 11 addresses emailed: RocketReach 0 of 3 bounced, published 0 of 3, supplied by Albert 1 of 1, and
+As it stands this gives 9 sequences started since 1 Nov (7 by email, 2 by letter), 8 delivered (Headmasters fully
+bounced), 2 replied (25%, 2 of 8; Padium in 3 days from posting), and 11 addresses emailed: RocketReach 0 of 3 bounced, published 0 of 3, supplied by Albert 1 of 1, and
 the rest as Albert confirms (question 10.11).
 
 ### 7.3 What's lost or needs Albert
 
-- **Send times:** most rows have a date only. Phase 2's first run backfills exact times and Outlook ids from Sent
-  Items for every email since 1 Nov (by the hidden key from the `.drafted` markers, then by recipient).
-- **Letter posting dates:** Padium's is "to confirm", so its time to reply is unknown until Albert gives it.
+- **Email history comes from Outlook, not memory (Albert, 16 Nov).** Phase 2's first run (`backfill --since
+  2026-11-01`) reads Sent Items, the inbox and Junk since 1 Nov. It fills in exact send times and Outlook ids for
+  every logged email (by the hidden key from the `.drafted` markers, then by recipient), and puts anything else sent
+  to or received from a known target's address or domain into the review list: a Headmasters resend, if there was
+  one, any reply or bounce the log missed. Albert confirms each in the desk.
+- **The WatchHouse heads-up** went from Albert's personal email, which the drafter can't see, so it comes from the
+  log. Nothing has been sent to WatchHouse since (Albert, 16 Nov).
+- **Letters (Albert, 16 Nov):** Padium and Hawes & Curtis were both posted on Mon 9 Nov; no reply from Touker
+  Suleyman yet. The older-style letters (Charles Tyrwhitt, Mayfair House Group, The Salad Project, Upstairs at
+  Langan's) were not posted.
 - **Address sources** not recorded: corporate@headmasters.com, the two ukpress@ addresses, marketing@pallmallbarbers.com.
-- **Which letters were actually posted:** the log says "Not yet" for Hawes & Curtis, Charles Tyrwhitt, Mayfair House
-  Group, The Salad Project and Upstairs at Langan's, and shows about 10 emails and 1 letter since 1 Nov. Albert
-  mentioned around 15 contacts, so some may be missing.
 - **Categories and asks** are chosen by Claude from the text and shown for Albert to check before import.
 - Nothing in the Markdown is deleted: it is frozen with a line at the top saying the desk is now the record, and any
   text that doesn't fit a column is kept word for word in `notes`.
@@ -944,7 +949,7 @@ Claude Code's Supabase MCP `apply_migration` (or the SQL editor) with Albert app
 **How Albert verifies**
 
 1. Run the release prompt in Claude Code (merge, migration with his approval, `set-desk-owner.sql`).
-2. Open `/admin/desk`: the KPIs read about "Response 29% (2 of 7)", and five rows match the log.
+2. Open `/admin/desk`: the KPIs read about "Response 25% (2 of 8)", and five rows match the log.
 3. Ask Kira to open `/admin/desk`: "You don't have access to this page.", and no Desk link.
 4. Add a "Test Bakery" target, log an email, see FU1 in Due today 5 working days later (snooze it to today to see it),
    log a reply, watch the KPIs move; mark it opted out and try to add a touch (refused); then delete it.
@@ -1006,7 +1011,7 @@ sending, what Exchange's bounce looks like (message class, conversation id, the 
 - `app/admin/(protected)/desk/analytics/page.tsx`
 - `lib/server/outreach/metrics.ts` (every measure in section 6, from the view)
 - `components/admin/desk/charts/`: `rate-bars.tsx` (A1 to A6), `week-columns.tsx` (A7), `dot-strip.tsx` (A8),
-  `funnel.tsx` (A9), `stage-bars.tsx` (A10), `load-bars.tsx` (A11), `sample.tsx` (the "2 of 7" label and the
+  `funnel.tsx` (A9), `stage-bars.tsx` (A10), `load-bars.tsx` (A11), `sample.tsx` (the "2 of 8" label and the
   small-sample hatching)
 - Tests: `tests/e2e/phase-b/26-outreach-analytics.mjs` (a seeded data set with known answers for every chart, the
   "-" for no data, hatching under 5, the window and "settled only"); `shoot-desk.mjs`
@@ -1054,21 +1059,24 @@ Reply "agree" to take the recommendation, or change it.
     Recommended: corporate@headmasters.com and both ukpress@ addresses as `guessed`; adam.reynolds@everymancinema.com
     as `supplied by Albert` (as logged) unless you guessed it; marketing@pallmallbarbers.com as `published` if it was
     on their site. Please correct any.
-12. **Categories.** Recommended list: restaurant, bar, cafe, activities, cinema, grooming, hair and beauty, fitness,
-    clothing, dry cleaning, hotel, other. Padium: which one?
-13. **Missing history.** Please give Padium's posting date, and say whether any other letters were posted since 1 Nov
-    (Hawes & Curtis, Charles Tyrwhitt, Mayfair House Group, The Salad Project, Upstairs at Langan's) and whether
-    Headmasters was re-sent. The log shows about 10 emails and 1 letter against the "around 15" you mentioned.
-14. **The WatchHouse heads-up.** Recommended: imported for the record but left out of every number.
+12. ~~Categories.~~ **Decided (Albert, 16 Nov):** the list as proposed; Padium is fitness. For exclusivity, Padium's
+    category would be defined narrowly ("padel"), so it never blocks 1Rebel or Third Space.
+13. ~~Missing history.~~ **Decided (Albert, 16 Nov):** Padium and Hawes & Curtis were both posted on 9 Nov (no reply
+    from Touker yet). Email history, including any Headmasters resend, comes from the Outlook backfill (7.3).
+14. ~~The WatchHouse heads-up.~~ **Decided (Albert, 16 Nov):** kept on record, left out of the numbers; nothing sent
+    since. It came from his personal email, so it's imported from the log, not Outlook.
 15. **Outreach_Log after the copy.** Recommended: frozen as history with a note at the top; the desk becomes the
     record; the skills write `.desk.json` files instead of log rows (skill changes for you to approve in Phase 2).
-16. **Follow-up wording.** Recommended: two templates in your voice, each with a one-line way to opt out, approved by
-    you in the desk; bespoke follow-ups from the desk chat when you ask.
-17. **Reply text.** Recommended: keep Outlook's 255-character preview of each reply (it helps you rate it); never the
-    full body, and nothing from automatic mail.
-18. **Kira's letters** (The Salad Project, Upstairs at Langan's). They sit in the owner-only desk, so Kira can't see
-    their status there. Recommended: fine for now; if she needs to, a later read-only "Kira's targets" list is a
-    separate decision.
+16. ~~Follow-up wording.~~ **Decided (Albert, 16 Nov):** build the flow first; Albert approves the templates after.
+    No follow-up draft is made until its template is approved.
+17. **How much of a reply the desk keeps.** When someone replies, the desk can keep the first couple of lines of
+    what they wrote (the snippet Outlook shows in the inbox list, up to 255 characters), so the timeline reads
+    "Richard Marshall: Thanks Albert, would be good to speak next week..." without opening Outlook. Or it keeps
+    nothing but a link to the email. Recommended: keep the snippet for real replies only, never the whole email, and
+    nothing from automatic mail.
+18. ~~Kira's letters.~~ **Decided (Albert, 16 Nov):** Kira doesn't need letters yet, so no view for her.
+Risks 19 to 22: noted and accepted (Albert, 16 Nov).
+
 19. **Risk: the hidden key may not survive sending,** or `createReplyAll` may fill in recipients differently than
     expected. Mitigation: the Phase 2 spike checks both first; the fallbacks (conversation id, explicit recipients)
     are already in the design.
@@ -1078,3 +1086,8 @@ Reply "agree" to take the recommendation, or change it.
     yellow; nothing is lost, it catches up on the next run (the sync reads from the last sync time).
 22. **Risk: UK GDPR and PECR.** Mitigation: section 8. Recommended: Albert confirms the lawful basis and the
     business-email rules with a lawyer or the ICO's guidance before outreach grows; this plan is not legal advice.
+23. **Follow-ups after a letter** (new, from Padium and Hawes & Curtis). The rules in 4.1 were written for emails.
+    Recommended: when a letter is the first touch, follow-up 1 falls 7 working days after posting (2 days for the
+    post). If we have an email address for the person or a published one for the business, it's an email draft.
+    If not (Touker Suleyman), Due today shows "Follow up by hand" (a call, a LinkedIn message or a second letter) and
+    Albert logs what he does. Under this rule Hawes & Curtis would be due Wed 18 Nov.
