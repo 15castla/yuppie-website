@@ -24,8 +24,8 @@ import { JANUARY_ROUND, followUpDue, januaryDay, ukDate } from "./rules";
 const TOUCH_COLUMNS =
   "id, target_id, sequence_id, channel, kind, step, status, subject, version, attachment, file_ref, body_text, sent_at, letter_posted_on, letter_class, web_link, counts_in_stats, signed_by, created_by, note, created_at, internet_message_id, conversation_id, attachments, guess_kind, candidate_targets";
 const OUTCOME_COLUMNS =
-  "id, target_id, sequence_id, touch_id, contact_id, kind, channel, sentiment, received_at, from_address, from_name, subject, body_text, summary, bounced_address, bounce_code, web_link, confirmed, is_first_reply, reply_seconds, created_at, match_method, attachments, hint, candidate_targets";
-const TEXT_COLUMNS = "id, target_id, followup_id, kind, subject, body, status, written_by, updated_at";
+  "id, target_id, sequence_id, touch_id, contact_id, kind, channel, sentiment, received_at, from_address, from_name, subject, body_text, summary, bounced_address, bounce_code, web_link, confirmed, is_first_reply, reply_seconds, created_at, match_method, attachments, hint, candidate_targets, conversation_id, internet_message_id";
+const TEXT_COLUMNS = "id, target_id, followup_id, outcome_id, kind, subject, body, status, written_by, updated_at, draft_link, draft_error";
 
 async function rows<T>(query: PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
   const { data, error } = await query;

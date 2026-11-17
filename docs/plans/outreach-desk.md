@@ -1080,6 +1080,14 @@ sending, what Exchange's bounce looks like (message class, conversation id, the 
 
 ### Phase 3: Alex
 
+**Status (17 Nov 2026): built** on branch `admin/desk-alex` (Albert, 17 Nov: "do you want to do stage 3"). As planned,
+with these differences: the migration is `20261119090000_desk_alex.sql`; the 06:30 email's schedule is its own file,
+`release/schedule-desk-agenda.sql` (it uses the cron secret already in Vault); the guidance has three kinds (follow-up,
+January, reply), each approved on its own, and saving a change takes the approval away; replies Alex writes become
+Outlook drafts at the drafter's next sync (Reply all to the partner's message, minus Albert and anyone who opted
+out), and Albert can remove one on the partner's page before it's drafted; deleting a reply's draft in Outlook removes
+it. Tests: `tests/e2e/phase-b/27-desk-alex.mjs` (118 checks) and `test_desk_sync.py` (reply drafts).
+
 **Files**
 
 - `supabase/migrations/20261201090000_desk_alex.sql` and `release/undo-desk-alex.sql` (section 0.1)

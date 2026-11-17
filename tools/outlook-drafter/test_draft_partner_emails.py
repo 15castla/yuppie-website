@@ -193,6 +193,10 @@ class DrafterTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         base = Path(self.tmp.name)
+        # a home of its own, so a real OneDrive (~/Library/CloudStorage) on the Mac running the tests is never found
+        self.saved_home = os.environ.get("HOME")
+        os.environ["HOME"] = str(base / "home")
+        (base / "home").mkdir()
         self.root = base / "Partner emails"
         self.root.mkdir()
         self.fake = FakeMicrosoft()
@@ -206,6 +210,10 @@ class DrafterTests(unittest.TestCase):
         dp.save_config({"tenant": "tenant-1", "client": "client-1", "mailbox": "albert@clubyuppie.com", "root": str(self.root)})
 
     def tearDown(self):
+        if self.saved_home is None:
+            os.environ.pop("HOME", None)
+        else:
+            os.environ["HOME"] = self.saved_home
         dp.LOGIN_BASE, dp.GRAPH_BASE, dp.CONFIG_PATH, dp.time.sleep, dp.open_browser = self.saved
         os.environ.pop("CYD_TOKEN_FILE", None)
         self.fake.close()

@@ -4,10 +4,11 @@ import { notFound } from "next/navigation";
 import { deskDeleteContact, deskDeleteNote, deskDeleteOutcome, deskDeleteTarget, deskDeleteTouch, deskFollowup, deskSetAction, deskSetFlags } from "@/app/admin/desk-actions";
 import { requireOwner } from "@/app/admin/require-owner";
 import { dateWords, dayWords, stampWords, timeWords } from "@/components/admin/desk/format";
-import { FollowupText } from "@/components/admin/desk/followup-text";
+import { FollowupText, ReplyTexts } from "@/components/admin/desk/followup-text";
 import { ActionForm, ContactForm, Drawer, EditTargetForm, LetterForm, LogEmailForm, NoteForm, OtherTouchForm, OutcomeForm, StageForm } from "@/components/admin/desk/forms";
 import { DeskShell, type SearchParams } from "@/components/admin/desk/shell";
 import { DeskSubmit } from "@/components/admin/desk/submit";
+import { answeredReply } from "@/lib/server/outreach/agenda";
 import { followupAddresses, replyTimeWords } from "@/lib/server/outreach/compute";
 import { loadTarget } from "@/lib/server/outreach/desk";
 import {
@@ -294,6 +295,18 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
         {next && (next.status === "scheduled" || next.status === "drafted" || next.status === "paused") && (
           <FollowupText f={next} text={nextText} back={back} inThread={nextInThread} />
         )}
+        <ReplyTexts
+          // once Albert has emailed in that thread since their reply (he sent Alex's draft, or wrote his own), it's done
+          texts={(texts ?? []).filter((x) => {
+            const o = x.outcome_id ? outcomes.find((y) => y.id === x.outcome_id) : undefined;
+            return !o || !answeredReply(touches, o);
+          })}
+          back={back}
+          fromOf={(id) => {
+            const o = outcomes.find((x) => x.id === id);
+            return (o?.contact_id ? contactName.get(o.contact_id) : null) ?? o?.from_name ?? o?.from_address ?? "their reply";
+          }}
+        />
 
         <div className="dk-drawers">
           <Drawer id="log-email" title="Log an email" hint="An email you sent: the first, the follow-up, a resend or a reply in the conversation.">
