@@ -352,6 +352,63 @@ def make_followup(graph: dp.Graph, cfg: dict, f: dict, mailbox: str) -> dict:
         raise
 
 
+def make_reply(graph: dp.Graph, cfg: dict, r: dict, mailbox: str) -> dict:
+    """One reply draft from Alex's words (Phase 3): createReplyAll on the partner's message, so Outlook puts in the
+    sender and everyone else on it (minus Albert, and minus anyone who opted out), then our words above the quote with
+    the signature, and the hidden key. Half-made drafts are deleted. Never sent."""
+    key = r["key"]
+    existing = find_by_key(graph, key)
+    if existing and existing.get("isDraft"):
+        return existing
+    if existing:
+        return {}  # already sent: the Sent Items scan reports it
+    original = find_by_imid(graph, (r.get("replyTo") or {}).get("internetMessageId") or "")
+    if not original:
+        raise dp.DraftError("Their email isn't in Outlook any more.")
+    blocked = {a.lower() for a in r.get("optedOut", [])} | {mailbox}
+    signature, images = dp.signature_of(cfg)
+    ours = text_to_html(r["body"]) + (signature or "")
+    made_id = None
+    try:
+        draft = graph.call("POST", f"/me/messages/{urllib.parse.quote(original['id'], safe='')}/createReplyAll", {})
+        made_id = draft.get("id")
+        if not made_id:
+            raise dp.DraftError("Outlook didn't make the reply.")
+        mid = urllib.parse.quote(made_id, safe="")
+        current = graph.call("GET", f"/me/messages/{mid}?$select=body,toRecipients,ccRecipients")
+        to = [p for p in _people(current.get("toRecipients")) if p["address"] not in blocked]
+        seen = {p["address"] for p in to}
+        cc = [p for p in _people(current.get("ccRecipients")) if p["address"] not in blocked and p["address"] not in seen]
+        if not to:
+            raise dp.DraftError("No address left to reply to (they opted out).")
+
+        def people(list_):
+            return [{"emailAddress": {"address": p["address"], **({"name": p["name"]} if p.get("name") else {})}} for p in list_]
+
+        body_html = str((current.get("body") or {}).get("content") or "")
+        graph.call("PATCH", f"/me/messages/{mid}", {
+            "toRecipients": people(to),
+            "ccRecipients": people(cc),
+            "body": {"contentType": "HTML", "content": put_on_top(body_html, ours)},
+            "singleValueExtendedProperties": [{"id": dp.DRAFT_KEY_PROPERTY, "value": key}],
+        })
+        for image in images:
+            graph._attach(mid, image)
+        check = graph.call("GET", f"/me/messages/{mid}?$select=toRecipients,ccRecipients,webLink,lastModifiedDateTime,isDraft")
+        got = sorted(p["address"] for p in _people(check.get("toRecipients"))) + ["|"] + sorted(p["address"] for p in _people(check.get("ccRecipients")))
+        want = sorted(p["address"] for p in to) + ["|"] + sorted(p["address"] for p in cc)
+        if got != want or not check.get("isDraft", True):
+            raise dp.DraftError("Outlook didn't keep the recipients.")
+        return {"id": made_id, "webLink": check.get("webLink"), "lastModifiedDateTime": check.get("lastModifiedDateTime")}
+    except dp.DraftError:
+        if made_id:
+            try:
+                graph.call("DELETE", f"/me/messages/{urllib.parse.quote(made_id, safe='')}")
+            except dp.DraftError:
+                pass
+        raise
+
+
 # ---------------------------------------------------------------------------------------------------- pending partner emails
 
 
@@ -427,6 +484,7 @@ def sync(cfg: dict, graph: dp.Graph, desk: Desk, dry_run: bool = False, since: s
     for m in sent_list:
         sent_in_conversation.setdefault(m.get("conversationId") or "", []).append(m)
     drafted_by_conv = {d.get("conversationId"): d for d in plan.get("drafted", []) if d.get("conversationId")}
+    replies_by_conv = {d.get("conversationId"): d for d in plan.get("draftedReplies", []) if d.get("conversationId")}
     for m in sorted(sent_list, key=lambda x: x.get("sentDateTime") or ""):
         imid = m.get("internetMessageId")
         if not imid or imid in idx.known:
@@ -435,11 +493,16 @@ def sync(cfg: dict, graph: dp.Graph, desk: Desk, dry_run: bool = False, since: s
         to, cc = _people(m.get("toRecipients")), _people(m.get("ccRecipients"))
         addrs = [p["address"] for p in to + cc if p["address"] != mailbox]
         # a follow-up draft we made, if the hidden key didn't survive sending: the next email in its thread after it
-        if not key.startswith("followup:") and m.get("conversationId") in drafted_by_conv:
+        if not key.startswith(("followup:", "reply:")) and m.get("conversationId") in drafted_by_conv:
             d = drafted_by_conv[m["conversationId"]]
             if (m.get("sentDateTime") or "") >= (d.get("madeAt") or ""):
                 key = d["key"]
-        relevant = key.startswith("followup:") or key in pending or m.get("conversationId") in idx.conversations or bool(idx.partners_of(addrs))
+        # the same for a reply draft made from Alex's words
+        if not key.startswith(("followup:", "reply:")) and m.get("conversationId") in replies_by_conv:
+            d = replies_by_conv[m["conversationId"]]
+            if (m.get("sentDateTime") or "") >= (d.get("madeAt") or ""):
+                key = d["key"]
+        relevant = key.startswith(("followup:", "reply:")) or key in pending or m.get("conversationId") in idx.conversations or bool(idx.partners_of(addrs))
         if not relevant:
             continue
         text, headers, files = details(graph, m["id"], bool(m.get("hasAttachments")))
@@ -504,6 +567,16 @@ def sync(cfg: dict, graph: dp.Graph, desk: Desk, dry_run: bool = False, since: s
             if err.status == 404 and not find_by_key(graph, d["key"]):
                 items.append({"type": "draft_gone", "followupId": d["followupId"]})
 
+    # 3b. reply drafts made earlier from Alex's words: still there, sent, or deleted?
+    for d in plan.get("draftedReplies", []):
+        if d["key"] in sent_keys:
+            continue
+        try:
+            graph.call("GET", f"/me/messages/{urllib.parse.quote(d['draftId'], safe='')}?$select=isDraft")
+        except dp.GraphError as err:
+            if err.status == 404 and not find_by_key(graph, d["key"]):
+                items.append({"type": "reply_draft_gone", "textId": d["textId"]})
+
     # 4. stale drafts (a reply came after the draft was made): to Deleted Items if Albert hasn't touched them (plan 4.5)
     for d in plan.get("staleDrafts", []):
         mid = urllib.parse.quote(d["draftId"], safe="")
@@ -537,6 +610,23 @@ def sync(cfg: dict, graph: dp.Graph, desk: Desk, dry_run: bool = False, since: s
             problems.append(str(err))
             items.append({"type": "followup_failed", "followupId": f["followupId"], "error": str(err)[:280]})
             say(f"Couldn't draft the follow-up to {f.get('partner')}: {err}")
+
+    # 5b. replies Alex wrote, as drafts replying to the partner's message, at once (Phase 3)
+    for r in plan.get("replies", []):
+        if dry_run:
+            say(f"Would draft the reply to {idx.names.get(r['targetId'], r.get('partner'))}.")
+            continue
+        try:
+            made = make_reply(graph, cfg, r, mailbox)
+            if made:
+                items.append({"type": "reply_draft", "textId": r["textId"], "draftId": made["id"], "webLink": made.get("webLink"), "madeAt": made.get("lastModifiedDateTime")})
+                counts["drafts"] += 1
+                say(f"Drafted the reply to {r.get('partner')}: in Outlook Drafts. Not sent.")
+        except dp.DraftError as err:
+            counts["failed"] += 1
+            problems.append(str(err))
+            items.append({"type": "reply_failed", "textId": r["textId"], "error": str(err)[:280]})
+            say(f"Couldn't draft the reply to {r.get('partner')}: {err}")
 
     for i in items:
         if i["type"] == "sent":
@@ -591,7 +681,8 @@ def sync(cfg: dict, graph: dp.Graph, desk: Desk, dry_run: bool = False, since: s
     errors = [r.get("error") for r in results if r.get("result") == "error"]
     words = {"sent": "emails logged", "new_partner": "new partners", "followup_sent": "follow-ups sent", "matched": "matched to what the desk had",
              "reply": "replies", "bounce": "bounces", "auto_reply": "automatic replies", "delay": "delay notices", "drafted": "follow-up drafts made",
-             "review": "to check", "known": "already on the desk", "unknown": "not a partner's", "noted": "drafts tidied", "stale": "drafts gone stale"}
+             "review": "to check", "known": "already on the desk", "unknown": "not a partner's", "noted": "drafts tidied", "stale": "drafts gone stale",
+             "reply_drafted": "reply drafts made", "reply_sent": "replies sent"}
     say(
         f"Synced with the desk: read {counts['read']} messages since {since_iso[:10]}; "
         + (", ".join(f"{v} {words.get(k, k.replace('_', ' '))}" for k, v in sorted(tally.items()) if k not in ("error", "bad")) or "nothing new")

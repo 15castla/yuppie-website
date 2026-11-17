@@ -1,11 +1,12 @@
 import { requireOwner } from "@/app/admin/require-owner";
+import { AlexSettings } from "@/components/admin/desk/alex";
 import { ImportForm } from "@/components/admin/desk/import-form";
 import { OutlookSettings } from "@/components/admin/desk/outlook";
 import { DeskShell, one, type SearchParams } from "@/components/admin/desk/shell";
 import { serviceDb } from "@/lib/server/db";
 
-// Desk settings (17 Nov 2026): the Outlook connection (Phase 2, 16 Nov), the copy from the outreach log, and what's
-// coming (Alex, Phase 3). Owner only.
+// Desk settings (17 Nov 2026): the Outlook connection (Phase 2, 16 Nov), Alex (Phase 3: the Desk connector and the
+// guidance for each kind of email) and the copy from the outreach log. Owner only.
 
 async function count(table: string): Promise<number> {
   const { count: n } = await serviceDb().from(table).select("id", { count: "exact", head: true });
@@ -25,6 +26,7 @@ export default async function DeskSettingsPage({ searchParams }: { searchParams:
   return (
     <DeskShell current="settings" sp={sp}>
       <OutlookSettings />
+      <AlexSettings />
       <section className="dk-panel" aria-labelledby="s-h">
         <div className="dk-panel-h">
           <h2 id="s-h">In the desk</h2>
@@ -41,19 +43,6 @@ export default async function DeskSettingsPage({ searchParams }: { searchParams:
           {/* a fresh form after each import, so the last file's preview and button don't linger */}
           <ImportForm key={one(sp, "done") ?? one(sp, "error") ?? "pick"} />
         </div>
-      </section>
-      <section className="dk-panel" aria-labelledby="n-h">
-        <div className="dk-panel-h">
-          <h2 id="n-h">Coming next</h2>
-        </div>
-        <ul className="dk-list">
-          <li>
-            <div>
-              <p className="t">Alex</p>
-              <p className="m">Your assistant: meeting notes from a photo, briefings on any partner, replies written in your voice, and your day by email at 06:30.</p>
-            </div>
-          </li>
-        </ul>
       </section>
     </DeskShell>
   );

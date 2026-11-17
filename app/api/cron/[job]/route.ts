@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { runMemberships } from "@/lib/server/cron/memberships";
 import { runRefunds } from "@/lib/server/cron/refunds";
 import { runReminders } from "@/lib/server/cron/reminders";
+import { serviceDb } from "@/lib/server/db";
+import { runDeskAgenda } from "@/lib/server/outreach/alex-email";
 import { runPlanMoney } from "@/lib/server/plan-payments";
 
 export const runtime = "nodejs";
@@ -22,6 +24,9 @@ const JOBS = {
   memberships: runMemberships,
   refunds: async (now: Date) => ({ ...(await runRefunds(now)), plans: await runPlanMoney(now) }),
   "plan-money": runPlanMoney,
+  // Alex's 06:30 email to Albert (Outreach Desk, Phase 3): called at 05:30 and 06:30 UTC, sends only at 06:xx UK time,
+  // once a day (release/schedule-desk-agenda.sql).
+  "desk-agenda": (now: Date) => runDeskAgenda(serviceDb(), now),
 } as const;
 
 function authorised(request: Request): boolean {

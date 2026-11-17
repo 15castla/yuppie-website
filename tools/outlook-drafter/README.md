@@ -36,3 +36,10 @@ never leaves the Mac. It still never sends.
   the log is `~/Library/Logs/club-yuppie-drafts.log`). Run it again after updating
   the tool.
 - Write-up: `Yuppie_Technical_Reference.md`, Part 23.
+
+Phase 3 (Alex, 17 Nov 2026): replies Alex writes on the desk become Outlook drafts at
+the next sync: Reply all to the partner's message (Outlook's own recipients, minus
+Albert and anyone who opted out), Alex's words above the quote with the signature, and
+the hidden key `reply:<id>`. Deleting one in Outlook tells the desk not to make it
+again. Run `schedule on` again after updating the tool, so the LaunchAgent's copy is the
+new one. Write-up: `Yuppie_Technical_Reference.md`, Part 24.

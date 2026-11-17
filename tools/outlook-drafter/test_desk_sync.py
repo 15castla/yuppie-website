@@ -365,6 +365,61 @@ class SyncTests(unittest.TestCase):
         self.assertIn("Outlook said no", failed[0]["error"])
         self.assertFalse(self.desk.reports()[-1]["ok"])
 
+    def test_alex_reply_is_drafted_to_their_message_minus_albert_and_opted_out_and_never_sent(self):
+        self.link()
+        self.known_partner()
+        dp.signature_path().parent.mkdir(parents=True, exist_ok=True)
+        dp.signature_path().write_text(json.dumps({"html": "<div id=\"Signature\">Albert Castle</div>", "images": []}))
+        theirs = self.ms.add("inbox", subject="RE: Club Yuppie and Rosa's Thai", **{"from": person("naomi@rosasthai.com", "Naomi")},
+                             toRecipients=[person("albert@clubyuppie.com")], ccRecipients=[person("jason@rosasthai.com"), person("old@rosasthai.com")],
+                             receivedDateTime="2026-11-17T10:00:00Z", bodyHtml="<html><body><p>Sounds good, tell me more</p></body></html>")
+        text_id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"
+        plan_item = {"textId": text_id, "outcomeId": "o-1", "targetId": "t-rosa", "partner": "Rosa's Thai", "key": f"reply:{text_id}",
+                     "replyTo": {"internetMessageId": theirs["internetMessageId"], "conversationId": theirs["conversationId"]},
+                     "body": "Hi Naomi,\n\nGreat to hear.\nThursday at 10?", "optedOut": ["old@rosasthai.com"]}
+        self.desk.plan["knownMessageIds"] = [theirs["internetMessageId"]]
+        self.desk.plan["replies"] = [plan_item]
+        code, out = self.main("sync")
+        self.assertEqual(code, 0, out)
+        self.assertIn("Drafted the reply to Rosa's Thai", out)
+        drafts = [m for m in self.ms.messages.values() if m["folder"] == "drafts"]
+        self.assertEqual(len(drafts), 1)
+        d = drafts[0]
+        self.assertEqual(d["conversationId"], theirs["conversationId"])
+        self.assertEqual([p["emailAddress"]["address"] for p in d["toRecipients"]], ["naomi@rosasthai.com"])  # never to Albert himself
+        self.assertEqual([p["emailAddress"]["address"] for p in d["ccRecipients"]], ["jason@rosasthai.com"])  # not to who opted out
+        body = d["bodyHtml"]
+        self.assertLess(body.index("Great to hear"), body.index("Sounds good"))
+        self.assertLess(body.index("Albert Castle"), body.index("Sounds good"))
+        self.assertEqual(d["key"], f"reply:{text_id}")
+        made = [i for i in self.desk.items() if i["type"] == "reply_draft"][0]
+        self.assertEqual((made["textId"], made["draftId"]), (text_id, d["id"]))
+        self.assertFalse(any(re.search(r"/(send|reply|replyAll|forward)$", p) for p in self.ms.paths()))
+        # a second run finds it by its key: no second draft
+        self.main("sync")
+        self.assertEqual(len([m for m in self.ms.messages.values() if m["folder"] == "drafts"]), 1)
+        # Albert sends it, and Outlook drops the hidden key: still reported as the reply, by its thread
+        self.ms.keep_key_on_send = False
+        self.desk.plan["replies"] = []
+        self.desk.plan["draftedReplies"] = [{"textId": text_id, "draftId": d["id"], "key": f"reply:{text_id}", "conversationId": theirs["conversationId"], "madeAt": "2026-11-17T10:05:00Z"}]
+        self.desk.calls.clear()
+        self.ms.send(d["id"], "2026-11-17T11:00:00Z")
+        self.main("sync")
+        sent = [i for i in self.desk.items() if i["type"] == "sent"]
+        self.assertEqual([x["key"] for x in sent], [f"reply:{text_id}"])
+        self.assertFalse([i for i in self.desk.items() if i["type"] == "reply_draft_gone"])
+
+    def test_a_deleted_reply_draft_is_noticed_and_a_vanished_message_fails_cleanly(self):
+        self.link()
+        self.desk.plan["draftedReplies"] = [{"textId": "t-1", "draftId": "gone-1", "key": "reply:t-1", "conversationId": None, "madeAt": "2026-11-17T10:05:00Z"}]
+        self.desk.plan["replies"] = [{"textId": "t-2", "outcomeId": "o-2", "targetId": "t-rosa", "partner": "Rosa's Thai", "key": "reply:t-2",
+                                      "replyTo": {"internetMessageId": "<nowhere@x>", "conversationId": None}, "body": "Hi", "optedOut": []}]
+        code, out = self.main("sync")
+        self.assertEqual(code, 1)
+        got = {(i["type"], i["textId"]) for i in self.desk.items()}
+        self.assertEqual(got, {("reply_draft_gone", "t-1"), ("reply_failed", "t-2")})
+        self.assertFalse([m for m in self.ms.messages.values() if m["folder"] == "drafts"])
+
     def test_stale_drafts_go_to_deleted_items_unless_edited_and_deleted_drafts_are_noticed(self):
         self.link()
         untouched = self.ms.add("drafts", subject="RE: a", lastModifiedDateTime="2026-11-17T21:30:00Z")

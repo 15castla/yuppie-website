@@ -225,7 +225,15 @@ class FakeOutlook:
                 return 201, {"id": f"att{len(m['attachments'])}"}
             if rest == ["createReplyAll"] and method == "POST":
                 quote = f"<html><body><div id=\"divRplyFwdMsg\"><b>From:</b> {self.mailbox}<br><b>Subject:</b> {m['subject']}</div><div>{m['bodyHtml'] or m['bodyText']}</div></body></html>"
-                d = self.add("drafts", subject="RE: " + m["subject"], toRecipients=list(m["toRecipients"]), ccRecipients=list(m["ccRecipients"]), bodyHtml=quote, conversationId=m["conversationId"])
+                if m["folder"] in ("sentitems", "drafts"):
+                    to, cc = list(m["toRecipients"]), list(m["ccRecipients"])
+                else:
+                    # replying to someone else's email: Outlook puts the sender first, then the others, never the mailbox itself
+                    def addr(p):
+                        return p["emailAddress"]["address"].lower()
+                    to = [m["from"]] + [p for p in m["toRecipients"] if addr(p) != self.mailbox and addr(p) != addr(m["from"])]
+                    cc = [p for p in m["ccRecipients"] if addr(p) != self.mailbox]
+                d = self.add("drafts", subject="RE: " + m["subject"], toRecipients=to, ccRecipients=cc, bodyHtml=quote, conversationId=m["conversationId"])
                 return 201, {"id": d["id"], "webLink": d["webLink"], "isDraft": True}
             if rest == ["move"] and method == "POST":
                 m["folder"] = json.loads(raw)["destinationId"]

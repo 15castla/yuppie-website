@@ -15,6 +15,19 @@ import { LoginMessage, LoginShell } from "@/components/admin/login-shell";
 
 type Step = "password" | "reset-sent" | "enroll" | "code";
 
+// Where to go after the code: /admin, or the admin page that sent us here (?next=, e.g. the Desk connector's
+// consent page, /admin/desk/connect?...). Only a path on this site under /admin, never another site.
+function nextPath(): string {
+  const next = new URLSearchParams(window.location.search).get("next") ?? "";
+  if (!/^\/admin(\/|\?|$)/.test(next) || next.includes("//") || next.includes("\\")) return "/admin";
+  try {
+    const url = new URL(next, window.location.origin);
+    return url.origin === window.location.origin ? `${url.pathname}${url.search}` : "/admin";
+  } catch {
+    return "/admin";
+  }
+}
+
 // Every message each step can show, in one place. No "Please", no "Something went wrong".
 const PASSWORD_STEP_ERRORS = {
   required: "Enter your email and password.",
@@ -117,7 +130,7 @@ export default function AdminLoginPage() {
       setError(TOTP_ERRORS.incorrect);
       return;
     }
-    router.push("/admin");
+    router.push(nextPath());
     router.refresh();
   }
 

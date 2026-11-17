@@ -209,6 +209,8 @@ export type Outcome = {
   created_at: string;
   // Phase 2
   match_method?: string;
+  conversation_id?: string | null;
+  internet_message_id?: string | null;
   attachments?: FileNote[];
   hint?: "possible_opt_out" | "invite" | null;
   candidate_targets?: string[];
@@ -238,6 +240,10 @@ export type DraftText = {
   id: string;
   target_id: string;
   followup_id: string | null;
+  /** a reply's words (Phase 3): the partner's reply it answers */
+  outcome_id?: string | null;
+  draft_link?: string | null;
+  draft_error?: string | null;
   kind: "follow_up" | "january" | "reply";
   subject: string | null;
   body: string;
@@ -312,6 +318,11 @@ export const DONE_WORDS: Record<string, string> = {
   retry: "The draft will be made again at the next sync.",
   confirmed: "Confirmed.",
   ignored: "Ignored. It won't come back.",
+  disconnected: "Disconnected. Claude can't reach the desk now.",
+  guidance_saved: "Saved as a draft. Alex won't write these until you approve it.",
+  guidance_approved: "Approved. Alex can write these now.",
+  guidance_stopped: "Stopped. Alex won't write these until you approve it again.",
+  reply_removed: "Reply removed. No draft will be made.",
 };
 
 /** What the desk says when an action is refused (?error=<code>). */
@@ -330,4 +341,5 @@ export const ERROR_WORDS: Record<string, string> = {
   bad_fingerprint: "That isn't a fingerprint. Copy the 64 letters and numbers draft-partner-emails desk-link shows.",
   not_open: "That follow-up isn't waiting any more.",
   drafted_already: "The draft is already in Outlook. Edit it there.",
+  connect_failed: "That connection request wasn't right or has expired. Start again from Claude's settings.",
 };

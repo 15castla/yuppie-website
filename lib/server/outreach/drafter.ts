@@ -209,7 +209,18 @@ type RecipientRow = { id: string; touch_id: string; contact_id: string | null; a
 type ContactRow = { id: string; target_id: string; name: string | null; email: string | null; opted_out: boolean; email_status: string; mailbox_type: string };
 type TargetRow = { id: string; name: string; domains: string[]; opted_out: boolean; do_not_follow_up: boolean; stage: string };
 type OutcomeRow = { id: string; target_id: string; sequence_id: string | null; kind: string; internet_message_id: string | null; conversation_id: string | null; confirmed: boolean; received_at: string };
-type TextRow = { id: string; followup_id: string | null; subject: string | null; body: string; status: string };
+type TextRow = {
+  id: string;
+  followup_id: string | null;
+  outcome_id: string | null;
+  kind: string;
+  subject: string | null;
+  body: string;
+  status: string;
+  draft_id: string | null;
+  draft_error: string | null;
+  updated_at: string;
+};
 
 const TOUCH_COLS = "id, target_id, sequence_id, channel, kind, step, status, subject, sent_at, internet_message_id, conversation_id, outlook_draft_id, eml_sha256, web_link, counts_in_stats, created_at";
 
@@ -221,7 +232,7 @@ async function deskState(db: ServiceDb) {
     rows<RecipientRow>(db.from("outreach_touch_recipients").select("id, touch_id, contact_id, address, role, delivery").limit(40000)),
     rows<OutcomeRow>(db.from("outreach_outcomes").select("id, target_id, sequence_id, kind, internet_message_id, conversation_id, confirmed, received_at").limit(20000)),
     rows<Followup & { draft_id: string | null; draft_made_at: string | null; draft_error: string | null }>(db.from("outreach_followups").select("*").limit(20000)),
-    rows<TextRow>(db.from("outreach_draft_texts").select("id, followup_id, subject, body, status").not("followup_id", "is", null).neq("status", "discarded").limit(20000)),
+    rows<TextRow>(db.from("outreach_draft_texts").select("id, followup_id, outcome_id, kind, subject, body, status, draft_id, draft_error, updated_at").neq("status", "discarded").limit(20000)),
     rows<{ internet_message_id: string }>(db.from("outreach_ignored_messages").select("internet_message_id").limit(20000)),
   ]);
   return { targets, contacts, touches, recipients, outcomes, followups, texts, ignored };
@@ -292,6 +303,30 @@ export async function plan(db: ServiceDb, now = new Date()) {
     });
   }
 
+  // replies Alex wrote (Phase 3): a draft replying to the partner's message (Reply all), at the next sync, while
+  // Albert hasn't answered that message himself and nobody has opted out
+  const replies = [];
+  for (const text of s.texts.filter((x) => x.kind === "reply" && x.outcome_id && x.status === "written" && !x.draft_error)) {
+    const o = s.outcomes.find((x) => x.id === text.outcome_id);
+    const target = o ? targetsById.get(o.target_id) : undefined;
+    if (!o || !target || o.kind !== "reply" || !o.confirmed || !o.internet_message_id || target.opted_out) continue;
+    const answered = s.touches.some(
+      (t) => t.channel === "email" && t.status === "sent" && t.sent_at && t.sent_at > o.received_at && ((o.conversation_id && t.conversation_id === o.conversation_id) || (o.sequence_id && t.sequence_id === o.sequence_id)),
+    );
+    if (answered) continue;
+    replies.push({
+      textId: text.id,
+      outcomeId: o.id,
+      targetId: o.target_id,
+      partner: target.name,
+      replyTo: { internetMessageId: o.internet_message_id, conversationId: o.conversation_id },
+      body: text.body,
+      key: `reply:${text.id}`,
+      // never to anyone who opted out
+      optedOut: s.contacts.filter((c) => c.target_id === o.target_id && c.opted_out && c.email).map((c) => c.email as string),
+    });
+  }
+
   return {
     now: now.toISOString(),
     since,
@@ -326,6 +361,17 @@ export async function plan(db: ServiceDb, now = new Date()) {
       })),
     staleDrafts: s.followups.filter((f) => f.stale_draft && f.draft_id).map((f) => ({ followupId: f.id, draftId: f.draft_id, madeAt: f.draft_made_at })),
     followups,
+    replies,
+    // reply drafts made: sent (found by their hidden key, or the next email in the thread), or deleted?
+    draftedReplies: s.texts
+      .filter((x) => x.kind === "reply" && x.status === "drafted" && x.draft_id)
+      .map((x) => ({
+        textId: x.id,
+        draftId: x.draft_id,
+        key: `reply:${x.id}`,
+        madeAt: x.updated_at,
+        conversationId: s.outcomes.find((o) => o.id === x.outcome_id)?.conversation_id ?? null,
+      })),
   };
 }
 
@@ -432,6 +478,22 @@ async function sent(ctx: Ctx, item: Record<string, unknown>, mailbox: string | n
       s.touches.push({ id, target_id: f.target_id, sequence_id: f.sequence_id, channel: "email", kind: "follow_up", step: f.step, status: "sent", subject: null, sent_at: at, internet_message_id: imid, conversation_id: fields.conversation_id, outlook_draft_id: null, eml_sha256: null, web_link: fields.web_link, counts_in_stats: true, created_at: at });
       return { result: "followup_sent", id };
     }
+  }
+
+  // 1b. a reply draft the drafter made from Alex's words (Phase 3), now sent: the conversation goes on
+  const rt = /^reply:([0-9a-f-]{36})$/.exec(key)?.[1];
+  const replyText = rt ? s.texts.find((x) => x.id === rt) : undefined;
+  const answered = replyText?.outcome_id ? s.outcomes.find((o) => o.id === replyText.outcome_id) : undefined;
+  if (answered) {
+    const id = randomUUID();
+    const seq = answered.sequence_id ?? id;
+    await must(db.from("outreach_touches").insert({
+      id, target_id: answered.target_id, sequence_id: seq, channel: "email", kind: "conversation", step: null, status: "sent", subject: str(item.subject, 998),
+      sent_at: at, created_by: "drafter", ...fields,
+    }), "Reply not saved");
+    await addRecipients(ctx, id, answered.target_id, to, cc, "unknown");
+    s.touches.push({ id, target_id: answered.target_id, sequence_id: seq, channel: "email", kind: "conversation", step: null, status: "sent", subject: null, sent_at: at, internet_message_id: imid, conversation_id: fields.conversation_id, outlook_draft_id: null, eml_sha256: null, web_link: fields.web_link, counts_in_stats: true, created_at: at });
+    return { result: "reply_sent", id };
   }
 
   // 2. already on the desk without Outlook's id (imported from the log, or logged by hand): fill it in
@@ -719,6 +781,33 @@ async function staleDraft(ctx: Ctx, item: Record<string, unknown>): Promise<Omit
   return { result: "noted" };
 }
 
+async function replyDraft(ctx: Ctx, item: Record<string, unknown>): Promise<Omit<ReportResult, "i">> {
+  const id = uuid(item.textId);
+  const draftId = str(item.draftId, 1000);
+  const t = ctx.s.texts.find((x) => x.id === id && x.kind === "reply");
+  if (!t || !draftId) return { result: "bad" };
+  // recorded even if Albert removed the words meanwhile: the draft is in Outlook, and the partner's page says so
+  await must(ctx.db.from("outreach_draft_texts").update({ status: "drafted", draft_id: draftId, draft_link: str(item.webLink, 2000), draft_error: null, updated_at: iso(item.madeAt) ?? new Date().toISOString() }).eq("id", t.id), "Reply not marked");
+  return { result: "reply_drafted" };
+}
+
+async function replyFailed(ctx: Ctx, item: Record<string, unknown>): Promise<Omit<ReportResult, "i">> {
+  const id = uuid(item.textId);
+  if (!id) return { result: "bad" };
+  await ctx.db.from("outreach_draft_texts").update({ draft_error: str(item.error, 300) ?? "The reply's draft couldn't be made." }).eq("id", id).eq("kind", "reply");
+  return { result: "noted" };
+}
+
+async function replyDraftGone(ctx: Ctx, item: Record<string, unknown>): Promise<Omit<ReportResult, "i">> {
+  const id = uuid(item.textId);
+  const t = ctx.s.texts.find((x) => x.id === id && x.kind === "reply");
+  if (!t) return { result: "bad" };
+  // deleted in Outlook without being sent: Albert didn't want it, so it isn't made again (Alex can write it again if
+  // he asks)
+  if (t.status === "drafted") await ctx.db.from("outreach_draft_texts").update({ status: "discarded", draft_id: null, draft_link: null }).eq("id", t.id);
+  return { result: "noted" };
+}
+
 const HANDLERS: Record<string, (ctx: Ctx, item: Record<string, unknown>, mailbox: string | null) => Promise<Omit<ReportResult, "i">>> = {
   sent,
   incoming: (ctx, item) => incoming(ctx, item),
@@ -726,6 +815,9 @@ const HANDLERS: Record<string, (ctx: Ctx, item: Record<string, unknown>, mailbox
   followup_failed: (ctx, item) => followupFailed(ctx, item),
   draft_gone: (ctx, item) => draftGone(ctx, item),
   stale_draft: (ctx, item) => staleDraft(ctx, item),
+  reply_draft: (ctx, item) => replyDraft(ctx, item),
+  reply_failed: (ctx, item) => replyFailed(ctx, item),
+  reply_draft_gone: (ctx, item) => replyDraftGone(ctx, item),
 };
 
 /**
