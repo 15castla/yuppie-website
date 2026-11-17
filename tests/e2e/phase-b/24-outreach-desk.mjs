@@ -174,6 +174,18 @@ const page = async (path, session, headers = {}) => {
 };
 const home = await page('/admin/desk', owner);
 ok(home.status === 200 && home.body.includes(`${MARK} Barbers`) && home.body.includes('Response rate') && home.body.includes('Blotter'), 'the desk home: KPIs and the blotter with the partner');
+// one row per partner (17 Nov 2026): the Salon's bounced first email and its resend are one line, the resend, with
+// "+1 earlier"; Every email shows both
+const rowsFor = (body, name) => body.split('<tr').filter((r) => r.includes(`>${name}</a>`));
+const salonRows = rowsFor((await page(`/admin/desk?q=${encodeURIComponent(`${MARK} Salon`)}`, owner)).body, `${MARK} Salon`);
+ok(salonRows.length === 1 && salonRows[0].includes('+1 earlier') && salonRows[0].includes('>Re<') && salonRows[0].includes('.real@example-salon.test') && !salonRows[0].includes('>Bounced<'),
+  'the blotter: one row for the Salon, its latest email (the resend), sent, "+1 earlier"', salonRows.map((r) => r.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').slice(0, 200)));
+const barberRows = rowsFor((await page(`/admin/desk?q=${encodeURIComponent(`${MARK} Barbers`)}`, owner)).body, `${MARK} Barbers`);
+ok(barberRows.length === 1 && barberRows[0].includes('>FU<') && barberRows[0].includes('Replied'), 'the Barbers: one row, the follow-up, Replied (the reply counts across their emails)', barberRows.length);
+const everyRows = rowsFor((await page(`/admin/desk?all=1&q=${encodeURIComponent(`${MARK} Salon`)}`, owner)).body, `${MARK} Salon`);
+ok(everyRows.length === 2 && everyRows.some((r) => r.includes('>Bounced<')) && !everyRows.some((r) => r.includes('earlier')), 'Every email: both, the first marked Bounced', everyRows.length);
+const salonPage = await page(`/admin/desk/t/${T2}`, owner);
+ok(salonPage.body.includes('>Bounced</span>'), 'the Salon\u2019s page: the bounced email marked Bounced in the timeline');
 const filtered = await page(`/admin/desk?channel=letter&q=${MARK}`, owner);
 ok(filtered.body.includes(`${MARK} Tailors`) && !filtered.body.includes(`${MARK} Barbers</a>`), 'the blotter filters (letters, by name)');
 const tPage = await page(`/admin/desk/t/${T1}`, owner);

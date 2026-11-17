@@ -6,8 +6,9 @@ import { loadDesk } from "@/lib/server/outreach/desk";
 import { CATEGORIES, CHANNELS, SOURCES, STAGES, isKey } from "@/lib/server/outreach/model";
 import { isoDate } from "@/lib/server/outreach/rules";
 
-// The Outreach Desk's home (17 Nov 2026; plan 5.2): the KPI strip, what's due today (and late), and the blotter of
-// every email, letter and call, filterable and sortable. Owner only.
+// The Outreach Desk's home (17 Nov 2026; plan 5.2): the KPI strip, what's due today (and late), and the blotter: one
+// row per partner with their most recent email or letter (or every email, with "Every email" ticked), filterable and
+// sortable. Owner only.
 
 function filtersOf(sp: SearchParams): BlotterFilters {
   const channel = one(sp, "channel");
@@ -22,7 +23,7 @@ function filtersOf(sp: SearchParams): BlotterFilters {
     source: isKey(SOURCES, source) ? source : undefined,
     since: isoDate(one(sp, "since")) ?? undefined,
     q: one(sp, "q")?.slice(0, 100) || undefined,
-    conversation: one(sp, "conv") === "1",
+    every: one(sp, "all") === "1",
     sort: sort === "target" || sort === "status" || sort === "sent" ? sort : undefined,
     dir: one(sp, "dir") === "asc" ? "asc" : one(sp, "dir") === "desc" ? "desc" : undefined,
   };
