@@ -3,6 +3,7 @@ import Link from "next/link";
 import { deskRateOutcome } from "@/app/admin/desk-actions";
 import { requireOwner } from "@/app/admin/require-owner";
 import { dateWords, dayWords, longDay, timeWords } from "@/components/admin/desk/format";
+import { ReviewList } from "@/components/admin/desk/outlook";
 import { DueList } from "@/components/admin/desk/panels";
 import { DeskShell, type SearchParams } from "@/components/admin/desk/shell";
 import { DeskSubmit } from "@/components/admin/desk/submit";
@@ -10,8 +11,9 @@ import { dueItems } from "@/lib/server/outreach/compute";
 import { loadDesk } from "@/lib/server/outreach/desk";
 import { addWorkingDays, ukDate } from "@/lib/server/outreach/rules";
 
-// Today (17 Nov 2026): Albert's agenda for the day, the page the 06:30 email will link to (Phase 3). Everything due
-// or late, calls and meetings, the next five working days, and replies still to rate. Owner only.
+// Today (17 Nov 2026): Albert's agenda for the day, the page the 06:30 email will link to (Phase 3). What the Outlook
+// connection found and needs him to check (Phase 2), everything due or late, calls and meetings, the next five working
+// days, and replies still to rate. Owner only.
 
 export default async function DeskTodayPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   await requireOwner();
@@ -23,9 +25,19 @@ export default async function DeskTodayPage({ searchParams }: { searchParams: Pr
   const due = dueItems(data, now);
   const coming = dueItems(data, now, until).filter((i) => (i.kind === "call" ? ukDate(i.at) > today : i.due > today));
   const names = new Map(data.targets.map((t) => [t.id, t.name]));
+  const toCheck = data.touches.filter((t) => t.status === "unconfirmed").length + data.outcomes.filter((o) => !o.confirmed).length;
   const toRate = data.outcomes.filter((o) => o.kind === "reply" && o.confirmed && !o.sentiment).sort((a, b) => b.received_at.localeCompare(a.received_at));
   return (
     <DeskShell current="today" sp={sp}>
+      {toCheck > 0 && (
+        <section className="dk-panel" aria-labelledby="rv-h" id="review">
+          <div className="dk-panel-h">
+            <h2 id="rv-h">To check</h2>
+            <span className="count">{toCheck} found in Outlook</span>
+          </div>
+          <ReviewList touches={data.touches} outcomes={data.outcomes} targets={data.targets} back="/admin/desk/today" />
+        </section>
+      )}
       <section className="dk-panel" aria-labelledby="t-h">
         <div className="dk-panel-h">
           <h2 id="t-h">{longDay(now)}</h2>

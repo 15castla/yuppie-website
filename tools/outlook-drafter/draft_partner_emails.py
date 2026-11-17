@@ -38,6 +38,14 @@ Commands (installed as "draft-partner-emails" by install.sh):
   draft-partner-emails test             one dummy draft to the configured mailbox, to check it all works
   draft-partner-emails status           the settings, the folder, how many are waiting, signed in or not
 
+The Outreach Desk (Phase 2, 16 Nov 2026; desk_sync.py): once linked, every run also syncs with the desk.
+  draft-partner-emails desk-link        make the desk key (kept in the Keychain) and show its fingerprint to paste into
+                                        Desk > Settings (--url: another desk, for testing)
+  draft-partner-emails desk-unlink      forget the desk key
+  draft-partner-emails sync             tell the desk what was sent and what came back, and make the follow-up drafts
+                                        due (--dry-run: show it, change nothing; --since YYYY-MM-DD: read back further)
+  draft-partner-emails schedule on|off  sync every 15 minutes while the Mac is awake (a LaunchAgent)
+
 Python 3.9 or later, standard library only (macOS's own python3 works). Documented in the project's
 Yuppie_Technical_Reference.md, "Outlook drafter".
 """
@@ -99,6 +107,14 @@ SIGNED_IN_PAGE = """<!doctype html><meta charset="utf-8"><title>Club Yuppie Draf
 
 class DraftError(Exception):
     """Something Albert should read: printed as it is, no stack trace."""
+
+
+class GraphError(DraftError):
+    """Outlook answered with an error; `status` is its HTTP status (404: no such message)."""
+
+    def __init__(self, status: int, message: str):
+        super().__init__(message)
+        self.status = status
 
 
 # ---------------------------------------------------------------------------------------------------- settings
@@ -305,12 +321,13 @@ class KeychainStore:
     """The refresh token in the macOS Keychain. The secret goes to `security` on its standard input, hex-encoded,
     so it never appears in a command line; it is read back with -w into a pipe, never printed."""
 
-    def __init__(self, account: str):
+    def __init__(self, account: str, service: str = KEYCHAIN_SERVICE):
         self.account = account
+        self.service = service
 
     def get(self) -> str | None:
         done = subprocess.run(
-            ["security", "find-generic-password", "-s", KEYCHAIN_SERVICE, "-a", self.account, "-w"],
+            ["security", "find-generic-password", "-s", self.service, "-a", self.account, "-w"],
             capture_output=True,
             text=True,
         )
@@ -319,13 +336,13 @@ class KeychainStore:
         return done.stdout.strip() or None
 
     def set(self, secret: str) -> None:
-        command = f"add-generic-password -U -s {KEYCHAIN_SERVICE} -a {self.account} -X {secret.encode('utf-8').hex()}\n"
+        command = f"add-generic-password -U -s {self.service} -a {self.account} -X {secret.encode('utf-8').hex()}\n"
         done = subprocess.run(["security", "-i"], input=command, capture_output=True, text=True)
         if done.returncode != 0 or "error" in (done.stderr or "").lower():
             raise DraftError("Couldn't save the sign-in to the Keychain.")
 
     def delete(self) -> None:
-        subprocess.run(["security", "delete-generic-password", "-s", KEYCHAIN_SERVICE, "-a", self.account], capture_output=True)
+        subprocess.run(["security", "delete-generic-password", "-s", self.service, "-a", self.account], capture_output=True)
 
 
 class FileStore:
@@ -562,20 +579,20 @@ class Graph:
     def __init__(self, auth: Auth):
         self.auth = auth
 
-    def call(self, method: str, path: str, body: dict | None = None) -> dict:
+    def call(self, method: str, path: str, body: dict | None = None, headers: dict | None = None) -> dict:
         url = path if path.startswith("http") else GRAPH_BASE + path
         for attempt in range(4):
-            status, headers, raw = http(method, url, body=body, headers={"Authorization": f"Bearer {self.auth.token()}"})
+            status, answer_headers, raw = http(method, url, body=body, headers={**(headers or {}), "Authorization": f"Bearer {self.auth.token()}"})
             if status == 401 and attempt == 0:
                 self.auth.forget()
                 continue
             if status in (429, 503, 504) and attempt < 3:
-                time.sleep(min(30, int(headers.get("Retry-After", "5") or 5)))
+                time.sleep(min(30, int(answer_headers.get("Retry-After", "5") or 5)))
                 continue
             if 200 <= status < 300:
                 return _json(raw)
             err = _json(raw).get("error", {})
-            raise DraftError(f"Outlook said no ({status} {err.get('code', '')}): {err.get('message', '')}".strip())
+            raise GraphError(status, f"Outlook said no ({status} {err.get('code', '')}): {err.get('message', '')}".strip())
         raise DraftError("Outlook didn't answer. Try again in a minute.")
 
     def mailbox(self) -> str:
@@ -771,10 +788,24 @@ def run(cfg: dict, files: list[Path], dry_run: bool) -> int:
             print(f"Would draft {label}\n    {describe(draft)}")
             continue
         assert graph is not None
+        if needs_pdf(path, cfg):
+            import desk_sync
+
+            why = desk_sync.check_before_drafting(cfg, draft)
+            if why:
+                print(f"Not drafted: {label}\n    {why}")
+                failed += 1
+                continue
         try:
             found = graph.existing(draft.key)
             made = found or graph.create_draft(draft)
             write_marker(draft, made, mailbox, bool(found))
+            try:
+                import desk_sync
+
+                desk_sync.remember_drafted(draft, made, cfg)
+            except OSError as err:
+                print(f"    (The desk will find this one when it's sent, by its address: {err})")
             word = "Already in Outlook" if found else "Drafted"
             print(f"{word}: {label}\n    {describe(draft)}\n    Open it: {made.get('webLink', 'Outlook > Drafts')}")
         except DraftError as err:
@@ -941,6 +972,13 @@ def cmd_status(_args) -> int:
         print("Signed in: " + ("yes" if token_store(cfg).get() else "no (run signin)"))
     except DraftError as err:
         print(f"Signed in: {err}")
+    import desk_sync
+
+    print("Desk: " + (f"linked ({desk_sync.desk_base(cfg)})" if desk_sync.linked(cfg) else "not linked (run desk-link)"))
+    print("15-minute sync: " + ("on" if desk_sync.plist_path().exists() else "off (run schedule on)"))
+    waiting_sent = len(desk_sync.load_pending())
+    if waiting_sent:
+        print(f"Partner emails drafted, not yet seen sent: {waiting_sent}")
     return 0
 
 
@@ -965,17 +1003,26 @@ def cmd_run(args) -> int:
             raise DraftError(f"No such file: {files[0]}")
     else:
         files = all_waiting(cfg)
+    failed = 0
     if not files:
         print("Nothing new to draft.")
-        return 0
-    failed = run(cfg, files, dry_run=args.dry_run)
-    print(("Dry run: nothing was changed. " if args.dry_run else "") + f"{len(files) - failed} of {len(files)} " + ("ready." if args.dry_run else "done."))
+    else:
+        failed = run(cfg, files, dry_run=args.dry_run)
+        print(("Dry run: nothing was changed. " if args.dry_run else "") + f"{len(files) - failed} of {len(files)} " + ("ready." if args.dry_run else "done."))
+    import desk_sync
+
+    if not args.dry_run and not args.no_sync and desk_sync.linked(cfg):
+        try:
+            failed += desk_sync.run_sync(cfg)
+        except DraftError as err:
+            print(f"Not synced with the desk: {err}")
+            failed += 1
     return 1 if failed else 0
 
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    commands = {"setup", "signin", "signout", "signature", "skip", "status", "test"}
+    commands = {"setup", "signin", "signout", "signature", "skip", "status", "test", "desk-link", "desk-unlink", "sync", "schedule"}
     parser = argparse.ArgumentParser(prog="draft-partner-emails", description="Partner emails into Outlook Drafts. Never sends.")
     if argv and argv[0] in commands:
         sub = parser.add_subparsers(dest="command")
@@ -996,14 +1043,27 @@ def main(argv: list[str] | None = None) -> int:
         sub.add_parser("status")
         test = sub.add_parser("test")
         test.add_argument("--dry-run", action="store_true")
+        link = sub.add_parser("desk-link", help="make the desk key and show its fingerprint for Desk > Settings")
+        link.add_argument("--url", help="the desk's address (default https://clubyuppie.com)")
+        sub.add_parser("desk-unlink", help="forget the desk key")
+        sync = sub.add_parser("sync", help="tell the desk what was sent and what came back; make the follow-up drafts due")
+        sync.add_argument("--dry-run", action="store_true", help="show what would be sent to the desk; nothing is changed")
+        sync.add_argument("--since", metavar="YYYY-MM-DD", help="read back to this date (the first sync reads back to 1 Nov 2026)")
+        sync.add_argument("--quiet", action="store_true", help="one line only (for the 15-minute schedule's log)")
+        schedule = sub.add_parser("schedule", help="sync every 15 minutes while the Mac is awake")
+        schedule.add_argument("what", choices=["on", "off", "status"])
         args = parser.parse_args(argv)
+        import desk_sync
+
         handler = {"setup": cmd_setup, "signin": cmd_signin, "signout": cmd_signout, "signature": cmd_signature, "skip": cmd_skip,
-                   "status": cmd_status, "test": cmd_test}[args.command]
+                   "status": cmd_status, "test": cmd_test, "desk-link": desk_sync.cmd_desk_link, "desk-unlink": desk_sync.cmd_desk_unlink,
+                   "sync": desk_sync.cmd_sync, "schedule": desk_sync.cmd_schedule}[args.command]
     else:
         parser.add_argument("--dry-run", action="store_true", help="show what would be drafted; nothing is changed")
         parser.add_argument("--only", metavar="FILE", help="just this .eml")
         parser.add_argument("--root", metavar="DIR", help='the "Partner emails" folder for this run')
         parser.add_argument("--watch", nargs="?", const=WATCH_SECONDS, type=int, metavar="SECONDS", help=f"keep looking every {WATCH_SECONDS} seconds until Ctrl-C")
+        parser.add_argument("--no-sync", action="store_true", help="don't sync with the desk after drafting")
         args = parser.parse_args(argv)
         handler = cmd_run
         if args.watch:
@@ -1029,4 +1089,6 @@ def main(argv: list[str] | None = None) -> int:
 
 
 if __name__ == "__main__":
+    # desk_sync imports this file as "draft_partner_emails": let it find this copy, not load a second one
+    sys.modules.setdefault("draft_partner_emails", sys.modules[__name__])
     sys.exit(main())

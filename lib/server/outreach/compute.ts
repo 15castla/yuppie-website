@@ -9,6 +9,7 @@ import {
   OUTREACH_KINDS,
   type Action,
   type Contact,
+  type DraftText,
   type Followup,
   type Outcome,
   type Source,
@@ -26,6 +27,8 @@ export type DeskData = {
   followups: Followup[];
   actions: Action[];
   stageHistory: StageChange[];
+  /** Follow-up texts (Phase 2); absent in the older tests' data. */
+  texts?: DraftText[];
 };
 
 /** A touch that counts as outreach sent: first, follow-up, resend or forward, sent or posted, counted in stats. */
@@ -173,7 +176,24 @@ export function followupAddresses(data: DeskData, f: Followup): { to: string[]; 
 }
 
 export type DueItem =
-  | { kind: "followup"; id: string; targetId: string; name: string; step: number; due: string; late: boolean; drafted: boolean; to: string[]; cc: string[]; needsEmail: boolean; stale: boolean }
+  | {
+      kind: "followup";
+      id: string;
+      targetId: string;
+      name: string;
+      step: number;
+      due: string;
+      late: boolean;
+      drafted: boolean;
+      to: string[];
+      cc: string[];
+      needsEmail: boolean;
+      stale: boolean;
+      /** Phase 2: are its words written, and the draft made in Outlook? */
+      text: "none" | "written" | "drafted";
+      draftLink: string | null;
+      draftError: string | null;
+    }
   | { kind: "action"; id: string; targetId: string; name: string; title: string; actionKind: string; due: string; late: boolean; startsAt: string | null }
   | { kind: "call"; targetId: string; name: string; at: string };
 
@@ -201,6 +221,9 @@ export function dueItems(data: DeskData, now: Date = new Date(), through?: strin
       cc,
       needsEmail: f.channel === "email" && to.length === 0,
       stale: f.stale_draft,
+      text: f.status === "drafted" ? "drafted" : (data.texts ?? []).some((x) => x.followup_id === f.id && x.status !== "discarded") ? "written" : "none",
+      draftLink: f.draft_link ?? null,
+      draftError: f.draft_error ?? null,
     });
   }
   for (const a of data.actions) {

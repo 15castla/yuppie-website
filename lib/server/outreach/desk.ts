@@ -9,6 +9,7 @@ import {
   BEFORE_CONTACT,
   type Action,
   type Contact,
+  type DraftText,
   type Followup,
   type Note,
   type Outcome,
@@ -21,9 +22,10 @@ import {
 import { JANUARY_ROUND, followUpDue, januaryDay, ukDate } from "./rules";
 
 const TOUCH_COLUMNS =
-  "id, target_id, sequence_id, channel, kind, step, status, subject, version, attachment, file_ref, body_text, sent_at, letter_posted_on, letter_class, web_link, counts_in_stats, signed_by, created_by, note, created_at";
+  "id, target_id, sequence_id, channel, kind, step, status, subject, version, attachment, file_ref, body_text, sent_at, letter_posted_on, letter_class, web_link, counts_in_stats, signed_by, created_by, note, created_at, internet_message_id, conversation_id, attachments, guess_kind, candidate_targets";
 const OUTCOME_COLUMNS =
-  "id, target_id, sequence_id, touch_id, contact_id, kind, channel, sentiment, received_at, from_address, from_name, subject, body_text, summary, bounced_address, bounce_code, web_link, confirmed, is_first_reply, reply_seconds, created_at";
+  "id, target_id, sequence_id, touch_id, contact_id, kind, channel, sentiment, received_at, from_address, from_name, subject, body_text, summary, bounced_address, bounce_code, web_link, confirmed, is_first_reply, reply_seconds, created_at, match_method, attachments, hint, candidate_targets";
+const TEXT_COLUMNS = "id, target_id, followup_id, kind, subject, body, status, written_by, updated_at";
 
 async function rows<T>(query: PromiseLike<{ data: unknown; error: { message: string } | null }>): Promise<T[]> {
   const { data, error } = await query;
@@ -43,7 +45,7 @@ function withRecipients(touches: Omit<Touch, "recipients">[], recipients: Recipi
 
 /** Every desk row the home page, the Today page and the numbers need (a few hundred rows at most for now). */
 export async function loadDesk(db: ServiceDb = serviceDb()): Promise<DeskData> {
-  const [targets, contacts, touches, recipients, outcomes, followups, actions, stageHistory] = await Promise.all([
+  const [targets, contacts, touches, recipients, outcomes, followups, actions, stageHistory, texts] = await Promise.all([
     rows<Target>(db.from("outreach_targets").select("*").order("name").limit(5000)),
     rows<Contact>(db.from("outreach_contacts").select("*").limit(10000)),
     rows<Omit<Touch, "recipients">>(db.from("outreach_touches").select(TOUCH_COLUMNS).order("sent_at", { ascending: false, nullsFirst: false }).limit(20000)),
@@ -52,8 +54,9 @@ export async function loadDesk(db: ServiceDb = serviceDb()): Promise<DeskData> {
     rows<Followup>(db.from("outreach_followups").select("*").limit(20000)),
     rows<Action>(db.from("outreach_actions").select("*").limit(20000)),
     rows<StageChange>(db.from("outreach_stage_history").select("*").limit(20000)),
+    rows<DraftText>(db.from("outreach_draft_texts").select(TEXT_COLUMNS).neq("status", "discarded").limit(20000)),
   ]);
-  return { targets, contacts, touches: withRecipients(touches, recipients), outcomes, followups, actions, stageHistory };
+  return { targets, contacts, touches: withRecipients(touches, recipients), outcomes, followups, actions, stageHistory, texts };
 }
 
 export type TargetPage = DeskData & { target: Target; notes: Note[] };
@@ -64,7 +67,7 @@ export async function loadTarget(id: string, db: ServiceDb = serviceDb()): Promi
   const { data: target, error } = await db.from("outreach_targets").select("*").eq("id", id).maybeSingle();
   if (error) throw new Error(`Desk read failed: ${error.message}`);
   if (!target) return null;
-  const [contacts, touches, outcomes, followups, actions, stageHistory, notes] = await Promise.all([
+  const [contacts, touches, outcomes, followups, actions, stageHistory, notes, texts] = await Promise.all([
     rows<Contact>(db.from("outreach_contacts").select("*").eq("target_id", id).order("created_at")),
     rows<Omit<Touch, "recipients">>(db.from("outreach_touches").select(TOUCH_COLUMNS).eq("target_id", id)),
     rows<Outcome>(db.from("outreach_outcomes").select(OUTCOME_COLUMNS).eq("target_id", id)),
@@ -72,6 +75,7 @@ export async function loadTarget(id: string, db: ServiceDb = serviceDb()): Promi
     rows<Action>(db.from("outreach_actions").select("*").eq("target_id", id)),
     rows<StageChange>(db.from("outreach_stage_history").select("*").eq("target_id", id).order("at", { ascending: false })),
     rows<Note>(db.from("outreach_notes").select("*").eq("target_id", id).order("happened_at", { ascending: false })),
+    rows<DraftText>(db.from("outreach_draft_texts").select(TEXT_COLUMNS).eq("target_id", id).neq("status", "discarded")),
   ]);
   const touchIds = touches.map((t) => t.id);
   const recipients = touchIds.length ? await rows<Recipient>(db.from("outreach_touch_recipients").select("*").in("touch_id", touchIds)) : [];
@@ -85,6 +89,7 @@ export async function loadTarget(id: string, db: ServiceDb = serviceDb()): Promi
     actions,
     stageHistory,
     notes,
+    texts,
   };
 }
 
