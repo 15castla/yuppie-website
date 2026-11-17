@@ -114,7 +114,9 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
       key: `t-${x.id}`,
       chip: x.status === "unconfirmed"
         ? { cls: "unconfirmed", word: "To confirm" }
-        : { cls: x.status === "sent" || x.status === "posted" ? "sent" : x.status, word: x.kind === "conversation" ? CHANNELS[x.channel] : x.channel === "letter" ? "Letter" : x.channel === "email" ? "Email" : CHANNELS[x.channel] },
+        : x.channel === "email" && x.recipients.length > 0 && bounced === x.recipients.length
+          ? { cls: "bounced", word: "Bounced" }
+          : { cls: x.status === "sent" || x.status === "posted" ? "sent" : x.status, word: x.kind === "conversation" ? CHANNELS[x.channel] : x.channel === "letter" ? "Letter" : x.channel === "email" ? "Email" : CHANNELS[x.channel] },
       title: `${verb}${x.kind !== "first" && x.kind !== "conversation" ? `, ${x.kind === "follow_up" ? stepWords(x.step).toLowerCase() : x.kind}` : x.kind === "first" ? ", first" : ""}${who.length ? ` to ${who.join(", ")}` : ""}`,
       meta: [
         x.status === "unconfirmed" ? "Found in Outlook: confirm it on Today" : null,

@@ -258,7 +258,8 @@ export type BlotterFilters = {
   source?: string;
   since?: string;
   q?: string;
-  conversation?: boolean;
+  /** Every email and letter, one row each (the old blotter); otherwise one row per partner, their most recent. */
+  every?: boolean;
   sort?: "sent" | "target" | "status";
   dir?: "asc" | "desc";
 };
@@ -281,6 +282,8 @@ export type BlotterRow = {
   stage: Target["stage"];
   next: { due: string; step: number; late: boolean } | null;
   paused: boolean;
+  /** One row per partner: how many emails and letters went before this one (on their page). */
+  earlier: number;
 };
 
 export function blotterRows(data: DeskData, filters: BlotterFilters = {}, now: Date = new Date()): BlotterRow[] {
@@ -289,9 +292,23 @@ export function blotterRows(data: DeskData, filters: BlotterFilters = {}, now: D
   const contacts = new Map(data.contacts.map((c) => [c.id, c]));
   const q = filters.q?.trim().toLowerCase();
   const rows: BlotterRow[] = [];
-  for (const t of data.touches) {
-    if (t.status === "cancelled") continue;
-    if (t.kind === "conversation" && !filters.conversation) continue;
+  // One row per partner (Albert, 17 Nov 2026: "It should just show the most recent email and sent, then when you click
+  // in there can be a trail"): the partner's most recent email or letter (first, resend, follow-up, January email; not
+  // a reply in the conversation), so a bounce and its resend are one line. Every email: one row each, as before.
+  const sent = (t: Touch) => t.sent_at ?? t.created_at;
+  let touches = data.touches.filter((t) => t.status !== "cancelled");
+  const earlier = new Map<string, number>();
+  if (!filters.every) {
+    const latest = new Map<string, Touch>();
+    for (const t of touches) {
+      if (t.kind === "conversation") continue;
+      earlier.set(t.target_id, (earlier.get(t.target_id) ?? -1) + 1);
+      const was = latest.get(t.target_id);
+      if (!was || sent(t) > sent(was)) latest.set(t.target_id, t);
+    }
+    touches = [...latest.values()];
+  }
+  for (const t of touches) {
     const target = targets.get(t.target_id);
     if (!target) continue;
     const toRows = t.recipients.filter((r) => r.role === "to");
@@ -299,11 +316,17 @@ export function blotterRows(data: DeskData, filters: BlotterFilters = {}, now: D
     const contact = firstTo?.contact_id ? contacts.get(firstTo.contact_id) : undefined;
     const to = firstTo?.address ?? contact?.name ?? contact?.email ?? "";
     const outcomes = data.outcomes.filter((o) => o.touch_id === t.id && o.confirmed).sort((a, b) => a.received_at.localeCompare(b.received_at));
-    const reply = outcomes.find((o) => o.kind === "reply");
+    // one row per partner: a reply to any email in this thread counts (they may answer the first after the follow-up)
+    const reply = filters.every
+      ? outcomes.find((o) => o.kind === "reply")
+      : data.outcomes
+          .filter((o) => o.confirmed && o.kind === "reply" && o.target_id === t.target_id && o.sequence_id === t.sequence_id)
+          .sort((a, b) => a.received_at.localeCompare(b.received_at))[0];
+    const answered = reply?.touch_id ? (data.touches.find((x) => x.id === reply.touch_id) ?? t) : t;
     const bounce = outcomes.find((o) => o.kind === "bounce");
     const oof = outcomes.find((o) => o.kind === "auto_reply");
     const status: BlotterRow["status"] = reply ? "replied" : allBounced(t) ? "bounced" : oof ? "oof" : t.status;
-    const replyWords = reply && t.sent_at ? replyTimeWords(t.sent_at, reply.received_at) : allBounced(t) ? (bounce?.bounce_code ?? t.recipients.find((r) => r.bounce_code)?.bounce_code ?? "bounced") : oof ? "OOF" : "";
+    const replyWords = reply && answered.sent_at ? replyTimeWords(answered.sent_at, reply.received_at) : allBounced(t) ? (bounce?.bounce_code ?? t.recipients.find((r) => r.bounce_code)?.bounce_code ?? "bounced") : oof ? "OOF" : "";
     const days = t.sent_at && (t.status === "sent" || t.status === "posted")
       ? workingDaysBetween(ukDate(t.sent_at), reply ? ukDate(reply.received_at) : today)
       : null;
@@ -329,6 +352,7 @@ export function blotterRows(data: DeskData, filters: BlotterFilters = {}, now: D
       stage: target.stage,
       next: open ? { ...open, late: open.due < today } : null,
       paused: !open && data.followups.some((f) => f.sequence_id === t.sequence_id && f.status === "paused"),
+      earlier: earlier.get(t.target_id) ?? 0,
     };
     if (filters.channel && row.channel !== filters.channel) continue;
     if (filters.stage && row.stage !== filters.stage) continue;

@@ -239,7 +239,7 @@ function hrefWith(filters: BlotterFilters, change: Partial<Record<string, string
     source: filters.source,
     since: filters.since,
     q: filters.q,
-    conv: filters.conversation ? "1" : undefined,
+    all: filters.every ? "1" : undefined,
     sort: filters.sort,
     dir: filters.dir,
   };
@@ -267,7 +267,7 @@ export function Blotter({ rows, filters }: { rows: BlotterRow[]; filters: Blotte
       <div className="dk-panel-h">
         <h2 id="blotter-h">Blotter</h2>
         <span className="count">
-          {rows.length} {rows.length === 1 ? "row" : "rows"}
+          {filters.every ? `${rows.length} ${rows.length === 1 ? "email or letter" : "emails and letters"}` : `${rows.length} ${rows.length === 1 ? "partner" : "partners"}, latest email or letter each`}
         </span>
       </div>
       <form className="dk-filters" action="/admin/desk#blotter" aria-label="Filter the blotter">
@@ -309,7 +309,7 @@ export function Blotter({ rows, filters }: { rows: BlotterRow[]; filters: Blotte
         </label>
         <input type="search" name="q" placeholder="Search" defaultValue={filters.q ?? ""} aria-label="Search the blotter" />
         <label className="dk-check">
-          <input type="checkbox" name="conv" value="1" defaultChecked={filters.conversation} /> <span className="dim">Show conversation</span>
+          <input type="checkbox" name="all" value="1" defaultChecked={filters.every} /> <span className="dim">Every email</span>
         </label>
         {filters.sort && <input type="hidden" name="sort" value={filters.sort} />}
         {filters.dir && <input type="hidden" name="dir" value={filters.dir} />}
@@ -347,6 +347,11 @@ export function Blotter({ rows, filters }: { rows: BlotterRow[]; filters: Blotte
                   <td className="num">{r.sentAt ? stampWords(r.sentAt) : "-"}</td>
                   <td className="name">
                     <Link href={`/admin/desk/t/${r.targetId}`}>{r.name}</Link>
+                    {!filters.every && r.earlier > 0 && (
+                      <Link className="dk-earlier" href={`/admin/desk/t/${r.targetId}#tl-h`} title="Every email and letter is on their page">
+                        {`+${r.earlier} earlier`}
+                      </Link>
+                    )}
                   </td>
                   <td className="dk-hide-sm" title={CHANNELS[r.channel]}>
                     {CHANNEL_SHORT[r.channel]}
