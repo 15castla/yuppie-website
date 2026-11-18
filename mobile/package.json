@@ -22,9 +22,9 @@
     "@capacitor/status-bar": "^8.0.3"
   },
   "devDependencies": {
-    "@capacitor/assets": "^3.0.5",
+    "@capacitor/assets": "^4.0.0",
     "@capacitor/cli": "^8.5.2",
-    "sharp": "^0.32.6",
+    "sharp": "^0.35.5",
     "typescript": "^7.0.2"
   }
 }
