@@ -47,6 +47,10 @@ export type Stage = keyof typeof STAGES;
 export const CALL_OR_LATER: readonly Stage[] = ["call_booked", "in_talks", "agreed", "live"];
 /** Stages before anything was sent: logging a first touch moves these to contacted. */
 export const BEFORE_CONTACT: readonly Stage[] = ["not_started", "researching", "ready"];
+/** Confirmed partners (Albert, 19 Nov 2026): the Partners page opens on these; everyone else is a prospect. */
+export const CONFIRMED: readonly Stage[] = ["agreed", "live"];
+/** Stages before a meeting or call: booking one moves these to Call booked. */
+export const BEFORE_CALL: readonly Stage[] = ["not_started", "researching", "ready", "contacted", "replied", "no_reply"];
 
 export const EXCLUSIVITY = { none: "None", offered: "Offered", agreed: "Agreed", declined: "Declined" } as const;
 export const SIGNERS = { albert: "Albert", kira: "Kira" } as const;
@@ -106,6 +110,8 @@ export type Target = {
   exclusivity: keyof typeof EXCLUSIVITY;
   exclusivity_category: string | null;
   signed_by: keyof typeof SIGNERS;
+  /** The Relationship Manager (19 Nov 2026): the admin who looks after this partner; null before the migration. */
+  rm?: string | null;
   stage: Stage;
   stage_at: string;
   next_call_at: string | null;
@@ -261,6 +267,8 @@ export type Note = {
   body: string;
   source: string;
   created_at: string;
+  /** The meeting or call these notes are from (an Action of kind meeting or call). */
+  meeting_id?: string | null;
 };
 
 export type Action = {
@@ -274,6 +282,9 @@ export type Action = {
   source: string;
   created_at: string;
   done_at: string | null;
+  /** For an action point: the meeting or call it came out of. */
+  meeting_id?: string | null;
+  note_id?: string | null;
 };
 
 export type StageChange = { id: string; target_id: string; from_stage: string | null; to_stage: string; at: string; by: string; note: string | null };
@@ -323,6 +334,10 @@ export const DONE_WORDS: Record<string, string> = {
   guidance_approved: "Approved. Alex can write these now.",
   guidance_stopped: "Stopped. Alex won't write these until you approve it again.",
   reply_removed: "Reply removed. No draft will be made.",
+  meeting: "Booked. It's on Today and on their timeline.",
+  meeting_logged: "Logged. Add the notes to it on their timeline.",
+  meeting_cancelled: "Cancelled.",
+  action_deleted: "Deleted.",
 };
 
 /** What the desk says when an action is refused (?error=<code>). */
@@ -342,4 +357,5 @@ export const ERROR_WORDS: Record<string, string> = {
   not_open: "That follow-up isn't waiting any more.",
   drafted_already: "The draft is already in Outlook. Edit it there.",
   connect_failed: "That connection request wasn't right or has expired. Start again from Claude's settings.",
+  owner_only: "Only Albert can change that for now.",
 };

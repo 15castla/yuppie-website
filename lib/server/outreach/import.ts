@@ -28,11 +28,11 @@ async function must<T>(query: PromiseLike<{ data: T; error: { message: string } 
 // side by side may land on the same January day; it is a spread, not a rule.
 const AT_ONCE = 4;
 
-export async function importDesk(db: ServiceDb, file: ImportFile): Promise<ImportResult> {
+export async function importDesk(db: ServiceDb, file: ImportFile, rm: string | null = null): Promise<ImportResult> {
   const result: ImportResult = { targets: 0, skipped: 0, contacts: 0, touches: 0, outcomes: 0, notes: 0, actions: 0 };
   let next = 0;
   const worker = async () => {
-    while (next < file.targets.length) await importTarget(db, file.targets[next++], result);
+    while (next < file.targets.length) await importTarget(db, file.targets[next++], result, rm);
   };
   const runs = await Promise.allSettled(Array.from({ length: Math.min(AT_ONCE, file.targets.length) }, worker));
   const failed = runs.find((r): r is PromiseRejectedResult => r.status === "rejected");
@@ -40,7 +40,7 @@ export async function importDesk(db: ServiceDb, file: ImportFile): Promise<Impor
   return result;
 }
 
-async function importTarget(db: ServiceDb, t: ImportFile["targets"][number], result: ImportResult): Promise<void> {
+async function importTarget(db: ServiceDb, t: ImportFile["targets"][number], result: ImportResult, rm: string | null): Promise<void> {
   const { data: already } = await db.from("outreach_targets").select("id").eq("import_key", t.key).maybeSingle();
   if (already) {
     result.skipped += 1;
@@ -62,6 +62,8 @@ async function importTarget(db: ServiceDb, t: ImportFile["targets"][number], res
         exclusivity: t.exclusivity,
         exclusivity_category: t.exclusivity_category,
         signed_by: t.signed_by,
+        // the Relationship Manager: whoever imports the file (19 Nov 2026)
+        ...(rm ? { rm } : {}),
         stage: "not_started",
         hook: t.hook,
         avoid: t.avoid,

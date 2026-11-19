@@ -49,11 +49,11 @@ export function fingerprint(key: string): string {
 }
 
 /** The active key whose fingerprint matches the request's Bearer key, else null. Compared in constant time. */
-export async function keyFor(db: ServiceDb, header: string | null): Promise<{ id: string; last_used_at: string | null } | null> {
+export async function keyFor(db: ServiceDb, header: string | null): Promise<{ id: string; last_used_at: string | null; owner: string | null } | null> {
   const m = /^Bearer ([A-Za-z0-9_-]{20,200})$/.exec(header ?? "");
   if (!m) return null;
   const given = fingerprint(m[1]);
-  const { data } = await db.from("outreach_drafter_keys").select("id, key_hash, last_used_at").is("revoked_at", null).maybeSingle();
+  const { data } = await db.from("outreach_drafter_keys").select("id, key_hash, last_used_at, created_by").is("revoked_at", null).maybeSingle();
   if (!data) return null;
   const a = Buffer.from(given, "hex");
   const b = Buffer.from(String(data.key_hash), "hex");
@@ -61,7 +61,8 @@ export async function keyFor(db: ServiceDb, header: string | null): Promise<{ id
   if (!data.last_used_at || Date.now() - new Date(data.last_used_at).getTime() > 60_000) {
     await db.from("outreach_drafter_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id);
   }
-  return { id: data.id, last_used_at: data.last_used_at };
+  // whose Mac (and mailbox) it is: the person who linked it (Albert's; 19 Nov 2026)
+  return { id: data.id, last_used_at: data.last_used_at, owner: (data.created_by as string | null) ?? null };
 }
 
 const calls: number[] = [];
@@ -207,7 +208,7 @@ type TouchRow = {
 };
 type RecipientRow = { id: string; touch_id: string; contact_id: string | null; address: string | null; role: "to" | "cc"; delivery: string };
 type ContactRow = { id: string; target_id: string; name: string | null; email: string | null; opted_out: boolean; email_status: string; mailbox_type: string };
-type TargetRow = { id: string; name: string; domains: string[]; opted_out: boolean; do_not_follow_up: boolean; stage: string };
+type TargetRow = { id: string; name: string; domains: string[]; opted_out: boolean; do_not_follow_up: boolean; stage: string; rm?: string | null };
 type OutcomeRow = { id: string; target_id: string; sequence_id: string | null; kind: string; internet_message_id: string | null; conversation_id: string | null; confirmed: boolean; received_at: string };
 type TextRow = {
   id: string;
@@ -226,7 +227,7 @@ const TOUCH_COLS = "id, target_id, sequence_id, channel, kind, step, status, sub
 
 async function deskState(db: ServiceDb) {
   const [targets, contacts, touches, recipients, outcomes, followups, texts, ignored] = await Promise.all([
-    rows<TargetRow>(db.from("outreach_targets").select("id, name, domains, opted_out, do_not_follow_up, stage").limit(5000)),
+    rows<TargetRow>(db.from("outreach_targets").select("id, name, domains, opted_out, do_not_follow_up, stage, rm").limit(5000)),
     rows<ContactRow>(db.from("outreach_contacts").select("id, target_id, name, email, opted_out, email_status, mailbox_type").limit(20000)),
     rows<TouchRow>(db.from("outreach_touches").select(TOUCH_COLS).limit(20000)),
     rows<RecipientRow>(db.from("outreach_touch_recipients").select("id, touch_id, contact_id, address, role, delivery").limit(40000)),
@@ -240,9 +241,18 @@ async function deskState(db: ServiceDb) {
 
 export type Plan = Awaited<ReturnType<typeof plan>>;
 
-/** What the drafter needs for one sync: what to look for in Outlook, and which follow-up drafts to make. */
-export async function plan(db: ServiceDb, now = new Date()) {
+/**
+ * What the drafter needs for one sync: what to look for in Outlook, and which follow-up drafts to make. `owner` is whose
+ * Mac it is: drafts are made only for that person's partners (their Relationship Manager; a partner with none counts),
+ * since another RM's follow-ups would otherwise go out of this mailbox signed by the wrong person (19 Nov 2026). Every
+ * partner is still looked for in Outlook.
+ */
+export async function plan(db: ServiceDb, now = new Date(), owner: string | null = null) {
   const s = await deskState(db);
+  const mine = (targetId: string) => {
+    const rm = s.targets.find((t) => t.id === targetId)?.rm ?? null;
+    return !owner || !rm || rm === owner;
+  };
   const { data: lastRun } = await db.from("outreach_sync_runs").select("started_at").eq("ok", true).order("started_at", { ascending: false }).limit(1).maybeSingle();
   const since = lastRun?.started_at ? new Date(new Date(lastRun.started_at).getTime() - 3600_000).toISOString() : BACKFILL_FROM;
   const targetsById = new Map(s.targets.map((t) => [t.id, t]));
@@ -266,7 +276,7 @@ export async function plan(db: ServiceDb, now = new Date()) {
   for (const f of open) {
     const target = targetsById.get(f.target_id);
     const text = s.texts.find((x) => x.followup_id === f.id && x.status === "written");
-    if (!target || !text || target.opted_out || target.do_not_follow_up) continue;
+    if (!target || !text || target.opted_out || target.do_not_follow_up || !mine(f.target_id)) continue;
     const seqTouches = s.touches
       .filter((t) => t.sequence_id === f.sequence_id && (t.status === "sent" || t.status === "posted") && OUTREACH_KINDS.includes(t.kind))
       .sort((a, b) => (b.sent_at ?? "").localeCompare(a.sent_at ?? ""));
@@ -309,7 +319,7 @@ export async function plan(db: ServiceDb, now = new Date()) {
   for (const text of s.texts.filter((x) => x.kind === "reply" && x.outcome_id && x.status === "written" && !x.draft_error)) {
     const o = s.outcomes.find((x) => x.id === text.outcome_id);
     const target = o ? targetsById.get(o.target_id) : undefined;
-    if (!o || !target || o.kind !== "reply" || !o.confirmed || !o.internet_message_id || target.opted_out) continue;
+    if (!o || !target || o.kind !== "reply" || !o.confirmed || !o.internet_message_id || target.opted_out || !mine(o.target_id)) continue;
     const answered = s.touches.some(
       (t) => t.channel === "email" && t.status === "sent" && t.sent_at && t.sent_at > o.received_at && ((o.conversation_id && t.conversation_id === o.conversation_id) || (o.sequence_id && t.sequence_id === o.sequence_id)),
     );
@@ -409,7 +419,7 @@ function dateOnly(at: string | null): boolean {
   return !!at && new Date(at).toISOString().endsWith("T12:00:00.000Z");
 }
 
-type Ctx = { db: ServiceDb; s: Awaited<ReturnType<typeof deskState>>; ignored: Set<string> };
+type Ctx = { db: ServiceDb; s: Awaited<ReturnType<typeof deskState>>; ignored: Set<string>; owner?: string | null };
 
 /** Which partners an email to or from these addresses belongs to: by contact, then by domain. */
 function targetsFor(ctx: Ctx, addresses: string[]): { ids: string[]; how: "sender" | "domain" | null } {
@@ -541,15 +551,16 @@ async function sent(ctx: Ctx, item: Record<string, unknown>, mailbox: string | n
       const domains = [...new Set([...(Array.isArray(partner.domains) ? partner.domains : []), ...to.map((p) => domainOf(p.address))].map((d) => String(d).toLowerCase().trim()).filter((d) => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(d) && !FREE_MAIL.has(d)))];
       const category = str(partner.category, 30);
       const ask = str(partner.ask, 40);
-      const row: Record<string, unknown> = { id, name, domains, stage: "ready", ask_line: str(partner.askLine, 300) };
+      // its Relationship Manager is whoever's mailbox sent it
+      const row: Record<string, unknown> = { id, name, domains, stage: "ready", ask_line: str(partner.askLine, 300), ...(ctx.owner ? { rm: ctx.owner } : {}) };
       if (category) row.category = category;
       if (ask) row.ask = ask;
       const { error } = await db.from("outreach_targets").insert(row);
       if (error) {
         // a category or ask the desk doesn't know: keep the defaults
-        await must(db.from("outreach_targets").insert({ id, name, domains, stage: "ready" }), "Partner not saved");
+        await must(db.from("outreach_targets").insert({ id, name, domains, stage: "ready", ...(ctx.owner ? { rm: ctx.owner } : {}) }), "Partner not saved");
       }
-      s.targets.push({ id, name, domains, opted_out: false, do_not_follow_up: false, stage: "ready" });
+      s.targets.push({ id, name, domains, opted_out: false, do_not_follow_up: false, stage: "ready", rm: ctx.owner ?? null });
       targetIds = [id];
       created = true;
     }
@@ -824,7 +835,7 @@ const HANDLERS: Record<string, (ctx: Ctx, item: Record<string, unknown>, mailbox
  * One report call: a batch of items, in the order the drafter found them (each is safe to repeat). The first call of
  * a sync opens a run; the call with `final` closes it with the run's numbers.
  */
-export async function report(db: ServiceDb, keyId: string, payload: Record<string, unknown>) {
+export async function report(db: ServiceDb, keyId: string, payload: Record<string, unknown>, owner: string | null = null) {
   const items = Array.isArray(payload.items) ? payload.items.slice(0, MAX_ITEMS) : [];
   let runId = uuid(payload.runId);
   if (!runId) {
@@ -832,7 +843,7 @@ export async function report(db: ServiceDb, keyId: string, payload: Record<strin
     await must(db.from("outreach_sync_runs").insert({ id: runId, key_id: keyId, started_at: iso(payload.startedAt) ?? new Date().toISOString() }), "Run not started");
   }
   const s = await deskState(db);
-  const ctx: Ctx = { db, s, ignored: new Set(s.ignored.map((x) => x.internet_message_id)) };
+  const ctx: Ctx = { db, s, ignored: new Set(s.ignored.map((x) => x.internet_message_id)), owner };
   const mailbox = address(payload.mailbox);
   const results: ReportResult[] = [];
   // in time order, so a reply is matched after the email it answers

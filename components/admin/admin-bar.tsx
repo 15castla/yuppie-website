@@ -30,8 +30,9 @@ const NAV: NavItem[] = [
   { href: "/admin/payments", label: "Payments" },
 ];
 
-// The Outreach Desk (17 Nov 2026): the owner's only; no other admin sees the link.
-const OWNER_NAV: NavItem[] = [...NAV, { href: "/admin/desk", label: "Desk" }];
+// The Outreach Desk (17 Nov 2026; a team desk since 19 Nov): only the desk team (the owner and admins with desk
+// access) sees the link.
+const DESK_NAV: NavItem[] = [...NAV, { href: "/admin/desk", label: "Desk" }];
 
 /** What a count means, for screen readers: "Reports (3 open)". */
 const COUNT_WORD: Record<keyof AdminNavCounts, string> = { applications: "waiting", reports: "open", photos: "to check" };
@@ -49,9 +50,9 @@ function LogOutButton({ className, children }: { className: string; children: Re
   );
 }
 
-export function AdminBar({ email, counts, owner = false }: { email: string; counts: AdminNavCounts; owner?: boolean }) {
+export function AdminBar({ email, counts, desk = false }: { email: string; counts: AdminNavCounts; desk?: boolean }) {
   const pathname = usePathname();
-  const nav = owner ? OWNER_NAV : NAV;
+  const nav = desk ? DESK_NAV : NAV;
   const [menuOpen, setMenuOpen] = useState(false);
   const [acctOpen, setAcctOpen] = useState(false);
   const acctRef = useRef<HTMLDivElement>(null);

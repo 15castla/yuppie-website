@@ -12,6 +12,15 @@ from Outreach_Log · 8 Security and privacy · 9 Phased build · 10 Risks and op
 
 All 33 questions in section 10 are answered. Where an older passage below disagrees, this section wins.
 
+**A team desk (19 Nov 2026, Albert):** this replaces "owner only" and "Kira has no view". Admins with
+`admin_users.desk_access` (Kira, KW) have the whole desk with the owner's powers; Alex, the Outlook drafter's link and
+the 06:30 email stay the owner's. Each partner has a Relationship Manager (`outreach_targets.rm`, shown as initials:
+AC, KW); the drafter and Alex make drafts only for the owner's partners. The timeline shows only contact, with each
+meeting or call as one item holding the emails that arranged it, its notes and action points
+(`outreach_notes.meeting_id`, `outreach_actions.meeting_id`); notes have their own panel. Partners opens on Agreed and
+Live with a Prospects tab. The guidance is each person's own (`outreach_guidance` keyed by `admin_id, kind`).
+Migration `20261120090000_desk_team.sql`; Technical Reference Part 26.
+
 **Build status (16 Nov 2026):** Phase 1 is live (PR #63, then the button, chip and alignment fixes). Phase 2, the
 Outlook connection, is built on branch `admin/desk-outlook` (Technical Reference Part 23). Differences from section 3
 and 4 below: the follow-up words come from the desk (Albert writes them on the partner's page until Alex does in Phase

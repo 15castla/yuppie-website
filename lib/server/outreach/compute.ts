@@ -122,9 +122,14 @@ export function kpis(data: DeskData, now: Date = new Date()): Kpis {
   const reachedCall = new Set(data.stageHistory.filter((h) => CALL_OR_LATER.includes(h.to_stage as never)).map((h) => h.target_id));
   for (const t of data.targets) if (CALL_OR_LATER.includes(t.stage)) reachedCall.add(t.id);
   const nowIso = now.toISOString();
-  const upcoming = data.targets
-    .filter((t) => t.next_call_at && t.next_call_at >= nowIso)
-    .sort((a, b) => a.next_call_at!.localeCompare(b.next_call_at!));
+  // the next meeting or call: one booked as an action point (19 Nov 2026), or an older "next call"
+  const names = new Map(data.targets.map((t) => [t.id, t.name]));
+  const upcoming = [
+    ...data.targets.filter((t) => t.next_call_at && t.next_call_at >= nowIso).map((t) => ({ at: t.next_call_at!, id: t.id, name: t.name })),
+    ...data.actions
+      .filter((a) => (a.kind === "call" || a.kind === "meeting") && a.status === "open" && a.starts_at && a.starts_at >= nowIso && names.has(a.target_id))
+      .map((a) => ({ at: a.starts_at!, id: a.target_id, name: names.get(a.target_id)! })),
+  ].sort((a, b) => a.at.localeCompare(b.at));
 
   let due = 0;
   let late = 0;
@@ -142,7 +147,7 @@ export function kpis(data: DeskData, now: Date = new Date()): Kpis {
     replied,
     positive,
     callsBooked: reachedCall.size,
-    nextCall: upcoming[0] ? { at: upcoming[0].next_call_at!, targetId: upcoming[0].id, name: upcoming[0].name } : null,
+    nextCall: upcoming[0] ? { at: upcoming[0].at, targetId: upcoming[0].id, name: upcoming[0].name } : null,
     live: data.targets.filter((t) => t.stage === "live").length,
     agreed: data.targets.filter((t) => t.stage === "agreed").length,
     due,
@@ -260,6 +265,8 @@ export type BlotterFilters = {
   q?: string;
   /** Every email and letter, one row each (the old blotter); otherwise one row per partner, their most recent. */
   every?: boolean;
+  /** The Relationship Manager shown (their initials), for the links; the rows are already that RM's (rm.ts forRm). */
+  rm?: string;
   sort?: "sent" | "target" | "status";
   dir?: "asc" | "desc";
 };
@@ -284,6 +291,8 @@ export type BlotterRow = {
   paused: boolean;
   /** One row per partner: how many emails and letters went before this one (on their page). */
   earlier: number;
+  /** The partner's Relationship Manager (an admin's id). */
+  rm: string | null;
 };
 
 export function blotterRows(data: DeskData, filters: BlotterFilters = {}, now: Date = new Date()): BlotterRow[] {
@@ -353,6 +362,7 @@ export function blotterRows(data: DeskData, filters: BlotterFilters = {}, now: D
       next: open ? { ...open, late: open.due < today } : null,
       paused: !open && data.followups.some((f) => f.sequence_id === t.sequence_id && f.status === "paused"),
       earlier: earlier.get(t.target_id) ?? 0,
+      rm: target.rm ?? null,
     };
     if (filters.channel && row.channel !== filters.channel) continue;
     if (filters.stage && row.stage !== filters.stage) continue;

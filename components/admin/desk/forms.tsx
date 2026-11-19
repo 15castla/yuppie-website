@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   deskAddAction,
   deskAddNote,
+  deskBookMeeting,
   deskCreateTarget,
   deskLogOutcome,
   deskLogTouch,
@@ -20,7 +21,6 @@ import {
   OUTCOME_CHANNELS,
   OUTCOME_KINDS,
   SENTIMENTS,
-  SIGNERS,
   SOURCES,
   STAGES,
   TOUCH_KINDS,
@@ -28,8 +28,10 @@ import {
   type Target,
   type Touch,
 } from "@/lib/server/outreach/model";
+import type { TeamMember } from "@/lib/server/outreach/rm";
 import { isoToUkLocal, ukDate } from "@/lib/server/outreach/rules";
-import { shortDate } from "./format";
+import type { Meeting } from "@/lib/server/outreach/timeline";
+import { dayWords, shortDate, timeWords } from "./format";
 import { DeskSubmit } from "./submit";
 
 // The desk's forms (17 Nov 2026; plan 5.4). Plain server-action forms (they work before JavaScript loads), each in a
@@ -84,8 +86,24 @@ function contactLabel(c: Contact): string {
   return c.name && c.email ? `${who} <${c.email}>` : who;
 }
 
+/** The Relationship Manager (19 Nov 2026): who on the desk looks after this partner. */
+function RmField({ team, value }: { team: TeamMember[]; value: string | null }) {
+  return (
+    <Field label="Relationship Manager" hint="Who looks after this partner">
+      <select name="rm" defaultValue={value ?? ""}>
+        {!value && <option value="">Nobody yet</option>}
+        {team.map((m) => (
+          <option key={m.id} value={m.id}>
+            {m.initials} · {m.name}
+          </option>
+        ))}
+      </select>
+    </Field>
+  );
+}
+
 /** The partner's details: used to add a partner and to edit one. */
-export function TargetFields({ t }: { t?: Target }) {
+export function TargetFields({ t, team, rm }: { t?: Target; team: TeamMember[]; rm: string | null }) {
   return (
     <>
       <Field label="Name">
@@ -124,11 +142,7 @@ export function TargetFields({ t }: { t?: Target }) {
       <Field label="Exclusive category" hint="Narrow: men's grooming, shirts, padel">
         <input type="text" name="exclusivity_category" maxLength={200} defaultValue={t?.exclusivity_category ?? ""} />
       </Field>
-      <Field label="Signed by">
-        <select name="signed_by" defaultValue={t?.signed_by ?? "albert"}>
-          <Options map={SIGNERS} />
-        </select>
-      </Field>
+      <RmField team={team} value={rm} />
       <Field label="The ask in full" wide>
         <textarea name="ask_detail" rows={3} maxLength={4000} defaultValue={t?.ask_detail ?? ""} />
       </Field>
@@ -145,10 +159,10 @@ export function TargetFields({ t }: { t?: Target }) {
   );
 }
 
-export function NewTargetForm() {
+export function NewTargetForm({ team, me }: { team: TeamMember[]; me: string }) {
   return (
     <form action={deskCreateTarget} className="dk-form">
-      <TargetFields />
+      <TargetFields team={team} rm={me} />
       <Field label="Stage">
         <select name="stage" defaultValue="researching">
           <Options map={STAGES} />
@@ -169,11 +183,11 @@ export function NewTargetForm() {
   );
 }
 
-export function EditTargetForm({ t, back }: { t: Target; back: string }) {
+export function EditTargetForm({ t, back, team }: { t: Target; back: string; team: TeamMember[] }) {
   return (
     <form action={deskUpdateTarget} className="dk-form">
       <Hidden target={t.id} back={back} />
-      <TargetFields t={t} />
+      <TargetFields t={t} team={team} rm={t.rm ?? null} />
       <div className="dk-form-foot">
         <DeskSubmit className="dk-btn primary" busy="Saving…">
           Save
@@ -424,7 +438,6 @@ export function OtherTouchForm({ target, back, contacts, touches }: { target: Ta
       <Field label="How">
         <select name="channel" defaultValue="call">
           <option value="call">Call</option>
-          <option value="in_person">In person</option>
           <option value="whatsapp">WhatsApp</option>
           <option value="linkedin">LinkedIn</option>
         </select>
@@ -543,12 +556,29 @@ export function OutcomeForm({ target, back, contacts, touches }: { target: Targe
   );
 }
 
-export function NoteForm({ target, back }: { target: string; back: string }) {
+function meetingOption(m: Meeting): string {
+  return `${m.kind === "call" ? "Call" : "Meeting"}, ${dayWords(m.at)} ${timeWords(m.at)}${m.state === "booked" ? " (booked)" : ""}`;
+}
+
+export function NoteForm({ target, back, meetings = [] }: { target: string; back: string; meetings?: Meeting[] }) {
+  const tied = meetings.filter((m) => m.action && m.state !== "cancelled").sort((a, b) => b.at.localeCompare(a.at));
   return (
     <form action={deskAddNote} className="dk-form">
       <Hidden target={target} back={back} />
+      {tied.length > 0 && (
+        <Field label="From a meeting or call" hint="Notes from one go inside it on the timeline">
+          <select name="meeting" defaultValue="">
+            <option value="">Not from one</option>
+            {tied.map((m) => (
+              <option key={m.key} value={m.action!.id}>
+                {meetingOption(m)}
+              </option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label="Kind">
-        <select name="kind" defaultValue="meeting">
+        <select name="kind" defaultValue="note">
           <Options map={NOTE_KINDS} />
         </select>
       </Field>
@@ -606,21 +636,51 @@ export function StageForm({ t, back }: { t: Target; back: string }) {
           <Options map={STAGES} />
         </select>
       </Field>
-      <Field label="Next call" hint="Adds it to the agenda">
-        <input type="datetime-local" name="next_call_at" defaultValue={isoToUkLocal(t.next_call_at)} />
-      </Field>
       <Field label="Note">
         <input type="text" name="note" maxLength={500} />
       </Field>
       <div className="dk-form-foot">
         {t.next_call_at && (
           <label className="dk-check">
-            <input type="checkbox" name="clear_call" /> Clear the next call
+            <input type="checkbox" name="clear_call" /> Clear the old next call ({dayWords(t.next_call_at)} {timeWords(t.next_call_at)})
           </label>
         )}
         <DeskSubmit className="dk-btn primary" busy="Saving…">
           Save
         </DeskSubmit>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Book a meeting or call, or log one that happened (19 Nov 2026): one item on the timeline, "Meeting booked" until it
+ * happens and "Meeting" after, with the emails that arranged it, its notes and its action points.
+ */
+export function BookMeetingForm({ target, back }: { target: Target; back: string }) {
+  return (
+    <form action={deskBookMeeting} className="dk-form">
+      <Hidden target={target.id} back={back} />
+      <Field label="What">
+        <select name="kind" defaultValue="meeting">
+          <option value="meeting">Meeting</option>
+          <option value="call">Call</option>
+        </select>
+      </Field>
+      <Field label="When" hint="A time already past logs one that happened">
+        <input type="datetime-local" name="starts_at" required />
+      </Field>
+      <Field label="With or where" hint="Optional: Naomi, at their office">
+        <input type="text" name="title" maxLength={300} placeholder={`Meeting with ${target.name}`} />
+      </Field>
+      <Field label="Notes" wide hint="Optional, for one that happened. Add more on the timeline later.">
+        <textarea name="notes" rows={3} />
+      </Field>
+      <div className="dk-form-foot">
+        <DeskSubmit className="dk-btn primary" busy="Saving…">
+          Save
+        </DeskSubmit>
+        <small className="hint">A partner not yet at Call booked moves there.</small>
       </div>
     </form>
   );

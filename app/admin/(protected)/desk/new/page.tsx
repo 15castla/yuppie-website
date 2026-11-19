@@ -1,13 +1,15 @@
 import Link from "next/link";
 
-import { requireOwner } from "@/app/admin/require-owner";
+import { requireDesk } from "@/app/admin/require-owner";
 import { NewTargetForm } from "@/components/admin/desk/forms";
 import { DeskShell, type SearchParams } from "@/components/admin/desk/shell";
+import { loadMe } from "@/lib/server/outreach/team";
 
-// New partner (17 Nov 2026): the business, and optionally its first contact. Owner only.
+// New partner (17 Nov 2026): the business, and optionally its first contact. Its Relationship Manager is whoever adds
+// it, unless they choose someone else (19 Nov 2026). The desk team only.
 export default async function DeskNewPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  await requireOwner();
-  const sp = await searchParams;
+  const user = await requireDesk();
+  const [sp, { team, me }] = await Promise.all([searchParams, loadMe(user.id)]);
   return (
     <DeskShell current={null} sp={sp}>
       <div style={{ marginTop: 16 }}>
@@ -17,7 +19,7 @@ export default async function DeskNewPage({ searchParams }: { searchParams: Prom
         <h2 className="dk-h1">New partner</h2>
         <p className="dk-sub">Only professional, public information, plus what they send us. No phone numbers.</p>
         <div style={{ marginTop: 18 }}>
-          <NewTargetForm />
+          <NewTargetForm team={team} me={me.id} />
         </div>
       </div>
     </DeskShell>
