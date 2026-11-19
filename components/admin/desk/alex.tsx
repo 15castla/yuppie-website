@@ -1,14 +1,16 @@
 import { deskDisconnectConnector, deskSaveGuidance } from "@/app/admin/desk-alex-actions";
 import { siteUrl } from "@/lib/emails/config";
 import { serviceDb } from "@/lib/server/db";
-import { GUIDANCE_KINDS, SUGGESTED_GUIDANCE, type GuidanceKind } from "@/lib/server/outreach/guidance";
+import { GUIDANCE_KINDS, suggestedFor, type GuidanceKind } from "@/lib/server/outreach/guidance";
+import type { TeamMember } from "@/lib/server/outreach/rm";
 import { dayWords } from "./format";
 import { agoWords } from "./outlook";
 import { DeskSubmit } from "./submit";
 
 // Desk > Settings > Alex (Phase 3, 17 Nov 2026): how to connect Claude to the desk, the connections (with
-// Disconnect), and Albert's guidance for each kind of email Alex writes. Until a kind is approved, Alex writes none of
-// it. The guidance boxes start with Claude's suggested wording, which is only saved when Albert saves or approves it.
+// Disconnect), and the guidance for each kind of email Alex writes. Until a kind is approved, Alex writes none of it.
+// The guidance boxes start with Claude's suggested wording, which is only saved when you save or approve it. Since
+// 19 Nov 2026 the guidance is each person's own (your templates, in your voice); connecting Alex stays Albert's for now.
 
 type GuidanceRow = {
   kind: GuidanceKind;
@@ -25,8 +27,8 @@ type GrantRow = {
   refresh_expires_at: string;
 };
 
-/** The open connections (not disconnected, refresh not expired) and the guidance; null before the Phase 3 migration. */
-async function loadAlex(): Promise<{ grants: GrantRow[]; guidance: GuidanceRow[] } | null> {
+/** The open connections (not disconnected, refresh not expired) and your guidance; null before the Phase 3 migration. */
+async function loadAlex(me: string): Promise<{ grants: GrantRow[]; guidance: GuidanceRow[] } | null> {
   const db = serviceDb();
   const [g, r] = await Promise.all([
     db
@@ -35,34 +37,46 @@ async function loadAlex(): Promise<{ grants: GrantRow[]; guidance: GuidanceRow[]
       .is("revoked_at", null)
       .gt("refresh_expires_at", new Date().toISOString())
       .order("created_at", { ascending: false }),
-    db.from("outreach_guidance").select("kind, instructions, example, approved_at, updated_at"),
+    db.from("outreach_guidance").select("kind, instructions, example, approved_at, updated_at").eq("admin_id", me),
   ]);
   if (g.error || r.error) return null;
   return { grants: (g.data ?? []) as GrantRow[], guidance: (r.data ?? []) as GuidanceRow[] };
 }
 
-export async function AlexSettings() {
-  const loaded = await loadAlex().catch(() => null);
+export async function AlexSettings({ me }: { me: TeamMember }) {
+  const loaded = await loadAlex(me.id).catch(() => null);
   // before the Phase 3 migration is applied, Settings still works without the panel
   if (!loaded) return null;
-  const { grants, guidance } = loaded;
+  // Alex is the owner's Claude for now: the others see only their own email templates
+  const grants = me.owner ? loaded.grants : [];
+  const { guidance } = loaded;
+  const suggestions = suggestedFor(me.firstName);
   const byKind = new Map(guidance.map((g) => [g.kind, g]));
   const approved = guidance.filter((g) => g.approved_at).length;
   const address = `${siteUrl()}/api/desk/mcp`;
   return (
     <section className="dk-panel" aria-labelledby="a-h" id="alex">
       <div className="dk-panel-h">
-        <h2 id="a-h">Alex</h2>
+        <h2 id="a-h">{me.owner ? "Alex" : "Your email templates"}</h2>
         <span className="count">
-          {grants.length ? "Connected" : "Not connected"} · {approved} of 3 kinds of email approved
+          {me.owner ? `${grants.length ? "Connected" : "Not connected"} · ` : ""}
+          {approved} of 3 kinds of email approved
         </span>
       </div>
       <div style={{ paddingTop: 10 }} className="dk-outlook">
-        <p>
-          Alex is your assistant in your own Claude account. Connected to the desk, Alex can brief you on a partner, turn a photo of meeting notes into a note
-          and action points, and write follow-ups and replies in your voice, which the drafter puts into Outlook as drafts. Alex never sends.
-        </p>
-        {grants.length ? (
+        {!me.owner && (
+          <p>
+            How Alex should write your follow-ups and replies, in your voice. Only you see and change these. Alex is Albert&apos;s assistant for now, so they
+            come into use once your Outlook and your own Alex are linked to the desk.
+          </p>
+        )}
+        {me.owner && (
+          <p>
+            Alex is your assistant in your own Claude account. Connected to the desk, Alex can brief you on a partner, turn a photo of meeting notes into a note
+            and action points, and write follow-ups and replies in your voice, which the drafter puts into Outlook as drafts. Alex never sends.
+          </p>
+        )}
+        {!me.owner ? null : grants.length ? (
           <>
             <ul className="dk-list dk-grants">
               {grants.map((g) => (
@@ -101,7 +115,7 @@ export async function AlexSettings() {
         </p>
         {(Object.keys(GUIDANCE_KINDS) as GuidanceKind[]).map((kind) => {
           const row = byKind.get(kind);
-          const suggested = SUGGESTED_GUIDANCE[kind];
+          const suggested = suggestions[kind];
           const status = row?.approved_at ? `Approved ${dayWords(row.approved_at)}` : row ? "Draft, not approved" : "Suggested wording, not approved";
           return (
             <details key={kind} id={`g-${kind}`} className="dk-drawer" open={!row?.approved_at}>

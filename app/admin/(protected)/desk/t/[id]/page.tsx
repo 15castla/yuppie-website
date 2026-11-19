@@ -1,56 +1,39 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 
-import { deskDeleteContact, deskDeleteNote, deskDeleteOutcome, deskDeleteTarget, deskDeleteTouch, deskFollowup, deskSetAction, deskSetFlags } from "@/app/admin/desk-actions";
-import { requireOwner } from "@/app/admin/require-owner";
+import { deskDeleteContact, deskDeleteTarget, deskFollowup, deskSetAction, deskSetFlags } from "@/app/admin/desk-actions";
+import { requireDesk } from "@/app/admin/require-owner";
 import { dateWords, dayWords, stampWords, timeWords } from "@/components/admin/desk/format";
 import { FollowupText, ReplyTexts } from "@/components/admin/desk/followup-text";
-import { ActionForm, ContactForm, Drawer, EditTargetForm, LetterForm, LogEmailForm, NoteForm, OtherTouchForm, OutcomeForm, StageForm } from "@/components/admin/desk/forms";
+import {
+  ActionForm,
+  BookMeetingForm,
+  ContactForm,
+  Drawer,
+  EditTargetForm,
+  LetterForm,
+  LogEmailForm,
+  NoteForm,
+  OtherTouchForm,
+  OutcomeForm,
+  StageForm,
+} from "@/components/admin/desk/forms";
 import { DeskShell, type SearchParams } from "@/components/admin/desk/shell";
 import { DeskSubmit } from "@/components/admin/desk/submit";
+import { NotesPanel, TimelinePanel } from "@/components/admin/desk/timeline";
 import { answeredReply } from "@/lib/server/outreach/agenda";
-import { followupAddresses, replyTimeWords } from "@/lib/server/outreach/compute";
+import { followupAddresses } from "@/lib/server/outreach/compute";
 import { loadTarget } from "@/lib/server/outreach/desk";
-import {
-  ACTION_KINDS,
-  ASKS,
-  CATEGORIES,
-  CHANNELS,
-  EXCLUSIVITY,
-  MAILBOX_TYPES,
-  NOTE_KINDS,
-  OUTCOME_KINDS,
-  SENTIMENTS,
-  SIGNERS,
-  SOURCES,
-  STAGES,
-  stepWords,
-  type Followup,
-} from "@/lib/server/outreach/model";
+import { ACTION_KINDS, ASKS, CATEGORIES, EXCLUSIVITY, MAILBOX_TYPES, SOURCES, STAGES, stepWords, type Followup } from "@/lib/server/outreach/model";
 import { addWorkingDays, effectiveDue, ukDate } from "@/lib/server/outreach/rules";
+import { loadMe, rmFor } from "@/lib/server/outreach/team";
+import { buildTimeline, meetingWords } from "@/lib/server/outreach/timeline";
 
 // A partner's page (17 Nov 2026; plan 5.3): everything about them on one screen, for a follow-up or an impromptu
-// meeting. The stage and the facts at the top, the next follow-up with its controls, the drawers to log anything,
-// then the timeline (every email, letter, call, reply, note and stage change, newest first) beside the contacts,
-// action points, notes and follow-ups. Owner only.
-
-type Item = {
-  at: string;
-  key: string;
-  chip: { cls: string; word: string };
-  title: string;
-  meta?: string;
-  body?: string | null;
-  /** Outlook's link to the email itself (Phase 2) */
-  link?: string | null;
-  del?: { action: (fd: FormData) => Promise<void>; field: string; id: string; confirm: boolean };
-};
-
-/** "Overview.pdf (412 KB)" for each file Outlook says was attached (not the images in a signature). */
-function filesWords(files: { name: string; size: number | null; inline?: boolean }[] | undefined): string | null {
-  const list = (files ?? []).filter((a) => !a.inline);
-  return list.length ? list.map((a) => (a.size ? `${a.name} (${Math.max(1, Math.round(a.size / 1024))} KB)` : a.name)).join(", ") : null;
-}
+// meeting. The stage, the Relationship Manager and the facts at the top, the next follow-up with its controls, the
+// drawers to log anything, then the timeline beside the contacts, action points, notes and follow-ups. Since 19 Nov 2026
+// the timeline shows only contact, with each meeting or call as one item (components/admin/desk/timeline.tsx); notes
+// have their own panel and stage changes a history under the stage. The desk team only.
 
 const FOLLOWUP_WORDS: Record<Followup["status"], string> = {
   scheduled: "Scheduled",
@@ -62,38 +45,19 @@ const FOLLOWUP_WORDS: Record<Followup["status"], string> = {
 };
 const REASON_WORDS: Record<string, string> = { replied: "they replied", bounced: "every address bounced", opted_out: "opted out", no_email: "no email address", manual: "by you", superseded: "replaced" };
 
-function Del({ d, back, target }: { d: NonNullable<Item["del"]>; back: string; target: string }) {
-  return (
-    <details>
-      <summary className="dim" style={{ cursor: "pointer", fontSize: 12 }}>
-        Delete
-      </summary>
-      <form action={d.action} style={{ marginTop: 6, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-        <input type="hidden" name="target" value={target} />
-        <input type="hidden" name="back" value={back} />
-        <input type="hidden" name={d.field} value={d.id} />
-        {d.confirm && (
-          <label className="dk-check">
-            <input type="checkbox" name="confirm" value="delete" required /> Delete for good
-          </label>
-        )}
-        <DeskSubmit className="dk-btn sm danger" busy="Deleting…">
-          Delete
-        </DeskSubmit>
-      </form>
-    </details>
-  );
-}
-
 export default async function DeskTargetPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SearchParams> }) {
-  await requireOwner();
+  const user = await requireDesk();
   const [{ id }, sp] = await Promise.all([params, searchParams]);
-  const page = await loadTarget(id);
+  const [page, { team }] = await Promise.all([loadTarget(id), loadMe(user.id)]);
   if (!page) notFound();
-  const { target: t, contacts, touches, outcomes, followups, actions, notes, stageHistory, texts } = page;
+  const { target: t, contacts, touches, outcomes, followups, actions, stageHistory, texts } = page;
   const back = `/admin/desk/t/${t.id}`;
   const today = ukDate();
   const contactName = new Map(contacts.map((c) => [c.id, c.name ?? c.email ?? "someone"]));
+  const rm = rmFor(team, t.rm);
+  const owner = team.find((m) => m.owner) ?? null;
+  // the drafter reads the owner's mailbox: another RM's follow-ups aren't drafted (19 Nov 2026)
+  const otherRm = rm && owner && rm.id !== owner.id ? rm : null;
 
   const open = followups
     .filter((f) => f.status === "scheduled" || f.status === "drafted" || f.status === "paused")
@@ -103,80 +67,8 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
   const nextText = next ? (texts ?? []).find((x) => x.followup_id === next.id && x.status !== "discarded") : undefined;
   const nextInThread = !!next && touches.some((x) => x.sequence_id === next.sequence_id && x.channel === "email" && x.status === "sent");
 
-  // the timeline
-  const items: Item[] = [];
-  for (const x of touches) {
-    const who = x.recipients.map((r) => (r.contact_id ? contactName.get(r.contact_id) : null) ?? r.address ?? "").filter(Boolean);
-    const bounced = x.recipients.filter((r) => r.delivery === "bounced").length;
-    const verb = x.channel === "letter" ? "Letter posted" : x.channel === "email" ? "Email sent" : CHANNELS[x.channel];
-    items.push({
-      at: x.sent_at ?? x.created_at,
-      key: `t-${x.id}`,
-      chip: x.status === "unconfirmed"
-        ? { cls: "unconfirmed", word: "To confirm" }
-        : x.channel === "email" && x.recipients.length > 0 && bounced === x.recipients.length
-          ? { cls: "bounced", word: "Bounced" }
-          : { cls: x.status === "sent" || x.status === "posted" ? "sent" : x.status, word: x.kind === "conversation" ? CHANNELS[x.channel] : x.channel === "letter" ? "Letter" : x.channel === "email" ? "Email" : CHANNELS[x.channel] },
-      title: `${verb}${x.kind !== "first" && x.kind !== "conversation" ? `, ${x.kind === "follow_up" ? stepWords(x.step).toLowerCase() : x.kind}` : x.kind === "first" ? ", first" : ""}${who.length ? ` to ${who.join(", ")}` : ""}`,
-      meta: [
-        x.status === "unconfirmed" ? "Found in Outlook: confirm it on Today" : null,
-        x.subject && `"${x.subject}"`,
-        x.version,
-        filesWords(x.attachments) ?? x.attachment,
-        bounced ? `${bounced} bounced` : null,
-        x.counts_in_stats ? null : "not counted",
-        x.note,
-      ]
-        .filter(Boolean)
-        .join(" · "),
-      body: x.body_text,
-      link: x.web_link,
-      del: { action: deskDeleteTouch, field: "touch", id: x.id, confirm: true },
-    });
-  }
-  for (const o of outcomes) {
-    const from = (o.contact_id ? contactName.get(o.contact_id) : null) ?? o.from_name ?? o.from_address ?? "";
-    const answered = o.touch_id ? touches.find((x) => x.id === o.touch_id) : undefined;
-    items.push({
-      at: o.received_at,
-      key: `o-${o.id}`,
-      chip: !o.confirmed ? { cls: "unconfirmed", word: "To confirm" } : {
-        cls: o.kind === "reply" ? `replied ${o.sentiment ?? "none"}` : o.kind === "bounce" ? "bounced" : o.kind === "opt_out_request" ? "opted" : "oof",
-        word: o.kind === "reply" ? `Reply${o.sentiment === "positive" ? " +" : o.sentiment === "negative" ? " -" : ""}` : o.kind === "auto_reply" ? "Auto reply" : OUTCOME_KINDS[o.kind],
-      },
-      title: `${OUTCOME_KINDS[o.kind]}${from ? ` from ${from}` : ""}${o.kind === "bounce" && o.bounced_address ? `: ${o.bounced_address}` : ""}`,
-      meta: [
-        o.confirmed ? null : "A probable match: confirm it on Today",
-        o.hint === "possible_opt_out" ? "Possible opt-out: read it" : o.hint === "invite" ? "A calendar invitation" : null,
-        o.subject && `"${o.subject}"`,
-        o.bounce_code,
-        o.sentiment ? SENTIMENTS[o.sentiment] : null,
-        o.kind === "reply" && answered?.sent_at ? `${replyTimeWords(answered.sent_at, o.received_at)} after the ${answered.channel === "letter" ? "letter" : "email"}` : null,
-        o.summary,
-        filesWords(o.attachments),
-      ]
-        .filter(Boolean)
-        .join(" · "),
-      body: o.body_text,
-      link: o.web_link,
-      del: { action: deskDeleteOutcome, field: "outcome", id: o.id, confirm: true },
-    });
-  }
-  for (const n of notes) {
-    items.push({
-      at: n.happened_at,
-      key: `n-${n.id}`,
-      chip: { cls: "stage", word: NOTE_KINDS[n.kind] },
-      title: n.title ?? `${NOTE_KINDS[n.kind]} notes`,
-      meta: n.source === "assistant" ? "From Alex" : n.source === "import" ? "From the outreach log" : undefined,
-      body: n.body,
-      del: { action: deskDeleteNote, field: "note", id: n.id, confirm: false },
-    });
-  }
-  for (const h of stageHistory) {
-    items.push({ at: h.at, key: `s-${h.id}`, chip: { cls: `stage ${h.to_stage}`, word: "Stage" }, title: `${h.from_stage ? `${STAGES[h.from_stage as keyof typeof STAGES] ?? h.from_stage} to ` : ""}${STAGES[h.to_stage as keyof typeof STAGES] ?? h.to_stage}`, meta: h.note ?? undefined });
-  }
-  items.sort((a, b) => b.at.localeCompare(a.at));
+  const timeline = buildTimeline(page);
+  const nextMeeting = timeline.meetings.filter((m) => m.state === "booked").sort((a, b) => a.at.localeCompare(b.at))[0];
 
   const openActions = actions.filter((a) => a.status === "open").sort((a, b) => (a.starts_at ?? a.due_on ?? "9").localeCompare(b.starts_at ?? b.due_on ?? "9"));
   const hasEmail = contacts.some((c) => c.email && !c.opted_out);
@@ -196,7 +88,25 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
             <dt>Stage</dt>
             <dd>
               <span className={`dk-chip stage ${t.stage}`}>{STAGES[t.stage]}</span>
+              {stageHistory.length > 0 && (
+                <details className="dk-hist">
+                  <summary>History</summary>
+                  <ul>
+                    {stageHistory.map((h) => (
+                      <li key={h.id}>
+                        {stampWords(h.at)} · {h.from_stage ? `${STAGES[h.from_stage as keyof typeof STAGES] ?? h.from_stage} to ` : ""}
+                        {STAGES[h.to_stage as keyof typeof STAGES] ?? h.to_stage}
+                        {h.note ? ` · ${h.note}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              )}
             </dd>
+          </div>
+          <div>
+            <dt>RM</dt>
+            <dd>{rm ? <span title={rm.name}><span className="dk-rm">{rm.initials}</span> {rm.name}</span> : <span className="dim">Nobody yet</span>}</dd>
           </div>
           <div>
             <dt>Ask</dt>
@@ -210,12 +120,8 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
             </dd>
           </div>
           <div>
-            <dt>Signed by</dt>
-            <dd>{SIGNERS[t.signed_by]}</dd>
-          </div>
-          <div>
-            <dt>Next call</dt>
-            <dd>{t.next_call_at ? `${dayWords(t.next_call_at)} ${timeWords(t.next_call_at)}` : "-"}</dd>
+            <dt>Next meeting</dt>
+            <dd>{nextMeeting ? `${meetingWords(nextMeeting).replace(" booked", "")}, ${dayWords(nextMeeting.at)} ${timeWords(nextMeeting.at)}` : "-"}</dd>
           </div>
           {t.opted_out && (
             <div>
@@ -295,7 +201,7 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
           </div>
         )}
         {next && (next.status === "scheduled" || next.status === "drafted" || next.status === "paused") && (
-          <FollowupText f={next} text={nextText} back={back} inThread={nextInThread} />
+          <FollowupText f={next} text={nextText} back={back} inThread={nextInThread} noDrafterFor={otherRm?.firstName} />
         )}
         <ReplyTexts
           // once Albert has emailed in that thread since their reply (he sent Alex's draft, or wrote his own), it's done
@@ -320,59 +226,25 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
           <Drawer id="log-reply" title="Log a reply, bounce or out-of-office">
             <OutcomeForm target={t} back={back} contacts={contacts} touches={touches} />
           </Drawer>
-          <Drawer id="log-other" title="Log a call, meeting, WhatsApp or LinkedIn message">
+          <Drawer id="book" title="Book a meeting or call, or log one" hint="One item on the timeline: Meeting booked, then Meeting, with its emails, notes and action points.">
+            <BookMeetingForm target={t} back={back} />
+          </Drawer>
+          <Drawer id="log-other" title="Log a phone call, WhatsApp or LinkedIn message">
             <OtherTouchForm target={t} back={back} contacts={contacts} touches={touches} />
           </Drawer>
-          <Drawer id="add-note" title="Add meeting notes or a note">
-            <NoteForm target={t.id} back={back} />
+          <Drawer id="add-note" title="Add a note">
+            <NoteForm target={t.id} back={back} meetings={timeline.meetings} />
           </Drawer>
           <Drawer id="add-action" title="Add an action point">
             <ActionForm target={t.id} back={back} />
           </Drawer>
-          <Drawer id="stage" title="Stage and next call">
+          <Drawer id="stage" title="Stage">
             <StageForm t={t} back={back} />
           </Drawer>
         </div>
 
         <div className="dk-grid2">
-          <section className="dk-panel" aria-labelledby="tl-h">
-            <div className="dk-panel-h">
-              <h2 id="tl-h">Timeline</h2>
-              <span className="count">{items.length}</span>
-            </div>
-            {items.length === 0 ? (
-              <p className="dk-empty">Nothing yet. Log the first email or letter above.</p>
-            ) : (
-              <ul className="dk-tl">
-                {items.map((i) => (
-                  <li key={i.key}>
-                    <span className="d">{stampWords(i.at)}</span>
-                    <span className="c">
-                      <span className={`dk-chip ${i.chip.cls}`}>{i.chip.word}</span>
-                    </span>
-                    <div className="b">
-                      <p className="t">{i.title}</p>
-                      {i.meta && <p className="m">{i.meta}</p>}
-                      {i.link && (
-                        <p className="m">
-                          <a href={i.link} target="_blank" rel="noreferrer">
-                            Open in Outlook
-                          </a>
-                        </p>
-                      )}
-                      {i.body && (
-                        <details>
-                          <summary>Show the full text</summary>
-                          <pre>{i.body}</pre>
-                        </details>
-                      )}
-                    </div>
-                    <span className="x">{i.del && <Del d={i.del} back={back} target={t.id} />}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <TimelinePanel timeline={timeline} target={t.id} back={back} contactName={contactName} touches={touches} />
 
           <div>
             <section className="dk-panel" aria-labelledby="ct-h">
@@ -470,6 +342,8 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
               )}
             </section>
 
+            <NotesPanel notes={timeline.notes} target={t.id} back={back} />
+
             <section className="dk-panel" aria-labelledby="fu-h">
               <div className="dk-panel-h">
                 <h2 id="fu-h">Follow-ups</h2>
@@ -540,7 +414,7 @@ export default async function DeskTargetPage({ params, searchParams }: { params:
               </div>
               <div className="dk-drawers">
                 <Drawer title="Edit partner">
-                  <EditTargetForm t={t} back={back} />
+                  <EditTargetForm t={t} back={back} team={team} />
                 </Drawer>
               </div>
             </section>

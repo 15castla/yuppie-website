@@ -27,6 +27,8 @@ const DESK = (name) => `admin.desk.${name}`;
 const ownerSaved = JSON.parse(fs.readFileSync('/home/claude/stack/tools/admin-bf.json', 'utf8'));
 const otherSaved = JSON.parse(fs.readFileSync('/home/claude/stack/tools/admin-dk.json', 'utf8'));
 exec(`update admin_users set is_owner = false where is_owner; update admin_users set is_owner = true where id = ${q(ownerSaved.userId)}`);
+// dk. is an admin without the desk here (28-desk-team gives her the desk for its own checks)
+try { exec(`update admin_users set desk_access = false where id = ${q(otherSaved.userId)}`); } catch { /* before the 20 Nov migration */ }
 const owner = await adminSession('bf.');
 const other = await adminSession('dk.');
 ok(jwtClaims(owner.access_token).aal === 'aal2' && jwtClaims(other.access_token).aal === 'aal2', 'both admins have aal2 sessions');

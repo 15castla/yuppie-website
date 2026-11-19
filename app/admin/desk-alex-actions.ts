@@ -1,8 +1,10 @@
 "use server";
 
 // The Outreach Desk's Alex actions (Phase 3, 17 Nov 2026): connecting Claude to the desk (the consent page's Connect
-// and Don't connect), disconnecting it, and Albert's guidance for each kind of email Alex writes. Each checks the
-// owner (requireOwner(): signed in, an admin, aal2, the owner) and writes one admin_audit row (ids and kinds only).
+// and Don't connect), disconnecting it, and the guidance for each kind of email Alex writes. Connecting stays the
+// owner's (requireOwner(): signed in, an admin, aal2, the owner); the guidance is each person's own and removing a
+// reply's words is anyone's on the desk team (requireDesk(), 19 Nov 2026). Each writes one admin_audit row (ids and
+// kinds only).
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
@@ -12,7 +14,7 @@ import { serviceDb } from "@/lib/server/db";
 import { OAuthError, checkAuthorize, issueCode, type AuthorizeRequest } from "@/lib/server/outreach/connector";
 import { GUIDANCE_KINDS, type GuidanceKind } from "@/lib/server/outreach/guidance";
 import { isKey } from "@/lib/server/outreach/model";
-import { requireOwner } from "./require-owner";
+import { requireDesk, requireOwner } from "./require-owner";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const AUTHORIZE_FIELDS = ["response_type", "client_id", "redirect_uri", "code_challenge", "code_challenge_method", "state", "scope", "resource"];
@@ -88,11 +90,11 @@ export async function deskDisconnectConnector(fd: FormData): Promise<void> {
 }
 
 /**
- * Desk > Settings: Albert's guidance for one kind of email. Save keeps it as a draft (and stops Alex writing that kind
+ * Desk > Settings: your own guidance for one kind of email (each person's since 19 Nov 2026). Save keeps it as a draft (and stops Alex writing that kind
  * until it's approved again); Approve saves and approves it; Stop takes the approval away.
  */
 export async function deskSaveGuidance(fd: FormData): Promise<void> {
-  const owner = await requireOwner();
+  const me = await requireDesk();
   const kind = field(fd, "kind", 40);
   if (!isKey(GUIDANCE_KINDS, kind)) go("/admin/desk/settings", "error", "not_found", "#alex");
   const k = kind as GuidanceKind;
@@ -105,10 +107,11 @@ export async function deskSaveGuidance(fd: FormData): Promise<void> {
         approved_at: null,
         approved_by: null,
         updated_at: new Date().toISOString(),
-        updated_by: owner.id,
+        updated_by: me.id,
       })
+      .eq("admin_id", me.id)
       .eq("kind", k);
-    await audit(owner.id, "desk.guidance.stop", { type: "outreach_guidance", id: null }, { kind: k });
+    await audit(me.id, "desk.guidance.stop", { type: "outreach_guidance", id: null }, { kind: k });
     go("/admin/desk/settings", "done", "guidance_stopped", `#g-${k}`);
   }
   const instructions = field(fd, "instructions");
@@ -118,19 +121,20 @@ export async function deskSaveGuidance(fd: FormData): Promise<void> {
   const approve = intent === "approve";
   const { error } = await db.from("outreach_guidance").upsert(
     {
+      admin_id: me.id,
       kind: k,
       instructions,
       example,
       approved_at: approve ? now : null,
-      approved_by: approve ? owner.id : null,
+      approved_by: approve ? me.id : null,
       updated_at: now,
-      updated_by: owner.id,
+      updated_by: me.id,
     },
-    { onConflict: "kind" },
+    { onConflict: "admin_id,kind" },
   );
   if (error) go("/admin/desk/settings", "error", "failed", `#g-${k}`);
   await audit(
-    owner.id,
+    me.id,
     approve ? "desk.guidance.approve" : "desk.guidance.save",
     { type: "outreach_guidance", id: null },
     { kind: k, chars: instructions.length },
@@ -140,7 +144,7 @@ export async function deskSaveGuidance(fd: FormData): Promise<void> {
 
 /** A partner's page: removes a reply Alex wrote before the drafter makes it into an Outlook draft. */
 export async function deskDiscardReplyText(fd: FormData): Promise<void> {
-  const owner = await requireOwner();
+  const me = await requireDesk();
   const id = field(fd, "text", 60);
   const backField = field(fd, "back", 300);
   const back = backField && /^\/admin\/desk(\/[A-Za-z0-9/_-]*)?$/.test(backField) ? backField : "/admin/desk";
@@ -150,6 +154,6 @@ export async function deskDiscardReplyText(fd: FormData): Promise<void> {
   if (!t || t.kind !== "reply" || t.status === "discarded") go(back, "error", "not_found");
   if (t.status === "drafted") go(back, "error", "drafted_already");
   await db.from("outreach_draft_texts").update({ status: "discarded" }).eq("id", id).eq("status", "written");
-  await audit(owner.id, "desk.reply.text_remove", { type: "outreach_draft_text", id }, { target: t.target_id });
+  await audit(me.id, "desk.reply.text_remove", { type: "outreach_draft_text", id }, { target: t.target_id });
   go(back, "done", "reply_removed");
 }

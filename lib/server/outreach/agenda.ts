@@ -9,7 +9,9 @@ import type { ServiceDb } from "@/lib/server/db";
 import { dueItems, type DeskData } from "./compute";
 import { loadDesk } from "./desk";
 import { stepWords } from "./model";
+import { forRm } from "./rm";
 import { addWorkingDays, ukDate } from "./rules";
+import { loadTeam } from "./team";
 
 export type WaitingReply = {
   outcomeId: string;
@@ -71,15 +73,20 @@ export function waitingReplies(data: DeskData, now: Date = new Date()): WaitingR
 
 export type Agenda = Awaited<ReturnType<typeof buildAgenda>>;
 
-/** The day, in words and numbers, for the email and for Alex. */
-export async function buildAgenda(db: ServiceDb, now: Date = new Date()) {
-  const data = await loadDesk(db);
+/**
+ * The day, in words and numbers, for the email and for Alex. With `forAdmin` (the owner, for the 06:30 email and Alex):
+ * that person's partners only (their Relationship Manager, or none), and one line of numbers for each other RM
+ * (19 Nov 2026). What the Outlook connection found to check is the whole desk's.
+ */
+export async function buildAgenda(db: ServiceDb, now: Date = new Date(), forAdmin: string | null = null) {
+  const [all, team] = await Promise.all([loadDesk(db), forAdmin ? loadTeam(db) : Promise.resolve([])]);
+  const data = forAdmin ? forRm(all, forAdmin, forAdmin) : all;
   const today = ukDate(now);
   const due = dueItems(data, now);
   const week = dueItems(data, now, addWorkingDays(today, 5)).filter((i) => (i.kind === "call" ? ukDate(i.at) > today : i.due > today));
   const [{ data: lastRun }, toCheck] = await Promise.all([
     db.from("outreach_sync_runs").select("finished_at, ok").not("finished_at", "is", null).order("finished_at", { ascending: false }).limit(1).maybeSingle(),
-    Promise.resolve(data.touches.filter((t) => t.status === "unconfirmed").length + data.outcomes.filter((o) => !o.confirmed).length),
+    Promise.resolve(all.touches.filter((t) => t.status === "unconfirmed").length + all.outcomes.filter((o) => !o.confirmed).length),
   ]);
   const followups = due
     .filter((i) => i.kind === "followup")
@@ -95,6 +102,14 @@ export async function buildAgenda(db: ServiceDb, now: Date = new Date()) {
     .filter((x): x is NonNullable<typeof x> => !!x);
   const replies = waitingReplies(data, now);
   const toRate = data.outcomes.filter((o) => o.kind === "reply" && o.confirmed && !o.sentiment).length;
+  // the other Relationship Managers' day, in numbers
+  const others = team
+    .filter((m) => m.id !== forAdmin)
+    .map((m) => {
+      const theirs = dueItems(forRm(all, m.id, forAdmin), now);
+      return { initials: m.initials, name: m.firstName, due: theirs.filter((i) => !(i.kind !== "call" && i.late)).length, late: theirs.filter((i) => i.kind !== "call" && i.late).length };
+    })
+    .filter((o) => o.due + o.late > 0);
   return {
     date: today,
     followups,
@@ -104,6 +119,7 @@ export async function buildAgenda(db: ServiceDb, now: Date = new Date()) {
     toCheck,
     toRate,
     comingUp: week.length,
+    others,
     outlook: lastRun ? { lastSync: lastRun.finished_at as string, ok: !!lastRun.ok, stale: now.getTime() - new Date(lastRun.finished_at as string).getTime() > 2 * 3600_000 } : null,
   };
 }

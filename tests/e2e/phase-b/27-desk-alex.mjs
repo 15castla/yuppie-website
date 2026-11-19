@@ -285,7 +285,7 @@ ok(alexAudit.length >= 4 && alexAudit.every((y) => !y.d.includes(MARK) && !y.d.i
 
 // ============================================================================================ the partner's page
 p = await page(`/admin/desk/t/${T.r}`, owner);
-ok(p.text.includes('Reply to Naomi (written by Alex)') && p.text.includes('From Alex'), 'Rosa’s page: the reply written by Alex and the note from Alex');
+ok(p.text.includes('Reply to Naomi (written by Alex)') && /from Alex/i.test(p.text), 'Rosa’s page: the reply written by Alex and the note from Alex');
 p = await page(`/admin/desk/t/${T.d}`, owner);
 ok(p.text.includes('(written)') && !p.text.includes('written by Alex'), 'Dash’s page: Albert’s own words, not marked as Alex’s');
 p = await page('/admin/desk/settings', owner);

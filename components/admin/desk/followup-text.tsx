@@ -10,7 +10,16 @@ import { DeskSubmit } from "./submit";
 // (from 21:00). Nothing is sent: Albert reads it in Drafts in the morning and sends it himself. Albert writes them here,
 // or Alex does (Phase 3) once Albert has approved the guidance; his own words are never replaced by Alex's.
 
-export function FollowupText({ f, text, back, inThread }: { f: Followup; text: DraftText | undefined; back: string; inThread: boolean }) {
+export function FollowupText({ f, text, back, inThread, noDrafterFor }: { f: Followup; text: DraftText | undefined; back: string; inThread: boolean; noDrafterFor?: string }) {
+  // another Relationship Manager's partner (19 Nov 2026): the drafter reads Albert's mailbox, so no draft is made here
+  if (noDrafterFor && f.status !== "drafted") {
+    return (
+      <p className="dk-fu-state">
+        No draft is made for this partner: their Relationship Manager is {noDrafterFor}, whose Outlook isn&apos;t linked to the desk yet. Send the{" "}
+        {stepWords(f.step).toLowerCase()} from {noDrafterFor}&apos;s mailbox, then <a href="#log-email">log it</a>.
+      </p>
+    );
+  }
   if (f.status === "drafted") {
     return (
       <p className="dk-fu-state">

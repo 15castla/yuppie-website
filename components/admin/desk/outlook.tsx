@@ -86,7 +86,25 @@ function countWords(k: string, v: number): string {
 }
 
 /** Desk > Settings: link the drafter (by fingerprint only), unlink it, and the last few syncs. */
-export async function OutlookSettings() {
+export async function OutlookSettings({ owner = true, firstName = "Albert" }: { owner?: boolean; firstName?: string } = {}) {
+  // the drafter reads Albert's mailbox: linking it stays his; the rest of the team's Outlook comes with the scanner for
+  // their own mailbox (19 Nov 2026)
+  if (!owner) {
+    return (
+      <section className="dk-panel" aria-labelledby="o-h" id="outlook">
+        <div className="dk-panel-h">
+          <h2 id="o-h">Your Outlook</h2>
+          <span className="count">Not linked yet</span>
+        </div>
+        <div style={{ paddingTop: 10 }} className="dk-outlook">
+          <p>
+            The desk reads Albert&apos;s mailbox for now. Your Outlook comes with the scanner for your own mailbox, {firstName}: until then, log the emails you
+            send to your partners and their replies on each partner&apos;s page, and no follow-up drafts are made for them.
+          </p>
+        </div>
+      </section>
+    );
+  }
   const health = await drafterHealth(serviceDb());
   return (
     <section className="dk-panel" aria-labelledby="o-h" id="outlook">

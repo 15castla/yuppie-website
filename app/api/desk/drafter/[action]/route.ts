@@ -33,7 +33,7 @@ export async function GET(request: Request, ctx: { params: Promise<{ action: str
   const g = await guard(request);
   if ("refusal" in g) return g.refusal;
   if (action === "hello") return NextResponse.json({ ok: true, now: new Date().toISOString() }, { headers: { "Cache-Control": "no-store" } });
-  return NextResponse.json(await plan(g.db), { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(await plan(g.db, new Date(), g.key.owner), { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: Request, ctx: { params: Promise<{ action: string }> }) {
@@ -54,5 +54,5 @@ export async function POST(request: Request, ctx: { params: Promise<{ action: st
     return no(400, "That isn't JSON.");
   }
   if (action === "check") return NextResponse.json({ results: await check(g.db, payload.addresses) }, { headers: { "Cache-Control": "no-store" } });
-  return NextResponse.json(await report(g.db, g.key.id, payload), { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(await report(g.db, g.key.id, payload, g.key.owner), { headers: { "Cache-Control": "no-store" } });
 }

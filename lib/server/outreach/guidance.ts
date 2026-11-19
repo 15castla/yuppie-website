@@ -56,3 +56,16 @@ export const SUGGESTED_GUIDANCE: Record<GuidanceKind, { instructions: string; ex
     example: "",
   },
 };
+
+/**
+ * The suggested wording for one person (19 Nov 2026: each person's own guidance): Albert's suggestions, in that person's
+ * name ("Best, Kira"). Albert's are unchanged.
+ */
+export function suggestedFor(firstName: string): Record<GuidanceKind, { instructions: string; example: string }> {
+  if (!firstName || firstName === "Albert") return SUGGESTED_GUIDANCE;
+  const swap = (s: string) => s.replace(/\bAlbert\b/g, firstName).replace(/\bso he can\b/g, "so they can").replace(/\bhimself\b/g, "themselves");
+  return Object.fromEntries(Object.entries(SUGGESTED_GUIDANCE).map(([k, v]) => [k, { instructions: swap(v.instructions), example: swap(v.example) }])) as Record<
+    GuidanceKind,
+    { instructions: string; example: string }
+  >;
+}

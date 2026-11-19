@@ -14,12 +14,50 @@ import {
   stepWords,
   type Channel,
 } from "@/lib/server/outreach/model";
+import type { TeamMember } from "@/lib/server/outreach/rm";
 import { addWorkingDays, ukDate } from "@/lib/server/outreach/rules";
 import { dateWords, dayWords, shortDate, stampWords, timeWords } from "./format";
 import { DeskSubmit } from "./submit";
 
 // The desk home's pieces (17 Nov 2026): the KPI strip, the Due today list and the blotter. Server components;
-// every button is a plain form posting to a desk action, so the page works before any JavaScript loads.
+// every button is a plain form posting to a desk action, so the page works before any JavaScript loads. Since 19 Nov
+// 2026 each partner shows its Relationship Manager's code (AC, KW), and the pages filter by it.
+
+/** A Relationship Manager's code, with their name on hover. */
+export function RmCode({ team, id }: { team: TeamMember[]; id: string | null | undefined }) {
+  const m = id ? team.find((x) => x.id === id) : undefined;
+  return m ? (
+    <span className="dk-rm" title={m.name}>
+      {m.initials}
+    </span>
+  ) : (
+    <span className="faint">-</span>
+  );
+}
+
+/** The Relationship Manager switch (?rm=): every RM's partners, or one person's. Links, so it works without script. */
+export function RmTabs({ team, value, path, keep = {} }: { team: TeamMember[]; value: string; path: string; keep?: Record<string, string | undefined> }) {
+  if (team.length < 2) return null;
+  const href = (rm: string) => {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(keep)) if (v) q.set(k, v);
+    q.set("rm", rm);
+    return `${path}?${q.toString()}`;
+  };
+  return (
+    <nav className="dk-rmtabs" aria-label="Relationship Manager">
+      <span className="dim">RM</span>
+      <Link href={href("all")} aria-current={value === "all" ? "true" : undefined}>
+        Everyone
+      </Link>
+      {team.map((m) => (
+        <Link key={m.id} href={href(m.initials)} aria-current={value === m.initials ? "true" : undefined} title={m.name}>
+          {m.initials}
+        </Link>
+      ))}
+    </nav>
+  );
+}
 
 export function KpiStrip({ k }: { k: Kpis }) {
   const channels = Object.entries(k.sentByChannel)
@@ -105,7 +143,26 @@ function FollowupButtons({ id, back, today }: { id: string; back: string; today:
   );
 }
 
-export function DueList({ items, back, empty = "Nothing due. Nothing late." }: { items: DueItem[]; back: string; empty?: string }) {
+export function DueList({
+  items,
+  back,
+  empty = "Nothing due. Nothing late.",
+  rmOf,
+}: {
+  items: DueItem[];
+  back: string;
+  empty?: string;
+  /** When showing every RM: each partner's RM code. */
+  rmOf?: (targetId: string) => TeamMember | null;
+}) {
+  const rm = (targetId: string) => {
+    const m = rmOf?.(targetId);
+    return m ? (
+      <span className="dk-rm sm" title={m.name}>
+        {m.initials}
+      </span>
+    ) : null;
+  };
   const today = ukDate();
   if (items.length === 0) return <p className="dk-empty">{empty}</p>;
   return (
@@ -119,6 +176,7 @@ export function DueList({ items, back, empty = "Nothing due. Nothing late." }: {
               <span className="when">{dateWords(item.due)}</span>
               <span className="who">
                 <Link href={`/admin/desk/t/${item.targetId}`}>{item.name}</Link>
+                {rm(item.targetId)}
               </span>
               <span className="what">
                 {stepWords(item.step)} email
@@ -166,6 +224,7 @@ export function DueList({ items, back, empty = "Nothing due. Nothing late." }: {
               <span className="when">{item.startsAt ? `${dayWords(item.startsAt)} ${timeWords(item.startsAt)}` : dateWords(item.due)}</span>
               <span className="who">
                 <Link href={`/admin/desk/t/${item.targetId}`}>{item.name}</Link>
+                {rm(item.targetId)}
               </span>
               <span className="what">{item.title}</span>
               <span className="to" />
@@ -192,6 +251,7 @@ export function DueList({ items, back, empty = "Nothing due. Nothing late." }: {
             </span>
             <span className="who">
               <Link href={`/admin/desk/t/${item.targetId}`}>{item.name}</Link>
+              {rm(item.targetId)}
             </span>
             <span className="what">Call booked</span>
             <span className="to" />
@@ -240,6 +300,7 @@ function hrefWith(filters: BlotterFilters, change: Partial<Record<string, string
     since: filters.since,
     q: filters.q,
     all: filters.every ? "1" : undefined,
+    rm: filters.rm,
     sort: filters.sort,
     dir: filters.dir,
   };
@@ -261,7 +322,7 @@ function SortHead({ label, field, filters, className }: { label: string; field: 
   );
 }
 
-export function Blotter({ rows, filters }: { rows: BlotterRow[]; filters: BlotterFilters }) {
+export function Blotter({ rows, filters, team }: { rows: BlotterRow[]; filters: BlotterFilters; team: TeamMember[] }) {
   return (
     <section className="dk-panel" id="blotter" aria-labelledby="blotter-h">
       <div className="dk-panel-h">
@@ -271,6 +332,7 @@ export function Blotter({ rows, filters }: { rows: BlotterRow[]; filters: Blotte
         </span>
       </div>
       <form className="dk-filters" action="/admin/desk#blotter" aria-label="Filter the blotter">
+        {filters.rm && <input type="hidden" name="rm" value={filters.rm} />}
         <select name="channel" defaultValue={filters.channel ?? ""} aria-label="Channel">
           <option value="">All channels</option>
           {Object.entries(CHANNELS).map(([k, v]) => (
@@ -316,7 +378,7 @@ export function Blotter({ rows, filters }: { rows: BlotterRow[]; filters: Blotte
         <button className="dk-btn sm" type="submit">
           Filter
         </button>
-        <a className="dk-btn sm link" href="/admin/desk#blotter">
+        <a className="dk-btn sm link" href={filters.rm ? `/admin/desk?rm=${filters.rm}#blotter` : "/admin/desk#blotter"}>
           Clear
         </a>
       </form>
@@ -329,6 +391,7 @@ export function Blotter({ rows, filters }: { rows: BlotterRow[]; filters: Blotte
               <tr>
                 <SortHead label="Sent" field="sent" filters={filters} />
                 <SortHead label="Partner" field="target" filters={filters} />
+                <th title="Relationship Manager">RM</th>
                 <th className="dk-hide-sm">Ch</th>
                 <th className="dk-hide-sm">Step</th>
                 <th className="dk-hide-sm">To (source)</th>
@@ -352,6 +415,9 @@ export function Blotter({ rows, filters }: { rows: BlotterRow[]; filters: Blotte
                         {`+${r.earlier} earlier`}
                       </Link>
                     )}
+                  </td>
+                  <td>
+                    <RmCode team={team} id={r.rm} />
                   </td>
                   <td className="dk-hide-sm" title={CHANNELS[r.channel]}>
                     {CHANNEL_SHORT[r.channel]}

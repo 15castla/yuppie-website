@@ -97,6 +97,11 @@ export function agendaSections(a: Agenda, site: string): { subject: string; summ
   else if (!a.outlook.ok) notes.push({ text: `The last Outlook sync failed (${momentWords(a.outlook.lastSync)}).`, href: `${site}/admin/desk/settings#outlook`, warn: true });
   else if (a.outlook.stale) notes.push({ text: `Outlook last synced ${momentWords(a.outlook.lastSync)}. Is the Mac awake?`, href: `${site}/admin/desk/settings#outlook`, warn: true });
   if (a.comingUp) notes.push({ text: `${plural(a.comingUp, "more thing", "more things")} in the next five working days.`, href: `${site}/admin/desk` });
+  // the other Relationship Managers' partners, in numbers (19 Nov 2026)
+  for (const o of a.others ?? []) {
+    const bits = [o.due ? `${o.due} due today` : null, o.late ? `${o.late} late` : null].filter(Boolean).join(", ");
+    notes.push({ text: `${o.name}'s partners (${o.initials}): ${bits}.`, href: `${site}/admin/desk/today?rm=${o.initials}`, warn: o.late > 0 });
+  }
 
   const parts = [
     a.calls.length ? plural(a.calls.length, "call", "calls") : null,
@@ -191,7 +196,9 @@ export async function runDeskAgenda(db: ServiceDb, now: Date = new Date()) {
     throw new Error(`desk_agenda_runs: ${claimError.message}`);
   }
   try {
-    const agenda = await buildAgenda(db, now);
+    // Albert's own partners (Relationship Manager AC, or none), and a line for each other RM
+    const { data: owner } = await db.from("admin_users").select("id").eq("is_owner", true).maybeSingle();
+    const agenda = await buildAgenda(db, now, (owner?.id as string | undefined) ?? null);
     const providerId = await send(renderAgenda(agenda), day);
     const counts = {
       calls: agenda.calls.length,
